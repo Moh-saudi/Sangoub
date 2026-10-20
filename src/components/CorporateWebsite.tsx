@@ -324,10 +324,10 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
                   position: "center",
                 },
                 {
-                  image: "office.jpg",
-                  title: "بريك من غير مشوار",
-                  text: "طلبك يوصلك وإنت في مكتبك",
-                  tag: "كمّل يومك",
+                  image: "government-district-gardens.jpg",
+                  title: "من الفود كورت لمكتبك",
+                  text: "لخدمة موظفي الحي الحكومي",
+                  tag: "في قلب العاصمة",
                   position: "center",
                 },
               ].map((item) => (
