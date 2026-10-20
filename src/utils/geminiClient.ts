@@ -1,11 +1,12 @@
-import { useState, useRef, useCallback } from 'react';
+import { auth } from "../lib/firebase.ts";
+import { useState, useRef, useCallback } from "react";
 
-export type GeminiTaskMode = 'fast' | 'general' | 'complex';
-export type ChatbotRole = 'concierge' | 'courier_guide' | 'nutrition_planner';
+export type GeminiTaskMode = "fast" | "general" | "complex";
+export type ChatbotRole = "concierge" | "courier_guide" | "nutrition_planner";
 
 export interface ChatTurn {
   id: string;
-  role: 'user' | 'model';
+  role: "user" | "model";
   text: string;
   timestamp: string;
   modelUsed?: string;
@@ -29,20 +30,23 @@ export interface MapsGroundingResult {
 
 export async function sendGeminiChatMessage(params: {
   message: string;
-  history: { role: 'user' | 'model'; text: string }[];
+  history: { role: "user" | "model"; text: string }[];
   taskMode: GeminiTaskMode;
   botRole: ChatbotRole;
   catalogContext?: string;
 }): Promise<{ text: string; modelUsed: string; notice?: string }> {
-  const response = await fetch('/api/gemini/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const response = await fetch("/api/gemini/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${(await auth.currentUser?.getIdToken()) || ""}`,
+    },
     body: JSON.stringify(params),
   });
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.error || 'تعذر الاتصال بالمساعد الذكي.');
+    throw new Error(data.error || "تعذر الاتصال بالمساعد الذكي.");
   }
   return data;
 }
@@ -52,15 +56,18 @@ export async function queryGoogleMapsGrounding(params: {
   latitude?: number;
   longitude?: number;
 }): Promise<MapsGroundingResult> {
-  const response = await fetch('/api/gemini/maps', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const response = await fetch("/api/gemini/maps", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${(await auth.currentUser?.getIdToken()) || ""}`,
+    },
     body: JSON.stringify(params),
   });
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.error || 'تعذر جلب بيانات خرائط جوجل.');
+    throw new Error(data.error || "تعذر جلب بيانات خرائط جوجل.");
   }
   return data;
 }
@@ -70,27 +77,30 @@ export async function transcribeAudioBlob(blob: Blob): Promise<string> {
     const reader = new FileReader();
     reader.onloadend = () => {
       const result = reader.result as string;
-      const base64 = result.includes(',') ? result.split(',')[1] : result;
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
       resolve(base64);
     };
-    reader.onerror = () => reject(new Error('فشل قراءة الملف الصوتي.'));
+    reader.onerror = () => reject(new Error("فشل قراءة الملف الصوتي."));
     reader.readAsDataURL(blob);
   });
 
-  const response = await fetch('/api/gemini/transcribe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const response = await fetch("/api/gemini/transcribe", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${(await auth.currentUser?.getIdToken()) || ""}`,
+    },
     body: JSON.stringify({
       audioBase64: base64Audio,
-      mimeType: blob.type || 'audio/webm',
+      mimeType: blob.type || "audio/webm",
     }),
   });
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.error || 'تعذر تحويل الصوت إلى نص.');
+    throw new Error(data.error || "تعذر تحويل الصوت إلى نص.");
   }
-  return data.text || '';
+  return data.text || "";
 }
 
 export function useVoiceRecorder(onTranscribed: (text: string) => void) {
@@ -104,11 +114,11 @@ export function useVoiceRecorder(onTranscribed: (text: string) => void) {
     setVoiceError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/mp4')
-        ? 'audio/mp4'
-        : '';
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+          ? "audio/mp4"
+          : "";
 
       const recorder = mimeType
         ? new MediaRecorder(stream, { mimeType })
@@ -125,11 +135,11 @@ export function useVoiceRecorder(onTranscribed: (text: string) => void) {
       recorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
         const blob = new Blob(chunksRef.current, {
-          type: recorder.mimeType || 'audio/webm',
+          type: recorder.mimeType || "audio/webm",
         });
 
         if (blob.size < 200) {
-          setVoiceError('التسجيل قصير جداً، يرجى التحدث بوضوح.');
+          setVoiceError("التسجيل قصير جداً، يرجى التحدث بوضوح.");
           return;
         }
 
@@ -139,11 +149,13 @@ export function useVoiceRecorder(onTranscribed: (text: string) => void) {
           if (text.trim()) {
             onTranscribed(text.trim());
           } else {
-            setVoiceError('لم يتم التعرف على كلام واضح، حاول مرة أخرى.');
+            setVoiceError("لم يتم التعرف على كلام واضح، حاول مرة أخرى.");
           }
         } catch (err: unknown) {
           setVoiceError(
-            err instanceof Error ? err.message : 'حدث خطأ أثناء تحويل الصوت لنص.'
+            err instanceof Error
+              ? err.message
+              : "حدث خطأ أثناء تحويل الصوت لنص.",
           );
         } finally {
           setIsTranscribing(false);
@@ -154,12 +166,17 @@ export function useVoiceRecorder(onTranscribed: (text: string) => void) {
       recorder.start();
       setIsRecording(true);
     } catch {
-      setVoiceError('يرجى السماح بصلاحية الميكروفون من المتصفح للتسجيل الصوتي.');
+      setVoiceError(
+        "يرجى السماح بصلاحية الميكروفون من المتصفح للتسجيل الصوتي.",
+      );
     }
   }, [onTranscribed]);
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);

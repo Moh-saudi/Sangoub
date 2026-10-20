@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { OrderMap } from "./OrderMap.tsx";
+import React, { useState } from "react";
 import {
   Bike,
   CheckCircle2,
@@ -19,9 +20,9 @@ import {
   ShieldCheck,
   ChevronDown,
   ChevronUp,
-} from 'lucide-react';
-import type { Order, Profile } from '../types/index.ts';
-import { formatEGP } from '../utils/orderCalculations.ts';
+} from "lucide-react";
+import type { Order, Profile } from "../types/index.ts";
+import { formatEGP } from "../utils/orderCalculations.ts";
 
 interface CourierPortalProps {
   courier: Profile;
@@ -37,9 +38,13 @@ interface CourierPortalProps {
       collectedPayment?: boolean;
       collectedAmount?: number;
       notes?: string;
-    }
+    },
+    updatedStatus?: Order["orderStatus"],
   ) => void;
-  onAdvanceOrderStatus: (orderId: string, newStatus: Order['orderStatus']) => void;
+  onAdvanceOrderStatus: (
+    orderId: string,
+    newStatus: Order["orderStatus"],
+  ) => void;
 }
 
 export const CourierPortal: React.FC<CourierPortalProps> = ({
@@ -48,39 +53,44 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
   onUpdateOrderChecklist,
   onAdvanceOrderStatus,
 }) => {
-  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
+  const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [activeNotes, setActiveNotes] = useState<Record<string, string>>({});
-  const [inputPaidAmounts, setInputPaidAmounts] = useState<Record<string, number>>({});
-  const [inputCollectedAmounts, setInputCollectedAmounts] = useState<Record<string, number>>({});
+  const [inputPaidAmounts, setInputPaidAmounts] = useState<
+    Record<string, number>
+  >({});
+  const [inputCollectedAmounts, setInputCollectedAmounts] = useState<
+    Record<string, number>
+  >({});
 
-  // Filter orders assigned to this courier, or unassigned active orders ready for pickup
   const assignedOrders = orders.filter(
-    (o) =>
-      o.courierId === courier.id ||
-      (!o.courierId && o.orderStatus === 'preparing') ||
-      o.courierName?.includes(courier.fullName.split(' ')[0])
+    (order) => order.courierId === courier.id,
   );
 
   const activeDeliveries = assignedOrders.filter(
-    (o) => o.orderStatus !== 'delivered' && o.orderStatus !== 'cancelled'
+    (o) => o.orderStatus !== "delivered" && o.orderStatus !== "cancelled",
   );
 
-  const completedDeliveries = assignedOrders.filter((o) => o.orderStatus === 'delivered');
+  const completedDeliveries = assignedOrders.filter(
+    (o) => o.orderStatus === "delivered",
+  );
 
   // Calculate financial balances
   const totalCashInHand = completedDeliveries
-    .filter((o) => o.paymentMethod === 'cash')
-    .reduce((sum, o) => sum + (o.courierChecklist?.collectedAmount ?? o.total), 0);
+    .filter((o) => o.paymentMethod === "cash")
+    .reduce(
+      (sum, o) => sum + (o.courierChecklist?.collectedAmount ?? o.total),
+      0,
+    );
 
   const totalTipsAndFeesEarned = completedDeliveries.reduce(
     (sum, o) => sum + o.deliveryFee + o.tip,
-    0
+    0,
   );
 
   const handleToggleStep = (
     order: Order,
-    step: 'received' | 'paid' | 'travel' | 'arrive' | 'collect'
+    step: "received" | "paid" | "travel" | "arrive" | "collect",
   ) => {
     const current = order.courierChecklist || {
       receivedAndCheckedAtRestaurant: false,
@@ -93,46 +103,44 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
     const restaurantCost = Math.max(0, order.subtotal - order.discount);
     const orderTotal = order.total;
 
-    if (step === 'received') {
+    if (step === "received") {
       const nextVal = !current.receivedAndCheckedAtRestaurant;
       onUpdateOrderChecklist(order.id, {
         receivedAndCheckedAtRestaurant: nextVal,
       });
-      if (nextVal && order.orderStatus === 'preparing') {
-        onAdvanceOrderStatus(order.id, 'with_courier');
-      }
-    } else if (step === 'paid') {
+    } else if (step === "paid") {
       const nextVal = !current.paidRestaurant;
       const settledAmount = inputPaidAmounts[order.id] ?? restaurantCost;
       onUpdateOrderChecklist(order.id, {
         paidRestaurant: nextVal,
         settledRestaurantAmount: nextVal ? settledAmount : 0,
       });
-    } else if (step === 'travel') {
+    } else if (step === "travel") {
       const nextVal = !current.onTheWayToMinistry;
       onUpdateOrderChecklist(order.id, {
         onTheWayToMinistry: nextVal,
       });
-      if (nextVal) {
-        onAdvanceOrderStatus(order.id, 'with_courier');
-      }
-    } else if (step === 'arrive') {
+    } else if (step === "arrive") {
       const nextVal = !current.arrivedAtCustomerOffice;
       onUpdateOrderChecklist(order.id, {
         arrivedAtCustomerOffice: nextVal,
       });
-    } else if (step === 'collect') {
+    } else if (step === "collect") {
       const nextVal = !current.collectedPayment;
       const collectedAmount = inputCollectedAmounts[order.id] ?? orderTotal;
-      const notes = activeNotes[order.id] || current.notes || 'تم التسليم باليد واستلام المبلغ بالكامل.';
-      onUpdateOrderChecklist(order.id, {
-        collectedPayment: nextVal,
-        collectedAmount: nextVal ? collectedAmount : 0,
-        notes,
-      });
-      if (nextVal) {
-        onAdvanceOrderStatus(order.id, 'delivered');
-      }
+      const notes =
+        activeNotes[order.id] ||
+        current.notes ||
+        "تم التسليم باليد واستلام المبلغ بالكامل.";
+      onUpdateOrderChecklist(
+        order.id,
+        {
+          collectedPayment: nextVal,
+          collectedAmount: nextVal ? collectedAmount : 0,
+          notes,
+        },
+        nextVal ? "delivered" : undefined,
+      );
     }
   };
 
@@ -141,7 +149,7 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
       {/* Courier Identity Card */}
       <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-950 text-white rounded-3xl p-5 shadow-lg border border-emerald-700/50 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-3.5">
             <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-3xl shadow-inner shrink-0">
@@ -157,34 +165,36 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                   متاح للتوصيل
                 </span>
               </div>
-              <h2 className="text-xl font-black text-white mt-0.5">{courier.fullName}</h2>
+              <h2 className="text-xl font-black text-white mt-0.5">
+                {courier.fullName}
+              </h2>
               <p className="text-xs text-emerald-100/90 flex items-center gap-2 mt-0.5">
-                <span>{courier.vehicleType || 'دراجة كهربائية سريعة'}</span>
+                <span>{courier.vehicleType || "دراجة كهربائية سريعة"}</span>
                 <span>•</span>
                 <span>{courier.phone}</span>
                 <span>•</span>
-                <span>لوحة: {courier.vehiclePlate || 'س ق و 442'}</span>
+                <span>لوحة: {courier.vehiclePlate || "س ق و 442"}</span>
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto bg-black/20 p-1.5 rounded-2xl border border-white/10">
             <button
-              onClick={() => setActiveTab('active')}
+              onClick={() => setActiveTab("active")}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                activeTab === 'active'
-                  ? 'bg-emerald-500 text-white shadow-md'
-                  : 'text-white/80 hover:text-white'
+                activeTab === "active"
+                  ? "bg-emerald-500 text-white shadow-md"
+                  : "text-white/80 hover:text-white"
               }`}
             >
               الطلبات الجارية ({activeDeliveries.length})
             </button>
             <button
-              onClick={() => setActiveTab('completed')}
+              onClick={() => setActiveTab("completed")}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                activeTab === 'completed'
-                  ? 'bg-emerald-500 text-white shadow-md'
-                  : 'text-white/80 hover:text-white'
+                activeTab === "completed"
+                  ? "bg-emerald-500 text-white shadow-md"
+                  : "text-white/80 hover:text-white"
               }`}
             >
               الطلبات المسلمة ({completedDeliveries.length})
@@ -195,29 +205,43 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
         {/* Courier Financial Counters */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-white/10">
           <div className="bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-            <span className="text-[11px] text-emerald-200 block">مهام نشطة الآن</span>
+            <span className="text-[11px] text-emerald-200 block">
+              مهام نشطة الآن
+            </span>
             <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-xl font-black text-white">{activeDeliveries.length}</span>
+              <span className="text-xl font-black text-white">
+                {activeDeliveries.length}
+              </span>
               <span className="text-[11px] text-emerald-200">طلب ميداني</span>
             </div>
           </div>
 
           <div className="bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-            <span className="text-[11px] text-emerald-200 block">كاش في العهدة اليوم</span>
+            <span className="text-[11px] text-emerald-200 block">
+              كاش في العهدة اليوم
+            </span>
             <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-xl font-black text-amber-300">{formatEGP(totalCashInHand)}</span>
+              <span className="text-xl font-black text-amber-300">
+                {formatEGP(totalCashInHand)}
+              </span>
             </div>
           </div>
 
           <div className="bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-            <span className="text-[11px] text-emerald-200 block">أرباحك وبقشيشك</span>
+            <span className="text-[11px] text-emerald-200 block">
+              أرباحك وبقشيشك
+            </span>
             <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-xl font-black text-emerald-300">{formatEGP(totalTipsAndFeesEarned)}</span>
+              <span className="text-xl font-black text-emerald-300">
+                {formatEGP(totalTipsAndFeesEarned)}
+              </span>
             </div>
           </div>
 
           <div className="bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-            <span className="text-[11px] text-emerald-200 block">معدل التوصيل</span>
+            <span className="text-[11px] text-emerald-200 block">
+              معدل التوصيل
+            </span>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="text-xl font-black text-white">14</span>
               <span className="text-[11px] text-emerald-200">دقيقة / دور</span>
@@ -227,7 +251,7 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
       </div>
 
       {/* Main Delivery Task List */}
-      {activeTab === 'active' && (
+      {activeTab === "active" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -246,9 +270,12 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
               <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center text-3xl">
                 ☕
               </div>
-              <h4 className="text-base font-bold text-slate-800">لا توجد طلبات معلقة لك حالياً</h4>
+              <h4 className="text-base font-bold text-slate-800">
+                لا توجد طلبات معلقة لك حالياً
+              </h4>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                رائع! تم تسليم جميع الطلبات بنجاح. بمجرد أن يطلب أي موظف من الـ 34 وزارة، ستظهر هنا مهمة التوصيل مباشرة.
+                رائع! تم تسليم جميع الطلبات بنجاح. بمجرد أن يطلب أي موظف من الـ
+                34 وزارة، ستظهر هنا مهمة التوصيل مباشرة.
               </p>
             </div>
           ) : (
@@ -261,7 +288,10 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                 collectedPayment: false,
               };
 
-              const restaurantCost = Math.max(0, order.subtotal - order.discount);
+              const restaurantCost = Math.max(
+                0,
+                order.subtotal - order.discount,
+              );
               const isExpanded = expandedOrderId === order.id;
 
               return (
@@ -273,39 +303,51 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                   <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-50 to-emerald-50/30 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <span className="w-10 h-10 rounded-2xl bg-emerald-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
-                        #{order.orderNumber.replace('CAP-', '')}
+                        #{order.orderNumber.replace("CAP-", "")}
                       </span>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-black text-slate-900">{order.orderNumber}</h4>
+                          <h4 className="text-sm font-black text-slate-900">
+                            {order.orderNumber}
+                          </h4>
                           <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800">
-                            {order.orderStatus === 'preparing'
-                              ? 'جاهز للاستلام بالفود كورت'
-                              : 'مع المندوب في الطريق'}
+                            {order.orderStatus === "preparing"
+                              ? "جاهز للاستلام بالفود كورت"
+                              : "مع المندوب في الطريق"}
                           </span>
                         </div>
                         <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
                           <span>الطلب: {order.createdAt}</span>
                           <span>•</span>
-                          <span className="font-bold text-emerald-700">{order.estimatedDelivery}</span>
+                          <span className="font-bold text-emerald-700">
+                            {order.estimatedDelivery}
+                          </span>
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <div className="text-left bg-white px-3 py-1.5 rounded-xl border border-slate-200">
-                        <span className="text-[10px] text-slate-400 block font-bold">المطلوب تحصيله</span>
+                        <span className="text-[10px] text-slate-400 block font-bold">
+                          المطلوب تحصيله
+                        </span>
                         <span className="text-base font-black text-emerald-700">
                           {formatEGP(order.total)}
                         </span>
                       </div>
                       <button
-                        onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                        onClick={() =>
+                          setExpandedOrderId(isExpanded ? null : order.id)
+                        }
                         className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors"
                         title="تفاصيل إضافية"
                       >
-                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                        {isExpanded ? (
+                          <ChevronUp className="w-5 h-5" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -315,8 +357,10 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                       <div className="p-3 rounded-2xl bg-orange-50 border border-orange-200 flex items-center gap-2 text-xs font-bold text-orange-950">
                         <Clock className="w-4 h-4 text-orange-600 shrink-0" />
                         <span>
-                          طلب مجدول مسبقاً — موعد التسليم المطلوب لمكتب الموظف:{' '}
-                          <span className="underline">{order.scheduledDeliveryTime}</span>
+                          طلب مجدول مسبقاً — موعد التسليم المطلوب لمكتب الموظف:{" "}
+                          <span className="underline">
+                            {order.scheduledDeliveryTime}
+                          </span>
                         </span>
                       </div>
                     )}
@@ -341,7 +385,9 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                             {order.floorNumber} — {order.roomNumber}
                           </p>
                           <div className="flex items-center justify-between pt-1 text-xs text-slate-700">
-                            <span className="font-medium">الموظف: <strong>{order.profileName}</strong></span>
+                            <span className="font-medium">
+                              الموظف: <strong>{order.profileName}</strong>
+                            </span>
                             <div className="flex items-center gap-1.5">
                               <a
                                 href={`tel:${order.phone}`}
@@ -377,17 +423,24 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                         </div>
                         <div>
                           <p className="text-sm font-black text-slate-900">
-                            {order.items[0]?.product.storeName || 'فود كورت الحي الحكومي'}
+                            {order.items[0]?.product.storeName ||
+                              "فود كورت الحي الحكومي"}
                           </p>
                           <p className="text-xs text-amber-900 mt-0.5">
                             مبنى الخدمات المركزية C2 — فود كورت الموظفين
                           </p>
                           <div className="flex items-center justify-between pt-2 text-xs">
                             <span className="text-slate-600">
-                              مطلوب دفعه للمطعم: <strong className="text-slate-900 font-bold">{formatEGP(restaurantCost)}</strong>
+                              مطلوب دفعه للمطعم:{" "}
+                              <strong className="text-slate-900 font-bold">
+                                {formatEGP(restaurantCost)}
+                              </strong>
                             </span>
                             <span className="text-[11px] text-amber-800 font-bold">
-                              طريقة الدفع: {order.paymentMethod === 'cash' ? 'نقدي عند التسليم' : 'إلكتروني مسبق'}
+                              طريقة الدفع:{" "}
+                              {order.paymentMethod === "cash"
+                                ? "نقدي عند التسليم"
+                                : "إلكتروني مسبق"}
                             </span>
                           </div>
                         </div>
@@ -397,24 +450,41 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                     {/* Order Items Summary (Collapsed or expanded) */}
                     <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
                       <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2">
-                        <span>أصناف الأوردر لمراجعتها ({order.items.reduce((s, i) => s + i.quantity, 0)} قطعة):</span>
-                        <span className="text-slate-400">تأكد من سخونة ومطابقة الطلب</span>
+                        <span>
+                          أصناف الأوردر لمراجعتها (
+                          {order.items.reduce((s, i) => s + i.quantity, 0)}{" "}
+                          قطعة):
+                        </span>
+                        <span className="text-slate-400">
+                          تأكد من سخونة ومطابقة الطلب
+                        </span>
                       </div>
                       <div className="space-y-1.5 text-xs text-slate-800">
+                        <OrderMap order={order} canShare />
                         {order.items.map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between py-1 border-b border-slate-200/60 last:border-0">
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between py-1 border-b border-slate-200/60 last:border-0"
+                          >
                             <div className="flex items-center gap-2">
                               <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-black flex items-center justify-center">
                                 {item.quantity}×
                               </span>
-                              <span className="font-medium text-slate-900">{item.product.name}</span>
-                              {Object.entries(item.selectedOptions).length > 0 && (
+                              <span className="font-medium text-slate-900">
+                                {item.product.name}
+                              </span>
+                              {Object.entries(item.selectedOptions).length >
+                                0 && (
                                 <span className="text-[10px] text-slate-500 bg-slate-200/70 px-1.5 py-0.5 rounded">
-                                  {Object.values(item.selectedOptions).join(' - ')}
+                                  {Object.values(item.selectedOptions).join(
+                                    " - ",
+                                  )}
                                 </span>
                               )}
                             </div>
-                            <span className="font-bold text-slate-900">{formatEGP(item.product.price * item.quantity)}</span>
+                            <span className="font-bold text-slate-900">
+                              {formatEGP(item.product.price * item.quantity)}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -428,39 +498,46 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                           <span>إجراءات ومحطات مندوب التوصيل الميداني:</span>
                         </h5>
                         <span className="text-[11px] font-bold text-emerald-700">
-                          {Object.values(checklist).filter(Boolean).length} من 5 مكتملة
+                          {Object.values(checklist).filter(Boolean).length} من 5
+                          مكتملة
                         </span>
                       </div>
 
                       {/* Step 1: استلام الأوردر من المطعم */}
                       <div
-                        onClick={() => handleToggleStep(order, 'received')}
+                        onClick={() => handleToggleStep(order, "received")}
                         className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
                           checklist.receivedAndCheckedAtRestaurant
-                            ? 'bg-emerald-50 border-emerald-300'
-                            : 'bg-white border-slate-200 hover:border-emerald-300'
+                            ? "bg-emerald-50 border-emerald-300"
+                            : "bg-white border-slate-200 hover:border-emerald-300"
                         }`}
                       >
                         <div
                           className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
                             checklist.receivedAndCheckedAtRestaurant
-                              ? 'bg-emerald-600 text-white'
-                              : 'border-2 border-slate-300'
+                              ? "bg-emerald-600 text-white"
+                              : "border-2 border-slate-300"
                           }`}
                         >
-                          {checklist.receivedAndCheckedAtRestaurant && <Check className="w-4 h-4" />}
+                          {checklist.receivedAndCheckedAtRestaurant && (
+                            <Check className="w-4 h-4" />
+                          )}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-black text-slate-900">
-                              1. استلام الأوردر ومراجعته من شيف المطعم بالفود كورت
+                              1. استلام الأوردر ومراجعته من شيف المطعم بالفود
+                              كورت
                             </span>
                             <span className="text-[10px] font-bold text-slate-500">
-                              {checklist.receivedAndCheckedAtRestaurant ? 'تم الاستلام' : 'اضغط للتأكيد'}
+                              {checklist.receivedAndCheckedAtRestaurant
+                                ? "تم الاستلام"
+                                : "اضغط للتأكيد"}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-500 mt-0.5">
-                            التأكد من اكتمال عدد السندوتشات والمشروبات ومطابقتها للشيك المسلم من المطعم.
+                            التأكد من اكتمال عدد السندوتشات والمشروبات ومطابقتها
+                            للشيك المسلم من المطعم.
                           </p>
                         </div>
                       </div>
@@ -469,35 +546,46 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                       <div
                         className={`p-3.5 rounded-2xl border transition-all ${
                           checklist.paidRestaurant
-                            ? 'bg-emerald-50 border-emerald-300'
-                            : 'bg-white border-slate-200'
+                            ? "bg-emerald-50 border-emerald-300"
+                            : "bg-white border-slate-200"
                         }`}
                       >
                         <div className="flex items-start gap-3">
                           <div
-                            onClick={() => handleToggleStep(order, 'paid')}
+                            onClick={() => handleToggleStep(order, "paid")}
                             className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 cursor-pointer transition-colors ${
                               checklist.paidRestaurant
-                                ? 'bg-emerald-600 text-white'
-                                : 'border-2 border-slate-300'
+                                ? "bg-emerald-600 text-white"
+                                : "border-2 border-slate-300"
                             }`}
                           >
-                            {checklist.paidRestaurant && <Check className="w-4 h-4" />}
+                            {checklist.paidRestaurant && (
+                              <Check className="w-4 h-4" />
+                            )}
                           </div>
                           <div className="flex-1 space-y-2">
-                            <div className="flex items-center justify-between" onClick={() => handleToggleStep(order, 'paid')}>
+                            <div
+                              className="flex items-center justify-between"
+                              onClick={() => handleToggleStep(order, "paid")}
+                            >
                               <span className="text-xs font-black text-slate-900">
                                 2. دفع / تسوية المبالغ مع كاشير المطعم
                               </span>
                               <span className="text-[10px] font-bold text-slate-500">
-                                {checklist.paidRestaurant ? 'تم الدفع للمطعم' : 'مطلوب السداد'}
+                                {checklist.paidRestaurant
+                                  ? "تم الدفع للمطعم"
+                                  : "مطلوب السداد"}
                               </span>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-[11px] text-slate-600">المبلغ المسدد للمطعم:</span>
+                              <span className="text-[11px] text-slate-600">
+                                المبلغ المسدد للمطعم:
+                              </span>
                               <input
                                 type="number"
-                                value={inputPaidAmounts[order.id] ?? restaurantCost}
+                                value={
+                                  inputPaidAmounts[order.id] ?? restaurantCost
+                                }
                                 onChange={(e) =>
                                   setInputPaidAmounts({
                                     ...inputPaidAmounts,
@@ -506,13 +594,17 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                                 }
                                 className="w-24 px-2 py-1 text-xs font-bold border border-slate-300 rounded-lg text-slate-900 bg-white"
                               />
-                              <span className="text-xs font-bold text-slate-700">ج.م</span>
+                              <span className="text-xs font-bold text-slate-700">
+                                ج.م
+                              </span>
                               <button
                                 type="button"
-                                onClick={() => handleToggleStep(order, 'paid')}
+                                onClick={() => handleToggleStep(order, "paid")}
                                 className="px-3 py-1 bg-emerald-600 text-white text-[11px] font-bold rounded-lg shadow-xs hover:bg-emerald-700"
                               >
-                                {checklist.paidRestaurant ? 'تعديل السداد' : 'تأكيد السداد'}
+                                {checklist.paidRestaurant
+                                  ? "تعديل السداد"
+                                  : "تأكيد السداد"}
                               </button>
                             </div>
                           </div>
@@ -521,62 +613,73 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
 
                       {/* Step 3: التحرك لمبنى الوزارة والدور المطلوب */}
                       <div
-                        onClick={() => handleToggleStep(order, 'travel')}
+                        onClick={() => handleToggleStep(order, "travel")}
                         className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
                           checklist.onTheWayToMinistry
-                            ? 'bg-emerald-50 border-emerald-300'
-                            : 'bg-white border-slate-200 hover:border-emerald-300'
+                            ? "bg-emerald-50 border-emerald-300"
+                            : "bg-white border-slate-200 hover:border-emerald-300"
                         }`}
                       >
                         <div
                           className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
                             checklist.onTheWayToMinistry
-                              ? 'bg-emerald-600 text-white'
-                              : 'border-2 border-slate-300'
+                              ? "bg-emerald-600 text-white"
+                              : "border-2 border-slate-300"
                           }`}
                         >
-                          {checklist.onTheWayToMinistry && <Check className="w-4 h-4" />}
+                          {checklist.onTheWayToMinistry && (
+                            <Check className="w-4 h-4" />
+                          )}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-black text-slate-900">
-                              3. التحرك لمبنى {order.ministry} ({order.floorNumber})
+                              3. التحرك لمبنى {order.ministry} (
+                              {order.floorNumber})
                             </span>
                             <span className="text-[10px] font-bold text-slate-500">
-                              {checklist.onTheWayToMinistry ? 'في الطريق للمصعد' : 'اضغط عند الانطلاق'}
+                              {checklist.onTheWayToMinistry
+                                ? "في الطريق للمصعد"
+                                : "اضغط عند الانطلاق"}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-500 mt-0.5">
-                            الانطلاق بالدراجة السريعة ودخول بوابة مبنى الوزارة والمصعد متجهاً للمكتب.
+                            الانطلاق بالدراجة السريعة ودخول بوابة مبنى الوزارة
+                            والمصعد متجهاً للمكتب.
                           </p>
                         </div>
                       </div>
 
                       {/* Step 4: الوصول لمكتب الموظف بالدور المعني */}
                       <div
-                        onClick={() => handleToggleStep(order, 'arrive')}
+                        onClick={() => handleToggleStep(order, "arrive")}
                         className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
                           checklist.arrivedAtCustomerOffice
-                            ? 'bg-emerald-50 border-emerald-300'
-                            : 'bg-white border-slate-200 hover:border-emerald-300'
+                            ? "bg-emerald-50 border-emerald-300"
+                            : "bg-white border-slate-200 hover:border-emerald-300"
                         }`}
                       >
                         <div
                           className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
                             checklist.arrivedAtCustomerOffice
-                              ? 'bg-emerald-600 text-white'
-                              : 'border-2 border-slate-300'
+                              ? "bg-emerald-600 text-white"
+                              : "border-2 border-slate-300"
                           }`}
                         >
-                          {checklist.arrivedAtCustomerOffice && <Check className="w-4 h-4" />}
+                          {checklist.arrivedAtCustomerOffice && (
+                            <Check className="w-4 h-4" />
+                          )}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-black text-slate-900">
-                              4. الوصول لمكتب الموظف وتسليم الوجبات ({order.roomNumber})
+                              4. الوصول لمكتب الموظف وتسليم الوجبات (
+                              {order.roomNumber})
                             </span>
                             <span className="text-[10px] font-bold text-slate-500">
-                              {checklist.arrivedAtCustomerOffice ? 'تم الوصول للمكتب' : 'اضغط عند الوصول'}
+                              {checklist.arrivedAtCustomerOffice
+                                ? "تم الوصول للمكتب"
+                                : "اضغط عند الوصول"}
                             </span>
                           </div>
                         </div>
@@ -601,7 +704,9 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                             </label>
                             <input
                               type="number"
-                              value={inputCollectedAmounts[order.id] ?? order.total}
+                              value={
+                                inputCollectedAmounts[order.id] ?? order.total
+                              }
                               onChange={(e) =>
                                 setInputCollectedAmounts({
                                   ...inputCollectedAmounts,
@@ -620,7 +725,8 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                               type="text"
                               value={
                                 activeNotes[order.id] ??
-                                (order.courierChecklist?.notes || 'تم التسليم باليد والأوردر كامل وساخن.')
+                                (order.courierChecklist?.notes ||
+                                  "تم التسليم باليد والأوردر كامل وساخن.")
                               }
                               onChange={(e) =>
                                 setActiveNotes({
@@ -636,14 +742,14 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
 
                         <button
                           type="button"
-                          onClick={() => handleToggleStep(order, 'collect')}
+                          onClick={() => handleToggleStep(order, "collect")}
                           className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs sm:text-sm font-black shadow-md flex items-center justify-center gap-2 transition-all"
                         >
                           <CheckCircle2 className="w-4 h-4" />
                           <span>
                             {checklist.collectedPayment
-                              ? 'تأكيد تحديث إغلاق الطلب وتوريد العهدة'
-                              : 'تأكيد استلام الأموال وإغلاق الطلب بنجاح'}
+                              ? "تأكيد تحديث إغلاق الطلب وتوريد العهدة"
+                              : "تأكيد استلام الأموال وإغلاق الطلب بنجاح"}
                           </span>
                         </button>
                       </div>
@@ -657,10 +763,12 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
       )}
 
       {/* Completed Deliveries History */}
-      {activeTab === 'completed' && (
+      {activeTab === "completed" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-black text-slate-900">سجل الطلبات المسلمة والعهد المالية</h3>
+            <h3 className="text-base font-black text-slate-900">
+              سجل الطلبات المسلمة والعهد المالية
+            </h3>
             <span className="text-xs font-bold text-slate-500">
               {completedDeliveries.length} طلب مكتمل
             </span>
@@ -668,7 +776,9 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
 
           {completedDeliveries.length === 0 ? (
             <div className="bg-white rounded-3xl p-8 text-center border border-slate-200">
-              <p className="text-xs text-slate-500">لا توجد طلبات مسلمة حتى الآن.</p>
+              <p className="text-xs text-slate-500">
+                لا توجد طلبات مسلمة حتى الآن.
+              </p>
             </div>
           ) : (
             completedDeliveries.map((order) => (
@@ -678,7 +788,9 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-slate-900">{order.orderNumber}</span>
+                    <span className="text-xs font-black text-slate-900">
+                      {order.orderNumber}
+                    </span>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                       تم التسليم بنجاح
                     </span>
@@ -695,9 +807,13 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
 
                 <div className="flex items-center gap-3 self-end sm:self-auto text-left">
                   <div>
-                    <span className="text-[10px] text-slate-400 block font-bold">المحصل في العهدة</span>
+                    <span className="text-[10px] text-slate-400 block font-bold">
+                      المحصل في العهدة
+                    </span>
                     <span className="text-sm font-black text-emerald-700">
-                      {formatEGP(order.courierChecklist?.collectedAmount ?? order.total)}
+                      {formatEGP(
+                        order.courierChecklist?.collectedAmount ?? order.total,
+                      )}
                     </span>
                   </div>
                 </div>

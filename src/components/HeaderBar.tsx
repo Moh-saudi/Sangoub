@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   Bell,
   MapPin,
@@ -11,13 +11,15 @@ import {
   Sparkles,
   LogIn,
   Rocket,
-} from 'lucide-react';
-import type { AppNotification, Profile } from '../types/index.ts';
+} from "lucide-react";
+import type { AppNotification, Profile } from "../types/index.ts";
 
 interface HeaderBarProps {
   user: Profile;
-  activeTab: 'home' | 'orders' | 'profile' | 'admin' | 'courier' | 'restaurant';
-  setActiveTab: (tab: 'home' | 'orders' | 'profile' | 'admin' | 'courier' | 'restaurant') => void;
+  activeTab: "home" | "orders" | "profile" | "admin" | "courier" | "restaurant";
+  setActiveTab: (
+    tab: "home" | "orders" | "profile" | "admin" | "courier" | "restaurant",
+  ) => void;
   onOpenLocationModal: () => void;
   notifications: AppNotification[];
   onOpenNotifications: () => void;
@@ -49,7 +51,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         {/* Right side in RTL: District Brand with Official Logo & Location Selector */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <div
-            onClick={() => setActiveTab('home')}
+            onClick={() => setActiveTab("home")}
             className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl overflow-hidden shadow-xs shrink-0 cursor-pointer border border-orange-200 hover:scale-105 transition-transform bg-white"
             title="الصفحة الرئيسية - طلبات العاصمة"
           >
@@ -78,7 +80,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             >
               <MapPin className="w-3 h-3 text-orange-600 shrink-0" />
               <span className="truncate">
-                {user.ministry || 'اختر الوزارة'} · {user.floorNumber || 'الدور'}
+                {user.ministry || "اختر الوزارة"} ·{" "}
+                {user.floorNumber || "الدور"}
               </span>
               <ChevronDown className="w-2.5 h-2.5 text-slate-400 group-hover:text-orange-600 shrink-0" />
             </button>
@@ -92,10 +95,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <button
               onClick={onOpenMobileRelease}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
-              title="بوابة تطبيق الموبايل ورفع Google Play & GitHub وبيانات Firebase"
+              title="تثبيت تطبيق طلبات العاصمة"
             >
               <Rocket className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">نسخة الموبايل & Google Play</span>
+              <span className="hidden md:inline">
+                نسخة الموبايل & Google Play
+              </span>
             </button>
           )}
 
@@ -105,14 +110,14 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               onClick={onToggleSimulator}
               className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                 isSimulatorActive
-                  ? 'bg-orange-600 text-white border-orange-600 shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
+                  ? "bg-orange-600 text-white border-orange-600 shadow-xs"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200"
               }`}
               title="تجربة محاكي الهاتف الذكي الفعلي"
             >
               <Smartphone className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">
-                {isSimulatorActive ? 'إغلاق المحاكي' : 'محاكي الموبايل'}
+                {isSimulatorActive ? "إغلاق المحاكي" : "محاكي الموبايل"}
               </span>
             </button>
           )}
@@ -132,52 +137,58 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           {/* Quick Portal Switch Pills */}
           <div className="hidden lg:flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/60">
             <button
-              onClick={() => setActiveTab('home')}
+              onClick={() => setActiveTab("home")}
               className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                activeTab === 'home' || activeTab === 'orders'
-                  ? 'bg-white text-orange-700 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                activeTab === "home" || activeTab === "orders"
+                  ? "bg-white text-orange-700 shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <Smartphone className="w-3.5 h-3.5" />
               <span>المتجر</span>
             </button>
 
-            <button
-              onClick={() => setActiveTab('restaurant')}
-              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                activeTab === 'restaurant'
-                  ? 'bg-amber-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <ChefHat className="w-3.5 h-3.5" />
-              <span>المطبخ</span>
-            </button>
+            {user.role === "restaurant" && (
+              <button
+                onClick={() => setActiveTab("restaurant")}
+                className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                  activeTab === "restaurant"
+                    ? "bg-amber-600 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <ChefHat className="w-3.5 h-3.5" />
+                <span>المطبخ</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveTab('courier')}
-              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                activeTab === 'courier'
-                  ? 'bg-teal-700 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Bike className="w-3.5 h-3.5" />
-              <span>الدليفري</span>
-            </button>
+            {user.role === "courier" && (
+              <button
+                onClick={() => setActiveTab("courier")}
+                className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                  activeTab === "courier"
+                    ? "bg-teal-700 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Bike className="w-3.5 h-3.5" />
+                <span>الدليفري</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveTab('admin')}
-              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                activeTab === 'admin'
-                  ? 'bg-purple-700 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>الإدارة</span>
-            </button>
+            {user.role === "admin" && (
+              <button
+                onClick={() => setActiveTab("admin")}
+                className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                  activeTab === "admin"
+                    ? "bg-purple-700 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span>الإدارة</span>
+              </button>
+            )}
           </div>
 
           {/* User Account / Auth Trigger */}
@@ -197,12 +208,16 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               title="تبديل الحساب أو تسجيل الخروج"
             >
               {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt="" className="w-4 h-4 rounded-full object-cover" />
+                <img
+                  src={user.avatarUrl}
+                  alt=""
+                  className="w-4 h-4 rounded-full object-cover"
+                />
               ) : (
                 <UserCheck className="w-3.5 h-3.5 text-orange-600" />
               )}
               <span className="hidden sm:inline truncate max-w-[90px]">
-                {user.fullName.split(' ')[0]}
+                {user.fullName.split(" ")[0]}
               </span>
             </button>
           )}
@@ -216,7 +231,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-600 text-white font-mono text-[9px] font-bold flex items-center justify-center shadow-xs">
-                {unreadCount > 9 ? '9+' : unreadCount}
+                {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
           </button>
