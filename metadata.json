@@ -1,0 +1,8 @@
+{
+  "name": "Remix طلبات الحي الحكومي بالعاصمة الإدارية",
+  "description": "منصة وتطبيق طلبات وتوصيل وجبات الفود كورت والسوبر ماركت لموظفي الـ 34 وزارة بالحي الحكومي بالعاصمة الإدارية الجديدة مع لوحة تحكم الإدارة.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

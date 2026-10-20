@@ -1,0 +1,206 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Employee, courier, restaurant, or admin profile in the New Administrative Capital app.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Full Arabic or English name of the user.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Verified email address of the user.",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "phone": {
+          "type": "string",
+          "description": "Mobile phone number of the user.",
+          "minLength": 5,
+          "maxLength": 30
+        },
+        "ministry": {
+          "type": "string",
+          "description": "Ministry or agency name in the Governmental District.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "floorNumber": {
+          "type": "string",
+          "description": "Floor number inside the ministry building.",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "roomNumber": {
+          "type": "string",
+          "description": "Office or room number inside the ministry.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user in the platform.",
+          "enum": ["employee", "restaurant", "courier", "admin"]
+        },
+        "walletBalance": {
+          "type": "number",
+          "description": "Wallet balance in EGP."
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "Optional avatar image URL.",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was last updated."
+        }
+      },
+      "required": [
+        "uid",
+        "fullName",
+        "email",
+        "phone",
+        "ministry",
+        "floorNumber",
+        "roomNumber",
+        "role",
+        "walletBalance",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "OrderRecord": {
+      "title": "OrderRecord",
+      "description": "Food court or supermarket delivery order created by a ministry employee.",
+      "type": "object",
+      "properties": {
+        "orderNumber": {
+          "type": "string",
+          "description": "Human-readable order code.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "profileId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the customer who placed the order.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "profileName": {
+          "type": "string",
+          "description": "Full name of the customer.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone number for delivery.",
+          "minLength": 5,
+          "maxLength": 30
+        },
+        "ministry": {
+          "type": "string",
+          "description": "Destination ministry name.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "floorNumber": {
+          "type": "string",
+          "description": "Destination floor.",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "roomNumber": {
+          "type": "string",
+          "description": "Destination office/room.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "itemsSummary": {
+          "type": "string",
+          "description": "Concise summary of ordered items.",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "total": {
+          "type": "number",
+          "description": "Total order amount in EGP."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Selected payment method.",
+          "enum": ["instapay", "geidea", "cash"]
+        },
+        "orderStatus": {
+          "type": "string",
+          "description": "Current order lifecycle status.",
+          "enum": ["received", "preparing", "with_courier", "delivered", "cancelled"]
+        },
+        "scheduledDeliveryTime": {
+          "type": "string",
+          "description": "Optional scheduled delivery time slot selected by the employee.",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of order creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of latest status update."
+        }
+      },
+      "required": [
+        "orderNumber",
+        "profileId",
+        "profileName",
+        "phone",
+        "ministry",
+        "floorNumber",
+        "roomNumber",
+        "itemsSummary",
+        "total",
+        "paymentMethod",
+        "orderStatus",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Stores private employee profiles and ministry delivery locations."
+    },
+    "/orders/{orderId}": {
+      "schema": {
+        "$ref": "#/entities/OrderRecord"
+      },
+      "description": "Stores employee food court and supermarket orders."
+    }
+  }
+}

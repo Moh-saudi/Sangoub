@@ -1,0 +1,76 @@
+name: Build Web & Signed Android AAB for Google Play
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-web-and-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Web Dependencies & Build Production PWA
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+
+      - name: Upload Web & Firebase Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: capital-talabat-web-firebase-release
+          path: |
+            dist/
+            server.ts
+            package.json
+            firebase-applet-config.json
+            firestore.rules
+            twa-manifest.json
+
+      - name: Setup Java JDK 17 for Android Packaging
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Generate Android Signing Keystore (if not provided)
+        run: |
+          if [ ! -f android.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore android.keystore \
+              -alias capital-talabat-key \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass CapitalTalabat2026 \
+              -keypass CapitalTalabat2026 \
+              -dname "CN=Capital Talabat, OU=Gov District, O=New Administrative Capital, L=Cairo, S=Cairo, C=EG"
+          fi
+
+      - name: Upload Signing Keystore Backup (Keep safe for future Google Play updates)
+        uses: actions/upload-artifact@v4
+        with:
+          name: google-play-signing-keystore
+          path: android.keystore
+
+      - name: Auto-Upload to Google Play Console (Active when GOOGLE_PLAY_SERVICE_ACCOUNT_JSON secret is set)
+        if: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON != '' && hashFiles('app-release-bundle.aab') != '' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: eg.gov.capital.talabat
+          releaseFiles: app-release-bundle.aab
+          track: production
+          status: completed

@@ -1,0 +1,39 @@
+{
+  "packageId": "eg.gov.capital.talabat",
+  "host": "ais-pre-txzox4zssy3oya7l4aozjx-329833551523.europe-west2.run.app",
+  "name": "طلبات الحي الحكومي بالعاصمة الإدارية",
+  "launcherName": "طلبات العاصمة",
+  "display": "standalone",
+  "themeColor": "#0F172A",
+  "navigationColor": "#0F172A",
+  "navigationColorDark": "#0F172A",
+  "navigationDividerColor": "#1E293B",
+  "navigationDividerColorDark": "#1E293B",
+  "backgroundColor": "#F8FAFC",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://ais-pre-txzox4zssy3oya7l4aozjx-329833551523.europe-west2.run.app/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png",
+  "maskableIconUrl": "https://ais-pre-txzox4zssy3oya7l4aozjx-329833551523.europe-west2.run.app/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "capital-talabat-key"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://ais-pre-txzox4zssy3oya7l4aozjx-329833551523.europe-west2.run.app/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://ais-pre-txzox4zssy3oya7l4aozjx-329833551523.europe-west2.run.app/",
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": []
+}
