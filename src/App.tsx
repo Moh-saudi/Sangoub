@@ -19,12 +19,15 @@ import {
   MapPin,
 } from 'lucide-react';
 import type {
+  ApplicationStatus,
   AppNotification,
   CartItem,
   CourierChecklist,
   Coupon,
+  JobApplication,
   Order,
   OrderStatus,
+  PartnerApplication,
   Product,
   Profile,
   Store,
@@ -34,7 +37,9 @@ import {
   DEFAULT_USER,
   DEMO_PROFILES,
   INITIAL_COUPONS,
+  INITIAL_JOB_APPLICATIONS,
   INITIAL_ORDERS,
+  INITIAL_PARTNER_APPLICATIONS,
   INITIAL_PRODUCTS,
   INITIAL_STORES,
 } from './data/seedData.ts';
@@ -47,7 +52,7 @@ import { ProductDetailModal } from './components/ProductDetailModal.tsx';
 import { FloatingCartBar } from './components/FloatingCartBar.tsx';
 import { CartModal } from './components/CartModal.tsx';
 import { OrdersView } from './components/OrdersView.tsx';
-import { AdminDashboard } from './components/AdminDashboard.tsx';
+import { AdminDashboard, type AdminTabType } from './components/AdminDashboard.tsx';
 import { CourierPortal } from './components/CourierPortal.tsx';
 import { RestaurantPortal } from './components/RestaurantPortal.tsx';
 import { ProfileView } from './components/ProfileView.tsx';
@@ -61,6 +66,7 @@ import { MobileSimulatorFrame } from './components/MobileSimulatorFrame.tsx';
 import { AiAssistantModal } from './components/AiAssistantModal.tsx';
 import { MobileReleaseModal } from './components/MobileReleaseModal.tsx';
 import { AppSplashScreen } from './components/AppSplashScreen.tsx';
+import { CorporateWebsite, type WebsitePage } from './components/CorporateWebsite.tsx';
 import { applyCouponDiscount, formatEGP } from './utils/orderCalculations.ts';
 import { useVoiceRecorder } from './utils/geminiClient.ts';
 import { useOnlineStatus } from './utils/usePWAInstall.ts';
@@ -90,6 +96,46 @@ export default function App() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>(INITIAL_COUPONS);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+
+  // Partner & Job Applications State (persisted to localStorage and displayed in Admin Dashboard)
+  const [partnerApplications, setPartnerApplications] = useState<PartnerApplication[]>(() => {
+    try {
+      const saved = localStorage.getItem('gov_partner_applications');
+      return saved ? JSON.parse(saved) : INITIAL_PARTNER_APPLICATIONS;
+    } catch {
+      return INITIAL_PARTNER_APPLICATIONS;
+    }
+  });
+
+  const [jobApplications, setJobApplications] = useState<JobApplication[]>(() => {
+    try {
+      const saved = localStorage.getItem('gov_job_applications');
+      return saved ? JSON.parse(saved) : INITIAL_JOB_APPLICATIONS;
+    } catch {
+      return INITIAL_JOB_APPLICATIONS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('gov_partner_applications', JSON.stringify(partnerApplications));
+    } catch {
+      // Ignore storage error
+    }
+  }, [partnerApplications]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('gov_job_applications', JSON.stringify(jobApplications));
+    } catch {
+      // Ignore storage error
+    }
+  }, [jobApplications]);
+
+  // Official Corporate Website & Landing Page vs Mobile App States
+  const [isWebsiteOpen, setIsWebsiteOpen] = useState<boolean>(true);
+  const [websitePage, setWebsitePage] = useState<WebsitePage>('home');
+  const [initialAdminTab, setInitialAdminTab] = useState<AdminTabType>('orders');
 
   // Mobile Simulator, Splash Screen, Onboarding & Release Hub States
   const [isSimulatorActive, setIsSimulatorActive] = useState<boolean>(true);
@@ -474,6 +520,96 @@ export default function App() {
     );
   };
 
+  // Partner & Job Application Handlers (Sent from CorporateWebsite directly to AdminDashboard)
+  const handleAddPartnerApplication = (
+    appData: Omit<PartnerApplication, 'id' | 'status' | 'createdAt'>
+  ) => {
+    const newPartnerApp: PartnerApplication = {
+      ...appData,
+      id: 'part-' + Date.now(),
+      status: 'pending',
+      createdAt: 'الآن',
+    };
+    setPartnerApplications((prev) => [newPartnerApp, ...prev]);
+    addNotification(
+      'طلب انضمام شريك جديد في لوحة الإدارة',
+      `تم استلام طلب انضمام "${newPartnerApp.businessName}" (${newPartnerApp.partnerType}) في لوحة تحكم الإدارة.`,
+      'system'
+    );
+  };
+
+  const handleUpdatePartnerStatus = (partnerId: string, status: ApplicationStatus) => {
+    setPartnerApplications((prev) =>
+      prev.map((p) => (p.id === partnerId ? { ...p, status } : p))
+    );
+  };
+
+  const handleApprovePartnerAsStore = (partner: PartnerApplication) => {
+    setPartnerApplications((prev) =>
+      prev.map((p) => (p.id === partner.id ? { ...p, status: 'approved' } : p))
+    );
+
+    const newStore: Store = {
+      id: 'store-' + Date.now(),
+      name: partner.businessName,
+      nameEn: partner.businessName,
+      type: partner.partnerType,
+      category:
+        partner.partnerType === 'كافيه ومشروبات'
+          ? 'cafe'
+          : partner.partnerType === 'سوبر ماركت وتموين'
+          ? 'supermarket'
+          : partner.partnerType === 'مخبوزات وحلويات'
+          ? 'desserts'
+          : 'sandwiches',
+      logo:
+        partner.partnerType === 'كافيه ومشروبات'
+          ? '☕'
+          : partner.partnerType === 'سوبر ماركت وتموين'
+          ? '🛒'
+          : '🍽️',
+      banner: 'from-emerald-700 to-teal-900',
+      bannerUrl: '/assets/aistudio/1__2__0c86e0f9.png',
+      status: 'open',
+      rating: 4.9,
+      ratingCount: 12,
+      deliveryTime: '15-20 دقيقة',
+      minOrder: 50,
+      deliveryFee: 10,
+      locationInDistrict: partner.locationInCapital,
+    };
+
+    setStores((prev) => [newStore, ...prev]);
+    addNotification(
+      'تم اعتماد الشريك وإضافته كمتجر نشط',
+      `تم تفعيل "${partner.businessName}" ضمن متاجر الفود كورت في التطبيق.`,
+      'system'
+    );
+  };
+
+  const handleAddJobApplication = (
+    jobData: Omit<JobApplication, 'id' | 'status' | 'createdAt'>
+  ) => {
+    const newJobApp: JobApplication = {
+      ...jobData,
+      id: 'job-' + Date.now(),
+      status: 'pending',
+      createdAt: 'الآن',
+    };
+    setJobApplications((prev) => [newJobApp, ...prev]);
+    addNotification(
+      'طلب توظيف جديد في لوحة الإدارة',
+      `تقدم "${newJobApp.applicantName}" لوظيفة "${newJobApp.jobTitle}" وتم تسجيله بلوحة الإدارة.`,
+      'system'
+    );
+  };
+
+  const handleUpdateJobStatus = (jobId: string, status: ApplicationStatus) => {
+    setJobApplications((prev) =>
+      prev.map((j) => (j.id === jobId ? { ...j, status } : j))
+    );
+  };
+
   // Instant Persona Switcher
   const handleSwitchPersona = (role: UserRole) => {
     const targetProfile = DEMO_PROFILES[role];
@@ -481,8 +617,10 @@ export default function App() {
       setUser(targetProfile);
       if (role === 'courier') setActiveTab('courier');
       else if (role === 'restaurant') setActiveTab('restaurant');
-      else if (role === 'admin') setActiveTab('admin');
-      else setActiveTab('home');
+      else if (role === 'admin') {
+        setInitialAdminTab('orders');
+        setActiveTab('admin');
+      } else setActiveTab('home');
 
       addNotification(
         `تم التحويل إلى دور: ${targetProfile.fullName}`,
@@ -847,11 +985,21 @@ export default function App() {
           orders={orders}
           stores={stores}
           products={products}
+          partnerApplications={partnerApplications}
+          jobApplications={jobApplications}
+          initialAdminTab={initialAdminTab}
           onUpdateOrderStatus={handleUpdateOrderStatus}
           onAssignCourier={handleAssignCourier}
           onToggleProductStock={handleToggleProductStock}
           onUpdateProductPrice={handleUpdateProductPrice}
           onToggleStoreStatus={handleToggleStoreStatus}
+          onUpdatePartnerStatus={handleUpdatePartnerStatus}
+          onApprovePartnerAsStore={handleApprovePartnerAsStore}
+          onUpdateJobStatus={handleUpdateJobStatus}
+          onOpenWebsitePage={(page) => {
+            setWebsitePage(page);
+            setIsWebsiteOpen(true);
+          }}
         />
       )}
 
@@ -861,7 +1009,10 @@ export default function App() {
           user={user}
           onUpdateProfile={(u) => setUser(u)}
           savedCoupons={availableCoupons}
-          onSwitchToAdmin={() => setActiveTab('admin')}
+          onSwitchToAdmin={() => {
+            setInitialAdminTab('orders');
+            setActiveTab('admin');
+          }}
           onOpenAuthModal={() => {
             setCheckoutInterceptNotice(null);
             setIsAuthModalOpen(true);
@@ -889,9 +1040,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
-      {/* 1. Global Role & Persona Switcher Bar (Instant testing of all 4 roles) */}
+      {/* 1. Global Role & Mode Switcher Bar (Website vs Mobile App + Instant testing of all 4 roles) */}
       <RoleSwitcherBar
         currentUser={user}
+        isWebsiteOpen={isWebsiteOpen}
+        onOpenWebsite={(page = 'home') => {
+          setWebsitePage(page);
+          setIsWebsiteOpen(true);
+        }}
+        onOpenMobileApp={() => {
+          setIsWebsiteOpen(false);
+        }}
         onSwitchPersona={handleSwitchPersona}
         onOpenAuthModal={() => {
           setCheckoutInterceptNotice(null);
@@ -903,18 +1062,42 @@ export default function App() {
         }}
       />
 
-      {/* Mobile Simulator Frame (when active) OR Full-width standard web app */}
-      <MobileSimulatorFrame
-        isSimulatorActive={isSimulatorActive}
-        onToggleSimulator={() => setIsSimulatorActive(!isSimulatorActive)}
-        onReplayOnboarding={() => setIsOnboardingOpen(true)}
-        onReplaySplash={() => setIsSplashOpen(true)}
-        splashScreen={
-          <AppSplashScreen isOpen={isSplashOpen} onFinish={() => setIsSplashOpen(false)} />
-        }
-      >
-        {appContent}
-      </MobileSimulatorFrame>
+      {/* 2. Official Corporate Website & Landing Page OR Mobile App Simulator */}
+      {isWebsiteOpen ? (
+        <CorporateWebsite
+          stores={stores}
+          products={products}
+          partnerApplicationsCount={partnerApplications.length}
+          jobApplicationsCount={jobApplications.length}
+          initialPage={websitePage}
+          onOpenMobileApp={() => {
+            setIsWebsiteOpen(false);
+            setIsSimulatorActive(true);
+            setActiveTab('home');
+          }}
+          onOpenAdminCommittees={(tab) => {
+            setIsWebsiteOpen(false);
+            setIsSimulatorActive(false);
+            setUser(DEMO_PROFILES.admin);
+            setInitialAdminTab(tab);
+            setActiveTab('admin');
+          }}
+          onSubmitPartnerApplication={handleAddPartnerApplication}
+          onSubmitJobApplication={handleAddJobApplication}
+        />
+      ) : (
+        <MobileSimulatorFrame
+          isSimulatorActive={isSimulatorActive}
+          onToggleSimulator={() => setIsSimulatorActive(!isSimulatorActive)}
+          onReplayOnboarding={() => setIsOnboardingOpen(true)}
+          onReplaySplash={() => setIsSplashOpen(true)}
+          splashScreen={
+            <AppSplashScreen isOpen={isSplashOpen} onFinish={() => setIsSplashOpen(false)} />
+          }
+        >
+          {appContent}
+        </MobileSimulatorFrame>
+      )}
 
       {/* Onboarding Presentation Modal with 4 Official Screens */}
       <OnboardingModal

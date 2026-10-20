@@ -1,4 +1,13 @@
-import type { Coupon, MinistryName, Order, Product, Profile, Store } from '../types/index.ts';
+import type {
+  Coupon,
+  JobApplication,
+  MinistryName,
+  Order,
+  PartnerApplication,
+  Product,
+  Profile,
+  Store,
+} from '../types/index.ts';
 
 export const MINISTRIES_LIST: MinistryName[] = [
   'رئاسة مجلس الوزراء',
@@ -704,3 +713,62 @@ export const GUEST_USER: Profile = {
 };
 
 export const DEFAULT_USER: Profile = GUEST_USER;
+
+export const INITIAL_PARTNER_APPLICATIONS: PartnerApplication[] = [
+  {
+    id: 'part-101',
+    businessName: 'مشويات الحاتي الملكي بالعاصمة',
+    partnerType: 'مطعم فود كورت',
+    contactName: 'أ. محمود عبد الرحمن',
+    phone: '01066554433',
+    email: 'info@elhaty-capital.eg',
+    locationInCapital: 'مبنى الفود كورت C3 - الحي الحكومي',
+    branchesCount: '3 فروع (القاهرة الجديدة والعاصمة الإدارية)',
+    notes: 'جاهزون لتوريد وجبات الغداء المشوية الساخنة لموظفي الوزارات يومياً.',
+    status: 'pending',
+    createdAt: 'اليوم 10:15 ص',
+  },
+  {
+    id: 'part-102',
+    businessName: 'كافيه إسبريسو لاب العاصمة',
+    partnerType: 'كافيه ومشروبات',
+    contactName: 'م. سارة المنياوي',
+    phone: '01288776655',
+    email: 'sarah@espressolab-ac.com',
+    locationInCapital: 'ساحة الوزارات الشرقية - بجوار وزارة المالية',
+    branchesCount: 'فرعان بالعاصمة الإدارية',
+    notes: 'نرغب في الانضمام لقائمة المشروبات الصباحية وجدولة طلبات الاجتماعات.',
+    status: 'contacted',
+    createdAt: 'أمس 02:30 م',
+  },
+];
+
+export const INITIAL_JOB_APPLICATIONS: JobApplication[] = [
+  {
+    id: 'job-201',
+    jobTitle: 'كابتن توصيل بالحي الحكومي (دراجة كهربائية / سكوتر)',
+    department: 'العمليات اللوجستية والتوصيل',
+    applicantName: 'كريم عادل مصطفى',
+    phone: '01012349876',
+    email: 'kareem.adel@gmail.com',
+    experienceYears: '3 سنوات في توصيل الطلبات السريعة',
+    residenceArea: 'مدينة بدر - بجوار العاصمة الإدارية',
+    summary: 'لدي خبرة كاملة بمباني الوزارات الـ 34 بالحي الحكومي وأمتلك رخصة قيادة سارية.',
+    status: 'pending',
+    createdAt: 'اليوم 11:00 ص',
+  },
+  {
+    id: 'job-202',
+    jobTitle: 'مسؤول علاقات شركاء ومطاعم الفود كورت',
+    department: 'تطوير الأعمال والشراكات - ميسك للتكنولوجيا',
+    applicantName: 'نورهان طارق فؤاد',
+    phone: '01155443322',
+    email: 'nourhan.tarek@outlook.com',
+    experienceYears: '4 سنوات في إدارة حسابات المطاعم والتشغيل',
+    residenceArea: 'التجمع الخامس - القاهرة الجديدة',
+    summary: 'خبرة في التعاقد مع سلاسل المطاعم الكبرى وإدارة قوائم الطعام الرقمية.',
+    status: 'contacted',
+    createdAt: 'أمس 04:10 م',
+  },
+];
+

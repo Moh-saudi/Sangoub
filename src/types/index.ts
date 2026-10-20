@@ -178,3 +178,34 @@ export interface AppNotification {
   orderId?: string;
   type: 'order_update' | 'courier_assigned' | 'promo' | 'system';
 }
+
+export type ApplicationStatus = 'pending' | 'contacted' | 'approved' | 'rejected';
+
+export interface PartnerApplication {
+  id: string;
+  businessName: string;
+  partnerType: 'مطعم فود كورت' | 'كافيه ومشروبات' | 'سوبر ماركت وتموين' | 'مخبوزات وحلويات' | 'خدمات لوجستية';
+  contactName: string;
+  phone: string;
+  email: string;
+  locationInCapital: string;
+  branchesCount: string;
+  notes?: string;
+  status: ApplicationStatus;
+  createdAt: string;
+}
+
+export interface JobApplication {
+  id: string;
+  jobTitle: string;
+  department: string;
+  applicantName: string;
+  phone: string;
+  email: string;
+  experienceYears: string;
+  residenceArea: string;
+  summary: string;
+  status: ApplicationStatus;
+  createdAt: string;
+}
+
