@@ -1041,7 +1041,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
       {/* 1. Global Role & Mode Switcher Bar (Website vs Mobile App + Instant testing of all 4 roles) */}
-      <RoleSwitcherBar
+      {!isWebsiteOpen && <RoleSwitcherBar
         currentUser={user}
         isWebsiteOpen={isWebsiteOpen}
         onOpenWebsite={(page = 'home') => {
@@ -1060,7 +1060,7 @@ export default function App() {
           setUser(DEFAULT_USER);
           setActiveTab('home');
         }}
-      />
+      />}
 
       {/* 2. Official Corporate Website & Landing Page OR Mobile App Simulator */}
       {isWebsiteOpen ? (
