@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
 
 @layer base {
   body {
@@ -14,4 +14,55 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Rotating multi-color aurora glow around the app icon squircle */
+@keyframes spin-glow {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.04);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes spin-glow-reverse {
+  0% {
+    transform: rotate(360deg) scale(1.02);
+  }
+  50% {
+    transform: rotate(180deg) scale(0.97);
+  }
+  100% {
+    transform: rotate(0deg) scale(1.02);
+  }
+}
+
+.splash-orbit-glow {
+  background: conic-gradient(
+    from 0deg,
+    #3b82f6 0deg,
+    #60a5fa 70deg,
+    #f43f5e 140deg,
+    #fb923c 200deg,
+    #facc15 260deg,
+    #10b981 315deg,
+    #3b82f6 360deg
+  );
+  animation: spin-glow 3.4s linear infinite;
+}
+
+.splash-orbit-glow-secondary {
+  background: conic-gradient(
+    from 180deg,
+    #10b981 0deg,
+    #3b82f6 90deg,
+    #ec4899 180deg,
+    #f59e0b 270deg,
+    #10b981 360deg
+  );
+  animation: spin-glow-reverse 4.8s linear infinite;
 }

@@ -14,17 +14,21 @@ import {
 
 interface MobileSimulatorFrameProps {
   children: React.ReactNode;
+  splashScreen?: React.ReactNode;
   isSimulatorActive: boolean;
   onToggleSimulator: () => void;
   onReplayOnboarding: () => void;
+  onReplaySplash?: () => void;
   onSimulatePushNotification?: () => void;
 }
 
 export const MobileSimulatorFrame: React.FC<MobileSimulatorFrameProps> = ({
   children,
+  splashScreen,
   isSimulatorActive,
   onToggleSimulator,
   onReplayOnboarding,
+  onReplaySplash,
   onSimulatePushNotification,
 }) => {
   const [deviceModel, setDeviceModel] = useState<'iphone' | 'android'>('iphone');
@@ -44,7 +48,12 @@ export const MobileSimulatorFrame: React.FC<MobileSimulatorFrameProps> = ({
   }, []);
 
   if (!isSimulatorActive) {
-    return <>{children}</>;
+    return (
+      <div className="relative flex-1 flex flex-col">
+        {splashScreen && <div className="fixed inset-0 z-50">{splashScreen}</div>}
+        {children}
+      </div>
+    );
   }
 
   return (
@@ -95,10 +104,22 @@ export const MobileSimulatorFrame: React.FC<MobileSimulatorFrameProps> = ({
             </button>
           </div>
 
+          {/* Replay Glowing Splash Screen */}
+          {onReplaySplash && (
+            <button
+              onClick={onReplaySplash}
+              className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 rounded-xl text-[11px] font-semibold flex items-center gap-1 text-emerald-300 transition-colors cursor-pointer"
+              title="إعادة تشغيل شاشة فتح التطبيق المتوهجة"
+            >
+              <RotateCw className="w-3.5 h-3.5 text-emerald-400" />
+              <span>شاشة الفتح</span>
+            </button>
+          )}
+
           {/* Replay Onboarding */}
           <button
             onClick={onReplayOnboarding}
-            className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 rounded-xl text-[11px] font-semibold flex items-center gap-1 text-slate-200 transition-colors"
+            className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 rounded-xl text-[11px] font-semibold flex items-center gap-1 text-slate-200 transition-colors cursor-pointer"
             title="إعادة عرض شاشات الـ Onboarding الأربعة"
           >
             <Sparkles className="w-3.5 h-3.5 text-orange-400" />
@@ -162,8 +183,14 @@ export const MobileSimulatorFrame: React.FC<MobileSimulatorFrameProps> = ({
           </div>
 
           {/* Inner App Container with Independent Scroll */}
-          <div className="flex-1 overflow-y-auto overscroll-contain relative bg-slate-50 flex flex-col" id="simulator-scroll-container">
-            {children}
+          <div className="flex-1 relative overflow-hidden flex flex-col bg-slate-50">
+            {splashScreen}
+            <div
+              className="flex-1 overflow-y-auto overscroll-contain relative bg-slate-50 flex flex-col"
+              id="simulator-scroll-container"
+            >
+              {children}
+            </div>
           </div>
 
           {/* Native Phone Bottom Home Indicator */}

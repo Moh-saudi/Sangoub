@@ -257,8 +257,8 @@ async function startServer() {
     }
   });
 
-  // 4. GitHub Repository Sync Endpoints (https://github.com/Moh-saudi/ct.git)
-  const TARGET_GITHUB_REPO = 'https://github.com/Moh-saudi/ct.git';
+  // 4. GitHub Repository Sync Endpoints (Moh-saudi/capital-talabat.git & Moh-saudi/ct.git)
+  const TARGET_GITHUB_REPO = 'https://github.com/Moh-saudi/capital-talabat.git';
 
   app.get('/api/github/status', async (_req, res) => {
     try {
@@ -289,22 +289,25 @@ async function startServer() {
     }
   });
 
-  app.post('/api/github/push', async (_req, res) => {
+  app.post('/api/github/push', async (req, res) => {
     try {
       const token = process.env.GITHUB_TOKEN?.trim();
+      const repoName =
+        req.body?.repo === 'ct' ? 'Moh-saudi/ct.git' : 'Moh-saudi/capital-talabat.git';
+
       if (!token) {
         res.status(400).json({
           success: false,
           needsToken: true,
           message:
-            'المستودع المحلي جاهز ومربوط بـ https://github.com/Moh-saudi/ct.git (فرع main). لإتمام الرفع المباشر، يرجى الضغط على أيقونة GitHub أعلى يمين شاشة AI Studio، أو إضافة GITHUB_TOKEN (Personal Access Token بصلاحية repo) في لوحة Secrets بالمنصة ثم الضغط هنا مجدداً.',
+            'المستودع المحلي جاهز ومربوط بـ GitHub (فرع main). لإتمام الرفع المباشر، يرجى الضغط على أيقونة GitHub أعلى شاشة AI Studio وعمل Commit & Push، أو تفعيل صلاحية الكتابة في GITHUB_TOKEN.',
         });
         return;
       }
 
       const authenticatedRepoUrl = `https://x-access-token:${encodeURIComponent(
         token
-      )}@github.com/Moh-saudi/ct.git`;
+      )}@github.com/${repoName}`;
 
       await execFileAsync('git', ['add', '-A'], { cwd: __dirname });
       try {
@@ -327,8 +330,7 @@ async function startServer() {
 
       res.json({
         success: true,
-        message:
-          'تم رفع المشروع بالكامل (الويب + تطبيق الموبايل PWA/TWA + إعدادات مصادقة Firebase) بنجاح إلى https://github.com/Moh-saudi/ct.git على فرع main!',
+        message: `تم رفع المشروع بالكامل بنجاح إلى https://github.com/${repoName} على فرع main!`,
       });
     } catch (error: unknown) {
       const rawMsg = error instanceof Error ? error.message : String(error);
@@ -337,7 +339,7 @@ async function startServer() {
       res.status(500).json({
         success: false,
         message: is403
-          ? 'رفض GitHub الكتابة بالتوكن الحالي (خطأ 403: Resource not accessible by personal access token). يرجى فتح إعدادات التوكن في GitHub وتغيير صلاحية Contents إلى Read and write وصلاحية Workflows إلى Read and write، أو إنشاء Classic Token وتحديد خيار repo.'
+          ? 'رفض GitHub الكتابة بالتوكن الحالي (خطأ 403). يمكنك الرفع مباشرة بالضغط على أيقونة GitHub في الشريط العلوي لمنصة AI Studio والضغط على Commit & Push إلى Moh-saudi/capital-talabat.'
           : `تعذر الرفع إلى GitHub: ${safeMsg}`,
       });
     }

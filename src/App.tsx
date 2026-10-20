@@ -60,6 +60,7 @@ import { OnboardingModal } from './components/OnboardingModal.tsx';
 import { MobileSimulatorFrame } from './components/MobileSimulatorFrame.tsx';
 import { AiAssistantModal } from './components/AiAssistantModal.tsx';
 import { MobileReleaseModal } from './components/MobileReleaseModal.tsx';
+import { AppSplashScreen } from './components/AppSplashScreen.tsx';
 import { applyCouponDiscount, formatEGP } from './utils/orderCalculations.ts';
 import { useVoiceRecorder } from './utils/geminiClient.ts';
 import { useOnlineStatus } from './utils/usePWAInstall.ts';
@@ -90,8 +91,9 @@ export default function App() {
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>(INITIAL_COUPONS);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
 
-  // Mobile Simulator, Onboarding & Release Hub States
+  // Mobile Simulator, Splash Screen, Onboarding & Release Hub States
   const [isSimulatorActive, setIsSimulatorActive] = useState<boolean>(true);
+  const [isSplashOpen, setIsSplashOpen] = useState<boolean>(true);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
   const [isMobileReleaseOpen, setIsMobileReleaseOpen] = useState<boolean>(false);
   const [checkoutInterceptNotice, setCheckoutInterceptNotice] = useState<string | null>(null);
@@ -120,17 +122,9 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Automatically show Onboarding on first session load
+  // Keep Splash Screen as the primary mobile launch experience
   useEffect(() => {
-    try {
-      const seen = sessionStorage.getItem('capital_talabat_onboarding_shown');
-      if (!seen) {
-        setIsOnboardingOpen(true);
-        sessionStorage.setItem('capital_talabat_onboarding_shown', 'true');
-      }
-    } catch {
-      // ignore
-    }
+    setIsSplashOpen(true);
   }, []);
 
   // Navigation
@@ -914,6 +908,10 @@ export default function App() {
         isSimulatorActive={isSimulatorActive}
         onToggleSimulator={() => setIsSimulatorActive(!isSimulatorActive)}
         onReplayOnboarding={() => setIsOnboardingOpen(true)}
+        onReplaySplash={() => setIsSplashOpen(true)}
+        splashScreen={
+          <AppSplashScreen isOpen={isSplashOpen} onFinish={() => setIsSplashOpen(false)} />
+        }
       >
         {appContent}
       </MobileSimulatorFrame>

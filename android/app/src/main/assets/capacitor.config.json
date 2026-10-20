@@ -1,0 +1,16 @@
+{
+	"appId": "eg.gov.capital.talabat",
+	"appName": "طلبات الحي الحكومي بالعاصمة",
+	"webDir": "dist",
+	"bundledWebRuntime": false,
+	"server": {
+		"androidScheme": "https",
+		"allowNavigation": [
+			"*.run.app",
+			"*.firebaseapp.com",
+			"*.googleapis.com",
+			"accounts.google.com"
+		]
+	},
+	"android": {}
+}

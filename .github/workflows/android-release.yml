@@ -1,4 +1,4 @@
-name: Build Web & Signed Android AAB for Google Play
+name: Build Web & Signed Android Mobile App (APK & Google Play AAB)
 
 on:
   push:
@@ -18,59 +18,49 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install Web Dependencies & Build Production PWA
+      - name: Install Dependencies & Build Web + Sync Capacitor Android
         run: |
-          npm ci
-          npm run lint
+          npm install
           npm run build
+          npx cap sync android
 
-      - name: Upload Web & Firebase Release Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: capital-talabat-web-firebase-release
-          path: |
-            dist/
-            server.ts
-            package.json
-            firebase-applet-config.json
-            firestore.rules
-            twa-manifest.json
-
-      - name: Setup Java JDK 17 for Android Packaging
+      - name: Setup Java JDK 21 for Android Gradle Build
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Generate Android Signing Keystore (if not provided)
+      - name: Generate Android Release Signing Keystore
+        working-directory: ./android/app
         run: |
-          if [ ! -f android.keystore ]; then
+          if [ ! -f release-key.keystore ]; then
             keytool -genkeypair -v \
-              -keystore android.keystore \
+              -keystore release-key.keystore \
               -alias capital-talabat-key \
               -keyalg RSA \
               -keysize 2048 \
               -validity 10000 \
               -storepass CapitalTalabat2026 \
               -keypass CapitalTalabat2026 \
-              -dname "CN=Capital Talabat, OU=Gov District, O=New Administrative Capital, L=Cairo, S=Cairo, C=EG"
+              -dname "CN=Capital Talabat, OU=Government District, O=New Administrative Capital, L=Cairo, S=Cairo, C=EG"
           fi
 
-      - name: Upload Signing Keystore Backup (Keep safe for future Google Play updates)
+      - name: Build Signed Android APK & Google Play App Bundle (.aab)
+        working-directory: ./android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease
+
+      - name: Upload Signed Google Play App Bundle (.aab) & APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: google-play-signing-keystore
-          path: android.keystore
-
-      - name: Auto-Upload to Google Play Console (Active when GOOGLE_PLAY_SERVICE_ACCOUNT_JSON secret is set)
-        if: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON != '' && hashFiles('app-release-bundle.aab') != '' }}
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: eg.gov.capital.talabat
-          releaseFiles: app-release-bundle.aab
-          track: production
-          status: completed
+          name: capital-talabat-android-google-play-release
+          path: |
+            android/app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/apk/release/*.apk
+            android/app/release-key.keystore
+            firebase-applet-config.json
+            firestore.rules
