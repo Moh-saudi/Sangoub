@@ -18,7 +18,7 @@ export default defineConfig(() => {
           short_name: 'طلبات العاصمة',
           description:
             'تطبيق طلبات وتوصيل وجبات الفود كورت والسوبر ماركت لموظفي الـ 34 وزارة بالحي الحكومي بالعاصمة الإدارية الجديدة.',
-          theme_color: '#0f172a',
+          theme_color: '#10213f',
           background_color: '#f8fafc',
           display: 'standalone',
           orientation: 'portrait',

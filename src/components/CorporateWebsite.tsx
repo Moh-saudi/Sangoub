@@ -206,7 +206,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
   return (
     <div className="capital-site min-h-screen text-slate-900 flex flex-col" dir="rtl">
       <header className="site-header">
-        <button className="site-brand" onClick={() => navigateToSection('home')} aria-label="طلبات العاصمة — الرئيسية"><span className="brand-icon"><ShoppingBag size={24} /></span><span>طلبات<span className="brand-accent"> العاصمة</span><small>يومك أسهل. بريكك أحلى.</small></span></button>
+        <button className="site-brand" onClick={() => navigateToSection('home')} aria-label="طلبات العاصمة — الرئيسية"><img className="official-logo" src="/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png" alt="شعار طلبات العاصمة الرسمي" width="80" height="80" /><span><span className="brand-accent">طلبات</span> العاصمة<small lang="en" dir="ltr">Capital Talabat</small></span></button>
         <nav aria-label="القائمة الرئيسية" className="site-nav">
           <button onClick={() => navigateToSection('home')} aria-current={activePage === 'home' ? 'page' : undefined}>الرئيسية</button>
           <button onClick={() => navigateToSection('partners')}>للمطاعم والمتاجر</button>
@@ -813,7 +813,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
       )}
 
       {/* Quiet Corporate Footer with Mesk Technology, WhatsApp +01017799580, and Email info@el7lm.com */}
-      <footer className="site-footer"><div><strong>طلبات العاصمة<span> ✳</span></strong><p>بريك يستاهل، من غير ما تسيب مكتبك.</p></div><nav aria-label="روابط إضافية"><button onClick={() => navigateToSection('terms')}>الشروط والأحكام</button><button onClick={() => navigateToSection('privacy')}>الخصوصية</button><a href="https://wa.me/201017799580" target="_blank" rel="noopener noreferrer">تواصل معنا <ArrowLeft size={15} /></a></nav><small>© {new Date().getFullYear()} طلبات العاصمة · ميسك للتكنولوجيا</small></footer>
+      <footer className="site-footer"><div className="footer-brand"><img className="official-logo" src="/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png" alt="شعار طلبات العاصمة الرسمي" width="80" height="80" loading="lazy" /><div><strong><span>طلبات</span> العاصمة</strong><p>بريك يستاهل، من غير ما تسيب مكتبك.</p></div></div><nav aria-label="روابط إضافية"><button onClick={() => navigateToSection('terms')}>الشروط والأحكام</button><button onClick={() => navigateToSection('privacy')}>الخصوصية</button><a href="https://wa.me/201017799580" target="_blank" rel="noopener noreferrer">تواصل معنا <ArrowLeft size={15} /></a></nav><small>© {new Date().getFullYear()} طلبات العاصمة · ميسك للتكنولوجيا</small></footer>
 
       <a href="https://wa.me/201017799580" target="_blank" rel="noopener noreferrer" className="website-whatsapp" aria-label="تواصل معنا عبر واتساب"><MessageCircle size={23} /></a>
     </div>
