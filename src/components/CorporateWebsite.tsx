@@ -1,3 +1,4 @@
+import { HeroShowcase } from './HeroShowcase.tsx';
 import React, { useState, useEffect } from 'react';
 import {
   ShoppingBag,
@@ -217,21 +218,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
 
       {activePage === 'home' && (
         <main className="landing-main">
-          <section className="landing-hero">
-            <div className="hero-copy">
-              <span className="eyebrow"><span /> من الفود كورت إلى مكتبك</span>
-              <h1>بريكك أحلى،<br />وطلبك <em>لحد مكتبك.</em></h1>
-              <p>فطارك، قهوتك، وطلبات يومك في الحي الحكومي.<br />اختار اللي بتحبه، وكمّل يومك.</p>
-              <div className="hero-actions"><button className="site-button site-button-orange" onClick={onOpenMobileApp}>شوف المنيو واطلب <ArrowLeft size={19} /></button><a className="quiet-link" href="#how-it-works">إزاي بتشتغل؟ <ArrowLeft size={15} /></a></div>
-              <div className="hero-location"><MapPin size={18} /><span>العاصمة الإدارية الجديدة · الحي الحكومي</span></div>
-            </div>
-            <div className="hero-photograph">
-              <img src="/images/cafe.jpg" alt="تحضير طلب قهوة طازجة في كافيه" fetchPriority="high" />
-              <span className="photo-label">لحظة حلوة وسط يومك <span>☕</span></span>
-              <div className="delivery-note"><span className="delivery-icon"><ShoppingBag size={23} /></span><div><strong>من الكافيه… لباب مكتبك</strong><small>حدّد المبنى والدور ورقم المكتب</small></div><span className="note-check"><CheckCircle2 size={22} /></span></div>
-              <span className="hero-caption">صور تعبّر عن تجربة الخدمة</span>
-            </div>
-          </section>
+          <HeroShowcase onOpenApp={onOpenMobileApp} onOpenPartners={() => navigateToSection('partners')} />
           <div className="service-strip"><span><StoreIcon /> مطاعم وكافيهات</span><span><MapPin /> توصيل لحد المكتب</span><span><Clock /> طلب فوري أو مجدول</span><span><ShoppingBag /> احتياجات يومك</span></div>
           <section className="food-section" id="discover">
             <div className="section-heading"><div><span className="eyebrow">على مزاجك</span><h2>لكل بريك، طلبه.</h2></div><button className="quiet-link" onClick={onOpenMobileApp}>استكشف المنيو <ArrowLeft size={18} /></button></div>
