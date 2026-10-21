@@ -44,7 +44,23 @@ capital-talabat/
 
 ---
 
-## 🗄️ 3. مخطط قاعدة البيانات المشترك (Shared Firestore Collections)
+## ☁️ 3. سحابة تخزين الصور والوسائط (Cloudflare R2 Object Storage)
+
+يتم تخزين وإدارة جميع ملفات الصور (صور الوجبات، قوائم الطعام، أغلفة المطاعم، صور الحسابات) عبر **Cloudflare R2** لسرعتها الفائقة وانعدام تكاليف خروج البيانات (Zero Egress Fees):
+
+- **Bucket Name:** `capitaltalabat`
+- **Account ID:** `14521cdfec73fa908fbf7e760fae362a`
+- **Region / Location:** `Eastern Europe (EEUR)`
+- **S3 API Endpoint:**  
+  `https://14521cdfec73fa908fbf7e760fae362a.r2.cloudflarestorage.com/capitaltalabat`
+- **Storage Class:** `Standard`
+- **طريقة الاستخدام المشتركة:**
+  - **من لوحة تحكم الويب:** عند إضافة أو تعديل مطعم أو وجبة جديدة في الفود كورت، يتم رفع الصورة إلى الـ Bucket عبر S3 API SDK / Presigned URLs ثم حفظ رابط الصورة الناتج `imageUrl` داخل مستند المطعم أو الوجبة في Firestore.
+  - **من تطبيق الموبايل:** يقوم التطبيق بعرض الصور مباشرة عبر الروابط المحفوظة باستخدام `CachedNetworkImage` مع دعم التخزين المؤقت في ذاكرة الهاتف.
+
+---
+
+## 🗄️ 4. مخطط قاعدة البيانات المشترك (Shared Firestore Collections)
 
 يجب الالتزام بأسماء الحقول والأنواع البرمجية التالية لضمان التزامن اللحظي بين شاشات الويب وشاشات الموبايل:
 
@@ -93,7 +109,7 @@ interface OrderRecord {
 
 ---
 
-## 🔄 4. دورة حياة الطلب والتنسيق بين شاشات الويب وتطبيق الموبايل
+## 🔄 5. دورة حياة الطلب والتنسيق بين شاشات الويب وتطبيق الموبايل
 
 ```mermaid
 graph LR
@@ -119,7 +135,7 @@ graph LR
 
 ---
 
-## 🚀 5. حالة المشروع والجاهزية
+## 🚀 6. حالة المشروع والجاهزية
 - كود تطبيق الموبايل Flutter موجود بالكامل داخل المجلد:  
   📁 [`mobile_app/`](./mobile_app/)
 - تم إعداد وتكوين حزم Firebase و Google Services مسبقاً.
