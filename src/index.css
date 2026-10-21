@@ -78,8 +78,8 @@
 .brand-accent{color:var(--accent)}
 .site-brand small{display:block;font-size:10px;color:var(--muted);font-weight:500;letter-spacing:.3px}
 .site-nav{display:flex;gap:32px;font-size:12px;font-weight:700}
-.site-nav button{padding:8px 0;color:#52617b;transition:color .2s}
-.site-nav button:hover,.site-nav button[aria-current=page]{color:var(--accent)}
+.site-nav button,.site-nav a{padding:8px 0;color:#52617b;transition:color .2s}
+.site-nav button:hover,.site-nav a:hover,.site-nav button[aria-current=page]{color:var(--accent)}
 .site-button{display:inline-flex;align-items:center;justify-content:center;gap:20px;border-radius:9px;padding:15px 24px;font-size:13px;font-weight:700;transition:background .2s,transform .2s;white-space:nowrap}
 .site-button:hover{transform:translateY(-2px)}
 .site-button-dark{background:var(--ink);color:white}.site-button-dark:hover{background:#203858}
