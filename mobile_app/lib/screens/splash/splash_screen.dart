@@ -20,9 +20,9 @@ class _SplashScreenState extends State<SplashScreen>
   int _currentStepIndex = 0;
 
   final List<String> _loadingSteps = [
-    'تجهيز قائمة الفود كورت والسوبر ماركت',
-    'مزامنة مقرات الـ 34 وزارة بالحي الحكومي',
-    'تفعيل مصادقة Google Firebase ومحفظة الموظف',
+    'تهيئة خدمات وقوائم الحي الحكومي',
+    'مزامنة المتاجر والمطاعم المعتمدة',
+    'تأمين الاتصال وتشفير بيانات الطلب',
   ];
 
   @override
@@ -210,13 +210,13 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
 
-            // Footer: "خدمة التوصيل السريع لمكاتب الـ 34 وزارة وهيئة حكومية"
+            // Footer: "خدمة التوصيل السريع للحي الحكومي بالعاصمة الإدارية"
             Positioned(
               bottom: 24,
               left: 20,
               right: 20,
               child: Text(
-                'خدمة التوصيل السريع لمكاتب الـ 34 وزارة وهيئة حكومية',
+                'خدمة التوصيل السريع للحي الحكومي بالعاصمة الإدارية',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.cairo(
                   fontSize: 11,
