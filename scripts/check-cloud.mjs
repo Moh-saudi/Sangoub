@@ -29,11 +29,13 @@ await check("Firebase Authentication", async () => {
     { signal: AbortSignal.timeout(20000) },
   );
   const body = await response.json();
+  const siteDomain = new URL(site).hostname;
+  const siteDomainAuthorized = (body.authorizedDomains || []).includes(siteDomain);
   return {
-    ok: response.ok,
+    ok: response.ok && siteDomainAuthorized,
     status: response.status,
     ...(response.ok
-      ? { authorizedDomains: body.authorizedDomains || [] }
+      ? { authorizedDomains: body.authorizedDomains || [], siteDomain, siteDomainAuthorized }
       : { error: body.error?.message }),
   };
 });
