@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "462331103510",
+    "project_id": "capital-talabat",
+    "storage_bucket": "capital-talabat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:462331103510:android:bbcec7992b9a9b08e9e837",
+        "android_client_info": {
+          "package_name": "eg.gov.capital.capital_talabat_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "462331103510-utg2t9madpduao18bgdag267oa4h96sc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC8riMf-65g49IqPvT_Ug2DD-X-cluDm54"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "462331103510-utg2t9madpduao18bgdag267oa4h96sc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
