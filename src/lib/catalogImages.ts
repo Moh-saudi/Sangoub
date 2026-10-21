@@ -1,5 +1,17 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { storage, saveRecord } from "./firebase";
+import { auth, saveRecord } from "./firebase";
+import { apiUrl } from "./apiUrl";
+
+async function imageRequest(body: object) {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("يرجى تسجيل الدخول.");
+  const response = await fetch(apiUrl("/api/catalog-images"), {
+    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json().catch(() => ({ error: "خدمة الصور غير متاحة." }));
+  if (!response.ok) throw new Error(result.error || "تعذر رفع الصورة.");
+  return result;
+}
 
 export function validateCatalogImage(file: File) {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
@@ -16,19 +28,21 @@ export async function saveCatalogWithImages(
 ) {
   const selected = images.filter((image) => image.file && image.file.size > 0);
   for (const image of selected) validateCatalogImage(image.file!);
-  const uploaded: ReturnType<typeof ref>[] = [];
+  const uploaded: string[] = [];
   try {
     for (const image of selected) {
       const file = image.file!;
-      const extension = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" }[file.type];
-      const target = ref(storage, `catalog/${collection}/${id}/${crypto.randomUUID()}.${extension}`);
-      await uploadBytes(target, file, { contentType: file.type });
-      uploaded.push(target);
-      data[image.field] = await getDownloadURL(target);
+      const target = await imageRequest({ action: "upload", collection, id, contentType: file.type, size: file.size });
+      uploaded.push(target.key);
+      const response = await fetch(target.uploadUrl, { method: "PUT", body: file, headers: {
+        "Content-Type": file.type, "Cache-Control": "public, max-age=31536000, immutable",
+      }});
+      if (!response.ok) throw new Error("تعذر رفع الصورة إلى R2. راجع إعداد CORS للحاوية.");
+      data[image.field] = target.publicUrl;
     }
     await saveRecord(collection, id, data);
   } catch (error) {
-    await Promise.allSettled(uploaded.map((target) => deleteObject(target)));
+    await Promise.allSettled(uploaded.map((key) => imageRequest({ action: "delete", key })));
     throw error;
   }
 }

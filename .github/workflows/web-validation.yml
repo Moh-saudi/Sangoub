@@ -27,4 +27,3 @@ jobs:
       - run: npm run build
       - run: npm run test:auth
       - run: npm run test:rules
-      - run: npm run test:storage

@@ -26,7 +26,6 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import savedConfig from "../../firebase-applet-config.json";
-import { getStorage, connectStorageEmulator } from "firebase/storage";
 import type { Order, Profile, UserRole } from "../types/index.ts";
 
 export const firebaseConfig = {
@@ -44,14 +43,12 @@ export const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
-export const storage = getStorage(app);
 if (
   import.meta.env.DEV &&
   import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true"
 ) {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
-  connectStorageEmulator(storage, "127.0.0.1", 9199);
 }
 export { onAuthStateChanged, type FirebaseUser };
 export const googleProvider = new GoogleAuthProvider();

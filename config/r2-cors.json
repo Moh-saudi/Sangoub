@@ -1,0 +1,9 @@
+[
+  {
+    "AllowedOrigins": ["https://capital-talabat.vercel.app", "https://localhost", "capacitor://localhost", "http://localhost:3000"],
+    "AllowedMethods": ["GET", "HEAD", "PUT"],
+    "AllowedHeaders": ["Content-Type", "Cache-Control"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]

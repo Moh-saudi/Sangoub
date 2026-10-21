@@ -1,6 +1,7 @@
 import express from "express";
 import ordersHandler from "./api/orders.ts";
 import geminiHandler from "./api/gemini/[action].ts";
+import catalogImagesHandler from "./api/catalog-images.ts";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -18,6 +19,8 @@ async function startServer() {
   app.use(express.json({ limit: "1mb" }));
   app.post("/api/orders", ordersHandler);
   app.options("/api/orders", ordersHandler);
+  app.post("/api/catalog-images", catalogImagesHandler);
+  app.options("/api/catalog-images", catalogImagesHandler);
 
   app.post("/api/gemini/:action", geminiHandler);
   app.options("/api/gemini/:action", geminiHandler);

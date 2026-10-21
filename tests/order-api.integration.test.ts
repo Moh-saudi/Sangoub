@@ -10,6 +10,7 @@ import {
 import { getApps, deleteApp as deleteAdminApp } from "firebase-admin/app";
 import { adminServices } from "../server/firebaseAdmin.ts";
 import handler from "../api/orders.ts";
+import imagesHandler from "../api/catalog-images.ts";
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_PROJECT_ID = "demo-capital-talabat";
@@ -41,10 +42,10 @@ const payload = () => ({
   ],
   total: 0,
 });
-async function invoke(body: any) {
+async function invoke(body: any, endpoint = handler) {
   let status = 200;
   let result: any;
-  await handler(
+  await endpoint(
     { method: "POST", headers: { authorization: "Bearer " + token }, body },
     {
       setHeader() {},
@@ -147,4 +148,37 @@ test("daily quota stops additional orders with HTTP 429", async () => {
     .doc("orderLimits/" + uid)
     .set({ startedAt: Date.now(), count: 30 });
   assert.equal((await invoke(payload())).status, 429);
+});
+
+test("catalog signing rejects a real authenticated customer", async () => {
+  const response = await invoke({ action: "upload", collection: "stores", id: "api-store", contentType: "image/png", size: 100 }, imagesHandler);
+  assert.equal(response.status, 403);
+});
+
+test("catalog signing grants a short-lived size-bound URL only to an admin", async () => {
+  const names = ["R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_PUBLIC_URL"];
+  const previous = names.map((name) => process.env[name]);
+  // Synthetic signing credentials; this test never connects to R2.
+  process.env.R2_ACCESS_KEY_ID = "test-access-key";
+  process.env.R2_SECRET_ACCESS_KEY = "test-secret-key";
+  process.env.R2_PUBLIC_URL = "https://images.example.com";
+  await services.db.doc("admins/" + uid).set({ enabled: true });
+  try {
+    const response = await invoke({ action: "upload", collection: "products", id: "api-product", contentType: "image/png", size: 100 }, imagesHandler);
+    assert.equal(response.status, 200);
+    const url = new URL(response.result.uploadUrl);
+    assert.equal(url.hostname, "14521cdfec73fa908fbf7e760fae362a.r2.cloudflarestorage.com");
+    assert.equal(url.searchParams.get("X-Amz-Expires"), "120");
+    assert.match(url.searchParams.get("X-Amz-SignedHeaders")!, /content-length/);
+    assert.match(url.searchParams.get("X-Amz-SignedHeaders")!, /content-type/);
+    assert.match(response.result.publicUrl, /^https:\/\/images.example.com\/catalog\/products\/api-product\//);
+    const invalid = await invoke({ action: "delete", key: "outside/catalog.png" }, imagesHandler);
+    assert.equal(invalid.status, 400);
+  } finally {
+    await services.db.doc("admins/" + uid).delete();
+    names.forEach((name, index) => {
+      if (previous[index] === undefined) delete process.env[name];
+      else process.env[name] = previous[index];
+    });
+  }
 });
