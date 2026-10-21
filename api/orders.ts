@@ -1,8 +1,10 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { adminServices } from "../server/firebaseAdmin.ts";
 import { buildOrder } from "../server/orderBuilder.ts";
+import { mobileCors } from "../server/mobileCors.ts";
 export default async function handler(req: any, res: any) {
   res.setHeader("Cache-Control", "no-store");
+  if (mobileCors(req, res)) return;
   if (req.method !== "POST")
     return res.status(405).json({ error: "Method not allowed" });
   const bearer = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];

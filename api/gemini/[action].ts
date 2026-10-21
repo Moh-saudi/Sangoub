@@ -1,8 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 import { Timestamp } from "firebase-admin/firestore";
 import { adminServices } from "../../server/firebaseAdmin.ts";
+import { mobileCors } from "../../server/mobileCors.ts";
 export default async function handler(req: any, res: any) {
   res.setHeader("Cache-Control", "no-store");
+  if (mobileCors(req, res)) return;
   if (req.method !== "POST")
     return res.status(405).json({ error: "Method not allowed" });
   const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];

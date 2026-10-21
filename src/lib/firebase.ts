@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase/app";
+import { apiUrl } from "./apiUrl";
 import {
   getAuth,
   GoogleAuthProvider,
@@ -232,7 +233,7 @@ export function subscribeToOrders(
 export async function saveOrderToFirestore(order: Order): Promise<Order> {
   if (!auth.currentUser) throw new Error("يرجى تسجيل الدخول.");
   const token = await auth.currentUser.getIdToken();
-  const response = await fetch("/api/orders", {
+  const response = await fetch(apiUrl("/api/orders"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

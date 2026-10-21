@@ -1,4 +1,5 @@
 import { auth } from "../lib/firebase.ts";
+import { apiUrl } from "../lib/apiUrl";
 import { useState, useRef, useCallback } from "react";
 
 export type GeminiTaskMode = "fast" | "general" | "complex";
@@ -35,7 +36,7 @@ export async function sendGeminiChatMessage(params: {
   botRole: ChatbotRole;
   catalogContext?: string;
 }): Promise<{ text: string; modelUsed: string; notice?: string }> {
-  const response = await fetch("/api/gemini/chat", {
+  const response = await fetch(apiUrl("/api/gemini/chat"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -56,7 +57,7 @@ export async function queryGoogleMapsGrounding(params: {
   latitude?: number;
   longitude?: number;
 }): Promise<MapsGroundingResult> {
-  const response = await fetch("/api/gemini/maps", {
+  const response = await fetch(apiUrl("/api/gemini/maps"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -84,7 +85,7 @@ export async function transcribeAudioBlob(blob: Blob): Promise<string> {
     reader.readAsDataURL(blob);
   });
 
-  const response = await fetch("/api/gemini/transcribe", {
+  const response = await fetch(apiUrl("/api/gemini/transcribe"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -17,8 +17,10 @@ async function startServer() {
 
   app.use(express.json({ limit: "1mb" }));
   app.post("/api/orders", ordersHandler);
+  app.options("/api/orders", ordersHandler);
 
   app.post("/api/gemini/:action", geminiHandler);
+  app.options("/api/gemini/:action", geminiHandler);
 
   app.all("/api/github/*", (_req, res) =>
     res
