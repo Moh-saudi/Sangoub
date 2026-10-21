@@ -73,14 +73,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               if (index == 0) ...[
                 // Screen 1: "ابدأ الآن" full-width orange pill button
                 Positioned(
-                  left: 110,
-                  top: 1400,
-                  width: 720,
-                  height: 210,
+                  left: 45,
+                  top: 1475,
+                  width: 850,
+                  height: 145,
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(105),
+                      borderRadius: BorderRadius.circular(72),
                       splashColor: Colors.white.withValues(alpha: 0.3),
                       highlightColor: Colors.white.withValues(alpha: 0.15),
                       onTap: _goToNextPage,
