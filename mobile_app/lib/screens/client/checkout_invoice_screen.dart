@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/constants/colors.dart';
+import '../../core/services/api_service.dart';
 import '../../models/ministry_model.dart';
-import '../../models/order_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
-import '../../providers/orders_provider.dart';
 import 'order_tracking_screen.dart';
 
 class CheckoutInvoiceScreen extends StatefulWidget {
@@ -112,7 +112,6 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
 
   Future<void> _processCheckout() async {
     final cart = Provider.of<CartProvider>(context, listen: false);
-    final orders = Provider.of<OrdersProvider>(context, listen: false);
     final auth = Provider.of<AuthProvider>(context, listen: false);
 
     if (cart.items.isEmpty) {
@@ -128,50 +127,94 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
       return;
     }
 
+    if (auth.firebaseUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'يرجى تسجيل الدخول أولاً لإتمام الطلب',
+            style: GoogleFonts.cairo(),
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isProcessing = true);
 
-    await Future.delayed(const Duration(milliseconds: 1000));
+    try {
+      final orderId = 'ord-${const Uuid().v4()}';
+      final profileName = (auth.currentUser?.name.isNotEmpty == true)
+          ? auth.currentUser!.name
+          : (auth.firebaseUser?.displayName?.isNotEmpty == true
+              ? auth.firebaseUser!.displayName!
+              : 'موظف العاصمة');
 
-    // Create the order model
-    final order = OrderModel(
-      id: 'ORD_${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-      customerName: auth.currentUser?.name ?? 'موظف الحي الحكومي',
-      customerPhone: auth.currentUser?.phone ?? '01012345678',
-      ministryName: cart.selectedMinistry,
-      floor: _floorController.text.trim().isNotEmpty ? _floorController.text.trim() : 'الدور الرابع',
-      officeNumber: _officeController.text.trim().isNotEmpty ? _officeController.text.trim() : 'مكتب 402',
-      items: cart.items.values
-          .map((item) => OrderItem(
-                id: item.id,
-                name: item.name,
-                price: item.price,
-                quantity: item.quantity,
-              ))
-          .toList(),
-      subtotal: cart.subtotal,
-      deliveryFee: cart.deliveryFee,
-      discount: cart.discount,
-      total: cart.total,
-      status: OrderStatus.pendingChef,
-      otpCode: '${(1000 + DateTime.now().millisecond * 9) % 9000 + 1000}',
-      restaurantName: 'مطبخ العاصمة المركزي',
-      createdAt: DateTime.now(),
-    );
+      final phone = (auth.currentUser?.phone.isNotEmpty == true)
+          ? auth.currentUser!.phone
+          : '01012345678';
 
-    // Add to orders provider & sync to Firestore
-    orders.addOrderModel(order);
-    cart.clear();
+      final ministry = cart.selectedMinistry.isNotEmpty
+          ? cart.selectedMinistry
+          : (auth.currentUser?.ministry.isNotEmpty == true
+              ? auth.currentUser!.ministry
+              : 'وزارة الاتصالات وتكنولوجيا المعلومات');
 
-    setState(() => _isProcessing = false);
+      final floor = _floorController.text.trim().isNotEmpty
+          ? _floorController.text.trim()
+          : (auth.currentUser?.floorNumber.isNotEmpty == true
+              ? auth.currentUser!.floorNumber
+              : 'الدور الرابع');
 
-    if (!mounted) return;
+      final office = _officeController.text.trim().isNotEmpty
+          ? _officeController.text.trim()
+          : (auth.currentUser?.roomNumber.isNotEmpty == true
+              ? auth.currentUser!.roomNumber
+              : 'مكتب 402');
 
-    // Navigate to Order Tracking
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => OrderTrackingScreen(orderId: order.id),
-      ),
-    );
+      final notes = _notesController.text.trim();
+
+      // إنشاء الطلب رسمياً عبر الـ Backend API POST /api/orders
+      final res = await ApiService().createOrder(
+        id: orderId,
+        profileName: profileName,
+        phone: phone,
+        ministry: ministry,
+        floorNumber: floor,
+        roomNumber: office,
+        items: cart.toApiItems(),
+        couponCode: cart.couponCode,
+        notes: notes.isNotEmpty ? notes : null,
+      );
+
+      final createdDocId = (res['order']?['id'] as String?) ?? orderId;
+
+      cart.clearCart();
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      // الانتقال فوراً لشاشة التتبع الحي للطلب
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => OrderTrackingScreen(orderId: createdDocId),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceAll('Exception: ', ''),
+            style: GoogleFonts.cairo(),
+          ),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   @override
@@ -416,13 +459,29 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () {
-                      if (_couponController.text.trim().toUpperCase() == 'CAPITAL100') {
-                        cart.applyCoupon('CAPITAL100');
+                    onPressed: () async {
+                      final code = _couponController.text.trim();
+                      if (code.isEmpty) return;
+                      final success = await cart.applyCoupon(code);
+                      if (!context.mounted) return;
+                      if (success) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('تم تطبيق خصم 100 جنيه بنجاح! 🎁', style: GoogleFonts.cairo()),
+                            content: Text(
+                              'تم تطبيق كود الخصم ($code) بنجاح! 🎁',
+                              style: GoogleFonts.cairo(),
+                            ),
                             backgroundColor: Colors.green,
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'كود الخصم غير صالح أو لم يصل للحد الأدنى للطلب',
+                              style: GoogleFonts.cairo(),
+                            ),
+                            backgroundColor: Colors.redAccent,
                           ),
                         );
                       }

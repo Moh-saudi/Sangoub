@@ -5,7 +5,6 @@ import '../../core/constants/colors.dart';
 import '../../models/order_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/orders_provider.dart';
-import '../auth/role_select_login_screen.dart';
 
 class ChefPortalScreen extends StatelessWidget {
   const ChefPortalScreen({super.key});
@@ -37,13 +36,9 @@ class ChefPortalScreen extends StatelessWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.switch_account_outlined, color: AppColors.navy),
-            tooltip: 'تغيير الدور',
-            onPressed: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const RoleSelectLoginScreen()),
-              );
-            },
+            icon: const Icon(Icons.logout_rounded, color: AppColors.navy),
+            tooltip: 'تسجيل الخروج',
+            onPressed: () => auth.signOut(),
           ),
         ],
       ),
@@ -101,6 +96,13 @@ class ChefPortalScreen extends StatelessWidget {
                 itemCount: chefOrders.length,
                 itemBuilder: (context, index) {
                   final order = chefOrders[index];
+                  final storeId = auth.currentUser?.storeId ??
+                      (order.storeIds.isNotEmpty ? order.storeIds.first : '');
+                  final kitchenStage = order.kitchenStatus[storeId] ??
+                      (order.status == OrderStatus.pendingChef
+                          ? 'received'
+                          : (order.status == OrderStatus.cooking ? 'preparing' : 'ready'));
+
                   return Container(
                     margin: const EdgeInsets.only(bottom: 14),
                     padding: const EdgeInsets.all(16),
@@ -198,11 +200,22 @@ class ChefPortalScreen extends StatelessWidget {
 
                         const SizedBox(height: 14),
 
-                        // Action Buttons based on status
-                        if (order.status == OrderStatus.pendingChef)
+                        // Action Buttons based on kitchenStage
+                        if (kitchenStage == 'received')
                           ElevatedButton.icon(
-                            onPressed: () {
-                              orders.updateOrderStatus(order.id, OrderStatus.cooking);
+                            onPressed: () async {
+                              try {
+                                await orders.advanceKitchenStage(
+                                  orderId: order.id,
+                                  storeId: storeId,
+                                );
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              }
                             },
                             icon: const Icon(Icons.soup_kitchen_rounded, color: Colors.white),
                             label: Text(
@@ -214,10 +227,21 @@ class ChefPortalScreen extends StatelessWidget {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                           )
-                        else if (order.status == OrderStatus.cooking)
+                        else if (kitchenStage == 'preparing')
                           ElevatedButton.icon(
-                            onPressed: () {
-                              orders.updateOrderStatus(order.id, OrderStatus.readyForPickup);
+                            onPressed: () async {
+                              try {
+                                await orders.advanceKitchenStage(
+                                  orderId: order.id,
+                                  storeId: storeId,
+                                );
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              }
                             },
                             icon: const Icon(Icons.check_circle_outline, color: Colors.white),
                             label: Text(
@@ -229,7 +253,7 @@ class ChefPortalScreen extends StatelessWidget {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                           )
-                        else if (order.status == OrderStatus.readyForPickup)
+                        else
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
@@ -242,7 +266,7 @@ class ChefPortalScreen extends StatelessWidget {
                                 const Icon(Icons.two_wheeler_rounded, color: AppColors.statusReady, size: 20),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'في انتظار استلام مندوب التوصيل',
+                                  'تم تجهيز الوجبة وجاهزة للاستلام من المندوب',
                                   style: GoogleFonts.cairo(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,

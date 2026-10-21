@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/colors.dart';
 import '../../models/product_model.dart';
 import '../../providers/cart_provider.dart';
+import '../../widgets/app_image.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final ProductModel product;
@@ -119,8 +120,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset(
-                    widget.product.image,
+                  AppImage(
+                    urlOrPath: widget.product.image,
                     fit: BoxFit.cover,
                   ),
                   Container(

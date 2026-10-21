@@ -6,7 +6,7 @@ import '../../core/constants/colors.dart';
 import '../../models/order_model.dart';
 import '../../providers/orders_provider.dart';
 
-class OrderTrackingScreen extends StatelessWidget {
+class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
 
   const OrderTrackingScreen({
@@ -15,30 +15,69 @@ class OrderTrackingScreen extends StatelessWidget {
   });
 
   @override
+  State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
+}
+
+class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
+  bool _isLoadingOtp = false;
+  String? _fetchedOtp;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOtp();
+  }
+
+  Future<void> _fetchOtp() async {
+    setState(() => _isLoadingOtp = true);
+    try {
+      final ordersProvider = Provider.of<OrdersProvider>(context, listen: false);
+      final code = await ordersProvider.fetchOrderOtpCode(widget.orderId);
+      if (mounted) {
+        setState(() {
+          _fetchedOtp = code;
+          _isLoadingOtp = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingOtp = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final ordersProvider = Provider.of<OrdersProvider>(context);
 
     // Find the order or use a fallback
     final order = ordersProvider.orders.firstWhere(
-      (o) => o.id == orderId,
+      (o) => o.id == widget.orderId,
       orElse: () => OrderModel(
-        id: orderId,
+        id: widget.orderId,
+        orderNumber: 'CAP-${widget.orderId.substring(0, widget.orderId.length > 6 ? 6 : widget.orderId.length).toUpperCase()}',
+        profileId: '',
         customerName: 'موظف العاصمة',
         customerPhone: '01012345678',
         ministryName: 'وزارة الاتصالات وتكنولوجيا المعلومات',
         floor: 'الدور الرابع',
         officeNumber: 'مكتب 402',
         items: const [],
+        storeIds: const [],
+        kitchenStatus: const {},
+        itemsSummary: '',
         subtotal: 180,
         deliveryFee: 15,
         discount: 100,
         total: 95,
-        status: OrderStatus.cooking,
-        otpCode: '8492',
+        status: OrderStatus.preparing,
+        otpCode: _fetchedOtp,
         restaurantName: 'مطبخ العاصمة المركزي',
         createdAt: DateTime.now(),
       ),
     );
+
+    final String displayOtp = _fetchedOtp ?? ((order.otpCode?.isNotEmpty == true) ? order.otpCode! : '');
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -197,20 +236,30 @@ class OrderTrackingScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      order.otpCode,
-                      style: GoogleFonts.cairo(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 3,
+                  InkWell(
+                    onTap: _fetchOtp,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      child: _isLoadingOtp
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : Text(
+                              displayOtp.isNotEmpty ? displayOtp : 'عرض الرمز',
+                              style: GoogleFonts.cairo(
+                                fontSize: displayOtp.isNotEmpty ? 20 : 13,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                letterSpacing: displayOtp.isNotEmpty ? 3 : 0,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -251,21 +300,21 @@ class OrderTrackingScreen extends StatelessWidget {
                     subtitle: 'تم إرسال تفاصيل الوجبة إلى مطبخ الفود كورت المركزي',
                     icon: Icons.receipt_long_rounded,
                     isDone: true,
-                    isActive: order.status == OrderStatus.pendingChef,
+                    isActive: order.status == OrderStatus.received,
                   ),
                   _buildTimelineStep(
                     title: 'قيد التحضير في المطبخ',
                     subtitle: 'يقوم الشيف بتجهيز وجبتك الطازجة وتغليفها حرارياً',
                     icon: Icons.outdoor_grill_rounded,
-                    isDone: order.status != OrderStatus.pendingChef,
-                    isActive: order.status == OrderStatus.cooking,
+                    isDone: order.status != OrderStatus.received,
+                    isActive: order.status == OrderStatus.preparing,
                   ),
                   _buildTimelineStep(
                     title: 'في الطريق مع كابتن العاصمة',
                     subtitle: 'استلم المندوب وجبتك وهو في طريقه لمقر وزارتك',
                     icon: Icons.two_wheeler_rounded,
-                    isDone: order.status == OrderStatus.outForDelivery || order.status == OrderStatus.delivered,
-                    isActive: order.status == OrderStatus.outForDelivery,
+                    isDone: order.status == OrderStatus.withCourier || order.status == OrderStatus.delivered,
+                    isActive: order.status == OrderStatus.withCourier,
                   ),
                   _buildTimelineStep(
                     title: 'تم التوصيل والتسليم',
@@ -341,13 +390,13 @@ class OrderTrackingScreen extends StatelessWidget {
 
   double _calculateProgress(OrderStatus status) {
     switch (status) {
-      case OrderStatus.pendingChef:
+      case OrderStatus.received:
         return 0.25;
-      case OrderStatus.cooking:
+      case OrderStatus.preparing:
         return 0.50;
-      case OrderStatus.readyForPickup:
+      case OrderStatus.ready:
         return 0.70;
-      case OrderStatus.outForDelivery:
+      case OrderStatus.withCourier:
         return 0.85;
       case OrderStatus.delivered:
         return 1.0;

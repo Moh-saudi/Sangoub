@@ -5,7 +5,6 @@ import '../../core/constants/colors.dart';
 import '../../models/order_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/orders_provider.dart';
-import '../auth/role_select_login_screen.dart';
 
 class CourierPortalScreen extends StatefulWidget {
   const CourierPortalScreen({super.key});
@@ -25,90 +24,136 @@ class _CourierPortalScreenState extends State<CourierPortalScreen> with SingleTi
 
   void _showOtpVerificationDialog(BuildContext context, OrdersProvider orders, OrderModel order) {
     final TextEditingController otpController = TextEditingController();
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              const Icon(Icons.security_rounded, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Text(
-                'تأكيد تسليم الطلب (OTP)',
-                style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.navy),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  const Icon(Icons.security_rounded, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'تأكيد تسليم الطلب (OTP)',
+                    style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.navy),
+                  ),
+                ],
               ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'اطلب من الموظف (${order.customerName}) في ${order.ministryName} رمز الاستلام المكون من 4 أرقام:',
-                style: GoogleFonts.cairo(fontSize: 13, color: AppColors.textSecondary),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'اطلب من الموظف (${order.customerName}) في ${order.ministryName} رمز الاستلام المكون من 4 أرقام:',
+                    style: GoogleFonts.cairo(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: otpController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 8),
+                    decoration: InputDecoration(
+                      counterText: '',
+                      hintText: '••••',
+                      filled: true,
+                      fillColor: AppColors.surfaceMuted,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryContainer.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.payments_rounded, color: AppColors.primaryDark, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'المبلغ المطلوب تحصيله: ${order.total.toStringAsFixed(0)} ج.م',
+                          style: GoogleFonts.cairo(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: otpController,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 8),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: '••••',
-                  filled: true,
-                  fillColor: AppColors.surfaceMuted,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                  child: Text('إلغاء', style: GoogleFonts.cairo(color: AppColors.textSecondary)),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '💡 رمز الاختبار لهذا الطلب للتجربة هو: ${order.otpCode}',
-                style: GoogleFonts.cairo(fontSize: 11, color: AppColors.textMuted),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('إلغاء', style: GoogleFonts.cairo(color: AppColors.textSecondary)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final success = orders.verifyOtpAndCompleteDelivery(order.id, otpController.text);
-                Navigator.pop(ctx);
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: AppColors.statusDelivered,
-                      content: Text(
-                        '✅ تم تسليم الطلب بنجاح وتم إيداع حافز التوصيل في محفظتك!',
-                        style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: Colors.red,
-                      content: Text(
-                        '❌ رمز الاستلام غير صحيح! يرجى التأكد من الموظف.',
-                        style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.statusDelivered,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Text('تأكيد التسليم', style: GoogleFonts.cairo(fontWeight: FontWeight.bold, color: Colors.white)),
-            ),
-          ],
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final otp = otpController.text.trim();
+                          if (otp.length < 4) return;
+                          setDialogState(() => isSubmitting = true);
+
+                          try {
+                            final success = await orders.confirmDelivery(
+                              orderId: order.id,
+                              otpCode: otp,
+                              collectedAmount: order.total,
+                            );
+
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+
+                            if (success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: AppColors.statusDelivered,
+                                  content: Text(
+                                    '✅ تم تسليم الطلب بنجاح وتم تحصيل ${order.total.toStringAsFixed(0)} ج.م!',
+                                    style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (!ctx.mounted) return;
+                            setDialogState(() => isSubmitting = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: Colors.red,
+                                content: Text(
+                                  '❌ رمز الاستلام غير صحيح أو فشل التأكيد: ${e.toString().replaceAll('Exception: ', '')}',
+                                  style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.statusDelivered,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text('تأكيد التسليم', style: GoogleFonts.cairo(fontWeight: FontWeight.bold, color: Colors.white)),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -150,13 +195,9 @@ class _CourierPortalScreenState extends State<CourierPortalScreen> with SingleTi
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.switch_account_outlined, color: AppColors.navy),
-            tooltip: 'تغيير الدور',
-            onPressed: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const RoleSelectLoginScreen()),
-              );
-            },
+            icon: const Icon(Icons.logout_rounded, color: AppColors.navy),
+            tooltip: 'تسجيل الخروج',
+            onPressed: () => auth.signOut(),
           ),
         ],
       ),

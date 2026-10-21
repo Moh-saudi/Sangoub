@@ -90,7 +90,7 @@ class UserProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    user?.name ?? 'أحمد محمود (موظف حكومي)',
+                    user?.name ?? 'موظف حكومي',
                     style: GoogleFonts.cairo(
                       fontSize: 17,
                       fontWeight: FontWeight.w900,
@@ -115,7 +115,7 @@ class UserProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    user?.ministryName ?? 'وزارة الاتصالات وتكنولوجيا المعلومات',
+                    (user?.ministry.isNotEmpty == true) ? user!.ministry : 'الحي الحكومي بالعاصمة الإدارية',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.cairo(
                       fontSize: 12,
@@ -124,7 +124,7 @@ class UserProfileScreen extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${user?.officeNumber ?? "مكتب 402 - الدور الرابع"} • ${user?.email ?? "employee@capital.gov.eg"}',
+                    '${(user?.floorNumber.isNotEmpty == true) ? user!.floorNumber : "الدور الرابع"} • ${(user?.roomNumber.isNotEmpty == true) ? user!.roomNumber : "مكتب 402"} • ${user?.email ?? ""}',
                     style: GoogleFonts.cairo(
                       fontSize: 11,
                       color: AppColors.textMuted,
@@ -157,7 +157,7 @@ class UserProfileScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '100 ج.م',
+                          '${(user?.walletBalance ?? 0).toStringAsFixed(0)} ج.م',
                           style: GoogleFonts.cairo(
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
@@ -165,7 +165,7 @@ class UserProfileScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'رصيد قسيمة ترحيبي',
+                          'رصيد المحفظة المعتمد',
                           style: GoogleFonts.cairo(fontSize: 9, color: Colors.white60),
                         ),
                       ],
@@ -267,7 +267,7 @@ class UserProfileScreen extends StatelessWidget {
             // ─── Logout Button ───────────────────────────────────────
             OutlinedButton.icon(
               onPressed: () async {
-                await auth.logout();
+                await auth.signOut();
                 if (!context.mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),

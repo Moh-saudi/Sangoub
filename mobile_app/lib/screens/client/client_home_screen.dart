@@ -7,9 +7,10 @@ import '../../core/constants/colors.dart';
 import '../../models/ministry_model.dart';
 import '../../models/order_model.dart';
 import '../../models/product_model.dart';
-import '../../models/restaurant_model.dart';
 import '../../providers/cart_provider.dart';
+import '../../providers/catalog_provider.dart';
 import '../../providers/orders_provider.dart';
+import '../../widgets/app_image.dart';
 import 'checkout_invoice_screen.dart';
 import 'order_tracking_screen.dart';
 import 'product_details_screen.dart';
@@ -192,12 +193,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context);
     final orders = Provider.of<OrdersProvider>(context);
-    final products = ProductModel.capitalProducts;
-    final restaurants = RestaurantModel.capitalRestaurants;
-
-    final filteredProducts = _selectedCategory == 'الكل'
-        ? products
-        : products.where((p) => p.category == _selectedCategory).toList();
+    final catalog = Provider.of<CatalogProvider>(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -282,7 +278,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         index: _currentBottomNavIndex,
         children: [
           // Tab 0: Home Page (مع كافة السلايدرز والمطاعم)
-          _buildHomeTab(context, cart, orders, filteredProducts, restaurants),
+          _buildHomeTab(context, cart, orders, catalog),
 
           // Tab 1: Orders & Live Tracking
           _buildOrdersTab(context, orders),
@@ -433,10 +429,12 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     BuildContext context,
     CartProvider cart,
     OrdersProvider orders,
-    List<ProductModel> filteredProducts,
-    List<RestaurantModel> restaurants,
+    CatalogProvider catalog,
   ) {
-    final products = ProductModel.capitalProducts;
+    final products = catalog.products;
+    final filteredProducts = catalog.filteredProducts;
+    final stores = catalog.stores;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 90),
       child: Column(
@@ -446,7 +444,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -462,13 +460,22 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               child: Row(
                 children: [
                   const Icon(Icons.search_rounded, color: AppColors.textMuted, size: 22),
-                  const SizedBox(width: 10),
-                  Text(
-                    'ابحث عن وجبة، مطعم، قهوة في الحي الحكومي...',
-                    style: GoogleFonts.cairo(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
-                      fontWeight: FontWeight.w500,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      onChanged: (val) => catalog.setSearchQuery(val),
+                      style: GoogleFonts.cairo(fontSize: 13, color: AppColors.navy),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        hintText: 'ابحث عن وجبة، متجر، قهوة في الحي الحكومي...',
+                        hintStyle: GoogleFonts.cairo(
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        border: InputBorder.none,
+                      ),
                     ),
                   ),
                 ],
@@ -590,7 +597,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'أشهر مطاعم وبراندات العاصمة',
+                  'أشهر مطاعم ومتاجر العاصمة',
                   style: GoogleFonts.cairo(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -598,7 +605,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                   ),
                 ),
                 Text(
-                  'الكل (${restaurants.length})',
+                  'الكل (${stores.length})',
                   style: GoogleFonts.cairo(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -611,58 +618,66 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
           const SizedBox(height: 10),
           SizedBox(
             height: 98,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: restaurants.length,
-              itemBuilder: (context, index) {
-                final rest = restaurants[index];
-                return Container(
-                  width: 78,
-                  margin: const EdgeInsets.only(left: 10),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 58,
-                        height: 58,
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
+            child: stores.isEmpty
+                ? Center(
+                    child: Text(
+                      catalog.isLoading ? 'جاري تحميل المتاجر...' : 'لا توجد متاجر مسجلة حالياً',
+                      style: GoogleFonts.cairo(fontSize: 12, color: AppColors.textMuted),
+                    ),
+                  )
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: stores.length,
+                    itemBuilder: (context, index) {
+                      final store = stores[index];
+                      return Container(
+                        width: 78,
+                        margin: const EdgeInsets.only(left: 10),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 58,
+                              height: 58,
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: store.isOpen ? const Color(0xFFE2E8F0) : Colors.grey.shade300,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.04),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: AppImage(
+                                urlOrPath: store.effectiveLogo,
+                                fit: BoxFit.contain,
+                                borderRadius: BorderRadius.circular(12),
+                                fallbackIcon: Icons.store_rounded,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              store.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.cairo(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.navy,
+                              ),
                             ),
                           ],
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.asset(
-                            rest.logo,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        rest.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.cairo(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.navy,
-                        ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
 
           const SizedBox(height: 14),
@@ -676,7 +691,8 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               itemCount: _categories.length,
               itemBuilder: (context, index) {
                 final cat = _categories[index];
-                final isSelected = _selectedCategory == cat['name'];
+                final catName = cat['name'] as String;
+                final isSelected = _selectedCategory == catName;
                 return Padding(
                   padding: const EdgeInsets.only(left: 8),
                   child: FilterChip(
@@ -688,7 +704,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                       color: isSelected ? Colors.white : AppColors.navy,
                     ),
                     label: Text(
-                      cat['name'] as String,
+                      catName,
                       style: GoogleFonts.cairo(
                         fontSize: 12,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
@@ -705,8 +721,9 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                     ),
                     onSelected: (_) {
                       setState(() {
-                        _selectedCategory = cat['name'] as String;
+                        _selectedCategory = catName;
                       });
+                      catalog.setCategory(catName == 'الكل' ? null : catName);
                     },
                   ),
                 );
@@ -747,128 +764,142 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            height: 220,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: products.where((p) => p.isPopular).length,
-              itemBuilder: (context, index) {
-                final popularMeals = products.where((p) => p.isPopular).toList();
-                final meal = popularMeals[index];
-                return InkWell(
-                  onTap: () => _openProductDetails(meal),
-                  borderRadius: BorderRadius.circular(18),
-                  child: Container(
-                    width: 170,
-                    margin: const EdgeInsets.only(left: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+          Builder(
+            builder: (context) {
+              final popularMeals = products.where((p) => p.isPopular).toList();
+              final displayPopular = popularMeals.isNotEmpty ? popularMeals : products.take(6).toList();
+
+              return SizedBox(
+                height: 220,
+                child: displayPopular.isEmpty
+                    ? Center(
+                        child: Text(
+                          catalog.isLoading ? 'جاري تحميل الوجبات...' : 'لا توجد وجبات متاحة حالياً',
+                          style: GoogleFonts.cairo(fontSize: 12, color: AppColors.textMuted),
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                          child: Stack(
-                            children: [
-                              Image.asset(
-                                meal.image,
-                                height: 105,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              ),
-                              Positioned(
-                                top: 6,
-                                right: 6,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.65),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.star_rounded, color: Colors.amber, size: 13),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        '${meal.rating}',
-                                        style: GoogleFonts.cairo(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                meal.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.cairo(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.navy,
-                                ),
-                              ),
-                              Text(
-                                meal.restaurantName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.cairo(
-                                  fontSize: 10,
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '${meal.price.toStringAsFixed(0)} ج.م',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w900,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(Icons.add, color: Colors.white, size: 16),
+                      )
+                    : ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: displayPopular.length,
+                        itemBuilder: (context, index) {
+                          final meal = displayPopular[index];
+                          return InkWell(
+                            onTap: () => _openProductDetails(meal),
+                            borderRadius: BorderRadius.circular(18),
+                            child: Container(
+                              width: 170,
+                              margin: const EdgeInsets.only(left: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.04),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                                    child: Stack(
+                                      children: [
+                                        AppImage(
+                                          urlOrPath: meal.image,
+                                          height: 105,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                          fallbackIcon: Icons.lunch_dining_rounded,
+                                        ),
+                                        Positioned(
+                                          top: 6,
+                                          right: 6,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withValues(alpha: 0.65),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.star_rounded, color: Colors.amber, size: 13),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  '${meal.rating}',
+                                                  style: GoogleFonts.cairo(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          meal.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.cairo(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.navy,
+                                          ),
+                                        ),
+                                        Text(
+                                          meal.storeName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.cairo(
+                                            fontSize: 10,
+                                            color: AppColors.textMuted,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              '${meal.price.toStringAsFixed(0)} ج.م',
+                                              style: GoogleFonts.cairo(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w900,
+                                                color: AppColors.primary,
+                                              ),
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary,
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: const Icon(Icons.add, color: Colors.white, size: 16),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              );
+            },
           ),
 
           const SizedBox(height: 20),
@@ -887,109 +918,119 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
           ),
           const SizedBox(height: 10),
 
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: filteredProducts.length,
-            itemBuilder: (context, index) {
-              final meal = filteredProducts[index];
-              return InkWell(
-                onTap: () => _openProductDetails(meal),
-                borderRadius: BorderRadius.circular(18),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Image.asset(
-                          meal.image,
+          if (filteredProducts.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  catalog.isLoading ? 'جاري تحميل قائمة الطعام...' : 'لا توجد وجبات مطابقة لهذا التصنيف',
+                  style: GoogleFonts.cairo(fontSize: 13, color: AppColors.textMuted),
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: filteredProducts.length,
+              itemBuilder: (context, index) {
+                final meal = filteredProducts[index];
+                return InkWell(
+                  onTap: () => _openProductDetails(meal),
+                  borderRadius: BorderRadius.circular(18),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        AppImage(
+                          urlOrPath: meal.image,
                           width: 78,
                           height: 78,
                           fit: BoxFit.cover,
+                          borderRadius: BorderRadius.circular(14),
+                          fallbackIcon: Icons.lunch_dining_rounded,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              meal.name,
-                              style: GoogleFonts.cairo(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.navy,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                meal.name,
+                                style: GoogleFonts.cairo(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.navy,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${meal.restaurantName} • ⏱️ ${meal.prepTime}',
-                              style: GoogleFonts.cairo(
-                                fontSize: 11,
-                                color: AppColors.textSecondary,
+                              const SizedBox(height: 2),
+                              Text(
+                                '${meal.storeName} • ⏱️ ${meal.prepTime}',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '${meal.price.toStringAsFixed(0)} ج.م',
-                              style: GoogleFonts.cairo(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.primary,
+                              const SizedBox(height: 6),
+                              Text(
+                                '${meal.price.toStringAsFixed(0)} ج.م',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.primary,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          cart.addItem(
-                            id: meal.id,
-                            name: meal.name,
-                            price: meal.price,
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              duration: const Duration(seconds: 1),
-                              backgroundColor: AppColors.navy,
-                              content: Text(
-                                'تمت إضافة ${meal.name} للسلة 🛒',
-                                style: GoogleFonts.cairo(fontSize: 12),
-                              ),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            ],
                           ),
-                          minimumSize: Size.zero,
                         ),
-                        child: const Icon(Icons.add, size: 20),
-                      ),
-                    ],
+                        ElevatedButton(
+                          onPressed: () {
+                            cart.addItem(
+                              id: meal.id,
+                              name: meal.name,
+                              price: meal.price,
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                duration: const Duration(seconds: 1),
+                                backgroundColor: AppColors.navy,
+                                content: Text(
+                                  'تمت إضافة ${meal.name} للسلة 🛒',
+                                  style: GoogleFonts.cairo(fontSize: 12),
+                                ),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            minimumSize: Size.zero,
+                          ),
+                          child: const Icon(Icons.add, size: 20),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -1119,7 +1160,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            order.otpCode,
+                            order.otpCode ?? '****',
                             style: GoogleFonts.cairo(
                               fontSize: 12,
                               fontWeight: FontWeight.w900,
