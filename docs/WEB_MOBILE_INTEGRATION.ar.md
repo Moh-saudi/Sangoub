@@ -1,3 +1,5 @@
+> **الفصل المعتمد:** الويب للإدارة فقط؛ Flutter للموظف والشيف والمندوب. نقطة دخول الويب الآن بوابة الإدارة مباشرة. برومبت التنفيذ للموبايل في [MOBILE_AGENT_PROMPT.ar.md](../MOBILE_AGENT_PROMPT.ar.md).
+
 # عقد تنفيذ الويب وربط Flutter
 
 بتاريخ ٢١ أكتوبر ٢٠٢٦، جُلبت ملفات Flutter والعقد من `origin/main` إلى فرع الويب دون تعديل ملفات `mobile_app/`. التطبيقان يستهدفان `capital-talabat` وقاعدة `(default)`؛ App IDs كما في العقد الأصلي. إعداد Firebase العام لا يمنح صلاحيات إدارة المشروع.
@@ -47,6 +49,7 @@ deliveredAt?: Timestamp;
   "floorNumber": "2",
   "roomNumber": "201",
   "items": [{"product": {"id": "معرف منتج موجود"}, "quantity": 2, "selectedOptions": {}}],
+  "paymentMethod": "cash",
   "tip": 0
 }
 ```

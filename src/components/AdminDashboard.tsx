@@ -48,9 +48,6 @@ interface AdminDashboardProps {
     courierId: string,
     courierPhone: string,
   ) => Promise<void>;
-  onToggleProductStock: (productId: string) => void;
-  onUpdateProductPrice: (productId: string, newPrice: number) => void;
-  onToggleStoreStatus: (storeId: string) => void;
   onUpdatePartnerStatus: (partnerId: string, status: ApplicationStatus) => void;
   onApprovePartnerAsStore: (partner: PartnerApplication) => void;
   onUpdateJobStatus: (jobId: string, status: ApplicationStatus) => void;
@@ -69,9 +66,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   initialAdminTab = "orders",
   onUpdateOrderStatus,
   onAssignCourier,
-  onToggleProductStock,
-  onUpdateProductPrice,
-  onToggleStoreStatus,
   onUpdatePartnerStatus,
   onApprovePartnerAsStore,
   onUpdateJobStatus,
@@ -923,7 +917,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                    نشط بالخدمة
+                    مسجل بالتشغيل
                   </span>
                 </div>
               ))}

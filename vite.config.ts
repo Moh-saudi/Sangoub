@@ -14,14 +14,14 @@ export default defineConfig(() => {
         includeAssets: ['assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png'],
         manifest: {
           id: '/',
-          name: 'طلبات الحي الحكومي بالعاصمة الإدارية',
-          short_name: 'طلبات العاصمة',
+          name: 'لوحة إدارة طلبات العاصمة',
+          short_name: 'إدارة العاصمة',
           description:
-            'تطبيق طلبات وتوصيل وجبات الفود كورت والسوبر ماركت لموظفي الـ 34 وزارة بالحي الحكومي بالعاصمة الإدارية الجديدة.',
+            'لوحة الإدارة لمتابعة الطلبات والمتاجر والمنتجات وفريق التشغيل.',
           theme_color: '#10213f',
           background_color: '#f8fafc',
           display: 'standalone',
-          orientation: 'portrait',
+          orientation: 'any',
           dir: 'rtl',
           lang: 'ar',
           start_url: '/',

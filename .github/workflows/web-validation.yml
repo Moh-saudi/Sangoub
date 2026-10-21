@@ -2,7 +2,7 @@ name: Web and Firebase validation
 on:
   pull_request:
   push:
-    branches: [main, feature/real-orders-auth-maps]
+    branches: [main, feature/real-orders-auth-maps, feature/admin-web-only]
 permissions:
   contents: read
 jobs:
@@ -27,3 +27,5 @@ jobs:
       - run: npm run build
       - run: npm run test:auth
       - run: npm run test:rules
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:admin-web
