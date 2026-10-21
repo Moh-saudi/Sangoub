@@ -15,6 +15,9 @@ class MinistryModel {
     required this.icon,
   });
 
+  String get name => nameArabic;
+  static List<MinistryModel> get allMinistries => governmentDistrictMinistries;
+
   static const List<MinistryModel> governmentDistrictMinistries = [
     MinistryModel(
       id: 'cabinet',

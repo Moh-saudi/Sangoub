@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import '../../core/constants/colors.dart';
 import '../auth/role_select_login_screen.dart';
 
@@ -25,7 +23,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _navigateToLogin() {
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const RoleSelectLoginScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const RoleSelectLoginScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -34,130 +33,135 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  void _goToNextPage() {
+    if (_currentPage < _onboardingImages.length - 1) {
+      _controller.nextPage(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      _navigateToLogin();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Widget _buildInteractivePage(int index) {
+    // 941 x 1672 canvas matches the high-res onboarding asset resolution
+    return Center(
+      child: FittedBox(
+        fit: BoxFit.contain,
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: 941,
+          height: 1672,
+          child: Stack(
+            children: [
+              // High-resolution Onboarding Graphic
+              Image.asset(
+                _onboardingImages[index],
+                width: 941,
+                height: 1672,
+                fit: BoxFit.fill,
+              ),
+
+              // Overlay Interactive Tap Targets directly on the image's buttons
+              if (index == 0) ...[
+                // Screen 1: "ابدأ الآن" full-width orange pill button
+                Positioned(
+                  left: 110,
+                  top: 1400,
+                  width: 720,
+                  height: 210,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(105),
+                      splashColor: Colors.white.withValues(alpha: 0.3),
+                      highlightColor: Colors.white.withValues(alpha: 0.15),
+                      onTap: _goToNextPage,
+                    ),
+                  ),
+                ),
+              ] else if (index == 1 || index == 2) ...[
+                // Screen 2 & 3: "تخطي" on bottom left
+                Positioned(
+                  left: 60,
+                  top: 1480,
+                  width: 270,
+                  height: 160,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(30),
+                      splashColor: AppColors.primary.withValues(alpha: 0.2),
+                      highlightColor: AppColors.primary.withValues(alpha: 0.1),
+                      onTap: _navigateToLogin,
+                    ),
+                  ),
+                ),
+
+                // Screen 2 & 3: "التالي" orange pill button on bottom right
+                Positioned(
+                  left: 420,
+                  top: 1430,
+                  width: 460,
+                  height: 200,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(100),
+                      splashColor: Colors.white.withValues(alpha: 0.3),
+                      highlightColor: Colors.white.withValues(alpha: 0.15),
+                      onTap: _goToNextPage,
+                    ),
+                  ),
+                ),
+              ] else if (index == 3) ...[
+                // Screen 4: "ابدأ الآن" full-width orange pill button
+                Positioned(
+                  left: 110,
+                  top: 1400,
+                  width: 720,
+                  height: 210,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(105),
+                      splashColor: Colors.white.withValues(alpha: 0.3),
+                      highlightColor: Colors.white.withValues(alpha: 0.15),
+                      onTap: _navigateToLogin,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bool isLastPage = _currentPage == _onboardingImages.length - 1;
-
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: Stack(
-          children: [
-            // Slide Pages with real images
-            PageView.builder(
-              controller: _controller,
-              itemCount: _onboardingImages.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentPage = index;
-                });
-              },
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 90),
-                  child: Center(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: Image.asset(
-                        _onboardingImages[index],
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-
-            // Top Header: Skip button
-            Positioned(
-              top: 10,
-              left: 20,
-              child: isLastPage
-                  ? const SizedBox.shrink()
-                  : TextButton(
-                      onPressed: _navigateToLogin,
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.navy,
-                        backgroundColor: AppColors.surfaceMuted,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      ),
-                      child: Text(
-                        'تخطي',
-                        style: GoogleFonts.cairo(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-            ),
-
-            // Bottom Navigation Bar with Dots & Next / Start Button
-            Positioned(
-              bottom: 16,
-              left: 24,
-              right: 24,
-              child: Row(
-                children: [
-                  // Page Dots Indicator
-                  SmoothPageIndicator(
-                    controller: _controller,
-                    count: _onboardingImages.length,
-                    effect: const ExpandingDotsEffect(
-                      activeDotColor: AppColors.primary,
-                      dotColor: AppColors.border,
-                      dotHeight: 8,
-                      dotWidth: 8,
-                      expansionFactor: 3.5,
-                      spacing: 6,
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Action Button (Next or Start Now)
-                  ElevatedButton(
-                    onPressed: () {
-                      if (isLastPage) {
-                        _navigateToLogin();
-                      } else {
-                        _controller.nextPage(
-                          duration: const Duration(milliseconds: 350),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(120, 46),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-                      elevation: 3,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          isLastPage ? 'ابدأ الآن' : 'التالي',
-                          style: GoogleFonts.cairo(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        child: PageView.builder(
+          controller: _controller,
+          itemCount: _onboardingImages.length,
+          onPageChanged: (index) {
+            setState(() {
+              _currentPage = index;
+            });
+          },
+          itemBuilder: (context, index) {
+            return _buildInteractivePage(index);
+          },
         ),
       ),
     );

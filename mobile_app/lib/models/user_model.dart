@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 enum UserRole {
   employee, // موظف حكومي (العميل)
   chef,     // شيف المطبخ / المطعم
@@ -16,6 +18,21 @@ extension UserRoleExtension on UserRole {
         return 'مندوب التوصيل';
       case UserRole.admin:
         return 'إدارة الحي الحكومي';
+    }
+  }
+
+  String get arabicLabel => titleArabic;
+
+  IconData get icon {
+    switch (this) {
+      case UserRole.employee:
+        return Icons.person_rounded;
+      case UserRole.chef:
+        return Icons.restaurant_rounded;
+      case UserRole.courier:
+        return Icons.two_wheeler_rounded;
+      case UserRole.admin:
+        return Icons.admin_panel_settings_rounded;
     }
   }
 

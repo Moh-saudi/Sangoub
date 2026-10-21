@@ -18,6 +18,7 @@ class CartProvider with ChangeNotifier {
   String get floor => _floor;
   String get office => _office;
   double get appliedDiscount => _appliedDiscount;
+  double get discount => _appliedDiscount;
   String? get couponCode => _couponCode;
 
   double get subtotal => _items.values.fold(0.0, (sum, item) => sum + (item.price * item.quantity));
@@ -77,6 +78,13 @@ class CartProvider with ChangeNotifier {
     _items.clear();
     _appliedDiscount = 0.0;
     _couponCode = null;
+    notifyListeners();
+  }
+
+  void clear() => clearCart();
+
+  void setMinistry(String ministry) {
+    _selectedMinistry = ministry;
     notifyListeners();
   }
 

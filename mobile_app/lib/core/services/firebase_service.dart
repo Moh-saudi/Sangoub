@@ -17,12 +17,24 @@ class FirebaseService {
 
   User? get currentFirebaseUser => _auth.currentUser;
 
+  Future<void> ensureAuthenticated() async {
+    if (_auth.currentUser == null) {
+      try {
+        await _auth.signInAnonymously();
+      } catch (e) {
+        debugPrint('Firebase anonymous auth notice: $e');
+      }
+    }
+  }
+
   // ─── 1. إدارة ملفات المستخدمين (/users/{userId}) ───────────────────
   Future<void> saveUserProfile(UserModel user) async {
     try {
-      final docRef = _firestore.collection('users').doc(user.id);
+      await ensureAuthenticated();
+      final uid = _auth.currentUser?.uid ?? user.id;
+      final docRef = _firestore.collection('users').doc(uid);
       await docRef.set({
-        'uid': user.id,
+        'uid': uid,
         'fullName': user.name,
         'email': user.email,
         'phone': user.phone,
@@ -34,7 +46,7 @@ class FirebaseService {
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      debugPrint('✅ تم حفظ بيانات المستخدم في Firestore بنجاح: ${user.id}');
+      debugPrint('✅ تم حفظ بيانات المستخدم في Firestore بنجاح: $uid');
     } catch (e) {
       debugPrint('⚠️ Firestore saveUserProfile Notice: $e');
     }
@@ -43,6 +55,8 @@ class FirebaseService {
   // ─── 2. كتابة الطلبات الجديدة (/orders/{orderId}) ───────────────────
   Future<void> createOrder(OrderModel order, String userId) async {
     try {
+      await ensureAuthenticated();
+      final currentUid = _auth.currentUser?.uid ?? userId;
       final docRef = _firestore.collection('orders').doc(order.id);
       
       final itemsSummary = order.items
@@ -51,7 +65,7 @@ class FirebaseService {
 
       await docRef.set({
         'orderNumber': order.id,
-        'profileId': userId,
+        'profileId': currentUid,
         'profileName': order.customerName,
         'phone': order.customerPhone,
         'ministry': order.ministryName,

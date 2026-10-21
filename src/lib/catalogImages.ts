@@ -20,6 +20,21 @@ export function validateCatalogImage(file: File) {
     throw new Error("حجم الصورة يجب ألا يتجاوز 5 ميجابايت.");
 }
 
+export async function uploadCatalogImage(collection: "stores" | "products", id: string, file: File) {
+  validateCatalogImage(file);
+  const target = await imageRequest({ action: "upload", collection, id, contentType: file.type, size: file.size });
+  try {
+    const response = await fetch(target.uploadUrl, { method: "PUT", body: file, headers: {
+      "Content-Type": file.type, "Cache-Control": "public, max-age=31536000, immutable",
+    }});
+    if (!response.ok) throw new Error("تعذر رفع الصورة إلى R2. راجع إعداد CORS للحاوية.");
+    return { key: target.key as string, url: target.publicUrl as string };
+  } catch (error) {
+    await imageRequest({ action: "delete", key: target.key }).catch(() => {});
+    throw error;
+  }
+}
+
 export async function saveCatalogWithImages(
   collection: "stores" | "products",
   id: string,
@@ -32,14 +47,10 @@ export async function saveCatalogWithImages(
   try {
     for (const image of selected) {
       const file = image.file!;
-      const target = await imageRequest({ action: "upload", collection, id, contentType: file.type, size: file.size });
+      const target = await uploadCatalogImage(collection, id, file);
       uploaded.push(target.key);
-      const response = await fetch(target.uploadUrl, { method: "PUT", body: file, headers: {
-        "Content-Type": file.type, "Cache-Control": "public, max-age=31536000, immutable",
-      }});
-      if (!response.ok) throw new Error("تعذر رفع الصورة إلى R2. راجع إعداد CORS للحاوية.");
-      data[image.field] = target.publicUrl;
-      if (collection === "stores" && image.field === "bannerUrl") data.imageUrl = target.publicUrl;
+      data[image.field] = target.url;
+      if (collection === "stores" && image.field === "bannerUrl") data.imageUrl = target.url;
     }
     await saveRecord(collection, id, data);
   } catch (error) {
