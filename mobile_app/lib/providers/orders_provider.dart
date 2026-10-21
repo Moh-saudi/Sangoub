@@ -151,6 +151,12 @@ class OrdersProvider with ChangeNotifier {
     FirebaseService().createOrder(order, 'employee_capital');
   }
 
+  void addOrderModel(OrderModel order) {
+    _orders.insert(0, order);
+    notifyListeners();
+    FirebaseService().createOrder(order, 'employee_capital');
+  }
+
   void updateOrderStatus(String orderId, OrderStatus newStatus) {
     final index = _orders.indexWhere((o) => o.id == orderId);
     if (index != -1) {

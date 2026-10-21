@@ -125,7 +125,7 @@ class OrderModel {
     required this.customerName,
     required this.customerPhone,
     required this.ministryName,
-    required this.buildingNumber,
+    this.buildingNumber = 'مبنى 07',
     required this.floor,
     required this.officeNumber,
     required this.restaurantName,
