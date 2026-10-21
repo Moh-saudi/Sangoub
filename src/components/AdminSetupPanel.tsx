@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { saveRecord } from "../lib/firebase.ts";
 import type { Store } from "../types/index.ts";
+import { ImageFileField } from "./ImageFileField";
+import { saveCatalogWithImages } from "../lib/catalogImages";
 export function AdminSetupPanel({
   stores,
   onError,
@@ -42,13 +44,33 @@ export function AdminSetupPanel({
         البيانات هنا حقيقية وتحفظ في Firestore. لا توجد حسابات أو طلبات تجريبية.
       </p>
       {message && <p role="status">{message}</p>}
+      {busy && <p role="status" className="text-sm text-orange-700">جارٍ رفع الصور وحفظ البيانات…</p>}
       <div className="grid md:grid-cols-2 gap-6 mt-4">
+        <form className="space-y-2" onSubmit={(event) => save(event, async (data) => {
+          const store = stores.find((item) => item.id === data.get("store"));
+          if (!store) throw new Error("اختر المتجر.");
+          const logo = data.get("logoFile") as File | null;
+          const banner = data.get("bannerFile") as File | null;
+          if (!logo?.size && !banner?.size) throw new Error("اختر صورة أو شعارًا لرفعه.");
+          await saveCatalogWithImages("stores", store.id, {}, [
+            { field: "logoUrl", file: logo }, { field: "bannerUrl", file: banner },
+          ]);
+        })}>
+          <h3 className="font-bold">تحديث صور محل موجود</h3>
+          <select aria-label="المحل لتحديث الصور" name="store" required className={input}>
+            <option value="">اختر المتجر</option>
+            {stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
+          </select>
+          <ImageFileField name="logoFile" label="شعار المحل الجديد" disabled={busy} />
+          <ImageFileField name="bannerFile" label="صورة المحل الجديدة" disabled={busy} />
+          <button disabled={busy} className="bg-slate-900 text-white p-2 rounded-xl">حفظ الصور</button>
+        </form>
         <form
           className="space-y-2"
           onSubmit={(e) =>
             save(e, async (data) => {
               const id = crypto.randomUUID();
-              await saveRecord("stores", id, {
+              await saveCatalogWithImages("stores", id, {
                 id,
                 name: String(data.get("name")),
                 nameEn: String(data.get("name")),
@@ -63,11 +85,16 @@ export function AdminSetupPanel({
                 minOrder: Number(data.get("minOrder")),
                 deliveryFee: Number(data.get("deliveryFee")),
                 locationInDistrict: String(data.get("address")),
-              });
+              }, [
+                { field: "logoUrl", file: data.get("logoFile") as File | null },
+                { field: "bannerUrl", file: data.get("bannerFile") as File | null },
+              ]);
             })
           }
         >
           <h3 className="font-bold">إضافة متجر</h3>
+          <ImageFileField name="logoFile" label="شعار المحل" disabled={busy} />
+          <ImageFileField name="bannerFile" label="صورة المحل" disabled={busy} />
           <input
             aria-label="اسم المتجر"
             name="name"
@@ -123,7 +150,11 @@ export function AdminSetupPanel({
               const id = crypto.randomUUID();
               const store = stores.find((s) => s.id === data.get("store"));
               if (!store) throw new Error("اختر المتجر.");
-              await saveRecord("products", id, {
+              const file = data.get("productFile") as File | null;
+              const imageUrl = String(data.get("imageUrl") || "").trim();
+              if (!file?.size && !imageUrl) throw new Error("ارفع صورة الصنف أو أدخل رابطها.");
+              if (imageUrl && !imageUrl.startsWith("https://")) throw new Error("رابط الصورة يجب أن يستخدم HTTPS.");
+              await saveCatalogWithImages("products", id, {
                 id,
                 storeId: store.id,
                 storeName: store.name,
@@ -132,13 +163,14 @@ export function AdminSetupPanel({
                 price: Number(data.get("price")),
                 category: "وجبات خفيفة",
                 imageType: "croissant",
-                imageUrl: String(data.get("imageUrl")),
+                imageUrl,
                 inStock: true,
-              });
+              }, [{ field: "imageUrl", file }]);
             })
           }
         >
           <h3 className="font-bold">إضافة صنف</h3>
+          <ImageFileField name="productFile" label="صورة الصنف" disabled={busy} />
           <select aria-label="المتجر" name="store" required className={input}>
             <option value="">اختر المتجر</option>
             {stores.map((s) => (
@@ -181,7 +213,6 @@ export function AdminSetupPanel({
             type="url"
             placeholder="رابط HTTPS لصورة الصنف"
             pattern="https://.*"
-            required
             className={input}
           />
           <button

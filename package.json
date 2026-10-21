@@ -16,7 +16,8 @@
     "test:rules": "firebase emulators:exec --config firebase.emulators.json --only firestore,auth --project demo-capital-talabat \"node --import tsx --test --test-concurrency=1 tests/firestore.security.test.ts tests/order-api.integration.test.ts\"",
     "test:auth": "firebase emulators:exec --config firebase.emulators.json --only auth --project demo-capital-talabat \"node --import tsx --test tests/auth.integration.test.ts\"",
     "cloud:check": "node --use-env-proxy scripts/check-cloud.mjs",
-    "firebase:deploy": "firebase deploy --only firestore --project capital-talabat"
+    "firebase:deploy": "firebase deploy --only firestore,storage --project capital-talabat",
+    "test:storage": "firebase emulators:exec --config firebase.emulators.json --only firestore,storage --project demo-capital-talabat \"node --import tsx --test tests/storage.security.test.ts\""
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
