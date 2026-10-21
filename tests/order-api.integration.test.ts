@@ -11,6 +11,7 @@ import { getApps, deleteApp as deleteAdminApp } from "firebase-admin/app";
 import { adminServices } from "../server/firebaseAdmin.ts";
 import handler from "../api/orders.ts";
 import imagesHandler from "../api/catalog-images.ts";
+import deliveryHandler from "../api/order-delivery.ts";
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_PROJECT_ID = "demo-capital-talabat";
@@ -42,11 +43,11 @@ const payload = () => ({
   ],
   total: 0,
 });
-async function invoke(body: any, endpoint = handler) {
+async function invoke(body: any, endpoint = handler, bearer = token) {
   let status = 200;
   let result: any;
   await endpoint(
-    { method: "POST", headers: { authorization: "Bearer " + token }, body },
+    { method: "POST", headers: { authorization: "Bearer " + bearer }, body },
     {
       setHeader() {},
       status(code: number) {
@@ -181,4 +182,38 @@ test("catalog signing grants a short-lived size-bound URL only to an admin", asy
       else process.env[name] = previous[index];
     });
   }
+});
+
+test("OTP is private to the customer and delivery is verified on the server", async () => {
+  await services.db.doc("orderLimits/" + uid).delete();
+  const created = await invoke(payload());
+  assert.equal(created.status, 200);
+  const orderId = created.result.order.id;
+  const main = await services.db.doc("orders/" + orderId).get();
+  assert.equal(main.data()!.otpCode, undefined);
+  assert.equal(main.data()!.itemsSummary.length > 0, true);
+  const code = await invoke({ action: "code", orderId }, deliveryHandler);
+  assert.equal(code.status, 200); assert.match(code.result.otpCode, /^\d{4}$/);
+  const courier = await services.auth.createUser({ email: `courier-${Date.now()}@example.com`, emailVerified: true, password: "EmulatorPassword123!" });
+  const login = await signInWithEmailAndPassword(auth, courier.email!, "EmulatorPassword123!");
+  const courierToken = await login.user.getIdToken();
+  await services.db.doc("staff/" + courier.uid).set({ role: "courier" });
+  await services.db.doc("orders/" + orderId).update({ orderStatus: "with_courier", courierId: courier.uid });
+  const forbidden = await invoke({ action: "code", orderId }, deliveryHandler, courierToken);
+  assert.equal(forbidden.status, 403);
+  const payloadDelivery = { action: "deliver", orderId, otpCode: code.result.otpCode, collectedAmount: created.result.order.total };
+  assert.equal((await invoke(payloadDelivery, deliveryHandler)).status, 403);
+  const wrong = code.result.otpCode === "0000" ? "1111" : "0000";
+  assert.equal((await invoke({ ...payloadDelivery, otpCode: wrong }, deliveryHandler, courierToken)).status, 400);
+  assert.equal((await services.db.doc("orderSecrets/" + orderId).get()).data()!.attempts, 1);
+  for (let attempt = 0; attempt < 4; attempt++)
+    assert.equal((await invoke({ ...payloadDelivery, otpCode: wrong }, deliveryHandler, courierToken)).status, 400);
+  assert.equal((await invoke(payloadDelivery, deliveryHandler, courierToken)).status, 429);
+  await services.db.doc("orderSecrets/" + orderId).update({ lockedUntil: new Date(0) });
+  assert.equal((await invoke({ ...payloadDelivery, collectedAmount: 0 }, deliveryHandler, courierToken)).status, 400);
+  assert.equal((await invoke(payloadDelivery, deliveryHandler, courierToken)).status, 200);
+  assert.equal((await invoke(payloadDelivery, deliveryHandler, courierToken)).status, 200);
+  const delivered = (await services.db.doc("orders/" + orderId).get()).data()!;
+  assert.equal(delivered.orderStatus, "delivered"); assert.equal(delivered.deliveredAt.constructor.name, "Timestamp");
+  assert.equal((await services.db.doc("orderSecrets/" + orderId).get()).exists, false);
 });

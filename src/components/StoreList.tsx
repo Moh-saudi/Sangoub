@@ -66,7 +66,7 @@ export const StoreList: React.FC<StoreListProps> = ({
               {/* Store Real Banner Photo */}
               <div className="relative w-full h-24 overflow-hidden bg-slate-100">
                 <img
-                  src={store.bannerUrl}
+                  src={store.bannerUrl || store.imageUrl}
                   alt={store.name}
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

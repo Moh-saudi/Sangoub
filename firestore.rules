@@ -46,7 +46,7 @@ service cloud.firestore {
       allow delete: if admin();
     }
     match /coupons/{id} { allow read: if true; allow create,update: if admin() && request.resource.data.code == id && request.resource.data.value is number && request.resource.data.value >= 0 && request.resource.data.value <= 10000 && request.resource.data.minOrder is number && request.resource.data.minOrder >= 0 && request.resource.data.discountType in ['fixed','percent'] && request.resource.data.updatedAt == request.time; allow delete: if admin(); }
-    function transition(old,next) { return old == next || (old == 'received' && next in ['preparing','with_courier','cancelled']) || (old == 'preparing' && next in ['with_courier','cancelled']) || (old == 'with_courier' && next in ['delivered','cancelled']); }
+    function transition(old,next) { return old == next || (old == 'received' && next in ['preparing','cancelled']) || (old == 'preparing' && next in ['ready','cancelled']) || (old == 'ready' && next in ['with_courier','cancelled']) || (old == 'with_courier' && next in ['delivered','cancelled']); }
     function validCourierAssignment(before, after) {
       return !after.diff(before).affectedKeys().hasAny(['courierId']) ||
         (exists(/databases/$(database)/documents/staff/$(after.courierId)) &&
@@ -56,17 +56,23 @@ service cloud.firestore {
       return admin() && validCourierAssignment(before, after) &&
         after.diff(before).affectedKeys().hasOnly([
           'orderStatus', 'courierId', 'courierName', 'courierPhone',
-          'courierChecklist', 'restaurantStatus', 'estimatedDelivery', 'paymentStatus', 'updatedAt'
+          'courierChecklist', 'restaurantStatus', 'kitchenStatus', 'estimatedDelivery', 'paymentStatus', 'updatedAt', 'readyAt', 'deliveredAt'
         ]);
     }
     function restaurantOrderUpdate(before, after) {
-      return restaurantOrder(before) && after.orderStatus == 'preparing' &&
-        after.get('restaurantStatus', 'pending') in ['pending', 'preparing', 'ready_for_pickup'] &&
-        after.diff(before).affectedKeys().hasOnly(['orderStatus', 'restaurantStatus', 'updatedAt']);
+      let storeId = staff().storeId;
+      let oldStage = before.get('kitchenStatus', {}).get(storeId, before.orderStatus == 'preparing' ? 'preparing' : 'received');
+      let stages = after.kitchenStatus;
+      let allReady = stages.keys().hasAll(before.storeIds) && stages.values().hasOnly(['ready']);
+      return restaurantOrder(before) && before.orderStatus in ['received', 'preparing'] &&
+        stages.diff(before.get('kitchenStatus', {})).affectedKeys().hasOnly([storeId]) &&
+        ((oldStage == 'received' && stages[storeId] == 'preparing') || (oldStage == 'preparing' && stages[storeId] == 'ready')) &&
+        after.orderStatus == (allReady ? 'ready' : 'preparing') &&
+        after.diff(before).affectedKeys().hasOnly(['orderStatus', 'kitchenStatus', 'readyAt', 'updatedAt']);
     }
     function courierOrderUpdate(before, after) {
-      return assignedCourier(before) && after.orderStatus in ['with_courier', 'delivered'] &&
-        after.diff(before).affectedKeys().hasOnly(['orderStatus', 'courierChecklist', 'paymentStatus', 'updatedAt']);
+      return assignedCourier(before) && after.orderStatus == 'with_courier' &&
+        after.diff(before).affectedKeys().hasOnly(['orderStatus', 'courierChecklist', 'updatedAt']);
     }
     function customerCancellation(before, after) {
       return before.profileId == request.auth.uid && before.orderStatus == 'received' &&
@@ -77,9 +83,14 @@ service cloud.firestore {
       // Only the authenticated server calculates prices and creates orders.
       allow create, delete: if false;
       allow update: if verified() &&
+        request.resource.data.orderStatus != 'delivered' &&
         !(resource.data.orderStatus in ['delivered', 'cancelled']) &&
         transition(resource.data.orderStatus, request.resource.data.orderStatus) &&
         request.resource.data.updatedAt == request.time &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['readyAt']) ||
+         (request.resource.data.orderStatus == 'ready' && request.resource.data.readyAt == request.time)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['deliveredAt']) ||
+         (request.resource.data.orderStatus == 'delivered' && request.resource.data.deliveredAt == request.time)) &&
         (adminOrderUpdate(resource.data, request.resource.data) ||
          restaurantOrderUpdate(resource.data, request.resource.data) ||
          courierOrderUpdate(resource.data, request.resource.data) ||

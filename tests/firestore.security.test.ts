@@ -147,8 +147,8 @@ test("restaurant reads and queries are restricted to its own store", async () =>
   );
   await assertFails(db("other-restaurant").doc("orders/o1").get());
 });
-test("courier may complete assigned cash order but cannot change owner", async () => {
-  await assertSucceeds(
+test("courier cannot bypass server OTP completion or change owner", async () => {
+  await assertFails(
     db("courier").doc("orders/o1").update({
       orderStatus: "delivered",
       paymentStatus: "paid",
@@ -279,7 +279,7 @@ test("restaurant can mark readiness but cannot assign a courier or complete deli
   await assertSucceeds(
     db("restaurant")
       .doc("orders/o1")
-      .update({ restaurantStatus: "ready_for_pickup", updatedAt: timestamp() }),
+      .update({ orderStatus: "ready", kitchenStatus: { s1: "ready" }, readyAt: timestamp(), updatedAt: timestamp() }),
   );
   await assertFails(
     db("restaurant")
@@ -297,7 +297,7 @@ test("admin can assign registered couriers only", async () => {
     c
       .firestore()
       .doc("orders/o1")
-      .update({ orderStatus: "preparing", courierId: "" }),
+      .update({ orderStatus: "ready", courierId: "" }),
   );
   await assertFails(
     db("admin")
@@ -349,4 +349,52 @@ test("courier can stop tracking after delivery but cannot restart it", async () 
       .doc("tracking/o1")
       .update({ active: true, updatedAt: timestamp() }),
   );
+});
+
+test("multi-store kitchens can change only their own stage and must wait for every kitchen", async () => {
+  await env.withSecurityRulesDisabled((context) => context.firestore().doc("orders/o1").update({
+    orderStatus: "received", storeIds: ["s1", "s2"], kitchenStatus: { s1: "received", s2: "received" },
+  }));
+  const first = db("restaurant").doc("orders/o1");
+  const second = db("other-restaurant").doc("orders/o1");
+  await assertSucceeds(first.update({ orderStatus: "preparing", kitchenStatus: { s1: "preparing", s2: "received" }, updatedAt: timestamp() }));
+  await assertFails(first.update({ orderStatus: "ready", kitchenStatus: { s1: "ready", s2: "ready" }, readyAt: timestamp(), updatedAt: timestamp() }));
+  await assertFails(first.update({ orderStatus: "ready", kitchenStatus: { s1: "ready", s2: "received" }, readyAt: timestamp(), updatedAt: timestamp() }));
+  await assertSucceeds(first.update({ orderStatus: "preparing", kitchenStatus: { s1: "ready", s2: "received" }, updatedAt: timestamp() }));
+  await assertSucceeds(second.update({ orderStatus: "preparing", kitchenStatus: { s1: "ready", s2: "preparing" }, updatedAt: timestamp() }));
+  await assertSucceeds(second.update({ orderStatus: "ready", kitchenStatus: { s1: "ready", s2: "ready" }, readyAt: timestamp(), updatedAt: timestamp() }));
+  await assertSucceeds(db("admin").doc("orders/o1").update({ orderStatus: "with_courier", updatedAt: timestamp() }));
+});
+
+test("OTP secrets are never readable or writable from any client role", async () => {
+  await env.withSecurityRulesDisabled((context) => context.firestore().doc("orderSecrets/o1").set({ otpCode: "1234" }));
+  for (const uid of ["customer", "restaurant", "courier", "admin"]) {
+    await assertFails(db(uid).doc("orderSecrets/o1").get());
+    await assertFails(db(uid).doc("orderSecrets/o1").set({ otpCode: "0000" }));
+    await assertFails(db(uid).doc("orders/o1").update({ orderStatus: "delivered", deliveredAt: timestamp(), updatedAt: timestamp() }));
+  }
+});
+
+test("a scoped realtime listener receives kitchen preparation and readiness", async () => {
+  await env.withSecurityRulesDisabled((context) => context.firestore().doc("orders/o1").update({
+    orderStatus: "received", kitchenStatus: { s1: "received" },
+  }));
+  const observed: string[] = [];
+  let stop = () => {};
+  let timer: ReturnType<typeof setTimeout>;
+  const ready = new Promise<void>((resolve, reject) => {
+    timer = setTimeout(() => reject(new Error("Realtime ready update timed out")), 8000);
+    stop = db("restaurant").doc("orders/o1").onSnapshot((snapshot) => {
+      const stage = snapshot.data()?.orderStatus;
+      if (stage) observed.push(stage);
+      if (stage === "ready") resolve();
+    }, reject);
+  });
+  try {
+    const order = db("restaurant").doc("orders/o1");
+    await order.update({ orderStatus: "preparing", kitchenStatus: { s1: "preparing" }, updatedAt: timestamp() });
+    await order.update({ orderStatus: "ready", kitchenStatus: { s1: "ready" }, readyAt: timestamp(), updatedAt: timestamp() });
+    await ready;
+    if (!observed.includes("preparing")) throw new Error("Missing realtime preparation update");
+  } finally { stop(); clearTimeout(timer!); }
 });

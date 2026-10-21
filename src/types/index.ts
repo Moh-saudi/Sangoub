@@ -76,6 +76,7 @@ export interface Store {
   logo: string;
   banner: string;
   bannerUrl?: string;
+  imageUrl?: string;
   logoUrl?: string;
   status: "open" | "busy" | "closed";
   rating: number;
@@ -145,6 +146,7 @@ export type PaymentMethod = "instapay" | "geidea" | "cash";
 export type OrderStatus =
   | "received"
   | "preparing"
+  | "ready"
   | "with_courier"
   | "delivered"
   | "cancelled";
@@ -162,6 +164,12 @@ export interface CourierChecklist {
 }
 
 export interface Order {
+  itemsSummary?: string;
+  restaurantName?: string;
+  kitchenStatus?: Record<string, "received" | "preparing" | "ready">;
+  readyAt?: string;
+  deliveredAt?: string;
+  updatedAt?: string;
   legacySummary?: string;
   legacyRecord?: boolean;
   coordinates?: Coordinates;

@@ -39,6 +39,7 @@ export async function saveCatalogWithImages(
       }});
       if (!response.ok) throw new Error("تعذر رفع الصورة إلى R2. راجع إعداد CORS للحاوية.");
       data[image.field] = target.publicUrl;
+      if (collection === "stores" && image.field === "bannerUrl") data.imageUrl = target.publicUrl;
     }
     await saveRecord(collection, id, data);
   } catch (error) {

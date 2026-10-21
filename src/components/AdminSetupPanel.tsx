@@ -1,14 +1,18 @@
 import React, { useState } from "react";
 import { saveRecord } from "../lib/firebase.ts";
-import type { Store } from "../types/index.ts";
+import type { Store, Product } from "../types/index.ts";
 import { ImageFileField } from "./ImageFileField";
 import { saveCatalogWithImages } from "../lib/catalogImages";
 export function AdminSetupPanel({
   stores,
+  products = [],
   onError,
+  defaultOpen = false,
 }: {
   stores: Store[];
+  products?: Product[];
   onError: (error: unknown) => void;
+  defaultOpen?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -34,6 +38,7 @@ export function AdminSetupPanel({
     "border border-slate-300 rounded-xl p-2 text-sm w-full bg-white text-slate-900";
   return (
     <details
+      open={defaultOpen || undefined}
       className="max-w-6xl mx-auto my-4 p-4 bg-white text-slate-900 border rounded-2xl"
       dir="rtl"
     >
@@ -46,6 +51,18 @@ export function AdminSetupPanel({
       {message && <p role="status">{message}</p>}
       {busy && <p role="status" className="text-sm text-orange-700">جارٍ رفع الصور وحفظ البيانات…</p>}
       <div className="grid md:grid-cols-2 gap-6 mt-4">
+        <form className="space-y-2" onSubmit={(event) => save(event, async (data) => {
+          const product = products.find((item) => item.id === data.get("product"));
+          if (!product) throw new Error("اختر الصنف.");
+          const file = data.get("productFile") as File | null;
+          if (!file?.size) throw new Error("اختر صورة الصنف.");
+          await saveCatalogWithImages("products", product.id, {}, [{ field: "imageUrl", file }]);
+        })}>
+          <h3 className="font-bold">تحديث صورة صنف موجود</h3>
+          <select name="product" aria-label="الصنف لتحديث الصورة" required className={input}><option value="">اختر الصنف</option>{products.map((item) => <option key={item.id} value={item.id}>{item.storeName} · {item.name}</option>)}</select>
+          <ImageFileField name="productFile" label="صورة الصنف الجديدة" disabled={busy} />
+          <button disabled={busy} className="bg-slate-900 text-white p-2 rounded-xl">حفظ صورة الصنف</button>
+        </form>
         <form className="space-y-2" onSubmit={(event) => save(event, async (data) => {
           const store = stores.find((item) => item.id === data.get("store"));
           if (!store) throw new Error("اختر المتجر.");
@@ -74,8 +91,8 @@ export function AdminSetupPanel({
                 id,
                 name: String(data.get("name")),
                 nameEn: String(data.get("name")),
-                type: "مطعم",
-                category: "sandwiches",
+                type: String(data.get("type")),
+                category: String(data.get("category")),
                 logo: "🍽️",
                 banner: "from-orange-600 to-slate-900",
                 status: "open",
@@ -93,6 +110,8 @@ export function AdminSetupPanel({
           }
         >
           <h3 className="font-bold">إضافة متجر</h3>
+          <input aria-label="نوع النشاط" name="type" placeholder="نوع النشاط" required className={input} />
+          <select aria-label="تصنيف المتجر" name="category" className={input}>{[["breakfast", "فطور"], ["sandwiches", "مطعم وسندوتشات"], ["supermarket", "سوبر ماركت"], ["cafe", "كافيه"], ["desserts", "حلويات"]].map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select>
           <ImageFileField name="logoFile" label="شعار المحل" disabled={busy} />
           <ImageFileField name="bannerFile" label="صورة المحل" disabled={busy} />
           <input
@@ -161,7 +180,7 @@ export function AdminSetupPanel({
                 name: String(data.get("name")),
                 description: String(data.get("description")),
                 price: Number(data.get("price")),
-                category: "وجبات خفيفة",
+                category: String(data.get("category")),
                 imageType: "croissant",
                 imageUrl,
                 inStock: true,
@@ -170,6 +189,7 @@ export function AdminSetupPanel({
           }
         >
           <h3 className="font-bold">إضافة صنف</h3>
+          <select aria-label="تصنيف الصنف" name="category" className={input}>{["فطور", "سندوتشات", "سوبر ماركت بالقطعة", "مشروبات", "وجبات خفيفة", "حلويات"].map((category) => <option key={category}>{category}</option>)}</select>
           <ImageFileField name="productFile" label="صورة الصنف" disabled={busy} />
           <select aria-label="المتجر" name="store" required className={input}>
             <option value="">اختر المتجر</option>

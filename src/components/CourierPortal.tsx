@@ -25,6 +25,7 @@ import type { Order, Profile } from "../types/index.ts";
 import { formatEGP } from "../utils/orderCalculations.ts";
 
 interface CourierPortalProps {
+  onCompleteDelivery: (orderId: string, otpCode: string, collectedAmount: number) => Promise<void>;
   courier: Profile;
   orders: Order[];
   onUpdateOrderChecklist: (
@@ -52,7 +53,19 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
   orders,
   onUpdateOrderChecklist,
   onAdvanceOrderStatus,
+  onCompleteDelivery,
 }) => {
+  const [codes, setCodes] = useState<Record<string, string>>({});
+  const [deliveryPending, setDeliveryPending] = useState<string[]>([]);
+  const [deliveryError, setDeliveryError] = useState("");
+  async function confirmDelivery(order: Order) {
+    setDeliveryError("");
+    if (!/^\d{4}$/.test(codes[order.id] || "")) { setDeliveryError("أدخل رمز الاستلام المكون من 4 أرقام من العميل."); return; }
+    setDeliveryPending((ids) => [...ids, order.id]);
+    try { await onCompleteDelivery(order.id, codes[order.id], inputCollectedAmounts[order.id] ?? order.total); }
+    catch (error) { setDeliveryError((error as Error).message); }
+    finally { setDeliveryPending((ids) => ids.filter((id) => id !== order.id)); }
+  }
   const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [activeNotes, setActiveNotes] = useState<Record<string, string>>({});
@@ -126,26 +139,13 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
         arrivedAtCustomerOffice: nextVal,
       });
     } else if (step === "collect") {
-      const nextVal = !current.collectedPayment;
-      const collectedAmount = inputCollectedAmounts[order.id] ?? orderTotal;
-      const notes =
-        activeNotes[order.id] ||
-        current.notes ||
-        "تم التسليم باليد واستلام المبلغ بالكامل.";
-      onUpdateOrderChecklist(
-        order.id,
-        {
-          collectedPayment: nextVal,
-          collectedAmount: nextVal ? collectedAmount : 0,
-          notes,
-        },
-        nextVal ? "delivered" : undefined,
-      );
+      void confirmDelivery(order);
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-4 space-y-5" dir="rtl">
+      {deliveryError && <p role="alert" className="bg-red-50 text-red-700 rounded-xl p-3">{deliveryError}</p>}
       {/* Courier Identity Card */}
       <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-950 text-white rounded-3xl p-5 shadow-lg border border-emerald-700/50 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -685,6 +685,9 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                         </div>
                       </div>
 
+                      <label className="block text-xs font-bold">رمز الاستلام من العميل
+                        <input aria-label={`رمز استلام ${order.orderNumber}`} inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="off" value={codes[order.id] || ""} onChange={(e) => setCodes({ ...codes, [order.id]: e.target.value.replace(/[^0-9]/g, "") })} className="block w-full p-3 mt-2 border rounded-xl text-xl tracking-widest" />
+                      </label>
                       {/* Step 5: استلام الأموال من الموظف وإغلاق الأوردر */}
                       <div className="p-4 rounded-2xl border-2 border-emerald-500/30 bg-emerald-50/50 space-y-3">
                         <div className="flex items-center justify-between">
@@ -742,6 +745,7 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
 
                         <button
                           type="button"
+                          disabled={deliveryPending.includes(order.id)}
                           onClick={() => handleToggleStep(order, "collect")}
                           className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs sm:text-sm font-black shadow-md flex items-center justify-center gap-2 transition-all"
                         >
@@ -749,7 +753,7 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                           <span>
                             {checklist.collectedPayment
                               ? "تأكيد تحديث إغلاق الطلب وتوريد العهدة"
-                              : "تأكيد استلام الأموال وإغلاق الطلب بنجاح"}
+                              : deliveryPending.includes(order.id) ? "جارٍ التحقق…" : "تأكيد الاستلام بالرمز وتحصيل المبلغ"}
                           </span>
                         </button>
                       </div>

@@ -1,3 +1,4 @@
+import { orderDelivery } from "./lib/orderDelivery";
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -63,7 +64,7 @@ import { MobileSimulatorFrame } from "./components/MobileSimulatorFrame.tsx";
 import { AiAssistantModal } from "./components/AiAssistantModal.tsx";
 import { MobileReleaseModal } from "./components/MobileReleaseModal.tsx";
 import { AppSplashScreen } from "./components/AppSplashScreen.tsx";
-import { AdminSetupPanel } from "./components/AdminSetupPanel.tsx";
+import { AdminWorkspace } from "./components/AdminWorkspace";
 import {
   CorporateWebsite,
   type WebsitePage,
@@ -81,6 +82,7 @@ import {
   subscribeToOrders,
   saveRecord,
   updateOrderRecord,
+  updateKitchenStage,
   approvePartner,
   isVerifiedIdentity,
   signOutFromFirebase,
@@ -102,6 +104,7 @@ export default function App() {
   const [stores, setStores] = useState<Store[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersConnected, setOrdersConnected] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
@@ -122,7 +125,7 @@ export default function App() {
   };
   // Official Corporate Website & Landing Page vs Mobile App States
   const [isWebsiteOpen, setIsWebsiteOpen] = useState<boolean>(
-    window.location.pathname !== "/admin",
+    !["/admin", "/kitchen"].includes(window.location.pathname),
   );
   const [websitePage, setWebsitePage] = useState<WebsitePage>("home");
   const [initialAdminTab, setInitialAdminTab] =
@@ -155,16 +158,17 @@ export default function App() {
       setPartnerApplications([]);
       setJobApplications([]);
       setStaff([]);
+      setOrdersConnected(false);
       if (!isVerifiedIdentity(fbUser)) return;
       try {
         const profile = await syncUserProfileToFirestore(fbUser!);
         if (current !== generation) return;
         setUser(profile);
         setCloudError("");
-        if (window.location.pathname === "/admin") {
+        if (["/admin", "/kitchen"].includes(window.location.pathname)) {
           setIsWebsiteOpen(false);
           setIsSimulatorActive(false);
-          setActiveTab(profile.role === "admin" ? "admin" : "profile");
+          setActiveTab(profile.role === "admin" ? "admin" : profile.role === "restaurant" ? "restaurant" : "profile");
         }
       } catch (error) {
         if (current === generation) reportError(error);
@@ -191,6 +195,7 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (user.isGuest || auth.currentUser?.uid !== user.id) return;
+    setOrdersConnected(false);
     let initialized = false;
     const previous = new Map<string, string>();
     const stops = [
@@ -216,6 +221,7 @@ export default function App() {
           setOrders(data);
         },
         reportError,
+        setOrdersConnected,
       ),
     ];
     if (user.role === "admin")
@@ -236,7 +242,7 @@ export default function App() {
   }, [user.id, user.role, user.storeId]);
   // Keep Splash Screen as the primary mobile launch experience
   useEffect(() => {
-    if (window.location.pathname === "/admin") setIsAuthModalOpen(true);
+    if (["/admin", "/kitchen"].includes(window.location.pathname)) setIsAuthModalOpen(true);
   }, []);
 
   // Navigation
@@ -463,7 +469,7 @@ export default function App() {
     const courier = staff.find(
       (s) => s.id === courierId && s.role === "courier",
     );
-    if (!courier) return;
+    if (!courier || orders.find((order) => order.id === orderId)?.orderStatus !== "ready") return;
     return persist(
       updateOrderRecord(orderId, {
         courierId: courier.id,
@@ -564,6 +570,7 @@ export default function App() {
     (o) =>
       o.orderStatus === "received" ||
       o.orderStatus === "preparing" ||
+      o.orderStatus === "ready" ||
       o.orderStatus === "with_courier",
   ).length;
 
@@ -883,6 +890,7 @@ export default function App() {
         <CourierPortal
           orders={orders}
           courier={user}
+          onCompleteDelivery={async (orderId, otpCode, collectedAmount) => { await orderDelivery({ action: "deliver", orderId, otpCode, collectedAmount }); }}
           onAdvanceOrderStatus={handleUpdateOrderStatus}
           onUpdateOrderChecklist={handleUpdateOrderChecklist}
         />
@@ -891,11 +899,8 @@ export default function App() {
       {/* Tab: Restaurant Portal (Kitchen Ticket Board & Menu Manager) */}
       {activeTab === "restaurant" && user.role === "restaurant" && (
         <RestaurantPortal
-          onMarkReady={(id) =>
-            persist(
-              updateOrderRecord(id, { restaurantStatus: "ready_for_pickup" }),
-            )
-          }
+          connected={ordersConnected}
+          onKitchenChange={updateKitchenStage}
           orders={orders}
           products={products}
           stores={stores}
@@ -907,17 +912,14 @@ export default function App() {
               persist(saveRecord("products", id, { ...product, inStock }));
           }}
           onUpdateProductPrice={handleUpdateProductPrice}
-          onAddProduct={(product) =>
-            persist(saveRecord("products", product.id, product))
-          }
+          onAddProduct={(product) => saveRecord("products", product.id, product)}
           onToggleStoreStatus={handleToggleStoreStatus}
         />
       )}
 
       {/* Tab: Admin Dashboard */}
       {activeTab === "admin" && user.role === "admin" && (
-        <>
-          <AdminSetupPanel stores={stores} onError={reportError} />
+        <AdminWorkspace orders={orders} stores={stores} products={products} couriers={staff.filter((person) => person.role === "courier")} connected={ordersConnected} onError={reportError}>
           <AdminDashboard
             couriers={staff.filter((s) => s.role === "courier")}
             orders={orders}
@@ -939,7 +941,7 @@ export default function App() {
               setIsWebsiteOpen(true);
             }}
           />
-        </>
+        </AdminWorkspace>
       )}
 
       {/* Tab: Profile View */}

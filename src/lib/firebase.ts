@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { apiUrl } from "./apiUrl";
+import { normalizeOrder, nextKitchenUpdate } from "../utils/orderIntegration";
 import {
   getAuth,
   GoogleAuthProvider,
@@ -154,6 +155,8 @@ export async function saveRecord(name: string, id: string, data: object) {
 export async function updateOrderRecord(id: string, changes: Partial<Order>) {
   await updateDoc(doc(db, "orders", id), {
     ...cleanData(changes),
+    ...(changes.orderStatus === "ready" ? { readyAt: serverTimestamp() } : {}),
+    ...(changes.orderStatus === "delivered" ? { deliveredAt: serverTimestamp() } : {}),
     updatedAt: serverTimestamp(),
   });
 }
@@ -192,6 +195,7 @@ export function subscribeToOrders(
   profile: Profile,
   onData: (orders: Order[]) => void,
   onError: (error: Error) => void,
+  onConnection?: (connected: boolean) => void,
 ) {
   const constraints =
     profile.role === "admin"
@@ -206,30 +210,25 @@ export function subscribeToOrders(
     (orders) =>
       onData(
         orders
-          .map((o) =>
-            Array.isArray(o.items)
-              ? o
-              : {
-                  ...o,
-                  items: [],
-                  legacyRecord: true,
-                  legacySummary:
-                    (o as any).itemsSummary ||
-                    "تفاصيل الأصناف غير محفوظة في السجل القديم",
-                  subtotal: 0,
-                  deliveryFee: 0,
-                  discount: 0,
-                  tip: 0,
-                  paymentStatus: o.paymentStatus || "pending",
-                  createdAt: o.createdAt || "",
-                  estimatedDelivery: o.estimatedDelivery || "سجل سابق",
-                },
-          )
+          .map(normalizeOrder)
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
       ),
     onError,
     constraints,
+    onConnection,
   );
+}
+
+export async function updateKitchenStage(id: string, storeId: string, next: "preparing" | "ready") {
+  await runTransaction(db, async (transaction) => {
+    const target = doc(db, "orders", id);
+    const snapshot = await transaction.get(target);
+    if (!snapshot.exists()) throw new Error("الطلب غير موجود.");
+    const changes = nextKitchenUpdate(normalizeOrder({ ...snapshot.data(), id }), storeId, next);
+    transaction.update(target, { ...changes, updatedAt: serverTimestamp(),
+      ...(changes.orderStatus === "ready" ? { readyAt: serverTimestamp() } : {}),
+    });
+  });
 }
 export async function saveOrderToFirestore(order: Order): Promise<Order> {
   if (!auth.currentUser) throw new Error("يرجى تسجيل الدخول.");

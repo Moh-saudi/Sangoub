@@ -1,3 +1,4 @@
+import { OrderReceiptCode } from "./OrderReceiptCode";
 import { OrderMap } from "./OrderMap.tsx";
 import React, { useState } from "react";
 import {
@@ -41,8 +42,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     const statusMap: Record<OrderStatus, number> = {
       received: 1,
       preparing: 2,
-      with_courier: 3,
-      delivered: 4,
+      ready: 3,
+      with_courier: 4,
+      delivered: 5,
       cancelled: 0,
     };
     const currentStep = statusMap[currentStatus];
@@ -96,6 +98,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 className="bg-white rounded-3xl border border-slate-200/90 shadow-xs hover:border-slate-300 transition-all overflow-hidden"
               >
                 {isExpanded && <OrderMap order={order} />}
+                {isExpanded && !["delivered", "cancelled"].includes(order.orderStatus) && <OrderReceiptCode orderId={order.id} />}
                 {order.legacyRecord && (
                   <p className="text-xs text-amber-900 bg-amber-50 p-3">
                     سجل قديم: {order.legacySummary}. المتاح هو إجمالي الطلب فقط؛
@@ -192,93 +195,14 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-4 gap-1 relative text-center">
-                        {/* Connecting Line */}
-                        <div className="absolute top-4 left-[12%] right-[12%] h-0.5 bg-slate-200 -z-0" />
-
-                        {/* Step 1 */}
-                        {(() => {
-                          const state1 = getStepState(order.orderStatus, 1);
-                          return (
-                            <div className="flex flex-col items-center relative z-10">
-                              <div
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                                  state1 === "completed" || state1 === "current"
-                                    ? "bg-emerald-600 text-white ring-4 ring-emerald-100"
-                                    : "bg-white border-2 border-slate-300 text-slate-400"
-                                }`}
-                              >
-                                1
-                              </div>
-                              <span className="text-[10px] font-semibold text-slate-700 mt-1.5 leading-tight">
-                                استلام الطلب
-                              </span>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Step 2 */}
-                        {(() => {
-                          const state2 = getStepState(order.orderStatus, 2);
-                          return (
-                            <div className="flex flex-col items-center relative z-10">
-                              <div
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                                  state2 === "completed" || state2 === "current"
-                                    ? "bg-emerald-600 text-white ring-4 ring-emerald-100"
-                                    : "bg-white border-2 border-slate-300 text-slate-400"
-                                }`}
-                              >
-                                2
-                              </div>
-                              <span className="text-[10px] font-semibold text-slate-700 mt-1.5 leading-tight">
-                                تجهيز المطعم
-                              </span>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Step 3 */}
-                        {(() => {
-                          const state3 = getStepState(order.orderStatus, 3);
-                          return (
-                            <div className="flex flex-col items-center relative z-10">
-                              <div
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                                  state3 === "completed" || state3 === "current"
-                                    ? "bg-emerald-600 text-white ring-4 ring-emerald-100 animate-pulse"
-                                    : "bg-white border-2 border-slate-300 text-slate-400"
-                                }`}
-                              >
-                                3
-                              </div>
-                              <span className="text-[10px] font-semibold text-slate-700 mt-1.5 leading-tight">
-                                مع المندوب
-                              </span>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Step 4 */}
-                        {(() => {
-                          const state4 = getStepState(order.orderStatus, 4);
-                          return (
-                            <div className="flex flex-col items-center relative z-10">
-                              <div
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                                  state4 === "completed" || state4 === "current"
-                                    ? "bg-emerald-600 text-white ring-4 ring-emerald-100"
-                                    : "bg-white border-2 border-slate-300 text-slate-400"
-                                }`}
-                              >
-                                4
-                              </div>
-                              <span className="text-[10px] font-semibold text-slate-700 mt-1.5 leading-tight">
-                                تم التسليم بالدور
-                              </span>
-                            </div>
-                          );
-                        })()}
+                      <div className="grid grid-cols-5 gap-1 text-center">
+                        {["استلام الطلب", "التحضير", "جاهز للاستلام", "مع المندوب", "تم التسليم"].map((label, index) => {
+                          const state = getStepState(order.orderStatus, index + 1);
+                          return <div key={label} className="flex flex-col items-center gap-2">
+                            <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${["upcoming", "cancelled"].includes(state) ? "bg-white border text-slate-400" : "bg-emerald-600 text-white"}`}>{index + 1}</span>
+                            <span className="text-[10px] text-slate-700">{label}</span>
+                          </div>;
+                        })}
                       </div>
                     </div>
 

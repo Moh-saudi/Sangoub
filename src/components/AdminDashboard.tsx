@@ -95,11 +95,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   });
 
   // Calculate statistics
-  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+  const totalRevenue = orders.filter((order) => order.orderStatus === "delivered").reduce((sum, o) => sum + o.total, 0);
   const activeOrdersCount = orders.filter(
     (o) =>
       o.orderStatus === "received" ||
       o.orderStatus === "preparing" ||
+      o.orderStatus === "ready" ||
       o.orderStatus === "with_courier",
   ).length;
 
@@ -333,6 +334,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 { id: "all", label: "الكل" },
                 { id: "received", label: "جديد" },
                 { id: "preparing", label: "قيد التجهيز" },
+                { id: "ready", label: "جاهز للاستلام" },
                 { id: "with_courier", label: "مع المندوب" },
                 { id: "delivered", label: "تم التسليم" },
               ].map((filter) => (
@@ -462,6 +464,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           تعيين المندوب:
                         </span>
                         <select
+                          disabled={order.orderStatus !== "ready"}
                           value={
                             order.courierId ||
                             selectedCourierForOrder[order.id] ||
@@ -499,24 +502,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {order.orderStatus === "preparing" && (
                           <button
                             onClick={() =>
-                              onUpdateOrderStatus(order.id, "with_courier")
+                              onUpdateOrderStatus(order.id, "ready")
                             }
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer"
                           >
-                            تسليم للمندوب وصعود الأدوار
+                            جاهز لاستلام المندوب
                           </button>
                         )}
 
-                        {order.orderStatus === "with_courier" && (
-                          <button
-                            onClick={() =>
-                              onUpdateOrderStatus(order.id, "delivered")
-                            }
-                            className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold cursor-pointer"
-                          >
-                            تأكيد التسليم واستلام النقد
-                          </button>
-                        )}
+                        {order.orderStatus === "with_courier" && <span className="text-xs text-slate-500">يؤكد المندوب التسليم برمز العميل</span>}
 
                         {order.orderStatus === "delivered" && (
                           <span className="text-xs text-teal-700 font-bold flex items-center gap-1">

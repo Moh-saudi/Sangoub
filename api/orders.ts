@@ -1,4 +1,5 @@
 import { FieldValue } from "firebase-admin/firestore";
+import { randomInt } from "node:crypto";
 import { adminServices } from "../server/firebaseAdmin.ts";
 import { buildOrder } from "../server/orderBuilder.ts";
 import { mobileCors } from "../server/mobileCors.ts";
@@ -93,6 +94,9 @@ export default async function handler(req: any, res: any) {
         ...order,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
+      });
+      tx.create(db.collection("orderSecrets").doc(ref.id), {
+        otpCode: randomInt(1000, 10000).toString(), attempts: 0,
       });
       return order;
     });
