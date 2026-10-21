@@ -1,9 +1,10 @@
+import { orderDelivery } from "./lib/orderDelivery";
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Search,
   SlidersHorizontal,
@@ -17,7 +18,7 @@ import {
   Loader2,
   Bot,
   MapPin,
-} from 'lucide-react';
+} from "lucide-react";
 import type {
   ApplicationStatus,
   AppNotification,
@@ -32,184 +33,237 @@ import type {
   Profile,
   Store,
   UserRole,
-} from './types/index.ts';
+} from "./types/index.ts";
+import { DEFAULT_USER } from "./data/seedData.ts";
+import { RoleSwitcherBar } from "./components/RoleSwitcherBar.tsx";
+import { HeaderBar } from "./components/HeaderBar.tsx";
+import { BannerSlider } from "./components/BannerSlider.tsx";
+import { StoreList } from "./components/StoreList.tsx";
+import { ProductCard } from "./components/ProductCard.tsx";
+import { ProductDetailModal } from "./components/ProductDetailModal.tsx";
+import { FloatingCartBar } from "./components/FloatingCartBar.tsx";
+import { CartModal } from "./components/CartModal.tsx";
+import { OrdersView } from "./components/OrdersView.tsx";
 import {
-  DEFAULT_USER,
-  DEMO_PROFILES,
-  INITIAL_COUPONS,
-  INITIAL_JOB_APPLICATIONS,
-  INITIAL_ORDERS,
-  INITIAL_PARTNER_APPLICATIONS,
-  INITIAL_PRODUCTS,
-  INITIAL_STORES,
-} from './data/seedData.ts';
-import { RoleSwitcherBar } from './components/RoleSwitcherBar.tsx';
-import { HeaderBar } from './components/HeaderBar.tsx';
-import { BannerSlider } from './components/BannerSlider.tsx';
-import { StoreList } from './components/StoreList.tsx';
-import { ProductCard } from './components/ProductCard.tsx';
-import { ProductDetailModal } from './components/ProductDetailModal.tsx';
-import { FloatingCartBar } from './components/FloatingCartBar.tsx';
-import { CartModal } from './components/CartModal.tsx';
-import { OrdersView } from './components/OrdersView.tsx';
-import { AdminDashboard, type AdminTabType } from './components/AdminDashboard.tsx';
-import { CourierPortal } from './components/CourierPortal.tsx';
-import { RestaurantPortal } from './components/RestaurantPortal.tsx';
-import { ProfileView } from './components/ProfileView.tsx';
-import { BottomNavBar } from './components/BottomNavBar.tsx';
-import { LocationModal } from './components/LocationModal.tsx';
-import { AuthModal } from './components/AuthModal.tsx';
-import { NotificationCenter, NotificationToast } from './components/NotificationCenter.tsx';
-import { CuisineBubbles } from './components/CuisineBubbles.tsx';
-import { OnboardingModal } from './components/OnboardingModal.tsx';
-import { MobileSimulatorFrame } from './components/MobileSimulatorFrame.tsx';
-import { AiAssistantModal } from './components/AiAssistantModal.tsx';
-import { MobileReleaseModal } from './components/MobileReleaseModal.tsx';
-import { AppSplashScreen } from './components/AppSplashScreen.tsx';
-import { CorporateWebsite, type WebsitePage } from './components/CorporateWebsite.tsx';
-import { applyCouponDiscount, formatEGP } from './utils/orderCalculations.ts';
-import { useVoiceRecorder } from './utils/geminiClient.ts';
-import { useOnlineStatus } from './utils/usePWAInstall.ts';
+  AdminDashboard,
+  type AdminTabType,
+} from "./components/AdminDashboard.tsx";
+import { CourierPortal } from "./components/CourierPortal.tsx";
+import { RestaurantPortal } from "./components/RestaurantPortal.tsx";
+import { ProfileView } from "./components/ProfileView.tsx";
+import { BottomNavBar } from "./components/BottomNavBar.tsx";
+import { LocationModal } from "./components/LocationModal.tsx";
+import { AuthModal } from "./components/AuthModal.tsx";
+import {
+  NotificationCenter,
+  NotificationToast,
+} from "./components/NotificationCenter.tsx";
+import { CuisineBubbles } from "./components/CuisineBubbles.tsx";
+import { OnboardingModal } from "./components/OnboardingModal.tsx";
+import { MobileSimulatorFrame } from "./components/MobileSimulatorFrame.tsx";
+import { AiAssistantModal } from "./components/AiAssistantModal.tsx";
+import { MobileReleaseModal } from "./components/MobileReleaseModal.tsx";
+import { AppSplashScreen } from "./components/AppSplashScreen.tsx";
+import { AdminWorkspace } from "./components/AdminWorkspace";
+import {
+  CorporateWebsite,
+  type WebsitePage,
+} from "./components/CorporateWebsite.tsx";
+import { applyCouponDiscount, formatEGP } from "./utils/orderCalculations.ts";
+import { useVoiceRecorder } from "./utils/geminiClient.ts";
+import { useOnlineStatus } from "./utils/usePWAInstall.ts";
 import {
   auth,
   onAuthStateChanged,
   syncUserProfileToFirestore,
   updateUserLocationInFirestore,
   saveOrderToFirestore,
+  watchCollection,
+  subscribeToOrders,
+  saveRecord,
+  updateOrderRecord,
+  updateKitchenStage,
+  approvePartner,
+  isVerifiedIdentity,
   signOutFromFirebase,
-} from './lib/firebase.ts';
+} from "./lib/firebase.ts";
 
 export default function App() {
-  // Main state with localStorage support where safe
-  const [user, setUser] = useState<Profile>(() => {
-    try {
-      const saved = localStorage.getItem('gov_user_profile');
-      return saved ? JSON.parse(saved) : DEFAULT_USER;
-    } catch {
-      return DEFAULT_USER;
-    }
-  });
-
-  const [stores, setStores] = useState<Store[]>(INITIAL_STORES);
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
+  const [user, setUser] = useState<Profile>(DEFAULT_USER);
+  const [cloudError, setCloudError] = useState("");
+  const [cloudConnected, setCloudConnected] = useState(false);
+  const [staff, setStaff] = useState<
+    Array<{
+      id: string;
+      role: string;
+      name: string;
+      phone: string;
+      storeId?: string;
+    }>
+  >([]);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersConnected, setOrdersConnected] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>(INITIAL_COUPONS);
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
-
-  // Partner & Job Applications State (persisted to localStorage and displayed in Admin Dashboard)
-  const [partnerApplications, setPartnerApplications] = useState<PartnerApplication[]>(() => {
+  const [partnerApplications, setPartnerApplications] = useState<
+    PartnerApplication[]
+  >([]);
+  const [jobApplications, setJobApplications] = useState<JobApplication[]>([]);
+  const reportError = (error: unknown) =>
+    setCloudError(
+      error instanceof Error ? error.message : "تعذر الاتصال بقاعدة البيانات.",
+    );
+  const persist = async (operation: Promise<unknown>) => {
     try {
-      const saved = localStorage.getItem('gov_partner_applications');
-      return saved ? JSON.parse(saved) : INITIAL_PARTNER_APPLICATIONS;
-    } catch {
-      return INITIAL_PARTNER_APPLICATIONS;
+      await operation;
+    } catch (error) {
+      reportError(error);
     }
-  });
-
-  const [jobApplications, setJobApplications] = useState<JobApplication[]>(() => {
-    try {
-      const saved = localStorage.getItem('gov_job_applications');
-      return saved ? JSON.parse(saved) : INITIAL_JOB_APPLICATIONS;
-    } catch {
-      return INITIAL_JOB_APPLICATIONS;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('gov_partner_applications', JSON.stringify(partnerApplications));
-    } catch {
-      // Ignore storage error
-    }
-  }, [partnerApplications]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('gov_job_applications', JSON.stringify(jobApplications));
-    } catch {
-      // Ignore storage error
-    }
-  }, [jobApplications]);
-
+  };
   // Official Corporate Website & Landing Page vs Mobile App States
-  const [isWebsiteOpen, setIsWebsiteOpen] = useState<boolean>(true);
-  const [websitePage, setWebsitePage] = useState<WebsitePage>('home');
-  const [initialAdminTab, setInitialAdminTab] = useState<AdminTabType>('orders');
+  const [isWebsiteOpen, setIsWebsiteOpen] = useState<boolean>(
+    !["/admin", "/kitchen"].includes(window.location.pathname),
+  );
+  const [websitePage, setWebsitePage] = useState<WebsitePage>("home");
+  const [initialAdminTab, setInitialAdminTab] =
+    useState<AdminTabType>("orders");
 
   // Mobile Simulator, Splash Screen, Onboarding & Release Hub States
-  const [isSimulatorActive, setIsSimulatorActive] = useState<boolean>(true);
-  const [isSplashOpen, setIsSplashOpen] = useState<boolean>(true);
+  const [isSimulatorActive, setIsSimulatorActive] = useState<boolean>(false);
+  const [isSplashOpen, setIsSplashOpen] = useState<boolean>(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
-  const [isMobileReleaseOpen, setIsMobileReleaseOpen] = useState<boolean>(false);
-  const [checkoutInterceptNotice, setCheckoutInterceptNotice] = useState<string | null>(null);
+  const [isMobileReleaseOpen, setIsMobileReleaseOpen] =
+    useState<boolean>(false);
+  const [checkoutInterceptNotice, setCheckoutInterceptNotice] = useState<
+    string | null
+  >(null);
   const isOnline = useOnlineStatus();
 
   // AI Assistant & Maps Modal State
   const [isAiAssistantOpen, setIsAiAssistantOpen] = useState<boolean>(false);
-  const [aiAssistantInitialTab, setAiAssistantInitialTab] = useState<'chat' | 'maps'>('chat');
+  const [aiAssistantInitialTab, setAiAssistantInitialTab] = useState<
+    "chat" | "maps"
+  >("chat");
 
-  // Listen to real Firebase Authentication state changes
+  // Firebase owns the session; browser storage never grants roles.
   useEffect(() => {
+    let generation = 0;
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        try {
-          const syncedProfile = await syncUserProfileToFirestore(fbUser, {
-            ministry: user.ministry,
-            floorNumber: user.floorNumber,
-            roomNumber: user.roomNumber,
-          });
-          setUser(syncedProfile);
-        } catch (err) {
-          console.error('Firebase profile sync error:', err);
+      const current = ++generation;
+      setUser(DEFAULT_USER);
+      setOrders([]);
+      setPartnerApplications([]);
+      setJobApplications([]);
+      setStaff([]);
+      setOrdersConnected(false);
+      if (!isVerifiedIdentity(fbUser)) return;
+      try {
+        const profile = await syncUserProfileToFirestore(fbUser!);
+        if (current !== generation) return;
+        setUser(profile);
+        setCloudError("");
+        if (["/admin", "/kitchen"].includes(window.location.pathname)) {
+          setIsWebsiteOpen(false);
+          setIsSimulatorActive(false);
+          setActiveTab(profile.role === "admin" ? "admin" : profile.role === "restaurant" ? "restaurant" : "profile");
         }
+      } catch (error) {
+        if (current === generation) reportError(error);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      generation++;
+      unsubscribe();
+    };
   }, []);
-
+  useEffect(() => {
+    const stops = [
+      watchCollection<Store>(
+        "stores",
+        setStores,
+        reportError,
+        [],
+        setCloudConnected,
+      ),
+      watchCollection<Product>("products", setProducts, reportError),
+      watchCollection<Coupon>("coupons", setAvailableCoupons, reportError),
+    ];
+    return () => stops.forEach((stop) => stop());
+  }, []);
+  useEffect(() => {
+    if (user.isGuest || auth.currentUser?.uid !== user.id) return;
+    setOrdersConnected(false);
+    let initialized = false;
+    const previous = new Map<string, string>();
+    const stops = [
+      subscribeToOrders(
+        user,
+        (data) => {
+          if (initialized)
+            for (const order of data) {
+              if (
+                !previous.has(order.id) ||
+                previous.get(order.id) !== order.orderStatus
+              )
+                addNotification(
+                  "تحديث طلب " + order.orderNumber,
+                  "الحالة: " + order.orderStatus,
+                  "order_update",
+                  order.id,
+                );
+            }
+          previous.clear();
+          for (const order of data) previous.set(order.id, order.orderStatus);
+          initialized = true;
+          setOrders(data);
+        },
+        reportError,
+        setOrdersConnected,
+      ),
+    ];
+    if (user.role === "admin")
+      stops.push(
+        watchCollection<PartnerApplication>(
+          "partnerApplications",
+          setPartnerApplications,
+          reportError,
+        ),
+        watchCollection<JobApplication>(
+          "jobApplications",
+          setJobApplications,
+          reportError,
+        ),
+        watchCollection("staff", setStaff, reportError),
+      );
+    return () => stops.forEach((stop) => stop());
+  }, [user.id, user.role, user.storeId]);
   // Keep Splash Screen as the primary mobile launch experience
   useEffect(() => {
-    setIsSplashOpen(true);
+    if (["/admin", "/kitchen"].includes(window.location.pathname)) setIsAuthModalOpen(true);
   }, []);
 
   // Navigation
   const [activeTab, setActiveTab] = useState<
-    'home' | 'orders' | 'profile' | 'admin' | 'courier' | 'restaurant'
-  >('home');
+    "home" | "orders" | "profile" | "admin" | "courier" | "restaurant"
+  >("home");
 
   // Search & Filters
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
+  const [selectedCategory, setSelectedCategory] = useState<string>("الكل");
 
   // Modals & Sheets
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [selectedProductForDetail, setSelectedProductForDetail] = useState<Product | null>(null);
+  const [selectedProductForDetail, setSelectedProductForDetail] =
+    useState<Product | null>(null);
 
-  // Notifications (FCM simulation)
-  const [notifications, setNotifications] = useState<AppNotification[]>([
-    {
-      id: 'notif-1',
-      title: 'مندوب الحي الحكومي في الطريق',
-      body: 'خرج المندوب أحمد رجب ومعه طلبك متجهاً إلى وزارة المالية الدور الرابع',
-      timestamp: 'منذ 10 دقائق',
-      read: false,
-      type: 'courier_assigned',
-      orderId: 'ord-8491',
-    },
-    {
-      id: 'notif-2',
-      title: 'قسيمة خصم جديدة لموظفي العاصمة',
-      body: 'استخدم كود GOV100 للحصول على 100 جنيه خصم فوري على وجبات الفود كورت',
-      timestamp: 'اليوم 09:00 ص',
-      read: true,
-      type: 'promo',
-    },
-  ]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   const [activeToast, setActiveToast] = useState<AppNotification | null>(null);
 
@@ -217,14 +271,14 @@ export default function App() {
   const addNotification = (
     title: string,
     body: string,
-    type: AppNotification['type'] = 'order_update',
-    orderId?: string
+    type: AppNotification["type"] = "order_update",
+    orderId?: string,
   ) => {
     const newNotif: AppNotification = {
-      id: 'notif-' + Date.now(),
+      id: "notif-" + Date.now(),
       title,
       body,
-      timestamp: 'الآن',
+      timestamp: "الآن",
       read: false,
       type,
       orderId,
@@ -232,32 +286,29 @@ export default function App() {
     setNotifications((prev) => [newNotif, ...prev]);
     setActiveToast(newNotif);
     setTimeout(() => {
-      setActiveToast((current) => (current?.id === newNotif.id ? null : current));
+      setActiveToast((current) =>
+        current?.id === newNotif.id ? null : current,
+      );
     }, 4500);
   };
-
-  // Sync user state changes to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('gov_user_profile', JSON.stringify(user));
-    } catch {
-      // Storage unavailable or disabled
-    }
-  }, [user]);
 
   // Handle Cart item modifications
   const handleAddToCart = (product: Product) => {
     setCartItems((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id && !item.notes);
+      const existing = prev.find(
+        (item) => item.product.id === product.id && !item.notes,
+      );
       if (existing) {
         return prev.map((item) =>
-          item.id === existing.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === existing.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
         );
       }
       return [
         ...prev,
         {
-          id: 'cart-' + Date.now() + '-' + Math.random(),
+          id: "cart-" + Date.now() + "-" + Math.random(),
           product,
           quantity: 1,
           selectedOptions: {},
@@ -267,9 +318,9 @@ export default function App() {
     });
 
     addNotification(
-      'تمت الإضافة إلى سلتك',
+      "تمت الإضافة إلى سلتك",
       `أضفت ${product.name} من ${product.storeName} لسلة مشترياتك`,
-      'promo'
+      "promo",
     );
   };
 
@@ -278,12 +329,12 @@ export default function App() {
     quantity: number,
     selectedOptions: Record<string, string>,
     extraPrice = 0,
-    notes = ''
+    notes = "",
   ) => {
     setCartItems((prev) => [
       ...prev,
       {
-        id: 'cart-' + Date.now() + '-' + Math.random(),
+        id: "cart-" + Date.now() + "-" + Math.random(),
         product,
         quantity,
         selectedOptions,
@@ -293,17 +344,19 @@ export default function App() {
     ]);
 
     addNotification(
-      'وجبة مخصصة في السلة',
+      "وجبة مخصصة في السلة",
       `تمت إضافة ${quantity}x ${product.name} بالخيارات المختارة`,
-      'promo'
+      "promo",
     );
   };
 
   const handleIncrementItem = (cartItemId: string) => {
     setCartItems((prev) =>
       prev.map((item) =>
-        item.id === cartItemId ? { ...item, quantity: item.quantity + 1 } : item
-      )
+        item.id === cartItemId
+          ? { ...item, quantity: item.quantity + 1 }
+          : item,
+      ),
     );
   };
 
@@ -311,9 +364,11 @@ export default function App() {
     setCartItems((prev) =>
       prev
         .map((item) =>
-          item.id === cartItemId ? { ...item, quantity: item.quantity - 1 } : item
+          item.id === cartItemId
+            ? { ...item, quantity: item.quantity - 1 }
+            : item,
         )
-        .filter((item) => item.quantity > 0)
+        .filter((item) => item.quantity > 0),
     );
   };
 
@@ -322,13 +377,24 @@ export default function App() {
   };
 
   // Coupon handling
-  const handleApplyCoupon = (code: string): { success: boolean; message: string } => {
-    const coupon = availableCoupons.find((c) => c.code.toUpperCase() === code.toUpperCase());
+  const handleApplyCoupon = (
+    code: string,
+  ): { success: boolean; message: string } => {
+    const coupon = availableCoupons.find(
+      (c) => c.code.toUpperCase() === code.toUpperCase(),
+    );
     if (!coupon) {
-      return { success: false, message: 'كود القسيمة غير صحيح أو منتهي الصلاحية' };
+      return {
+        success: false,
+        message: "كود القسيمة غير صحيح أو منتهي الصلاحية",
+      };
     }
     setAppliedCoupon(coupon);
-    addNotification('تم تطبيق الخصم', `تم تفعيل قسيمة الخصم: ${coupon.description}`, 'promo');
+    addNotification(
+      "تم تطبيق الخصم",
+      `تم تفعيل قسيمة الخصم: ${coupon.description}`,
+      "promo",
+    );
     return { success: true, message: `تم تفعيل خصم ${coupon.code} بنجاح!` };
   };
 
@@ -339,301 +405,132 @@ export default function App() {
   // Intercept checkout if user is guest
   const handleRequireAuthForCheckout = () => {
     setCheckoutInterceptNotice(
-      '🔔 لتأكيد طلبك وتحديد مكان التوصيل بمكتبك بدقة، يرجى تسجيل الدخول أو المتابعة بحساب Google.'
+      "🔔 لتأكيد طلبك وتحديد مكان التوصيل بمكتبك بدقة، يرجى تسجيل الدخول أو المتابعة بحساب Google.",
     );
     setIsAuthModalOpen(true);
   };
 
-  // Order Submission (Persists to Firestore when authenticated)
-  const handleOrderCreated = (newOrder: Order) => {
-    setOrders((prev) => [newOrder, ...prev]);
+  const handleOrderCreated = async (newOrder: Order) => {
+    const saved = await saveOrderToFirestore({
+      ...newOrder,
+      ...(user.coordinates && newOrder.ministry === user.ministry
+        ? { coordinates: user.coordinates }
+        : {}),
+    });
+    setOrders((prev) => [saved, ...prev.filter((o) => o.id !== saved.id)]);
     setCartItems([]);
     setAppliedCoupon(null);
     setIsCartOpen(false);
-    setActiveTab('orders');
-
-    if (auth.currentUser) {
-      saveOrderToFirestore(newOrder).catch((err) =>
-        console.error('Failed to persist order to Firestore:', err)
-      );
-    }
-
+    setActiveTab("orders");
     addNotification(
-      newOrder.isScheduled ? 'تمت جدولة طلبك بنجاح!' : 'تم تأكيد طلبك بنجاح!',
-      newOrder.scheduledDeliveryTime
-        ? `رقم الأوردر ${newOrder.orderNumber} — مجدول للتسليم في: ${newOrder.scheduledDeliveryTime}`
-        : `رقم الأوردر ${newOrder.orderNumber} - تم الإرسال لمطبخ المطعم للتحضير الفوري.`,
-      'order_update',
-      newOrder.id
+      "تم حفظ طلبك بنجاح",
+      `رقم الطلب ${saved.orderNumber} — بانتظار تأكيد المتجر.`,
+      "order_update",
+      saved.id,
     );
   };
-
-  // Status updates from Admin or Restaurant
-  const handleUpdateOrderStatus = (orderId: string, status: OrderStatus) => {
-    setOrders((prev) =>
-      prev.map((ord) => {
-        if (ord.id === orderId) {
-          return {
-            ...ord,
-            orderStatus: status,
-            estimatedDelivery:
-              status === 'delivered'
-                ? 'تم التسليم بنجاح'
-                : status === 'with_courier'
-                ? 'المندوب في المصعد / الدور'
-                : status === 'preparing'
-                ? 'جاري التحضير بالمطعم'
-                : ord.estimatedDelivery,
-          };
-        }
-        return ord;
-      })
-    );
-
-    const targetOrder = orders.find((o) => o.id === orderId);
-    if (targetOrder) {
-      let statusText = 'تحديث على طلبك';
-      if (status === 'preparing') statusText = 'بدأ الشيف في تحضير وجبتك الساخنة';
-      if (status === 'with_courier') statusText = 'كابتن التوصيل في طريقه لمبنى الوزارة';
-      if (status === 'delivered') statusText = 'تم تسليم الأوردر بمكتبك بالهناء والشفاء!';
-
-      addNotification(
-        `أوردر ${targetOrder.orderNumber}: ${statusText}`,
-        `مقر التوصيل: ${targetOrder.ministry} - ${targetOrder.floorNumber}`,
-        'order_update',
-        orderId
-      );
-    }
-  };
-
-  // Courier Live Checklist Progress Updates
+  const handleUpdateOrderStatus = (id: string, status: OrderStatus) => updateOrderRecord(id, { orderStatus: status });
   const handleUpdateOrderChecklist = (
-    orderId: string,
+    id: string,
     updates: Partial<CourierChecklist>,
-    updatedStatus?: OrderStatus
+    status?: OrderStatus,
   ) => {
-    setOrders((prev) =>
-      prev.map((ord) => {
-        if (ord.id === orderId) {
-          const currentChecklist = ord.courierChecklist || {
-            receivedAndCheckedAtRestaurant: false,
-            paidRestaurant: false,
-            onTheWayToMinistry: false,
-            arrivedAtCustomerOffice: false,
-            collectedPayment: false,
-          };
-
-          return {
-            ...ord,
-            orderStatus: updatedStatus || ord.orderStatus,
-            courierChecklist: {
-              ...currentChecklist,
-              ...updates,
-            },
-          };
-        }
-        return ord;
-      })
+    const order = orders.find((o) => o.id === id);
+    if (!order) return;
+    const checklist = {
+      receivedAndCheckedAtRestaurant: false,
+      paidRestaurant: false,
+      onTheWayToMinistry: false,
+      arrivedAtCustomerOffice: false,
+      collectedPayment: false,
+      ...order.courierChecklist,
+      ...updates,
+    };
+    return persist(
+      updateOrderRecord(id, {
+        courierChecklist: checklist,
+        ...(status ? { orderStatus: status } : {}),
+        ...(updates.collectedPayment && order.paymentMethod === "cash"
+          ? { paymentStatus: "paid" as const }
+          : {}),
+      }),
     );
-
-    const targetOrder = orders.find((o) => o.id === orderId);
-    if (!targetOrder) return;
-
-    if (updates.receivedAndCheckedAtRestaurant) {
-      addNotification(
-        `المندوب استلم طلبك ${targetOrder.orderNumber}`,
-        'فحص المندوب وجبتك وتأكد من مطابقة الأصناف مع شيف المطعم.',
-        'courier_assigned',
-        orderId
+  };
+  const handleAssignCourier = async (orderId: string, courierId: string) => {
+    const courier = staff.find((person) => person.id === courierId && person.role === "courier");
+    const order = orders.find((item) => item.id === orderId);
+    if (!courier || !order || !["ready", "with_courier"].includes(order.orderStatus)) throw new Error("راجع حالة الطلب والمندوب المختار.");
+    await updateOrderRecord(orderId, { courierId: courier.id, courierName: courier.name, courierPhone: courier.phone, orderStatus: "with_courier" });
+  };
+  const handleToggleProductStock = (id: string) => {
+    const product = products.find((p) => p.id === id);
+    if (product)
+      return persist(
+        saveRecord("products", id, { ...product, inStock: !product.inStock }),
       );
-    } else if (updates.paidRestaurant) {
-      addNotification(
-        `تمت تسوية الحساب مع المطعم`,
-        `سدد المندوب المبالغ لكاشير المطعم وبدأ التحرك لمجمع الوزارات.`,
-        'courier_assigned',
-        orderId
+  };
+  const handleUpdateProductPrice = (id: string, price: number) => {
+    const product = products.find((p) => p.id === id);
+    if (product)
+      return persist(saveRecord("products", id, { ...product, price }));
+  };
+  const handleToggleStoreStatus = (id: string) => {
+    const store = stores.find((s) => s.id === id);
+    if (store)
+      return persist(
+        saveRecord("stores", id, {
+          ...store,
+          status: store.status === "open" ? "closed" : "open",
+        }),
       );
-    } else if (updates.onTheWayToMinistry) {
-      addNotification(
-        `المندوب متوجه لـ ${targetOrder.ministry}`,
-        `الطلب في الطريق إليك الآن. جهز استلام وجبتك.`,
-        'courier_assigned',
-        orderId
-      );
-    } else if (updates.arrivedAtCustomerOffice) {
-      addNotification(
-        `المندوب وصل لدورك ومكتبك (${targetOrder.floorNumber})`,
-        `المندوب الآن أمام مكتبك لتسليم الوجبة باليد.`,
-        'order_update',
-        orderId
-      );
-    } else if (updates.collectedPayment) {
-      addNotification(
-        `تم تسليم أوردر ${targetOrder.orderNumber} بالكامل`,
-        `شكراً لطلبك من منصة طلبات العاصمة! تم استلام المبلغ وتسليم الوجبات بنجاح.`,
-        'order_update',
-        orderId
-      );
+  };
+  const submitApplication = async (name: string, data: object) => {
+    if (user.isGuest || !auth.currentUser) {
+      setIsAuthModalOpen(true);
+      throw new Error("سجّل الدخول أولاً لإرسال الطلب.");
     }
+    await saveRecord(name, crypto.randomUUID(), {
+      ...data,
+      ownerId: user.id,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    });
   };
-
-  // Courier Assignment
-  const handleAssignCourier = (orderId: string, courierName: string) => {
-    setOrders((prev) =>
-      prev.map((ord) =>
-        ord.id === orderId
-          ? {
-              ...ord,
-              courierName,
-              courierPhone: '01099887766',
-              orderStatus: 'with_courier',
-              estimatedDelivery: 'خلال 10-15 دقيقة للدور',
-            }
-          : ord
-      )
-    );
-
-    addNotification(
-      'تم تعيين مندوب التوصيل',
-      `المندوب ${courierName} استلم مهمة توصيل طلبك إلى الوزارة والدور المطلوب`,
-      'courier_assigned',
-      orderId
-    );
-  };
-
-  // Product Inventory Controls
-  const handleToggleProductStock = (productId: string) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === productId ? { ...p, inStock: !p.inStock } : p))
-    );
-  };
-
-  const handleUpdateProductPrice = (productId: string, newPrice: number) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === productId ? { ...p, price: newPrice } : p))
-    );
-  };
-
-  const handleToggleStoreStatus = (storeId: string) => {
-    setStores((prev) =>
-      prev.map((s) => (s.id === storeId ? { ...s, status: s.status === 'open' ? 'closed' : 'open' } : s))
-    );
-  };
-
-  // Partner & Job Application Handlers (Sent from CorporateWebsite directly to AdminDashboard)
   const handleAddPartnerApplication = (
-    appData: Omit<PartnerApplication, 'id' | 'status' | 'createdAt'>
-  ) => {
-    const newPartnerApp: PartnerApplication = {
-      ...appData,
-      id: 'part-' + Date.now(),
-      status: 'pending',
-      createdAt: 'الآن',
-    };
-    setPartnerApplications((prev) => [newPartnerApp, ...prev]);
-    addNotification(
-      'طلب انضمام شريك جديد في لوحة الإدارة',
-      `تم استلام طلب انضمام "${newPartnerApp.businessName}" (${newPartnerApp.partnerType}) في لوحة تحكم الإدارة.`,
-      'system'
-    );
-  };
-
-  const handleUpdatePartnerStatus = (partnerId: string, status: ApplicationStatus) => {
-    setPartnerApplications((prev) =>
-      prev.map((p) => (p.id === partnerId ? { ...p, status } : p))
-    );
-  };
-
-  const handleApprovePartnerAsStore = (partner: PartnerApplication) => {
-    setPartnerApplications((prev) =>
-      prev.map((p) => (p.id === partner.id ? { ...p, status: 'approved' } : p))
-    );
-
-    const newStore: Store = {
-      id: 'store-' + Date.now(),
-      name: partner.businessName,
-      nameEn: partner.businessName,
-      type: partner.partnerType,
-      category:
-        partner.partnerType === 'كافيه ومشروبات'
-          ? 'cafe'
-          : partner.partnerType === 'سوبر ماركت وتموين'
-          ? 'supermarket'
-          : partner.partnerType === 'مخبوزات وحلويات'
-          ? 'desserts'
-          : 'sandwiches',
-      logo:
-        partner.partnerType === 'كافيه ومشروبات'
-          ? '☕'
-          : partner.partnerType === 'سوبر ماركت وتموين'
-          ? '🛒'
-          : '🍽️',
-      banner: 'from-emerald-700 to-teal-900',
-      bannerUrl: '/assets/aistudio/1__2__0c86e0f9.png',
-      status: 'open',
-      rating: 4.9,
-      ratingCount: 12,
-      deliveryTime: '15-20 دقيقة',
-      minOrder: 50,
-      deliveryFee: 10,
-      locationInDistrict: partner.locationInCapital,
-    };
-
-    setStores((prev) => [newStore, ...prev]);
-    addNotification(
-      'تم اعتماد الشريك وإضافته كمتجر نشط',
-      `تم تفعيل "${partner.businessName}" ضمن متاجر الفود كورت في التطبيق.`,
-      'system'
-    );
-  };
-
+    data: Omit<PartnerApplication, "id" | "status" | "createdAt">,
+  ) => submitApplication("partnerApplications", data);
   const handleAddJobApplication = (
-    jobData: Omit<JobApplication, 'id' | 'status' | 'createdAt'>
-  ) => {
-    const newJobApp: JobApplication = {
-      ...jobData,
-      id: 'job-' + Date.now(),
-      status: 'pending',
-      createdAt: 'الآن',
-    };
-    setJobApplications((prev) => [newJobApp, ...prev]);
-    addNotification(
-      'طلب توظيف جديد في لوحة الإدارة',
-      `تقدم "${newJobApp.applicantName}" لوظيفة "${newJobApp.jobTitle}" وتم تسجيله بلوحة الإدارة.`,
-      'system'
+    data: Omit<JobApplication, "id" | "status" | "createdAt">,
+  ) => submitApplication("jobApplications", data);
+  const handleUpdatePartnerStatus = (id: string, status: ApplicationStatus) =>
+    persist(saveRecord("partnerApplications", id, { status }));
+  const handleUpdateJobStatus = (id: string, status: ApplicationStatus) =>
+    persist(saveRecord("jobApplications", id, { status }));
+  const handleApprovePartnerAsStore = (partner: PartnerApplication) =>
+    persist(
+      approvePartner(partner.id, {
+        id: "partner-" + partner.id,
+        name: partner.businessName,
+        nameEn: partner.businessName,
+        type: partner.partnerType,
+        category: "sandwiches",
+        logo: "🍽️",
+        banner: "from-orange-600 to-slate-900",
+        status: "closed",
+        rating: 0,
+        ratingCount: 0,
+        deliveryTime: "يحدده المتجر",
+        minOrder: 0,
+        deliveryFee: 0,
+        locationInDistrict: partner.locationInCapital,
+      }),
     );
-  };
-
-  const handleUpdateJobStatus = (jobId: string, status: ApplicationStatus) => {
-    setJobApplications((prev) =>
-      prev.map((j) => (j.id === jobId ? { ...j, status } : j))
-    );
-  };
-
-  // Instant Persona Switcher
-  const handleSwitchPersona = (role: UserRole) => {
-    const targetProfile = DEMO_PROFILES[role];
-    if (targetProfile) {
-      setUser(targetProfile);
-      if (role === 'courier') setActiveTab('courier');
-      else if (role === 'restaurant') setActiveTab('restaurant');
-      else if (role === 'admin') {
-        setInitialAdminTab('orders');
-        setActiveTab('admin');
-      } else setActiveTab('home');
-
-      addNotification(
-        `تم التحويل إلى دور: ${targetProfile.fullName}`,
-        `تعمل الآن بصلاحيات ${role === 'courier' ? 'مندوب الدليفري' : role === 'restaurant' ? 'شيف المطعم' : role === 'admin' ? 'إدارة الحي' : 'الموظف العميل'}`,
-        'order_update'
-      );
-    }
-  };
-
   // Filtered Products for Home
   const filteredProducts = products.filter((p) => {
+    if (p.archived) return false;
     if (selectedStoreId && p.storeId !== selectedStoreId) return false;
-    if (selectedCategory !== 'الكل' && p.category !== selectedCategory) return false;
+    if (selectedCategory !== "الكل" && p.category !== selectedCategory)
+      return false;
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       const matchName = p.name.toLowerCase().includes(q);
@@ -644,7 +541,7 @@ export default function App() {
     return true;
   });
 
-  const popularProducts = products.filter((p) => p.isPopular);
+  const popularProducts = products.filter((p) => p.isPopular && !p.archived);
 
   const getProductQuantityInCart = (productId: string) => {
     return cartItems
@@ -655,18 +552,19 @@ export default function App() {
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
   const activeOrdersCount = orders.filter(
     (o) =>
-      o.orderStatus === 'received' ||
-      o.orderStatus === 'preparing' ||
-      o.orderStatus === 'with_courier'
+      o.orderStatus === "received" ||
+      o.orderStatus === "preparing" ||
+      o.orderStatus === "ready" ||
+      o.orderStatus === "with_courier",
   ).length;
 
-  // Voice recorder for Home Search Bar (gemini-3.5-transcribe)
+  // Voice recorder for Home Search Bar
   const searchVoiceRecorder = useVoiceRecorder((transcribedText) => {
     setSearchQuery(transcribedText);
     addNotification(
-      'تم تحويل صوتك إلى نص بنجاح',
+      "تم تحويل صوتك إلى نص بنجاح",
       `تم البحث عن: "${transcribedText}" عبر gemini-3.5-transcribe`,
-      'system'
+      "system",
     );
   });
 
@@ -688,13 +586,13 @@ export default function App() {
         unreadCount={unreadNotificationsCount}
         isSimulatorActive={isSimulatorActive}
         onToggleSimulator={() => setIsSimulatorActive(!isSimulatorActive)}
-        onOpenOnboarding={() => setIsOnboardingOpen(true)}
+        onOpenOnboarding={undefined}
         onOpenMobileRelease={() => setIsMobileReleaseOpen(true)}
       />
 
       {!isOnline && (
         <div className="bg-amber-500 text-white px-4 py-1.5 text-center text-xs font-bold">
-          وضع عدم الاتصال بالإنترنت (Offline PWA Mode) — يتم استخدام البيانات المخزنة محلياً
+          لا يوجد اتصال بالإنترنت. لا يمكن تأكيد طلب جديد حتى عودة الاتصال.
         </div>
       )}
 
@@ -708,9 +606,12 @@ export default function App() {
       {/* 4. MAIN VIEW ROUTING */}
 
       {/* Tab: Home (Client Store View) */}
-      {activeTab === 'home' && (
-        <main className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-4 sm:space-y-5 flex-1" dir="rtl">
-          {/* Search Bar with Microphone Audio Transcription (gemini-3.5-transcribe) */}
+      {activeTab === "home" && (
+        <main
+          className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-4 sm:space-y-5 flex-1"
+          dir="rtl"
+        >
+          {/* Search Bar with Microphone Audio Transcription */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -720,17 +621,17 @@ export default function App() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={
                     searchVoiceRecorder.isRecording
-                      ? 'جاري الاستماع لصوتك... اضغط زر الإيقاف لتحويل الصوت لنص'
+                      ? "جاري الاستماع لصوتك... اضغط زر الإيقاف لتحويل الصوت لنص"
                       : searchVoiceRecorder.isTranscribing
-                      ? 'جاري نسخ الصوت عبر gemini-3.5-transcribe...'
-                      : 'ابحث كتابةً أو بالميكروفون عن فول هند، قهوة، شاورما...'
+                        ? "جارٍ تحويل الصوت إلى نص…"
+                        : "ابحث كتابةً أو بالميكروفون عن فول هند، قهوة، شاورما..."
                   }
                   className="w-full py-2.5 sm:py-3 pr-10 pl-12 text-xs sm:text-sm bg-white border border-slate-200/90 rounded-2xl shadow-xs focus:ring-2 focus:ring-orange-500/20 focus:border-orange-600 transition-all text-slate-900 font-medium"
                 />
                 <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => setSearchQuery("")}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600"
                   >
                     مسح
@@ -744,12 +645,12 @@ export default function App() {
                 disabled={searchVoiceRecorder.isTranscribing}
                 className={`min-w-[44px] min-h-[44px] px-3 rounded-2xl border flex items-center justify-center gap-1.5 text-xs font-bold transition-all shrink-0 ${
                   searchVoiceRecorder.isRecording
-                    ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                    ? "bg-rose-600 text-white border-rose-600 shadow-sm"
                     : searchVoiceRecorder.isTranscribing
-                    ? 'bg-amber-50 text-amber-800 border-amber-200'
-                    : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-xs'
+                      ? "bg-amber-50 text-amber-800 border-amber-200"
+                      : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-xs"
                 }`}
-                title="البحث الصوتي بالميكروفون (gemini-3.5-transcribe)"
+                title="البحث الصوتي بالميكروفون"
                 aria-label="البحث الصوتي بالميكروفون"
               >
                 {searchVoiceRecorder.isTranscribing ? (
@@ -769,7 +670,9 @@ export default function App() {
             </div>
 
             {searchVoiceRecorder.voiceError && (
-              <p className="text-[11px] text-rose-600 px-1">{searchVoiceRecorder.voiceError}</p>
+              <p className="text-[11px] text-rose-600 px-1">
+                {searchVoiceRecorder.voiceError}
+              </p>
             )}
 
             {/* Quick Bar: Multi-Turn Gemini Chatbot & Google Maps Grounding */}
@@ -777,7 +680,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setAiAssistantInitialTab('chat');
+                  setAiAssistantInitialTab("chat");
                   setIsAiAssistantOpen(true);
                 }}
                 className="p-2.5 sm:p-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-between gap-2 transition-colors text-right shadow-xs"
@@ -787,7 +690,9 @@ export default function App() {
                     <Bot className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold truncate">مساعد الطلبات والاجتماعات</p>
+                    <p className="text-xs font-bold truncate">
+                      مساعد الطلبات والاجتماعات
+                    </p>
                     <p className="text-[10px] text-slate-300 truncate">
                       محادثة ذكية · طلب صوتي · ترشيح وجبات
                     </p>
@@ -798,8 +703,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setAiAssistantInitialTab('maps');
-                  setIsAiAssistantOpen(true);
+                  setIsLocationModalOpen(true);
                 }}
                 className="p-2.5 sm:p-3 rounded-2xl bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 flex items-center justify-between gap-2 transition-colors text-right shadow-xs"
               >
@@ -808,7 +712,9 @@ export default function App() {
                     <MapPin className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold truncate">دليل خرائط جوجل للوزارات</p>
+                    <p className="text-xs font-bold truncate">
+                      دليل خرائط جوجل للوزارات
+                    </p>
                     <p className="text-[10px] text-slate-500 truncate">
                       بوابات الـ 34 وزارة · البنوك · محطة LRT
                     </p>
@@ -828,7 +734,12 @@ export default function App() {
           />
 
           {/* Promotional Banner Carousel with Official Food Photos */}
-          <BannerSlider onApplyCoupon={handleApplyCoupon} />
+          {!products.length && (
+            <p className="text-sm text-slate-700 bg-white border rounded-xl p-4">
+              لا توجد أصناف متاحة بعد. سيظهر المنيو هنا بعد إضافة المتاجر
+              والأصناف من لوحة التحكم.
+            </p>
+          )}
 
           {/* Food Court & Supermarket Stores */}
           <div className="space-y-2.5">
@@ -852,12 +763,14 @@ export default function App() {
             <StoreList
               stores={stores}
               selectedStoreId={selectedStoreId}
-              onSelectStore={(id) => setSelectedStoreId(id === selectedStoreId ? null : id)}
+              onSelectStore={(id) =>
+                setSelectedStoreId(id === selectedStoreId ? null : id)
+              }
             />
           </div>
 
           {/* Popular Items Showcase */}
-          {!selectedStoreId && selectedCategory === 'الكل' && !searchQuery && (
+          {!selectedStoreId && selectedCategory === "الكل" && !searchQuery && (
             <div className="space-y-3 pt-1">
               <div className="flex items-center gap-2">
                 <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
@@ -875,7 +788,9 @@ export default function App() {
                     onAddToCart={() => handleAddToCart(product)}
                     onIncrement={() => handleAddToCart(product)}
                     onDecrement={() => {
-                      const item = cartItems.find((i) => i.product.id === product.id);
+                      const item = cartItems.find(
+                        (i) => i.product.id === product.id,
+                      );
                       if (item) handleDecrementItem(item.id);
                     }}
                     onOpenDetails={() => setSelectedProductForDetail(product)}
@@ -893,9 +808,9 @@ export default function App() {
                 <span>
                   {selectedStoreId
                     ? `قائمة ${stores.find((s) => s.id === selectedStoreId)?.name}`
-                    : selectedCategory !== 'الكل'
-                    ? `أصناف ${selectedCategory}`
-                    : 'قائمة الوجبات والمنتجات الكاملة'}
+                    : selectedCategory !== "الكل"
+                      ? `أصناف ${selectedCategory}`
+                      : "قائمة الوجبات والمنتجات الكاملة"}
                 </span>
               </h3>
               <span className="text-xs text-slate-400 font-mono">
@@ -905,12 +820,14 @@ export default function App() {
 
             {filteredProducts.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200">
-                <p className="text-slate-500 text-sm">لا توجد أصناف مطابقة لبحثك</p>
+                <p className="text-slate-500 text-sm">
+                  لا توجد أصناف مطابقة لبحثك
+                </p>
                 <button
                   onClick={() => {
-                    setSearchQuery('');
+                    setSearchQuery("");
                     setSelectedStoreId(null);
-                    setSelectedCategory('الكل');
+                    setSelectedCategory("الكل");
                   }}
                   className="mt-2 text-xs font-bold text-orange-600 hover:underline"
                 >
@@ -927,7 +844,9 @@ export default function App() {
                     onAddToCart={() => handleAddToCart(product)}
                     onIncrement={() => handleAddToCart(product)}
                     onDecrement={() => {
-                      const item = cartItems.find((i) => i.product.id === product.id);
+                      const item = cartItems.find(
+                        (i) => i.product.id === product.id,
+                      );
                       if (item) handleDecrementItem(item.id);
                     }}
                     onOpenDetails={() => setSelectedProductForDetail(product)}
@@ -940,7 +859,7 @@ export default function App() {
       )}
 
       {/* Tab: Orders Tracking & Delivery View */}
-      {activeTab === 'orders' && (
+      {activeTab === "orders" && (
         <OrdersView
           orders={orders}
           onReorder={(order) => {
@@ -951,67 +870,93 @@ export default function App() {
       )}
 
       {/* Tab: Courier Portal (Delivery Runner Workflow) */}
-      {activeTab === 'courier' && (
+      {activeTab === "courier" && user.role === "courier" && (
         <CourierPortal
           orders={orders}
           courier={user}
+          onCompleteDelivery={async (orderId, otpCode, collectedAmount) => { await orderDelivery({ action: "deliver", orderId, otpCode, collectedAmount }); }}
           onAdvanceOrderStatus={handleUpdateOrderStatus}
           onUpdateOrderChecklist={handleUpdateOrderChecklist}
         />
       )}
 
       {/* Tab: Restaurant Portal (Kitchen Ticket Board & Menu Manager) */}
-      {activeTab === 'restaurant' && (
+      {activeTab === "restaurant" && user.role === "restaurant" && (
         <RestaurantPortal
+          connected={ordersConnected}
+          onKitchenChange={updateKitchenStage}
           orders={orders}
           products={products}
           stores={stores}
           currentProfile={user}
           onUpdateOrderStatus={handleUpdateOrderStatus}
-          onUpdateProductStock={(productId, inStock) => {
-            setProducts((prev) =>
-              prev.map((p) => (p.id === productId ? { ...p, inStock } : p))
-            );
+          onUpdateProductStock={(id, inStock) => {
+            const product = products.find((p) => p.id === id);
+            if (product)
+              persist(saveRecord("products", id, { ...product, inStock }));
           }}
           onUpdateProductPrice={handleUpdateProductPrice}
-          onAddProduct={(newProd) => setProducts((prev) => [...prev, newProd])}
+          onAddProduct={(product) => saveRecord("products", product.id, product)}
           onToggleStoreStatus={handleToggleStoreStatus}
         />
       )}
 
       {/* Tab: Admin Dashboard */}
-      {activeTab === 'admin' && (
-        <AdminDashboard
-          orders={orders}
-          stores={stores}
-          products={products}
-          partnerApplications={partnerApplications}
-          jobApplications={jobApplications}
-          initialAdminTab={initialAdminTab}
-          onUpdateOrderStatus={handleUpdateOrderStatus}
-          onAssignCourier={handleAssignCourier}
-          onToggleProductStock={handleToggleProductStock}
-          onUpdateProductPrice={handleUpdateProductPrice}
-          onToggleStoreStatus={handleToggleStoreStatus}
-          onUpdatePartnerStatus={handleUpdatePartnerStatus}
-          onApprovePartnerAsStore={handleApprovePartnerAsStore}
-          onUpdateJobStatus={handleUpdateJobStatus}
-          onOpenWebsitePage={(page) => {
-            setWebsitePage(page);
-            setIsWebsiteOpen(true);
-          }}
-        />
+      {activeTab === "admin" && user.role === "admin" && (
+        <AdminWorkspace orders={orders} stores={stores} products={products} staff={staff} coupons={availableCoupons} initialManagementTab={initialAdminTab} couriers={staff.filter((person) => person.role === "courier")} connected={ordersConnected} onError={reportError}>
+          <AdminDashboard
+            couriers={staff.filter((s) => s.role === "courier")}
+            orders={orders}
+            stores={stores}
+            products={products}
+            partnerApplications={partnerApplications}
+            jobApplications={jobApplications}
+            initialAdminTab={initialAdminTab}
+            onUpdateOrderStatus={handleUpdateOrderStatus}
+            onAssignCourier={handleAssignCourier}
+            onToggleProductStock={handleToggleProductStock}
+            onUpdateProductPrice={handleUpdateProductPrice}
+            onToggleStoreStatus={handleToggleStoreStatus}
+            onUpdatePartnerStatus={handleUpdatePartnerStatus}
+            onApprovePartnerAsStore={handleApprovePartnerAsStore}
+            onUpdateJobStatus={handleUpdateJobStatus}
+            onOpenWebsitePage={(page) => {
+              setWebsitePage(page);
+              setIsWebsiteOpen(true);
+            }}
+          />
+        </AdminWorkspace>
       )}
 
       {/* Tab: Profile View */}
-      {activeTab === 'profile' && (
+      {activeTab === "profile" && (
         <ProfileView
+          key={user.id}
           user={user}
-          onUpdateProfile={(u) => setUser(u)}
+          onUpdateProfile={async (u) => {
+            await updateUserLocationInFirestore(
+              user.id,
+              u.ministry || "",
+              u.floorNumber || "",
+              u.roomNumber || "",
+              u.fullName,
+              u.phone,
+            );
+            setUser((prev) => ({
+              ...prev,
+              fullName: u.fullName,
+              phone: u.phone,
+              ministry: u.ministry,
+              floorNumber: u.floorNumber,
+              roomNumber: u.roomNumber,
+            }));
+          }}
           savedCoupons={availableCoupons}
           onSwitchToAdmin={() => {
-            setInitialAdminTab('orders');
-            setActiveTab('admin');
+            if (user.role === "admin") {
+              setInitialAdminTab("orders");
+              setActiveTab("admin");
+            }
           }}
           onOpenAuthModal={() => {
             setCheckoutInterceptNotice(null);
@@ -1041,27 +986,53 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
       {/* 1. Global Role & Mode Switcher Bar (Website vs Mobile App + Instant testing of all 4 roles) */}
-      {!isWebsiteOpen && <RoleSwitcherBar
-        currentUser={user}
-        isWebsiteOpen={isWebsiteOpen}
-        onOpenWebsite={(page = 'home') => {
-          setWebsitePage(page);
-          setIsWebsiteOpen(true);
-        }}
-        onOpenMobileApp={() => {
-          setIsWebsiteOpen(false);
-        }}
-        onSwitchPersona={handleSwitchPersona}
-        onOpenAuthModal={() => {
-          setCheckoutInterceptNotice(null);
-          setIsAuthModalOpen(true);
-        }}
-        onLogout={() => {
-          setUser(DEFAULT_USER);
-          setActiveTab('home');
-        }}
-      />}
-
+      {!isWebsiteOpen && (
+        <div
+          className="bg-slate-950 text-white p-3 flex flex-wrap gap-4 items-center justify-center text-xs"
+          dir="rtl"
+        >
+          <button onClick={() => setIsWebsiteOpen(true)}>الموقع الرئيسي</button>
+          <span>{user.isGuest ? "زائر" : user.fullName}</span>
+          <button onClick={() => setIsAuthModalOpen(true)}>
+            {user.isGuest ? "تسجيل الدخول" : "الحساب والخروج"}
+          </button>
+          {user.role === "admin" && (
+            <button
+              onClick={() => {
+                setActiveTab("admin");
+                setIsSimulatorActive(false);
+              }}
+            >
+              لوحة التحكم
+            </button>
+          )}
+          {user.role === "courier" && (
+            <button onClick={() => setActiveTab("courier")}>
+              مهام التوصيل
+            </button>
+          )}
+          {user.role === "restaurant" && (
+            <button onClick={() => setActiveTab("restaurant")}>
+              طلبات المطعم
+            </button>
+          )}
+          <span>
+            {cloudConnected
+              ? "قاعدة البيانات متصلة"
+              : "جارٍ الاتصال بقاعدة البيانات"}
+          </span>
+        </div>
+      )}
+      {cloudError && (
+        <div
+          role="alert"
+          className="bg-red-50 text-red-800 p-3 text-sm flex justify-between gap-3"
+          dir="rtl"
+        >
+          <span>تعذر إتمام العملية: {cloudError}</span>
+          <button onClick={() => setCloudError("")}>إغلاق</button>
+        </div>
+      )}
       {/* 2. Official Corporate Website & Landing Page OR Mobile App Simulator */}
       {isWebsiteOpen ? (
         <CorporateWebsite
@@ -1072,15 +1043,19 @@ export default function App() {
           initialPage={websitePage}
           onOpenMobileApp={() => {
             setIsWebsiteOpen(false);
-            setIsSimulatorActive(true);
-            setActiveTab('home');
+            setIsSimulatorActive(false);
+            setActiveTab("home");
           }}
           onOpenAdminCommittees={(tab) => {
             setIsWebsiteOpen(false);
             setIsSimulatorActive(false);
-            setUser(DEMO_PROFILES.admin);
-            setInitialAdminTab(tab);
-            setActiveTab('admin');
+            if (user.role === "admin") {
+              setInitialAdminTab(tab);
+              setActiveTab("admin");
+            } else {
+              setActiveTab("profile");
+              setIsAuthModalOpen(true);
+            }
           }}
           onSubmitPartnerApplication={handleAddPartnerApplication}
           onSubmitJobApplication={handleAddJobApplication}
@@ -1092,7 +1067,9 @@ export default function App() {
           onReplayOnboarding={() => setIsOnboardingOpen(true)}
           onReplaySplash={() => setIsSplashOpen(true)}
           splashScreen={
-            <AppSplashScreen isOpen={isSplashOpen} onFinish={() => setIsSplashOpen(false)} />
+            isSplashOpen ? (
+              <AppSplashScreen isOpen onFinish={() => setIsSplashOpen(false)} />
+            ) : null
           }
         >
           {appContent}
@@ -1114,6 +1091,7 @@ export default function App() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         items={cartItems}
+        stores={stores}
         user={user}
         availableCoupons={availableCoupons}
         appliedCoupon={appliedCoupon}
@@ -1127,32 +1105,43 @@ export default function App() {
       />
 
       {/* Product Detail Customizer Modal */}
-      <ProductDetailModal
-        product={selectedProductForDetail}
-        onClose={() => setSelectedProductForDetail(null)}
-        onAddToCartWithOptions={handleAddToCartWithOptions}
-      />
+      {selectedProductForDetail && (
+        <ProductDetailModal
+          key={selectedProductForDetail.id}
+          product={selectedProductForDetail}
+          onClose={() => setSelectedProductForDetail(null)}
+          onAddToCartWithOptions={handleAddToCartWithOptions}
+        />
+      )}
 
       {/* Ministry & Floor Location Modal */}
       <LocationModal
         isOpen={isLocationModalOpen}
         onClose={() => setIsLocationModalOpen(false)}
         user={user}
-        onSaveLocation={(ministry, floorNumber, roomNumber) => {
+        onSaveLocation={async (
+          ministry,
+          floorNumber,
+          roomNumber,
+          coordinates,
+        ) => {
+          if (auth.currentUser)
+            await updateUserLocationInFirestore(
+              auth.currentUser.uid,
+              ministry,
+              floorNumber,
+              roomNumber,
+              undefined,
+              undefined,
+              coordinates,
+            );
           setUser((prev) => ({
             ...prev,
             ministry,
             floorNumber,
             roomNumber,
+            ...(coordinates ? { coordinates } : {}),
           }));
-          if (auth.currentUser) {
-            updateUserLocationInFirestore(
-              auth.currentUser.uid,
-              ministry,
-              floorNumber,
-              roomNumber
-            ).catch((err) => console.error('Failed to update Firestore location:', err));
-          }
         }}
       />
 
@@ -1169,15 +1158,15 @@ export default function App() {
         onLoginSuccess={(newProfile) => {
           setUser(newProfile);
           setCheckoutInterceptNotice(null);
-          if (newProfile.role === 'courier') setActiveTab('courier');
-          else if (newProfile.role === 'restaurant') setActiveTab('restaurant');
-          else if (newProfile.role === 'admin') setActiveTab('admin');
-          else setActiveTab('home');
+          if (newProfile.role === "courier") setActiveTab("courier");
+          else if (newProfile.role === "restaurant") setActiveTab("restaurant");
+          else if (newProfile.role === "admin") setActiveTab("admin");
+          else setActiveTab("home");
         }}
         onLogout={() => {
           signOutFromFirebase().catch(() => {});
           setUser(DEFAULT_USER);
-          setActiveTab('home');
+          setActiveTab("home");
         }}
       />
 
@@ -1191,7 +1180,7 @@ export default function App() {
         }}
         onSelectNotification={(notif) => {
           if (notif.orderId) {
-            setActiveTab('orders');
+            setActiveTab("orders");
             setIsNotificationOpen(false);
           }
         }}
@@ -1216,9 +1205,9 @@ export default function App() {
         onLoginSuccess={(newProfile) => {
           setUser(newProfile);
           addNotification(
-            'تم تسجيل الدخول عبر Firebase بنجاح',
+            "تم تسجيل الدخول عبر Firebase بنجاح",
             `مرحباً بك ${newProfile.fullName} - تم ربط حسابك بقاعدة بيانات Firestore`,
-            'system'
+            "system",
           );
         }}
       />

@@ -1,240 +1,123 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 1. Global Safety Net (Default-Deny Catch-All)
-    match /{document=**} {
-      allow read, write: if false;
+    function verified() { return request.auth != null && (request.auth.token.get('email_verified', false) == true || request.auth.token.get('phone_number', '') != ''); }
+    function admin() { return verified() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function staff() { return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data; }
+    function validCoordinates(c) { return c is map && c.keys().hasOnly(['latitude','longitude']) && c.latitude is number && c.longitude is number && c.latitude >= -90 && c.latitude <= 90 && c.longitude >= -180 && c.longitude <= 180; }
+    function text(value,max) { return value is string && value.size() <= max; }
+    function assignedCourier(data) {
+      return verified() && data.get('courierId', '') == request.auth.uid &&
+        exists(/databases/$(database)/documents/staff/$(request.auth.uid)) &&
+        staff().role == 'courier';
     }
-
-    // 2. Hardened Global Primitives
-    function isSignedIn() {
-      return request.auth != null;
+    function restaurantOrder(data) {
+      return verified() && exists(/databases/$(database)/documents/staff/$(request.auth.uid)) &&
+        staff().role == 'restaurant' && staff().storeId in data.get('storeIds', []);
     }
-
-    function isVerifiedUser() {
-      return isSignedIn();
+    function ownerOrder(data) {
+      return verified() && (data.profileId == request.auth.uid || admin() ||
+        assignedCourier(data) || restaurantOrder(data));
     }
-
-    function isValidId(id) {
-      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    function profile(data) { return data.keys().hasAll(['uid','fullName','email','phone','ministry','floorNumber','roomNumber','role','walletBalance','createdAt','updatedAt']) && data.keys().hasOnly(['uid','fullName','email','phone','ministry','floorNumber','roomNumber','role','walletBalance','createdAt','updatedAt','avatarUrl','coordinates']) && data.uid == request.auth.uid && text(data.fullName,120) && text(data.email,160) && text(data.phone,30) && text(data.ministry,120) && text(data.floorNumber,60) && text(data.roomNumber,80) && (!('coordinates' in data) || validCoordinates(data.coordinates)); }
+    match /admins/{uid} { allow get: if verified() && (uid == request.auth.uid || admin()); allow list: if admin(); allow write: if false; }
+    match /staff/{uid} {
+      allow get: if verified() && (uid == request.auth.uid || admin()); allow list: if admin();
+      allow create,update: if admin() && request.resource.data.keys().hasOnly(['role','name','phone','storeId','updatedAt']) && request.resource.data.role in ['courier','restaurant'] && text(request.resource.data.name,120) && text(request.resource.data.phone,30) && request.resource.data.updatedAt == request.time && (request.resource.data.role != 'restaurant' || exists(/databases/$(database)/documents/stores/$(request.resource.data.storeId)));
+      allow delete: if admin();
     }
-
-    function incoming() {
-      return request.resource.data;
+    match /users/{uid} {
+      allow get: if verified() && (uid == request.auth.uid || admin()); allow list: if admin();
+      allow create: if verified() && uid == request.auth.uid && profile(request.resource.data) && request.resource.data.email == request.auth.token.get('email','') && request.resource.data.role == 'employee' && request.resource.data.walletBalance == 0 && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow update: if verified() && uid == request.auth.uid && profile(request.resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName','phone','ministry','floorNumber','roomNumber','avatarUrl','coordinates','updatedAt']) && request.resource.data.updatedAt == request.time;
+      allow delete: if admin();
     }
-
-    function existing() {
-      return resource.data;
-    }
-
-    function isAdmin() {
-      return isVerifiedUser() && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == 'el7lm25@gmail.com'
-      );
-    }
-
-    // 3. Validation Blueprint: UserProfile (/users/{userId})
-    function isValidUserProfile(data) {
-      return data.keys().hasAll([
-        'uid',
-        'fullName',
-        'email',
-        'phone',
-        'ministry',
-        'floorNumber',
-        'roomNumber',
-        'role',
-        'walletBalance',
-        'createdAt',
-        'updatedAt'
-      ]) &&
-      data.keys().hasOnly([
-        'uid',
-        'fullName',
-        'email',
-        'phone',
-        'ministry',
-        'floorNumber',
-        'roomNumber',
-        'role',
-        'walletBalance',
-        'avatarUrl',
-        'createdAt',
-        'updatedAt'
-      ]) &&
-      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$') &&
-      data.uid == request.auth.uid &&
-      data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 120 &&
-      data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
-      data.phone is string && data.phone.size() >= 5 && data.phone.size() <= 30 &&
-      data.ministry is string && data.ministry.size() >= 1 && data.ministry.size() <= 120 &&
-      data.floorNumber is string && data.floorNumber.size() >= 1 && data.floorNumber.size() <= 60 &&
-      data.roomNumber is string && data.roomNumber.size() >= 1 && data.roomNumber.size() <= 80 &&
-      data.role is string && data.role in ['employee', 'restaurant', 'courier', 'admin'] &&
-      data.walletBalance is number && data.walletBalance >= 0 && data.walletBalance <= 100000 &&
-      (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 500)) &&
-      data.createdAt is timestamp &&
-      data.updatedAt is timestamp;
-    }
-
-    // 4. Validation Blueprint: OrderRecord (/orders/{orderId})
-    function isValidOrderRecord(data) {
-      return data.keys().hasAll([
-        'orderNumber',
-        'profileId',
-        'profileName',
-        'phone',
-        'ministry',
-        'floorNumber',
-        'roomNumber',
-        'itemsSummary',
-        'total',
-        'paymentMethod',
-        'orderStatus',
-        'createdAt',
-        'updatedAt'
-      ]) &&
-      data.keys().hasOnly([
-        'orderNumber',
-        'profileId',
-        'profileName',
-        'phone',
-        'ministry',
-        'floorNumber',
-        'roomNumber',
-        'itemsSummary',
-        'total',
-        'subtotal',
-        'deliveryFee',
-        'discount',
-        'paymentMethod',
-        'orderStatus',
-        'otpCode',
-        'restaurantName',
-        'scheduledDeliveryTime',
-        'createdAt',
-        'updatedAt'
-      ]) &&
-      data.orderNumber is string && data.orderNumber.size() >= 1 && data.orderNumber.size() <= 40 &&
-      data.profileId is string && data.profileId.size() >= 1 && data.profileId.size() <= 128 && data.profileId.matches('^[a-zA-Z0-9_\\-]+$') &&
-      data.profileName is string && data.profileName.size() >= 1 && data.profileName.size() <= 120 &&
-      data.phone is string && data.phone.size() >= 5 && data.phone.size() <= 30 &&
-      data.ministry is string && data.ministry.size() >= 1 && data.ministry.size() <= 120 &&
-      data.floorNumber is string && data.floorNumber.size() >= 1 && data.floorNumber.size() <= 60 &&
-      data.roomNumber is string && data.roomNumber.size() >= 1 && data.roomNumber.size() <= 80 &&
-      data.itemsSummary is string && data.itemsSummary.size() >= 1 && data.itemsSummary.size() <= 1000 &&
-      data.total is number && data.total >= 0 && data.total <= 100000 &&
-      data.paymentMethod is string && data.paymentMethod in ['instapay', 'geidea', 'cash', 'card', 'wallet', 'meeza'] &&
-      data.orderStatus is string && data.orderStatus in ['received', 'preparing', 'cooking', 'ready', 'with_courier', 'outForDelivery', 'delivered', 'cancelled'] &&
-      (!('scheduledDeliveryTime' in data) || (data.scheduledDeliveryTime is string && data.scheduledDeliveryTime.size() <= 100)) &&
-      data.createdAt is timestamp &&
-      data.updatedAt is timestamp;
-    }
-
-    // Collection: /admins/{adminId}
-    match /admins/{adminId} {
-      allow get: if isVerifiedUser() && isValidId(adminId) && (request.auth.uid == adminId || isAdmin());
-      allow list, create, update, delete: if false;
-    }
-
-    // Collection: /users/{userId}
-    match /users/{userId} {
-      allow get: if isVerifiedUser() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
-      allow list: if isVerifiedUser() && (resource.data.uid == request.auth.uid || isAdmin());
-
-      allow create: if isVerifiedUser() &&
-        isValidId(userId) &&
-        request.auth.uid == userId &&
-        isValidUserProfile(incoming()) &&
-        incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time &&
-        (
-          (incoming().role == 'employee' && incoming().walletBalance <= 500) ||
-          isAdmin()
-        );
-
-      allow update: if isVerifiedUser() &&
-        isValidId(userId) &&
-        isValidUserProfile(incoming()) &&
-        incoming().uid == existing().uid &&
-        incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time &&
-        (
-          // Action 1: Owner updating personal delivery location and contact info (cannot change role or walletBalance)
-          (
-            request.auth.uid == userId &&
-            incoming().role == existing().role &&
-            incoming().walletBalance == existing().walletBalance &&
-            incoming().diff(existing()).affectedKeys().hasOnly([
-              'fullName',
-              'phone',
-              'ministry',
-              'floorNumber',
-              'roomNumber',
-              'avatarUrl',
-              'updatedAt'
-            ])
-          ) ||
-          // Action 2: Admin override
-          isAdmin()
-        );
-
-      allow delete: if isAdmin() && isValidId(userId);
-    }
-
-    // Collection: /orders/{orderId}
-    match /orders/{orderId} {
-      allow get: if isVerifiedUser() && isValidId(orderId) && (resource.data.profileId == request.auth.uid || isAdmin());
-      allow list: if isVerifiedUser() && (resource.data.profileId == request.auth.uid || isAdmin());
-
-      allow create: if isVerifiedUser() &&
-        isValidId(orderId) &&
-        isValidOrderRecord(incoming()) &&
-        incoming().profileId == request.auth.uid &&
-        incoming().orderStatus == 'received' &&
-        incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time;
-
-      allow update: if isVerifiedUser() &&
-        isValidId(orderId) &&
-        isValidOrderRecord(incoming()) &&
-        incoming().profileId == existing().profileId &&
-        incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time &&
-        (
-          // Action 1: Customer cancelling their own 'received' order before preparation
-          (
-            request.auth.uid == existing().profileId &&
-            !(existing().orderStatus in ['delivered', 'cancelled']) &&
-            existing().orderStatus == 'received' &&
-            incoming().orderStatus == 'cancelled' &&
-            incoming().diff(existing()).affectedKeys().hasOnly(['orderStatus', 'updatedAt'])
-          ) ||
-          // Action 2: Admin managing order status
-          isAdmin()
-        );
-
-      allow delete: if isAdmin() && isValidId(orderId);
-    }
-
-    // Collection: /restaurants/{restaurantId}
-    match /restaurants/{restaurantId} {
+    function productValid(d) { return d.keys().hasAll(['id','storeId','storeName','name','description','price','category','imageType','inStock','updatedAt']) && text(d.name,120) && text(d.description,1000) && d.price is number && d.price >= 0 && d.price <= 100000 && d.inStock is bool && exists(/databases/$(database)/documents/stores/$(d.storeId)) && d.updatedAt == request.time; }
+    match /products/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if verified() && productValid(request.resource.data) && (admin() || (staff().role == 'restaurant' && staff().storeId == request.resource.data.storeId));
+      allow update: if verified() && productValid(request.resource.data) && request.resource.data.storeId == resource.data.storeId && (admin() || (staff().role == 'restaurant' && staff().storeId == resource.data.storeId));
+      allow delete: if admin();
     }
-
-    // Collection: /products/{productId}
-    match /products/{productId} {
+    match /stores/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create,update: if admin() && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.minOrder is number && request.resource.data.minOrder >= 0 && request.resource.data.deliveryFee is number && request.resource.data.deliveryFee >= 0 && request.resource.data.deliveryFee <= 1000 && request.resource.data.status in ['open','closed','busy'] && request.resource.data.updatedAt == request.time;
+      allow update: if verified() && staff().role == 'restaurant' && staff().storeId == id && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt']) && request.resource.data.status in ['open','closed','busy'] && request.resource.data.updatedAt == request.time;
+      allow delete: if admin();
     }
-
-    // Collection: /ministries/{ministryId}
-    match /ministries/{ministryId} {
-      allow read: if true;
-      allow write: if isAdmin();
+    match /coupons/{id} { allow read: if true; allow create,update: if admin() && request.resource.data.code == id && request.resource.data.value is number && request.resource.data.value >= 0 && request.resource.data.value <= 10000 && request.resource.data.minOrder is number && request.resource.data.minOrder >= 0 && request.resource.data.discountType in ['fixed','percent'] && request.resource.data.updatedAt == request.time; allow delete: if admin(); }
+    function transition(old,next) { return old == next || (old == 'received' && next in ['preparing','cancelled']) || (old == 'preparing' && next in ['ready','cancelled']) || (old == 'ready' && next in ['with_courier','cancelled']) || (old == 'with_courier' && next in ['delivered','cancelled']); }
+    function validCourierAssignment(before, after) {
+      return !after.diff(before).affectedKeys().hasAny(['courierId']) ||
+        (exists(/databases/$(database)/documents/staff/$(after.courierId)) &&
+         get(/databases/$(database)/documents/staff/$(after.courierId)).data.role == 'courier');
     }
+    function adminOrderUpdate(before, after) {
+      return admin() && validCourierAssignment(before, after) &&
+        after.diff(before).affectedKeys().hasOnly([
+          'orderStatus', 'courierId', 'courierName', 'courierPhone',
+          'courierChecklist', 'restaurantStatus', 'kitchenStatus', 'estimatedDelivery', 'paymentStatus', 'updatedAt', 'readyAt', 'deliveredAt'
+        ]);
+    }
+    function restaurantOrderUpdate(before, after) {
+      let storeId = staff().storeId;
+      let oldStage = before.get('kitchenStatus', {}).get(storeId, before.orderStatus == 'preparing' ? 'preparing' : 'received');
+      let stages = after.kitchenStatus;
+      let allReady = stages.keys().hasAll(before.storeIds) && stages.values().hasOnly(['ready']);
+      return restaurantOrder(before) && before.orderStatus in ['received', 'preparing'] &&
+        stages.diff(before.get('kitchenStatus', {})).affectedKeys().hasOnly([storeId]) &&
+        ((oldStage == 'received' && stages[storeId] == 'preparing') || (oldStage == 'preparing' && stages[storeId] == 'ready')) &&
+        after.orderStatus == (allReady ? 'ready' : 'preparing') &&
+        after.diff(before).affectedKeys().hasOnly(['orderStatus', 'kitchenStatus', 'readyAt', 'updatedAt']);
+    }
+    function courierOrderUpdate(before, after) {
+      return assignedCourier(before) && after.orderStatus == 'with_courier' &&
+        after.diff(before).affectedKeys().hasOnly(['orderStatus', 'courierChecklist', 'updatedAt']);
+    }
+    function customerCancellation(before, after) {
+      return before.profileId == request.auth.uid && before.orderStatus == 'received' &&
+        after.orderStatus == 'cancelled' && after.diff(before).affectedKeys().hasOnly(['orderStatus', 'updatedAt']);
+    }
+    match /orders/{id} {
+      allow read: if ownerOrder(resource.data);
+      // Only the authenticated server calculates prices and creates orders.
+      allow create, delete: if false;
+      allow update: if verified() &&
+        request.resource.data.orderStatus != 'delivered' &&
+        !(resource.data.orderStatus in ['delivered', 'cancelled']) &&
+        transition(resource.data.orderStatus, request.resource.data.orderStatus) &&
+        request.resource.data.updatedAt == request.time &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['readyAt']) ||
+         (request.resource.data.orderStatus == 'ready' && request.resource.data.readyAt == request.time)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['deliveredAt']) ||
+         (request.resource.data.orderStatus == 'delivered' && request.resource.data.deliveredAt == request.time)) &&
+        (adminOrderUpdate(resource.data, request.resource.data) ||
+         restaurantOrderUpdate(resource.data, request.resource.data) ||
+         courierOrderUpdate(resource.data, request.resource.data) ||
+         customerCancellation(resource.data, request.resource.data)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['paymentStatus']) ||
+         (resource.data.paymentMethod == 'cash' && request.resource.data.paymentStatus == 'paid' &&
+          request.resource.data.orderStatus == 'delivered'));
+    }
+    match /tracking/{orderId} {
+      allow read: if ownerOrder(get(/databases/$(database)/documents/orders/$(orderId)).data);
+      allow create, update: if assignedCourier(get(/databases/$(database)/documents/orders/$(orderId)).data) &&
+        (get(/databases/$(database)/documents/orders/$(orderId)).data.orderStatus == 'with_courier' ||
+         request.resource.data.active == false) &&
+        request.resource.data.keys().hasOnly(['coordinates', 'active', 'updatedAt']) &&
+        validCoordinates(request.resource.data.coordinates) && request.resource.data.active is bool &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+    function application(d,fields) { return verified() && d.keys().hasOnly(fields) && d.ownerId == request.auth.uid && d.status == 'pending' && text(d.phone,30) && text(d.email,160) && d.updatedAt == request.time && d.createdAt is string; }
+    match /partnerApplications/{id} {
+      allow create: if application(request.resource.data,['ownerId','status','createdAt','updatedAt','businessName','partnerType','contactName','phone','email','locationInCapital','branchesCount','notes']) && text(request.resource.data.businessName,120) && text(request.resource.data.contactName,120) && text(request.resource.data.locationInCapital,500) && text(request.resource.data.get('notes',''),2000);
+      allow read: if admin(); allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt']) && request.resource.data.status in ['pending','contacted','approved','rejected'] && request.resource.data.updatedAt == request.time; allow delete: if admin();
+    }
+    match /jobApplications/{id} {
+      allow create: if application(request.resource.data,['ownerId','status','createdAt','updatedAt','jobTitle','department','applicantName','phone','email','experienceYears','residenceArea','summary']) && text(request.resource.data.applicantName,120) && text(request.resource.data.summary,4000) && text(request.resource.data.residenceArea,500);
+      allow read: if admin(); allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt']) && request.resource.data.status in ['pending','contacted','approved','rejected'] && request.resource.data.updatedAt == request.time; allow delete: if admin();
+    }
+    match /{document=**} { allow read,write: if false; }
   }
 }

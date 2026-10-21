@@ -69,6 +69,8 @@ export function getNextOrderStatus(current: OrderStatus): OrderStatus {
     case 'received':
       return 'preparing';
     case 'preparing':
+      return 'ready';
+    case 'ready':
       return 'with_courier';
     case 'with_courier':
       return 'delivered';
@@ -91,9 +93,11 @@ export function getOrderStatusLabel(status: OrderStatus): { text: string; step: 
     case 'preparing':
       return { text: 'جاري التجهيز بالمطعم / المتجر', step: 2, colorClass: 'text-blue-600 bg-blue-50 border-blue-200' };
     case 'with_courier':
-      return { text: 'خرج مع مندوب الحي الحكومي', step: 3, colorClass: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
+      return { text: 'خرج مع مندوب الحي الحكومي', step: 4, colorClass: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
+    case 'ready':
+      return { text: 'جاهز لاستلام المندوب', step: 3, colorClass: 'text-orange-700 bg-orange-50 border-orange-200' };
     case 'delivered':
-      return { text: 'تم التسليم لمكتب الوزارة بنجاح', step: 4, colorClass: 'text-teal-700 bg-teal-50 border-teal-200' };
+      return { text: 'تم التسليم لمكتب الوزارة بنجاح', step: 5, colorClass: 'text-teal-700 bg-teal-50 border-teal-200' };
     case 'cancelled':
       return { text: 'تم إلغاء الطلب', step: 0, colorClass: 'text-rose-600 bg-rose-50 border-rose-200' };
     default:

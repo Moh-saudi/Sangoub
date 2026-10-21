@@ -96,7 +96,8 @@ test('calculateOrderTotal applies discount, delivery fee, and tip properly', () 
 
 test('getNextOrderStatus advances status correctly', () => {
   assert.equal(getNextOrderStatus('received'), 'preparing');
-  assert.equal(getNextOrderStatus('preparing'), 'with_courier');
+  assert.equal(getNextOrderStatus('preparing'), 'ready');
+  assert.equal(getNextOrderStatus('ready'), 'with_courier');
   assert.equal(getNextOrderStatus('with_courier'), 'delivered');
   assert.equal(getNextOrderStatus('delivered'), 'delivered');
 });

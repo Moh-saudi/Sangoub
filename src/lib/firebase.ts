@@ -1,17 +1,19 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp } from "firebase/app";
+import { apiUrl } from "./apiUrl";
+import { normalizeOrder, nextKitchenUpdate } from "../utils/orderIntegration";
 import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
-  signOut as firebaseSignOut,
+  signOut,
   onAuthStateChanged,
   type User as FirebaseUser,
-} from 'firebase/auth';
+  connectAuthEmulator,
+} from "firebase/auth";
 import {
   getFirestore,
   doc,
   getDoc,
-  getDocFromServer,
   setDoc,
   updateDoc,
   collection,
@@ -19,179 +21,106 @@ import {
   where,
   onSnapshot,
   serverTimestamp,
-} from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
-import type { Order, Profile, UserRole } from '../types/index.ts';
+  writeBatch,
+  connectFirestoreEmulator,
+  runTransaction,
+  type QueryConstraint,
+} from "firebase/firestore";
+import savedConfig from "../../firebase-applet-config.json";
+import type { Order, Profile, UserRole } from "../types/index.ts";
 
+export const firebaseConfig = {
+  ...savedConfig,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || savedConfig.apiKey,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || savedConfig.projectId,
+  authDomain:
+    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || savedConfig.authDomain,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || savedConfig.appId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || savedConfig.storageBucket,
+  firestoreDatabaseId:
+    import.meta.env.VITE_FIREBASE_DATABASE_ID ||
+    savedConfig.firestoreDatabaseId,
+};
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+if (
+  import.meta.env.DEV &&
+  import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true"
+) {
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+}
+export { onAuthStateChanged, type FirebaseUser };
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
-
-export { firebaseConfig, onAuthStateChanged, type FirebaseUser };
-
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
+googleProvider.setCustomParameters({ prompt: "select_account" });
+export const isVerifiedIdentity = (user: FirebaseUser | null) =>
+  Boolean(user && (user.emailVerified || user.phoneNumber));
+export async function signInWithFirebaseGoogle(defaults?: Partial<Profile>) {
+  const { user } = await signInWithPopup(auth, googleProvider);
+  return syncUserProfileToFirestore(user, defaults);
 }
-
-export interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
-  };
-}
-
-export function handleFirestoreError(
-  error: unknown,
-  operationType: OperationType,
-  path: string | null
-): never {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo:
-        auth.currentUser?.providerData?.map((provider) => ({
-          providerId: provider.providerId,
-          email: provider.email,
-        })) || [],
-    },
-    operationType,
-    path,
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
-
-// Validate connection to Firestore on boot
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error('Please check your Firebase configuration.');
-    }
-  }
-}
-testConnection();
-
-// Helper to sanitize strings to match firebase-blueprint.json maxLength constraints
-function sanitizeString(val: string | undefined, fallback: string, maxLen: number): string {
-  const cleaned = (val || fallback).trim();
-  if (!cleaned) return fallback.slice(0, maxLen);
-  return cleaned.slice(0, maxLen);
-}
-
-export async function signInWithFirebaseGoogle(defaults?: {
-  ministry?: string;
-  floorNumber?: string;
-  roomNumber?: string;
-}): Promise<Profile> {
-  const credential = await signInWithPopup(auth, googleProvider);
-  const fbUser = credential.user;
-  return await syncUserProfileToFirestore(fbUser, defaults);
-}
-
-export async function signOutFromFirebase(): Promise<void> {
-  await firebaseSignOut(auth);
+export async function signOutFromFirebase() {
+  await signOut(auth);
 }
 
 export async function syncUserProfileToFirestore(
-  fbUser: FirebaseUser,
-  defaults?: {
-    ministry?: string;
-    floorNumber?: string;
-    roomNumber?: string;
-  }
+  user: FirebaseUser,
+  defaults: Partial<Profile> = {},
 ): Promise<Profile> {
-  const userPath = `users/${fbUser.uid}`;
-  const userRef = doc(db, 'users', fbUser.uid);
-
-  try {
-    const existingSnap = await getDoc(userRef);
-    if (existingSnap.exists()) {
-      const data = existingSnap.data();
-      return {
-        id: fbUser.uid,
-        fullName: data.fullName || fbUser.displayName || 'موظف العاصمة الإدارية',
-        email: data.email || fbUser.email || 'employee@gov.eg',
-        phone: data.phone || fbUser.phoneNumber || '01091234567',
-        ministry: data.ministry || defaults?.ministry || 'وزارة النقل',
-        floorNumber: data.floorNumber || defaults?.floorNumber || 'الدور الخامس',
-        roomNumber: data.roomNumber || defaults?.roomNumber || 'مكتب 504',
-        walletBalance: typeof data.walletBalance === 'number' ? data.walletBalance : 350,
-        role: (data.role as UserRole) || 'employee',
-        avatarUrl: data.avatarUrl || fbUser.photoURL || undefined,
-        isGuest: false,
-        authProvider: 'google',
-      };
-    }
-  } catch (error) {
-    handleFirestoreError(error, OperationType.GET, userPath);
-  }
-
-  // Create new profile adhering strictly to firebase-blueprint.json and firestore.rules
-  const isAdminUser = fbUser.email === 'el7lm25@gmail.com';
-  const assignedRole: UserRole = isAdminUser ? 'admin' : 'employee';
-  const initialWallet = isAdminUser ? 5000 : 350;
-
-  const newProfileData: Record<string, unknown> = {
-    uid: sanitizeString(fbUser.uid, 'user-id', 128),
-    fullName: sanitizeString(fbUser.displayName || 'موظف العاصمة الإدارية', 'موظف العاصمة', 120),
-    email: sanitizeString(fbUser.email || 'user@gov.eg', 'user@gov.eg', 160),
-    phone: sanitizeString(fbUser.phoneNumber || '01091234567', '01091234567', 30),
-    ministry: sanitizeString(defaults?.ministry, 'وزارة النقل', 120),
-    floorNumber: sanitizeString(defaults?.floorNumber, 'الدور الخامس', 60),
-    roomNumber: sanitizeString(defaults?.roomNumber, 'مكتب 504', 80),
-    role: assignedRole,
-    walletBalance: initialWallet,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
-
-  if (fbUser.photoURL) {
-    newProfileData.avatarUrl = sanitizeString(fbUser.photoURL, '', 500);
-  }
-
-  try {
-    await setDoc(userRef, newProfileData);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, userPath);
-  }
-
+  if (!isVerifiedIdentity(user))
+    throw new Error("يرجى تأكيد بريدك الإلكتروني أولاً ثم تسجيل الدخول.");
+  const ref = doc(db, "users", user.uid);
+  const data = await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const data = snapshot.exists()
+      ? snapshot.data()
+      : {
+          uid: user.uid,
+          fullName: user.displayName || defaults.fullName || "",
+          email: user.email || "",
+          phone: user.phoneNumber || defaults.phone || "",
+          ministry: defaults.ministry || "",
+          floorNumber: defaults.floorNumber || "",
+          roomNumber: defaults.roomNumber || "",
+          role: "employee",
+          walletBalance: 0,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+    if (!snapshot.exists()) transaction.set(ref, data);
+    return data;
+  });
+  // The profile's editable fields and localStorage never grant permissions.
+  const [admin, staff] = await Promise.all([
+    getDoc(doc(db, "admins", user.uid)),
+    getDoc(doc(db, "staff", user.uid)),
+  ]);
+  const assignment = staff.data();
+  const role: UserRole = admin.exists()
+    ? "admin"
+    : assignment?.role === "courier" || assignment?.role === "restaurant"
+      ? assignment.role
+      : "employee";
   return {
-    id: fbUser.uid,
-    fullName: newProfileData.fullName as string,
-    email: newProfileData.email as string,
-    phone: newProfileData.phone as string,
-    ministry: newProfileData.ministry as string,
-    floorNumber: newProfileData.floorNumber as string,
-    roomNumber: newProfileData.roomNumber as string,
-    walletBalance: initialWallet,
-    role: assignedRole,
-    avatarUrl: fbUser.photoURL || undefined,
+    id: user.uid,
+    fullName: data.fullName,
+    email: user.email || "",
+    phone: data.phone || "",
+    ministry: data.ministry,
+    floorNumber: data.floorNumber,
+    roomNumber: data.roomNumber,
+    walletBalance: 0,
+    role,
+    ...(data.coordinates ? { coordinates: data.coordinates } : {}),
+    ...(assignment?.storeId ? { storeId: assignment.storeId } : {}),
+    ...(user.photoURL ? { avatarUrl: user.photoURL } : {}),
     isGuest: false,
-    authProvider: 'google',
+    authProvider: user.providerData.some((p) => p.providerId === "google.com")
+      ? "google"
+      : user.phoneNumber
+        ? "phone"
+        : "email",
   };
 }
 
@@ -201,84 +130,135 @@ export async function updateUserLocationInFirestore(
   floorNumber: string,
   roomNumber: string,
   fullName?: string,
-  phone?: string
-): Promise<void> {
-  if (!auth.currentUser || auth.currentUser.uid !== uid) return;
-  const userPath = `users/${uid}`;
-  const userRef = doc(db, 'users', uid);
-
-  const updates: Record<string, unknown> = {
-    ministry: sanitizeString(ministry, 'وزارة النقل', 120),
-    floorNumber: sanitizeString(floorNumber, 'الدور الخامس', 60),
-    roomNumber: sanitizeString(roomNumber, 'مكتب 504', 80),
-    updatedAt: serverTimestamp(),
-  };
-
-  if (fullName) updates.fullName = sanitizeString(fullName, 'موظف العاصمة', 120);
-  if (phone) updates.phone = sanitizeString(phone, '01091234567', 30);
-
-  try {
-    await updateDoc(userRef, updates);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, userPath);
-  }
-}
-
-export async function saveOrderToFirestore(order: Order): Promise<void> {
-  if (!auth.currentUser) return;
-  const cleanOrderId = order.id.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120);
-  const orderPath = `orders/${cleanOrderId}`;
-  const orderRef = doc(db, 'orders', cleanOrderId);
-
-  const itemsSummary = order.items
-    .map((i) => `${i.quantity}x ${i.product.name}`)
-    .join(' + ')
-    .slice(0, 1000);
-
-  const payload: Record<string, unknown> = {
-    orderNumber: sanitizeString(order.orderNumber, 'ORD-100', 40),
-    profileId: auth.currentUser.uid,
-    profileName: sanitizeString(order.profileName, 'موظف العاصمة', 120),
-    phone: sanitizeString(order.phone, '01091234567', 30),
-    ministry: sanitizeString(order.ministry, 'وزارة النقل', 120),
-    floorNumber: sanitizeString(order.floorNumber, 'الدور الخامس', 60),
-    roomNumber: sanitizeString(order.roomNumber, 'مكتب 504', 80),
-    itemsSummary: sanitizeString(itemsSummary, 'وجبة فود كورت', 1000),
-    total: Math.max(0, Math.min(100000, Number(order.total) || 0)),
-    paymentMethod: ['instapay', 'geidea', 'cash'].includes(order.paymentMethod)
-      ? order.paymentMethod
-      : 'cash',
-    orderStatus: 'received',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
-
-  if (order.scheduledDeliveryTime) {
-    payload.scheduledDeliveryTime = sanitizeString(order.scheduledDeliveryTime, '', 100);
-  }
-
-  try {
-    await setDoc(orderRef, payload);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, orderPath);
-  }
-}
-
-export function subscribeToUserOrders(
-  uid: string,
-  onOrdersSynced: (cloudOrdersCount: number) => void
+  phone?: string,
+  coordinates?: Profile["coordinates"],
 ) {
-  if (!auth.currentUser || auth.currentUser.uid !== uid) return () => {};
-  const ordersPath = 'orders';
-  const q = query(collection(db, 'orders'), where('profileId', '==', uid));
-
+  if (auth.currentUser?.uid !== uid) throw new Error("يرجى تسجيل الدخول.");
+  await updateDoc(doc(db, "users", uid), {
+    ministry,
+    floorNumber,
+    roomNumber,
+    updatedAt: serverTimestamp(),
+    ...(fullName !== undefined ? { fullName } : {}),
+    ...(phone !== undefined ? { phone } : {}),
+    ...(coordinates ? { coordinates } : {}),
+  });
+}
+export const cleanData = <T>(data: T): T => JSON.parse(JSON.stringify(data));
+export async function saveRecord(name: string, id: string, data: object) {
+  await setDoc(
+    doc(db, name, id),
+    { ...cleanData(data), updatedAt: serverTimestamp() },
+    { merge: true },
+  );
+}
+export async function updateOrderRecord(id: string, changes: Partial<Order>) {
+  await updateDoc(doc(db, "orders", id), {
+    ...cleanData(changes),
+    ...(changes.orderStatus === "ready" ? { readyAt: serverTimestamp() } : {}),
+    ...(changes.orderStatus === "delivered" ? { deliveredAt: serverTimestamp() } : {}),
+    updatedAt: serverTimestamp(),
+  });
+}
+export function watchCollection<T>(
+  name: string,
+  onData: (data: T[]) => void,
+  onError: (error: Error) => void,
+  constraints: QueryConstraint[] = [],
+  onConnection?: (connected: boolean) => void,
+) {
   return onSnapshot(
-    q,
+    query(collection(db, name), ...constraints),
+    { includeMetadataChanges: true },
     (snapshot) => {
-      onOrdersSynced(snapshot.size);
+      onConnection?.(!snapshot.metadata.fromCache);
+      onData(
+        snapshot.docs.map((item) => {
+          const data = item.data();
+          return {
+            ...data,
+            id: item.id,
+            ...(data.createdAt?.toDate
+              ? { createdAt: data.createdAt.toDate().toISOString() }
+              : {}),
+          } as T;
+        }),
+      );
     },
     (error) => {
-      handleFirestoreError(error, OperationType.LIST, ordersPath);
-    }
+      onConnection?.(false);
+      onError(error);
+    },
   );
+}
+export function subscribeToOrders(
+  profile: Profile,
+  onData: (orders: Order[]) => void,
+  onError: (error: Error) => void,
+  onConnection?: (connected: boolean) => void,
+) {
+  const constraints =
+    profile.role === "admin"
+      ? []
+      : profile.role === "restaurant" && profile.storeId
+        ? [where("storeIds", "array-contains", profile.storeId)]
+        : profile.role === "courier"
+          ? [where("courierId", "==", profile.id)]
+          : [where("profileId", "==", profile.id)];
+  return watchCollection<Order>(
+    "orders",
+    (orders) =>
+      onData(
+        orders
+          .map(normalizeOrder)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      ),
+    onError,
+    constraints,
+    onConnection,
+  );
+}
+
+export async function updateKitchenStage(id: string, storeId: string, next: "preparing" | "ready") {
+  await runTransaction(db, async (transaction) => {
+    const target = doc(db, "orders", id);
+    const snapshot = await transaction.get(target);
+    if (!snapshot.exists()) throw new Error("الطلب غير موجود.");
+    const changes = nextKitchenUpdate(normalizeOrder({ ...snapshot.data(), id }), storeId, next);
+    transaction.update(target, { ...changes, updatedAt: serverTimestamp(),
+      ...(changes.orderStatus === "ready" ? { readyAt: serverTimestamp() } : {}),
+    });
+  });
+}
+export async function saveOrderToFirestore(order: Order): Promise<Order> {
+  if (!auth.currentUser) throw new Error("يرجى تسجيل الدخول.");
+  const token = await auth.currentUser.getIdToken();
+  const response = await fetch(apiUrl("/api/orders"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(order),
+  });
+  const result = await response.json().catch(() => ({
+    error: "خدمة الطلبات غير متاحة. تحقق من إعدادات الخادم.",
+  }));
+  if (!response.ok) throw new Error(result.error || "تعذر حفظ الطلب.");
+  return result.order;
+}
+export async function approvePartner(
+  partnerId: string,
+  store: import("../types/index.ts").Store,
+) {
+  const batch = writeBatch(db);
+  batch.update(doc(db, "partnerApplications", partnerId), {
+    status: "approved",
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(doc(db, "stores", store.id), {
+    ...cleanData(store),
+    updatedAt: serverTimestamp(),
+  });
+  await batch.commit();
 }

@@ -66,7 +66,7 @@ export const StoreList: React.FC<StoreListProps> = ({
               {/* Store Real Banner Photo */}
               <div className="relative w-full h-24 overflow-hidden bg-slate-100">
                 <img
-                  src={store.bannerUrl}
+                  src={store.bannerUrl || store.imageUrl}
                   alt={store.name}
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -84,7 +84,7 @@ export const StoreList: React.FC<StoreListProps> = ({
 
                 {/* Overlapping logo icon */}
                 <div className="absolute -bottom-2 right-3 w-10 h-10 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center text-xl z-10">
-                  {store.logo}
+                  {store.logoUrl ? <img src={store.logoUrl} alt={`شعار ${store.name}`} className="w-full h-full rounded-xl object-contain" /> : store.logo}
                 </div>
               </div>
 
