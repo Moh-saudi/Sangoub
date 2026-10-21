@@ -388,28 +388,37 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
 
                     // ─── Google SSO ─────────────────────────────────────
-                    OutlinedButton.icon(
+                    OutlinedButton(
                       onPressed: authProvider.isLoading ? null : _handleGoogleSignIn,
                       style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
+                        minimumSize: const Size.fromHeight(50),
                         foregroundColor: AppColors.navy,
-                        side: const BorderSide(color: AppColors.border),
+                        backgroundColor: Colors.white,
+                        side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
-                      icon: Image.network(
-                        'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                        height: 18,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.g_mobiledata_rounded, size: 24),
-                      ),
-                      label: Text(
-                        'المتابعة بحساب Google المعتمد',
-                        style: GoogleFonts.cairo(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            'assets/images/google_logo.png',
+                            width: 22,
+                            height: 22,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'المتابعة بحساب Google الرسمي',
+                            style: GoogleFonts.cairo(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
 
