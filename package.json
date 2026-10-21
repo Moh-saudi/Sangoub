@@ -17,7 +17,8 @@
     "test:auth": "firebase emulators:exec --config firebase.emulators.json --only auth --project demo-capital-talabat \"node --import tsx --test tests/auth.integration.test.ts\"",
     "cloud:check": "node --use-env-proxy scripts/check-cloud.mjs",
     "firebase:deploy": "firebase deploy --only firestore --project capital-talabat",
-    "test:admin-web": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx tests/admin-web.browser.mjs\""
+    "test:admin-web": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx tests/admin-web.browser.mjs\"",
+    "test:native-api": "node --test tests/server-native.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1154.0",
