@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/colors.dart';
+import '../../core/constants/google_logo_bytes.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../client/client_home_screen.dart';
@@ -402,20 +404,25 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Image.asset(
-                            'assets/images/google_logo.png',
+                          Image.memory(
+                            base64Decode(googleLogoBase64),
                             width: 22,
                             height: 22,
                             fit: BoxFit.contain,
                           ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'المتابعة بحساب Google الرسمي',
-                            style: GoogleFonts.cairo(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1E293B),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              'المتابعة بحساب Google الرسمي',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.cairo(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF1E293B),
+                              ),
                             ),
                           ),
                         ],
