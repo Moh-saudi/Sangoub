@@ -1,3 +1,4 @@
+import { CatalogManager } from "./CatalogManager";
 import { OrderMap } from "./OrderMap.tsx";
 import React, { useState, useEffect } from "react";
 import {
@@ -41,12 +42,12 @@ interface AdminDashboardProps {
   partnerApplications: PartnerApplication[];
   jobApplications: JobApplication[];
   initialAdminTab?: AdminTabType;
-  onUpdateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
+  onUpdateOrderStatus: (orderId: string, newStatus: OrderStatus) => Promise<void>;
   onAssignCourier: (
     orderId: string,
     courierId: string,
     courierPhone: string,
-  ) => void;
+  ) => Promise<void>;
   onToggleProductStock: (productId: string) => void;
   onUpdateProductPrice: (productId: string, newPrice: number) => void;
   onToggleStoreStatus: (storeId: string) => void;
@@ -77,22 +78,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onOpenWebsitePage,
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTabType>(initialAdminTab);
+  const [orderSearch, setOrderSearch] = useState("");
+  const [ministryFilter, setMinistryFilter] = useState("");
+  const [pendingOrders, setPendingOrders] = useState<string[]>([]);
+  const [orderError, setOrderError] = useState("");
+  const [orderMessage, setOrderMessage] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedCourierForOrder, setSelectedCourierForOrder] = useState<
     Record<string, string>
   >({});
-  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
-  const [tempPrice, setTempPrice] = useState<string>("");
 
   useEffect(() => {
     setActiveTab(initialAdminTab);
   }, [initialAdminTab]);
 
   // Filtering orders
-  const filteredOrders = orders.filter((o) => {
-    if (statusFilter === "all") return true;
-    return o.orderStatus === statusFilter;
+  const filteredOrders = orders.filter((order) => {
+    const term = orderSearch.trim().toLowerCase();
+    return (statusFilter === "all" || order.orderStatus === statusFilter) &&
+      (!ministryFilter || order.ministry === ministryFilter) &&
+      [order.orderNumber, order.profileName, order.phone, order.ministry].some((value) => String(value || "").toLowerCase().includes(term));
   });
+  async function runOrderAction(id: string, action: () => Promise<void>) {
+    setPendingOrders((ids) => [...ids, id]); setOrderError(""); setOrderMessage("");
+    try { await action(); setOrderMessage("تم حفظ تحديث الطلب."); }
+    catch (error) { setOrderError((error as Error).message); }
+    finally { setPendingOrders((ids) => ids.filter((value) => value !== id)); }
+  }
+
 
   // Calculate statistics
   const totalRevenue = orders.filter((order) => order.orderStatus === "delivered").reduce((sum, o) => sum + o.total, 0);
@@ -125,17 +138,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleCourierSelect = (orderId: string, courierId: string) => {
     const courier = couriers.find((c) => c.id === courierId);
     if (courier) {
-      setSelectedCourierForOrder((prev) => ({ ...prev, [orderId]: courierId }));
-      onAssignCourier(orderId, courier.id, courier.phone);
+      void runOrderAction(orderId, async () => {
+        await onAssignCourier(orderId, courier.id, courier.phone);
+        setSelectedCourierForOrder((prev) => ({ ...prev, [orderId]: courierId }));
+      });
     }
-  };
-
-  const handleSavePrice = (productId: string) => {
-    const num = parseFloat(tempPrice);
-    if (!isNaN(num) && num > 0) {
-      onUpdateProductPrice(productId, num);
-    }
-    setEditingPriceId(null);
   };
 
   const getApplicationStatusLabel = (status: ApplicationStatus) => {
@@ -320,6 +327,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Tab 1: Orders Queue & Courier Assignment */}
       {activeTab === "orders" && (
         <div className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <input aria-label="بحث الطلبات" value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="رقم الطلب أو اسم العميل أو الهاتف" className="p-3 border rounded-xl bg-white text-sm min-w-0" />
+            <select aria-label="وزارة الطلبات" value={ministryFilter} onChange={(event) => setMinistryFilter(event.target.value)} className="p-3 border rounded-xl bg-white text-sm min-w-0"><option value="">كل الوزارات</option>{[...new Set(orders.map((order) => order.ministry))].sort().map((name) => <option key={name}>{name}</option>)}</select>
+          </div>
+          {orderError && <p role="alert" className="p-3 bg-red-50 text-red-700 rounded-xl">{orderError}</p>}
+          {orderMessage && <p role="status" className="p-3 bg-emerald-50 text-emerald-800 rounded-xl">{orderMessage}</p>}
           {/* Status Filter Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200">
             <div className="flex items-center gap-1.5">
@@ -337,6 +350,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 { id: "ready", label: "جاهز للاستلام" },
                 { id: "with_courier", label: "مع المندوب" },
                 { id: "delivered", label: "تم التسليم" },
+                { id: "cancelled", label: "ملغى" },
               ].map((filter) => (
                 <button
                   key={filter.id}
@@ -464,7 +478,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           تعيين المندوب:
                         </span>
                         <select
-                          disabled={order.orderStatus !== "ready"}
+                          disabled={!["ready", "with_courier"].includes(order.orderStatus) || pendingOrders.includes(order.id)}
                           value={
                             order.courierId ||
                             selectedCourierForOrder[order.id] ||
@@ -488,10 +502,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                       {/* Advance Status Buttons */}
                       <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                        {pendingOrders.includes(order.id) && <span role="status" className="text-xs">جارٍ الحفظ…</span>}
+                        {!["delivered", "cancelled"].includes(order.orderStatus) && <button disabled={pendingOrders.includes(order.id)} className="text-xs border border-red-200 text-red-700 rounded-xl px-3 py-2" onClick={() => { if (window.confirm(`إلغاء الطلب ${order.orderNumber}؟`)) void runOrderAction(order.id, () => onUpdateOrderStatus(order.id, "cancelled")); }}>إلغاء الطلب</button>}
                         {order.orderStatus === "received" && (
                           <button
+                            disabled={pendingOrders.includes(order.id)}
                             onClick={() =>
-                              onUpdateOrderStatus(order.id, "preparing")
+                              runOrderAction(order.id, () => onUpdateOrderStatus(order.id, "preparing"))
                             }
                             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
                           >
@@ -501,8 +518,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                         {order.orderStatus === "preparing" && (
                           <button
+                            disabled={pendingOrders.includes(order.id)}
                             onClick={() =>
-                              onUpdateOrderStatus(order.id, "ready")
+                              runOrderAction(order.id, () => onUpdateOrderStatus(order.id, "ready"))
                             }
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer"
                           >
@@ -840,126 +858,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* Tab 4: Catalog & Stores Management */}
-      {activeTab === "catalog" && (
-        <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-              <StoreIcon className="w-4 h-4 text-emerald-700" />
-              <span>
-                متاجر الفود كورت والسوبر ماركت المسجلة ({stores.length})
-              </span>
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {stores.map((store) => (
-                <div
-                  key={store.id}
-                  className="p-3 rounded-2xl border border-slate-200 flex items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-xl">
-                      {store.logo}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900">
-                        {store.name}
-                      </h4>
-                      <p className="text-[10px] text-slate-500">
-                        {store.locationInDistrict}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => onToggleStoreStatus(store.id)}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors cursor-pointer ${
-                      store.status === "open"
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-rose-100 text-rose-800"
-                    }`}
-                  >
-                    {store.status === "open" ? "مفتوح" : "مغلق مؤقتاً"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Product Prices & Stocks Editor */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-              <Package className="w-4 h-4 text-emerald-700" />
-              <span>قائمة المنتجات وتعديل الأسعار وتوافر المخزون</span>
-            </h3>
-
-            <div className="space-y-2">
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors gap-2"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-slate-900">
-                      {product.name}
-                    </span>
-                    <span className="text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded">
-                      {product.storeName}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {/* Price editor */}
-                    {editingPriceId === product.id ? (
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={tempPrice}
-                          onChange={(e) => setTempPrice(e.target.value)}
-                          className="w-16 p-1 text-xs border border-emerald-300 rounded font-mono font-bold"
-                          autoFocus
-                        />
-                        <button
-                          onClick={() => handleSavePrice(product.id)}
-                          className="px-2 py-1 bg-emerald-600 text-white rounded text-xs font-bold cursor-pointer"
-                        >
-                          حفظ
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setEditingPriceId(product.id);
-                          setTempPrice(product.price.toString());
-                        }}
-                        className="flex items-center gap-1 text-xs font-bold text-slate-800 hover:text-emerald-700 cursor-pointer"
-                        title="تعديل السعر"
-                      >
-                        <span className="tabular-nums">
-                          {formatEGP(product.price)}
-                        </span>
-                        <Edit3 className="w-3 h-3 text-slate-400" />
-                      </button>
-                    )}
-
-                    {/* Stock toggle */}
-                    <button
-                      onClick={() => onToggleProductStock(product.id)}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-                        product.inStock
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-rose-50 text-rose-700 border border-rose-200"
-                      }`}
-                    >
-                      {product.inStock ? "متوفر بالمطبخ" : "نفد المخزون"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {activeTab === "catalog" && <CatalogManager products={products} stores={stores} orders={orders} />}
 
       {/* Tab 5: Ministry Statistics */}
       {activeTab === "stats" && (

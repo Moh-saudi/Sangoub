@@ -72,6 +72,7 @@ test("server rejects forged options and missing required options", () => {
 });
 test("server rejects unavailable stock, closed stores and minimum order violations", () => {
   assert.throws(() => build(payload(), { ...product, inStock: false }));
+  assert.throws(() => build(payload(), { ...product, inStock: true, archived: true }));
   assert.throws(() =>
     build(payload(), product, { ...store, status: "closed" }),
   );

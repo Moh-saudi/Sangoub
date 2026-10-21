@@ -36,6 +36,7 @@ export function buildOrder(
     if (
       !product ||
       !product.inStock ||
+      product.archived ||
       !Number.isFinite(product.price) ||
       product.price < 0
     )

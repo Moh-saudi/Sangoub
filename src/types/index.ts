@@ -100,6 +100,7 @@ export interface ProductOptionGroup {
 }
 
 export interface Product {
+  archived?: boolean;
   id: string;
   storeId: string;
   storeName: string;

@@ -8,6 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 
+if (process.env.NODE_ENV !== "production") dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);

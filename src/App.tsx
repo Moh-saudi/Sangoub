@@ -429,16 +429,7 @@ export default function App() {
       saved.id,
     );
   };
-  const handleUpdateOrderStatus = (id: string, status: OrderStatus) =>
-    persist(
-      updateOrderRecord(id, {
-        orderStatus: status,
-        ...(status === "delivered" &&
-        orders.find((o) => o.id === id)?.paymentMethod === "cash"
-          ? { paymentStatus: "paid" as const }
-          : {}),
-      }),
-    );
+  const handleUpdateOrderStatus = (id: string, status: OrderStatus) => updateOrderRecord(id, { orderStatus: status });
   const handleUpdateOrderChecklist = (
     id: string,
     updates: Partial<CourierChecklist>,
@@ -465,19 +456,11 @@ export default function App() {
       }),
     );
   };
-  const handleAssignCourier = (orderId: string, courierId: string) => {
-    const courier = staff.find(
-      (s) => s.id === courierId && s.role === "courier",
-    );
-    if (!courier || orders.find((order) => order.id === orderId)?.orderStatus !== "ready") return;
-    return persist(
-      updateOrderRecord(orderId, {
-        courierId: courier.id,
-        courierName: courier.name,
-        courierPhone: courier.phone,
-        orderStatus: "with_courier",
-      }),
-    );
+  const handleAssignCourier = async (orderId: string, courierId: string) => {
+    const courier = staff.find((person) => person.id === courierId && person.role === "courier");
+    const order = orders.find((item) => item.id === orderId);
+    if (!courier || !order || !["ready", "with_courier"].includes(order.orderStatus)) throw new Error("راجع حالة الطلب والمندوب المختار.");
+    await updateOrderRecord(orderId, { courierId: courier.id, courierName: courier.name, courierPhone: courier.phone, orderStatus: "with_courier" });
   };
   const handleToggleProductStock = (id: string) => {
     const product = products.find((p) => p.id === id);
@@ -544,6 +527,7 @@ export default function App() {
     );
   // Filtered Products for Home
   const filteredProducts = products.filter((p) => {
+    if (p.archived) return false;
     if (selectedStoreId && p.storeId !== selectedStoreId) return false;
     if (selectedCategory !== "الكل" && p.category !== selectedCategory)
       return false;
@@ -557,7 +541,7 @@ export default function App() {
     return true;
   });
 
-  const popularProducts = products.filter((p) => p.isPopular);
+  const popularProducts = products.filter((p) => p.isPopular && !p.archived);
 
   const getProductQuantityInCart = (productId: string) => {
     return cartItems
@@ -919,7 +903,7 @@ export default function App() {
 
       {/* Tab: Admin Dashboard */}
       {activeTab === "admin" && user.role === "admin" && (
-        <AdminWorkspace orders={orders} stores={stores} products={products} couriers={staff.filter((person) => person.role === "courier")} connected={ordersConnected} onError={reportError}>
+        <AdminWorkspace orders={orders} stores={stores} products={products} staff={staff} coupons={availableCoupons} initialManagementTab={initialAdminTab} couriers={staff.filter((person) => person.role === "courier")} connected={ordersConnected} onError={reportError}>
           <AdminDashboard
             couriers={staff.filter((s) => s.role === "courier")}
             orders={orders}

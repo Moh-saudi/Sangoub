@@ -142,7 +142,9 @@ test("API rejects unavailable products without creating an order", async () => {
     (await services.db.doc("orders/" + uid + "_" + input.id).get()).exists,
     false,
   );
-  await services.db.doc("products/api-product").update({ inStock: true });
+  await services.db.doc("products/api-product").update({ inStock: true, archived: true });
+  assert.equal((await invoke(payload())).status, 400);
+  await services.db.doc("products/api-product").update({ archived: false });
 });
 test("daily quota stops additional orders with HTTP 429", async () => {
   await services.db

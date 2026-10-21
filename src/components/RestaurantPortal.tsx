@@ -87,7 +87,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
       o.orderStatus === "ready",
   );
 
-  const storeProducts = products.filter((p) => p.storeId === userStore?.id);
+  const storeProducts = products.filter((p) => p.storeId === userStore?.id && !p.archived);
 
   // Financial calculations
   const totalStoreSales = storeOrders.filter((order) => order.orderStatus === "delivered" && cairoDay(order.deliveredAt || "") === cairoDay(new Date())).reduce((sum, o) => {

@@ -1,19 +1,27 @@
 import React, { useState } from "react";
 import { saveRecord } from "../lib/firebase.ts";
-import type { Store, Product } from "../types/index.ts";
-import { ImageFileField } from "./ImageFileField";
-import { saveCatalogWithImages } from "../lib/catalogImages";
+import type { Store, Coupon, Order } from "../types/index.ts";
+import { deleteDoc, doc, getDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+export interface AdminStaff { id: string; role: string; name: string; phone: string; storeId?: string; }
 export function AdminSetupPanel({
   stores,
-  products = [],
+  staff = [],
+  coupons = [],
+  orders = [],
   onError,
   defaultOpen = false,
 }: {
   stores: Store[];
-  products?: Product[];
+  staff?: AdminStaff[];
+  coupons?: Coupon[];
+  orders?: Order[];
   onError: (error: unknown) => void;
   defaultOpen?: boolean;
 }) {
+  const [editingStaff, setEditingStaff] = useState<AdminStaff | null>(null);
+  const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const save = async (
@@ -24,16 +32,29 @@ export function AdminSetupPanel({
     const form = event.currentTarget;
     setBusy(true);
     setMessage("");
+    setError("");
     try {
       await operation(new FormData(form));
       form.reset();
+      setEditingStaff(null); setEditingCoupon(null);
       setMessage("تم الحفظ في قاعدة البيانات.");
     } catch (e) {
+      setError(e instanceof Error ? e.message : "تعذر الحفظ.");
       onError(e);
     } finally {
       setBusy(false);
     }
   };
+  async function removeRecord(collection: "staff" | "coupons", id: string) {
+    if (collection === "staff" && orders.some((order) => order.courierId === id && !["delivered", "cancelled"].includes(order.orderStatus))) {
+      setError("أعد تعيين طلبات المندوب النشطة قبل إلغاء صلاحيته."); return;
+    }
+    if (!window.confirm(collection === "staff" ? "إلغاء صلاحية هذا الموظف؟ سيظل حسابه وطلبات العملاء محفوظة." : "حذف كود الخصم؟ لن تتغير الطلبات السابقة.")) return;
+    setBusy(true); setError(""); setMessage("");
+    try { await deleteDoc(doc(db, collection, id)); setEditingStaff(null); setEditingCoupon(null); setMessage("تم الحذف من إعدادات التشغيل."); }
+    catch (error) { setError((error as Error).message); }
+    finally { setBusy(false); }
+  }
   const input =
     "border border-slate-300 rounded-xl p-2 text-sm w-full bg-white text-slate-900";
   return (
@@ -43,212 +64,38 @@ export function AdminSetupPanel({
       dir="rtl"
     >
       <summary className="font-bold cursor-pointer">
-        إعداد المتاجر والأصناف وفريق التشغيل
+        إدارة الفريق والخصومات
       </summary>
       <p className="text-xs text-slate-500 my-3">
         البيانات هنا حقيقية وتحفظ في Firestore. لا توجد حسابات أو طلبات تجريبية.
       </p>
       {message && <p role="status">{message}</p>}
+      {error && <p role="alert" className="p-3 bg-red-50 text-red-700 rounded-xl">{error}</p>}
       {busy && <p role="status" className="text-sm text-orange-700">جارٍ رفع الصور وحفظ البيانات…</p>}
+      <div className="grid lg:grid-cols-2 gap-4 my-5">
+        <section className="border rounded-2xl p-4 space-y-3"><h3 className="font-bold">فريق التشغيل ({staff.length})</h3>
+          {staff.map((person) => <article key={person.id} className="border-t py-3 text-sm"><p className="font-bold">{person.name} · {person.role === "courier" ? "مندوب" : "مدير متجر"}</p><p className="text-xs text-slate-500 my-2">{person.phone} · {stores.find((store) => store.id === person.storeId)?.name || ""}</p><div className="flex gap-3"><button disabled={busy} onClick={() => { setEditingStaff(person); setEditingCoupon(null); setError(""); }} className="text-orange-700">تعديل</button><button disabled={busy} onClick={() => removeRecord("staff", person.id)} className="text-red-700">إلغاء الصلاحية</button></div></article>)}
+          {!staff.length && <p className="text-sm text-slate-500">لا يوجد فريق مسجل بعد.</p>}
+        </section>
+        <section className="border rounded-2xl p-4 space-y-3"><h3 className="font-bold">أكواد الخصم ({coupons.length})</h3>
+          {coupons.map((coupon) => <article key={coupon.code} className="border-t py-3 text-sm"><p className="font-bold">{coupon.code} · {coupon.value} {coupon.discountType === "percent" ? "%" : "جنيه"}</p><p className="text-xs text-slate-500 my-2">الحد الأدنى {coupon.minOrder} جنيه · {coupon.description}</p><div className="flex gap-3"><button disabled={busy} onClick={() => { setEditingCoupon(coupon); setEditingStaff(null); setError(""); }} className="text-orange-700">تعديل</button><button disabled={busy} onClick={() => removeRecord("coupons", coupon.code)} className="text-red-700">حذف الكود</button></div></article>)}
+          {!coupons.length && <p className="text-sm text-slate-500">لا توجد أكواد خصم.</p>}
+        </section>
+      </div>
+      {(editingStaff || editingCoupon) && <button onClick={() => { setEditingStaff(null); setEditingCoupon(null); }} disabled={busy} className="text-sm border p-2 rounded-xl">إلغاء التعديل والعودة للإضافة</button>}
       <div className="grid md:grid-cols-2 gap-6 mt-4">
-        <form className="space-y-2" onSubmit={(event) => save(event, async (data) => {
-          const product = products.find((item) => item.id === data.get("product"));
-          if (!product) throw new Error("اختر الصنف.");
-          const file = data.get("productFile") as File | null;
-          if (!file?.size) throw new Error("اختر صورة الصنف.");
-          await saveCatalogWithImages("products", product.id, {}, [{ field: "imageUrl", file }]);
-        })}>
-          <h3 className="font-bold">تحديث صورة صنف موجود</h3>
-          <select name="product" aria-label="الصنف لتحديث الصورة" required className={input}><option value="">اختر الصنف</option>{products.map((item) => <option key={item.id} value={item.id}>{item.storeName} · {item.name}</option>)}</select>
-          <ImageFileField name="productFile" label="صورة الصنف الجديدة" disabled={busy} />
-          <button disabled={busy} className="bg-slate-900 text-white p-2 rounded-xl">حفظ صورة الصنف</button>
-        </form>
-        <form className="space-y-2" onSubmit={(event) => save(event, async (data) => {
-          const store = stores.find((item) => item.id === data.get("store"));
-          if (!store) throw new Error("اختر المتجر.");
-          const logo = data.get("logoFile") as File | null;
-          const banner = data.get("bannerFile") as File | null;
-          if (!logo?.size && !banner?.size) throw new Error("اختر صورة أو شعارًا لرفعه.");
-          await saveCatalogWithImages("stores", store.id, {}, [
-            { field: "logoUrl", file: logo }, { field: "bannerUrl", file: banner },
-          ]);
-        })}>
-          <h3 className="font-bold">تحديث صور محل موجود</h3>
-          <select aria-label="المحل لتحديث الصور" name="store" required className={input}>
-            <option value="">اختر المتجر</option>
-            {stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
-          </select>
-          <ImageFileField name="logoFile" label="شعار المحل الجديد" disabled={busy} />
-          <ImageFileField name="bannerFile" label="صورة المحل الجديدة" disabled={busy} />
-          <button disabled={busy} className="bg-slate-900 text-white p-2 rounded-xl">حفظ الصور</button>
-        </form>
         <form
-          className="space-y-2"
-          onSubmit={(e) =>
-            save(e, async (data) => {
-              const id = crypto.randomUUID();
-              await saveCatalogWithImages("stores", id, {
-                id,
-                name: String(data.get("name")),
-                nameEn: String(data.get("name")),
-                type: String(data.get("type")),
-                category: String(data.get("category")),
-                logo: "🍽️",
-                banner: "from-orange-600 to-slate-900",
-                status: "open",
-                rating: 0,
-                ratingCount: 0,
-                deliveryTime: "يحدده المتجر",
-                minOrder: Number(data.get("minOrder")),
-                deliveryFee: Number(data.get("deliveryFee")),
-                locationInDistrict: String(data.get("address")),
-              }, [
-                { field: "logoUrl", file: data.get("logoFile") as File | null },
-                { field: "bannerUrl", file: data.get("bannerFile") as File | null },
-              ]);
-            })
-          }
-        >
-          <h3 className="font-bold">إضافة متجر</h3>
-          <input aria-label="نوع النشاط" name="type" placeholder="نوع النشاط" required className={input} />
-          <select aria-label="تصنيف المتجر" name="category" className={input}>{[["breakfast", "فطور"], ["sandwiches", "مطعم وسندوتشات"], ["supermarket", "سوبر ماركت"], ["cafe", "كافيه"], ["desserts", "حلويات"]].map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select>
-          <ImageFileField name="logoFile" label="شعار المحل" disabled={busy} />
-          <ImageFileField name="bannerFile" label="صورة المحل" disabled={busy} />
-          <input
-            aria-label="اسم المتجر"
-            name="name"
-            placeholder="اسم المتجر"
-            required
-            maxLength={120}
-            className={input}
-          />
-          <input
-            aria-label="عنوان المتجر"
-            name="address"
-            placeholder="العنوان الحقيقي"
-            required
-            className={input}
-          />
-          <label className="block text-xs">
-            أقل طلب بالجنيه
-            <input
-              name="minOrder"
-              type="number"
-              min="0"
-              max="100000"
-              step="0.01"
-              defaultValue="0"
-              required
-              className={input}
-            />
-          </label>
-          <label className="block text-xs">
-            رسوم التوصيل
-            <input
-              name="deliveryFee"
-              type="number"
-              min="0"
-              max="1000"
-              step="0.01"
-              defaultValue="10"
-              required
-              className={input}
-            />
-          </label>
-          <button
-            disabled={busy}
-            className="bg-slate-900 text-white p-2 rounded-xl"
-          >
-            حفظ المتجر
-          </button>
-        </form>
-        <form
-          className="space-y-2"
-          onSubmit={(e) =>
-            save(e, async (data) => {
-              const id = crypto.randomUUID();
-              const store = stores.find((s) => s.id === data.get("store"));
-              if (!store) throw new Error("اختر المتجر.");
-              const file = data.get("productFile") as File | null;
-              const imageUrl = String(data.get("imageUrl") || "").trim();
-              if (!file?.size && !imageUrl) throw new Error("ارفع صورة الصنف أو أدخل رابطها.");
-              if (imageUrl && !imageUrl.startsWith("https://")) throw new Error("رابط الصورة يجب أن يستخدم HTTPS.");
-              await saveCatalogWithImages("products", id, {
-                id,
-                storeId: store.id,
-                storeName: store.name,
-                name: String(data.get("name")),
-                description: String(data.get("description")),
-                price: Number(data.get("price")),
-                category: String(data.get("category")),
-                imageType: "croissant",
-                imageUrl,
-                inStock: true,
-              }, [{ field: "imageUrl", file }]);
-            })
-          }
-        >
-          <h3 className="font-bold">إضافة صنف</h3>
-          <select aria-label="تصنيف الصنف" name="category" className={input}>{["فطور", "سندوتشات", "سوبر ماركت بالقطعة", "مشروبات", "وجبات خفيفة", "حلويات"].map((category) => <option key={category}>{category}</option>)}</select>
-          <ImageFileField name="productFile" label="صورة الصنف" disabled={busy} />
-          <select aria-label="المتجر" name="store" required className={input}>
-            <option value="">اختر المتجر</option>
-            {stores.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          <input
-            aria-label="اسم الصنف"
-            name="name"
-            placeholder="اسم الصنف"
-            maxLength={120}
-            required
-            className={input}
-          />
-          <input
-            aria-label="وصف الصنف"
-            name="description"
-            placeholder="وصف قصير"
-            maxLength={500}
-            required
-            className={input}
-          />
-          <label className="block text-xs">
-            السعر بالجنيه
-            <input
-              name="price"
-              type="number"
-              min="0.01"
-              max="100000"
-              step="0.01"
-              required
-              className={input}
-            />
-          </label>
-          <input
-            aria-label="صورة الصنف"
-            name="imageUrl"
-            type="url"
-            placeholder="رابط HTTPS لصورة الصنف"
-            pattern="https://.*"
-            className={input}
-          />
-          <button
-            disabled={busy}
-            className="bg-slate-900 text-white p-2 rounded-xl"
-          >
-            حفظ الصنف
-          </button>
-        </form>
-        <form
+          key={editingStaff?.id || "new-staff"}
           className="space-y-2"
           onSubmit={(e) =>
             save(e, async (data) => {
               const uid = String(data.get("uid")).trim();
               if (!/^[\w-]{1,128}$/.test(uid)) throw new Error("UID غير صالح.");
               const role = String(data.get("role"));
+              if (!editingStaff && !(await getDoc(doc(db, "users", uid))).exists())
+                throw new Error("هذا المعرف ليس له ملف مستخدم. يجب تسجيل الحساب وتأكيده أولًا.");
+              if (editingStaff?.role === "courier" && role !== "courier" && orders.some((order) => order.courierId === uid && !["delivered", "cancelled"].includes(order.orderStatus)))
+                throw new Error("أعد تعيين طلبات المندوب النشطة قبل تغيير دوره.");
               const storeId = String(data.get("store") || "");
               if (role === "restaurant" && !storeId)
                 throw new Error("اختر المتجر لهذا الحساب.");
@@ -261,7 +108,7 @@ export function AdminSetupPanel({
             })
           }
         >
-          <h3 className="font-bold">تعيين مندوب أو مدير مطعم</h3>
+          <h3 className="font-bold">{editingStaff ? "تعديل بيانات الموظف وصلاحياته" : "تعيين مندوب أو مدير مطعم"}</h3>
           <p className="text-xs">
             يجب أن يسجل الشخص حسابًا حقيقيًا أولًا. انسخ UID من صفحة حسابه أو
             Firebase Authentication.
@@ -269,12 +116,15 @@ export function AdminSetupPanel({
           <input
             aria-label="UID الموظف"
             name="uid"
+            defaultValue={editingStaff?.id}
+            readOnly={Boolean(editingStaff)}
             placeholder="Firebase UID"
             dir="ltr"
             required
             className={input}
           />
           <input
+            defaultValue={editingStaff?.name}
             aria-label="اسم الموظف"
             name="name"
             placeholder="اسم الموظف"
@@ -282,6 +132,7 @@ export function AdminSetupPanel({
             className={input}
           />
           <input
+            defaultValue={editingStaff?.phone}
             aria-label="هاتف الموظف"
             name="phone"
             placeholder="الهاتف"
@@ -289,11 +140,12 @@ export function AdminSetupPanel({
             required
             className={input}
           />
-          <select aria-label="صلاحية الموظف" name="role" className={input}>
+          <select aria-label="صلاحية الموظف" name="role" defaultValue={editingStaff?.role || "courier"} className={input}>
             <option value="courier">مندوب</option>
             <option value="restaurant">مدير مطعم</option>
           </select>
           <select
+            defaultValue={editingStaff?.storeId || ""}
             aria-label="المتجر المسؤول عنه"
             name="store"
             className={input}
@@ -317,25 +169,32 @@ export function AdminSetupPanel({
           </p>
         </form>
         <form
+          key={editingCoupon?.code || "new-coupon"}
           className="space-y-2"
           onSubmit={(e) =>
             save(e, (data) => {
               const code = String(data.get("code")).toUpperCase();
               if (!/^[A-Z0-9_-]{1,40}$/.test(code))
                 throw new Error("كود غير صالح.");
+              const value = Number(data.get("value"));
+              const discountType = String(data.get("discountType"));
+              if (discountType === "percent" && value > 100) throw new Error("النسبة يجب ألا تتجاوز 100%.");
               return saveRecord("coupons", code, {
                 code,
                 title: code,
                 description: String(data.get("description")),
-                discountType: "fixed",
+                discountType,
                 value: Number(data.get("value")),
                 minOrder: Number(data.get("minOrder")),
               });
             })
           }
         >
-          <h3 className="font-bold">إضافة كود خصم ثابت</h3>
+          <h3 className="font-bold">{editingCoupon ? "تعديل كود الخصم" : "إضافة كود خصم"}</h3>
+          <select aria-label="نوع الخصم" name="discountType" defaultValue={editingCoupon?.discountType || "fixed"} className={input}><option value="fixed">قيمة بالجنيه</option><option value="percent">نسبة مئوية</option></select>
           <input
+            defaultValue={editingCoupon?.code}
+            readOnly={Boolean(editingCoupon)}
             aria-label="كود الخصم"
             name="code"
             placeholder="WELCOME10"
@@ -343,6 +202,7 @@ export function AdminSetupPanel({
             className={input}
           />
           <input
+            defaultValue={editingCoupon?.description}
             aria-label="وصف الخصم"
             name="description"
             placeholder="وصف العرض"
@@ -350,10 +210,11 @@ export function AdminSetupPanel({
             className={input}
           />
           <label className="block text-xs">
-            الخصم بالجنيه
+            قيمة الخصم حسب النوع
             <input
               type="number"
               name="value"
+              defaultValue={editingCoupon?.value}
               min="0"
               max="10000"
               step="0.01"
@@ -365,6 +226,7 @@ export function AdminSetupPanel({
             الحد الأدنى للطلب
             <input
               name="minOrder"
+              defaultValue={editingCoupon?.minOrder}
               type="number"
               min="0"
               max="100000"
