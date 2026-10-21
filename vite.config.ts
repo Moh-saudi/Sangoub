@@ -11,7 +11,9 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png'],
+        // The Workbox glob below already includes public icons. Adding them
+        // through the manifest as well produces conflicting cache revisions.
+        includeManifestIcons: false,
         manifest: {
           id: '/',
           name: 'طلبات العاصمة',
@@ -42,6 +44,8 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          // Only Vite's hashed chunks are immutable; public/assets images are not.
+          dontCacheBustURLsMatching: /^assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff2}'],
           runtimeCaching: [
             {
