@@ -14,10 +14,10 @@ export default defineConfig(() => {
         includeAssets: ['assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png'],
         manifest: {
           id: '/',
-          name: 'لوحة إدارة طلبات العاصمة',
-          short_name: 'إدارة العاصمة',
+          name: 'طلبات العاصمة',
+          short_name: 'طلبات العاصمة',
           description:
-            'لوحة الإدارة لمتابعة الطلبات والمتاجر والمنتجات وفريق التشغيل.',
+            'طلبات العاصمة لخدمة موظفي الحي الحكومي.',
           theme_color: '#10213f',
           background_color: '#f8fafc',
           display: 'standalone',

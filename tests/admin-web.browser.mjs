@@ -21,6 +21,13 @@ try{
  for(let i=0;i<100;i++){try{await fetch('http://127.0.0.1:3105',{signal:AbortSignal.timeout(1000)});break;}catch{await new Promise(r=>setTimeout(r,100));}}
  browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('http://127.0.0.1:3105/');
+ await page.getByRole('navigation',{name:'القائمة الرئيسية'}).waitFor();
+ assert.equal(await page.getByRole('heading',{name:'تسجيل دخول الإدارة',exact:true}).count(),0);
+ assert.equal(await page.getByText('iPhone 16 Pro',{exact:true}).count(),0);
+ for(const width of [390,768,1440]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'public overflow '+width);}
+ await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).click();await page.getByRole('dialog').waitFor();await page.getByRole('button',{name:'إغلاق',exact:true}).click();
+ await page.getByRole('link',{name:'دخول الإدارة',exact:true}).click();
+ assert.equal(new URL(page.url()).pathname,'/admin');
  assert.equal(await page.evaluate(async()=> (await import('/src/lib/firebase.ts')).firebaseConfig.projectId),'demo-capital-talabat');await page.getByRole('heading',{name:'تسجيل دخول الإدارة',exact:true}).waitFor();
  assert.equal(await page.getByText('تصفح كزائر',{exact:true}).count(),0);assert.equal(await page.getByText('iPhone 16 Pro',{exact:true}).count(),0);
  for(const width of [390,768,1440]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'login overflow '+width);}
@@ -43,5 +50,5 @@ try{
  await page.screenshot({path:join(tmpdir(),'capital-admin-operations.png'),fullPage:true});
  await services.db.doc('admins/'+accounts.admin.uid).delete();await page.getByRole('heading',{name:'الحساب غير مخوّل للإدارة',exact:true}).waitFor();assert.equal(await page.getByRole('navigation',{name:'أقسام إدارة التشغيل'}).count(),0);
  assert.deepEqual(errors,[]);
- console.log('Full admin-only app passed: root login, no simulator/role picker, employee/chef/courier denial, real admin admission, store persistence, session reload, live revocation, responsive 390/768/1440. Emulator data only.');
+ console.log('Public homepage and protected admin passed: public navigation, mobile dialog, /admin login, no simulator/role picker, employee/chef/courier denial, real admin admission, store persistence, session reload, live revocation, responsive 390/768/1440. Emulator data only.');
 }finally{await browser?.close();vite.kill('SIGTERM');}
