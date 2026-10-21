@@ -13,7 +13,7 @@ service cloud.firestore {
     }
 
     function isVerifiedUser() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn();
     }
 
     function isValidId(id) {
@@ -106,8 +106,13 @@ service cloud.firestore {
         'roomNumber',
         'itemsSummary',
         'total',
+        'subtotal',
+        'deliveryFee',
+        'discount',
         'paymentMethod',
         'orderStatus',
+        'otpCode',
+        'restaurantName',
         'scheduledDeliveryTime',
         'createdAt',
         'updatedAt'
@@ -121,8 +126,8 @@ service cloud.firestore {
       data.roomNumber is string && data.roomNumber.size() >= 1 && data.roomNumber.size() <= 80 &&
       data.itemsSummary is string && data.itemsSummary.size() >= 1 && data.itemsSummary.size() <= 1000 &&
       data.total is number && data.total >= 0 && data.total <= 100000 &&
-      data.paymentMethod is string && data.paymentMethod in ['instapay', 'geidea', 'cash'] &&
-      data.orderStatus is string && data.orderStatus in ['received', 'preparing', 'with_courier', 'delivered', 'cancelled'] &&
+      data.paymentMethod is string && data.paymentMethod in ['instapay', 'geidea', 'cash', 'card', 'wallet', 'meeza'] &&
+      data.orderStatus is string && data.orderStatus in ['received', 'preparing', 'cooking', 'ready', 'with_courier', 'outForDelivery', 'delivered', 'cancelled'] &&
       (!('scheduledDeliveryTime' in data) || (data.scheduledDeliveryTime is string && data.scheduledDeliveryTime.size() <= 100)) &&
       data.createdAt is timestamp &&
       data.updatedAt is timestamp;
@@ -190,8 +195,7 @@ service cloud.firestore {
         incoming().profileId == request.auth.uid &&
         incoming().orderStatus == 'received' &&
         incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+        incoming().updatedAt == request.time;
 
       allow update: if isVerifiedUser() &&
         isValidId(orderId) &&
@@ -213,6 +217,24 @@ service cloud.firestore {
         );
 
       allow delete: if isAdmin() && isValidId(orderId);
+    }
+
+    // Collection: /restaurants/{restaurantId}
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Collection: /products/{productId}
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Collection: /ministries/{ministryId}
+    match /ministries/{ministryId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

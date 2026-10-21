@@ -300,25 +300,28 @@ class UserProfileScreen extends StatelessWidget {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(12),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: AppColors.navy, size: 20),
         ),
-        child: Icon(icon, color: AppColors.navy, size: 20),
+        title: Text(
+          title,
+          style: GoogleFonts.cairo(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.navy),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: GoogleFonts.cairo(fontSize: 11, color: AppColors.textMuted),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+        onTap: onTap,
       ),
-      title: Text(
-        title,
-        style: GoogleFonts.cairo(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.navy),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: GoogleFonts.cairo(fontSize: 11, color: AppColors.textMuted),
-      ),
-      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
-      onTap: onTap,
     );
   }
 }

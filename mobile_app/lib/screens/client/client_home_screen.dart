@@ -136,28 +136,31 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                   itemBuilder: (context, index) {
                     final ministry = MinistryModel.allMinistries[index];
                     final isSelected = cart.selectedMinistry == ministry.name;
-                    return ListTile(
-                      dense: true,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      tileColor: isSelected ? AppColors.primaryContainer.withValues(alpha: 0.3) : null,
-                      leading: Icon(
-                        Icons.account_balance_rounded,
-                        color: isSelected ? AppColors.primary : AppColors.navy,
-                        size: 20,
-                      ),
-                      title: Text(
-                        ministry.name,
-                        style: GoogleFonts.cairo(
-                          fontSize: 13,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected ? AppColors.primaryDark : AppColors.textPrimary,
+                    return Material(
+                      color: Colors.transparent,
+                      child: ListTile(
+                        dense: true,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        tileColor: isSelected ? AppColors.primaryContainer.withValues(alpha: 0.3) : null,
+                        leading: Icon(
+                          Icons.account_balance_rounded,
+                          color: isSelected ? AppColors.primary : AppColors.navy,
+                          size: 20,
                         ),
+                        title: Text(
+                          ministry.name,
+                          style: GoogleFonts.cairo(
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? AppColors.primaryDark : AppColors.textPrimary,
+                          ),
+                        ),
+                        trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.primary, size: 18) : null,
+                        onTap: () {
+                          cart.setMinistry(ministry.name);
+                          Navigator.pop(ctx);
+                        },
                       ),
-                      trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.primary, size: 18) : null,
-                      onTap: () {
-                        cart.setMinistry(ministry.name);
-                        Navigator.pop(ctx);
-                      },
                     );
                   },
                 ),

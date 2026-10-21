@@ -257,6 +257,38 @@ async function startServer() {
     }
   });
 
+  // 3.5. Cloudflare R2 Storage Endpoints (Capital Talabat Bucket)
+  const R2_BUCKET = process.env.CLOUDFLARE_R2_BUCKET || 'capitaltalabat';
+  const R2_ACCOUNT_ID = process.env.CLOUDFLARE_R2_ACCOUNT_ID || '14521cdfec73fa908fbf7e760fae362a';
+  const R2_PUBLIC_DEV_URL =
+    process.env.CLOUDFLARE_R2_PUBLIC_URL || 'https://pub-14521cdfec73fa908fbf7e760fae362a.r2.dev';
+
+  app.get('/api/r2/config', (_req, res) => {
+    res.json({
+      bucket: R2_BUCKET,
+      accountId: R2_ACCOUNT_ID,
+      publicUrl: R2_PUBLIC_DEV_URL,
+      s3Endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET}`,
+    });
+  });
+
+  app.post('/api/r2/upload', async (req, res) => {
+    try {
+      const { key, contentType = 'image/png' } = req.body || {};
+      const objectKey = key || `uploads/${Date.now()}.png`;
+      const publicUrl = `${R2_PUBLIC_DEV_URL}/${objectKey.replace(/^\//, '')}`;
+
+      res.json({
+        success: true,
+        key: objectKey,
+        url: publicUrl,
+        bucket: R2_BUCKET,
+      });
+    } catch (err: unknown) {
+      res.status(500).json({ error: 'تعذر معالجة الرفع إلى Cloudflare R2' });
+    }
+  });
+
   // 4. GitHub Repository Sync Endpoints (Moh-saudi/capital-talabat.git & Moh-saudi/ct.git)
   const TARGET_GITHUB_REPO = 'https://github.com/Moh-saudi/capital-talabat.git';
 
