@@ -116,7 +116,7 @@ export function HeroShowcase({
     setActive((index) => (index + step + SLIDES.length) % SLIDES.length);
   return (
     <section
-      className="landing-hero hero-showcase district-showcase"
+      className="landing-hero hero-showcase split-showcase"
       aria-label="مميزات طلبات العاصمة والشراكة"
       aria-roledescription="عرض شرائح"
       onMouseEnter={() => setHovered(true)}
