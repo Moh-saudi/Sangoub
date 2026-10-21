@@ -36,59 +36,49 @@ beforeEach(async () => {
       db
         .doc("staff/courier")
         .set({ role: "courier", name: "مندوب", phone: "01012345678" }),
-      db
-        .doc("staff/restaurant")
-        .set({
-          role: "restaurant",
-          storeId: "s1",
-          name: "مطعم",
-          phone: "01012345678",
-        }),
-      db
-        .doc("staff/other-restaurant")
-        .set({
-          role: "restaurant",
-          storeId: "s2",
-          name: "مطعم2",
-          phone: "01012345678",
-        }),
-      db
-        .doc("users/customer")
-        .set({
-          uid: "customer",
-          email: "customer@example.com",
-          fullName: "عميل",
-          phone: "01012345678",
-          ministry: "وزارة النقل",
-          floorNumber: "5",
-          roomNumber: "504",
-          role: "employee",
-          walletBalance: 0,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }),
-      db
-        .doc("orders/o1")
-        .set({
-          profileId: "customer",
-          storeIds: ["s1"],
-          courierId: "courier",
-          orderStatus: "with_courier",
-          paymentMethod: "cash",
-          paymentStatus: "cash_on_delivery",
-          total: 80,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }),
-      db
-        .doc("stores/s1")
-        .set({
-          id: "s1",
-          name: "مطعم",
-          status: "open",
-          minOrder: 0,
-          deliveryFee: 10,
-        }),
+      db.doc("staff/restaurant").set({
+        role: "restaurant",
+        storeId: "s1",
+        name: "مطعم",
+        phone: "01012345678",
+      }),
+      db.doc("staff/other-restaurant").set({
+        role: "restaurant",
+        storeId: "s2",
+        name: "مطعم2",
+        phone: "01012345678",
+      }),
+      db.doc("users/customer").set({
+        uid: "customer",
+        email: "customer@example.com",
+        fullName: "عميل",
+        phone: "01012345678",
+        ministry: "وزارة النقل",
+        floorNumber: "5",
+        roomNumber: "504",
+        role: "employee",
+        walletBalance: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+      db.doc("orders/o1").set({
+        profileId: "customer",
+        storeIds: ["s1"],
+        courierId: "courier",
+        orderStatus: "with_courier",
+        paymentMethod: "cash",
+        paymentStatus: "cash_on_delivery",
+        total: 80,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+      db.doc("stores/s1").set({
+        id: "s1",
+        name: "مطعم",
+        status: "open",
+        minOrder: 0,
+        deliveryFee: 10,
+      }),
     ]);
   });
 });
@@ -159,13 +149,11 @@ test("restaurant reads and queries are restricted to its own store", async () =>
 });
 test("courier may complete assigned cash order but cannot change owner", async () => {
   await assertSucceeds(
-    db("courier")
-      .doc("orders/o1")
-      .update({
-        orderStatus: "delivered",
-        paymentStatus: "paid",
-        updatedAt: timestamp(),
-      }),
+    db("courier").doc("orders/o1").update({
+      orderStatus: "delivered",
+      paymentStatus: "paid",
+      updatedAt: timestamp(),
+    }),
   );
   await assertFails(
     db("courier")
@@ -244,4 +232,121 @@ test("application personal information is admin-only and forged approval is reje
       .update({ status: "approved", updatedAt: timestamp() }),
   );
   await assertSucceeds(db("admin").doc("partnerApplications/app1").get());
+});
+
+test("new verified accounts can create their own profile but cannot inject extra fields", async () => {
+  const profile = {
+    uid: "new-customer",
+    email: "new-customer@example.com",
+    fullName: "",
+    phone: "",
+    ministry: "",
+    floorNumber: "",
+    roomNumber: "",
+    role: "employee",
+    walletBalance: 0,
+    createdAt: timestamp(),
+    updatedAt: timestamp(),
+  };
+  await assertSucceeds(
+    db("new-customer").doc("users/new-customer").set(profile),
+  );
+  await assertFails(
+    db("new-customer")
+      .doc("users/new-customer")
+      .update({ isAdmin: true, updatedAt: timestamp() }),
+  );
+});
+test("customers can only cancel their own received order", async () => {
+  await env.withSecurityRulesDisabled((c) =>
+    c.firestore().doc("orders/o1").update({ orderStatus: "received" }),
+  );
+  await assertFails(
+    db("stranger")
+      .doc("orders/o1")
+      .update({ orderStatus: "cancelled", updatedAt: timestamp() }),
+  );
+  await assertSucceeds(
+    db("customer")
+      .doc("orders/o1")
+      .update({ orderStatus: "cancelled", updatedAt: timestamp() }),
+  );
+});
+test("restaurant can mark readiness but cannot assign a courier or complete delivery", async () => {
+  await env.withSecurityRulesDisabled((c) =>
+    c.firestore().doc("orders/o1").update({ orderStatus: "preparing" }),
+  );
+  await assertSucceeds(
+    db("restaurant")
+      .doc("orders/o1")
+      .update({ restaurantStatus: "ready_for_pickup", updatedAt: timestamp() }),
+  );
+  await assertFails(
+    db("restaurant")
+      .doc("orders/o1")
+      .update({ orderStatus: "with_courier", updatedAt: timestamp() }),
+  );
+  await assertFails(
+    db("restaurant")
+      .doc("orders/o1")
+      .update({ courierId: "restaurant", updatedAt: timestamp() }),
+  );
+});
+test("admin can assign registered couriers only", async () => {
+  await env.withSecurityRulesDisabled((c) =>
+    c
+      .firestore()
+      .doc("orders/o1")
+      .update({ orderStatus: "preparing", courierId: "" }),
+  );
+  await assertFails(
+    db("admin")
+      .doc("orders/o1")
+      .update({
+        courierId: "customer",
+        orderStatus: "with_courier",
+        updatedAt: timestamp(),
+      }),
+  );
+  await assertSucceeds(
+    db("admin")
+      .doc("orders/o1")
+      .update({
+        courierId: "courier",
+        orderStatus: "with_courier",
+        updatedAt: timestamp(),
+      }),
+  );
+});
+test("revoking courier staff membership removes access to assigned orders", async () => {
+  await env.withSecurityRulesDisabled((c) =>
+    c.firestore().doc("staff/courier").delete(),
+  );
+  await assertFails(db("courier").doc("orders/o1").get());
+  await assertFails(
+    db("courier")
+      .doc("orders/o1")
+      .update({ orderStatus: "delivered", updatedAt: timestamp() }),
+  );
+});
+test("courier can stop tracking after delivery but cannot restart it", async () => {
+  const record = {
+    coordinates: { latitude: 30, longitude: 31 },
+    active: true,
+    updatedAt: timestamp(),
+  };
+  await assertSucceeds(db("courier").doc("tracking/o1").set(record));
+  await env.withSecurityRulesDisabled((c) =>
+    c.firestore().doc("orders/o1").update({ orderStatus: "delivered" }),
+  );
+  await assertSucceeds(
+    db("courier")
+      .doc("tracking/o1")
+      .update({ active: false, updatedAt: timestamp() }),
+  );
+  await assertFails(
+    db("courier")
+      .doc("tracking/o1")
+      .update({ active: true, updatedAt: timestamp() }),
+  );
 });

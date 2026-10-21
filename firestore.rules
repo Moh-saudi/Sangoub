@@ -6,7 +6,19 @@ service cloud.firestore {
     function staff() { return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data; }
     function validCoordinates(c) { return c is map && c.keys().hasOnly(['latitude','longitude']) && c.latitude is number && c.longitude is number && c.latitude >= -90 && c.latitude <= 90 && c.longitude >= -180 && c.longitude <= 180; }
     function text(value,max) { return value is string && value.size() <= max; }
-    function ownerOrder(data) { return verified() && (data.profileId == request.auth.uid || admin() || (data.get('courierId','') == request.auth.uid && exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && staff().role == 'courier') || (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && staff().role == 'restaurant' && staff().storeId in data.get('storeIds',[]))); }
+    function assignedCourier(data) {
+      return verified() && data.get('courierId', '') == request.auth.uid &&
+        exists(/databases/$(database)/documents/staff/$(request.auth.uid)) &&
+        staff().role == 'courier';
+    }
+    function restaurantOrder(data) {
+      return verified() && exists(/databases/$(database)/documents/staff/$(request.auth.uid)) &&
+        staff().role == 'restaurant' && staff().storeId in data.get('storeIds', []);
+    }
+    function ownerOrder(data) {
+      return verified() && (data.profileId == request.auth.uid || admin() ||
+        assignedCourier(data) || restaurantOrder(data));
+    }
     function profile(data) { return data.keys().hasAll(['uid','fullName','email','phone','ministry','floorNumber','roomNumber','role','walletBalance','createdAt','updatedAt']) && data.keys().hasOnly(['uid','fullName','email','phone','ministry','floorNumber','roomNumber','role','walletBalance','createdAt','updatedAt','avatarUrl','coordinates']) && data.uid == request.auth.uid && text(data.fullName,120) && text(data.email,160) && text(data.phone,30) && text(data.ministry,120) && text(data.floorNumber,60) && text(data.roomNumber,80) && (!('coordinates' in data) || validCoordinates(data.coordinates)); }
     match /admins/{uid} { allow get: if verified() && (uid == request.auth.uid || admin()); allow list: if admin(); allow write: if false; }
     match /staff/{uid} {
@@ -35,20 +47,55 @@ service cloud.firestore {
     }
     match /coupons/{id} { allow read: if true; allow create,update: if admin() && request.resource.data.code == id && request.resource.data.value is number && request.resource.data.value >= 0 && request.resource.data.value <= 10000 && request.resource.data.minOrder is number && request.resource.data.minOrder >= 0 && request.resource.data.discountType in ['fixed','percent'] && request.resource.data.updatedAt == request.time; allow delete: if admin(); }
     function transition(old,next) { return old == next || (old == 'received' && next in ['preparing','with_courier','cancelled']) || (old == 'preparing' && next in ['with_courier','cancelled']) || (old == 'with_courier' && next in ['delivered','cancelled']); }
+    function validCourierAssignment(before, after) {
+      return !after.diff(before).affectedKeys().hasAny(['courierId']) ||
+        (exists(/databases/$(database)/documents/staff/$(after.courierId)) &&
+         get(/databases/$(database)/documents/staff/$(after.courierId)).data.role == 'courier');
+    }
+    function adminOrderUpdate(before, after) {
+      return admin() && validCourierAssignment(before, after) &&
+        after.diff(before).affectedKeys().hasOnly([
+          'orderStatus', 'courierId', 'courierName', 'courierPhone',
+          'courierChecklist', 'restaurantStatus', 'estimatedDelivery', 'paymentStatus', 'updatedAt'
+        ]);
+    }
+    function restaurantOrderUpdate(before, after) {
+      return restaurantOrder(before) && after.orderStatus == 'preparing' &&
+        after.get('restaurantStatus', 'pending') in ['pending', 'preparing', 'ready_for_pickup'] &&
+        after.diff(before).affectedKeys().hasOnly(['orderStatus', 'restaurantStatus', 'updatedAt']);
+    }
+    function courierOrderUpdate(before, after) {
+      return assignedCourier(before) && after.orderStatus in ['with_courier', 'delivered'] &&
+        after.diff(before).affectedKeys().hasOnly(['orderStatus', 'courierChecklist', 'paymentStatus', 'updatedAt']);
+    }
+    function customerCancellation(before, after) {
+      return before.profileId == request.auth.uid && before.orderStatus == 'received' &&
+        after.orderStatus == 'cancelled' && after.diff(before).affectedKeys().hasOnly(['orderStatus', 'updatedAt']);
+    }
     match /orders/{id} {
       allow read: if ownerOrder(resource.data);
-      // Only the authenticated server endpoint calculates prices and creates orders.
-      allow create,delete: if false;
-      allow update: if verified() && !(resource.data.orderStatus in ['delivered','cancelled']) && transition(resource.data.orderStatus,request.resource.data.orderStatus) && request.resource.data.updatedAt == request.time && (
-        (admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','courierId','courierName','courierPhone','courierChecklist','restaurantStatus','estimatedDelivery','paymentStatus','updatedAt']) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['courierId']) || (exists(/databases/$(database)/documents/staff/$(request.resource.data.courierId)) && get(/databases/$(database)/documents/staff/$(request.resource.data.courierId)).data.role == 'courier'))) ||
-        (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && staff().role == 'restaurant' && staff().storeId in resource.data.get('storeIds',[]) && request.resource.data.orderStatus == 'preparing' && request.resource.data.get('restaurantStatus','pending') in ['pending','preparing','ready_for_pickup'] && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','restaurantStatus','updatedAt'])) ||
-        (resource.(data.get('courierId','') == request.auth.uid && exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && staff().role == 'courier') && request.resource.data.orderStatus in ['with_courier','delivered'] && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','courierChecklist','paymentStatus','updatedAt'])) ||
-        (resource.data.profileId == request.auth.uid && resource.data.orderStatus == 'received' && request.resource.data.orderStatus == 'cancelled' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','updatedAt']))
-      ) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['paymentStatus']) || (resource.data.paymentMethod == 'cash' && request.resource.data.paymentStatus == 'paid' && request.resource.data.orderStatus == 'delivered'));
+      // Only the authenticated server calculates prices and creates orders.
+      allow create, delete: if false;
+      allow update: if verified() &&
+        !(resource.data.orderStatus in ['delivered', 'cancelled']) &&
+        transition(resource.data.orderStatus, request.resource.data.orderStatus) &&
+        request.resource.data.updatedAt == request.time &&
+        (adminOrderUpdate(resource.data, request.resource.data) ||
+         restaurantOrderUpdate(resource.data, request.resource.data) ||
+         courierOrderUpdate(resource.data, request.resource.data) ||
+         customerCancellation(resource.data, request.resource.data)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['paymentStatus']) ||
+         (resource.data.paymentMethod == 'cash' && request.resource.data.paymentStatus == 'paid' &&
+          request.resource.data.orderStatus == 'delivered'));
     }
     match /tracking/{orderId} {
       allow read: if ownerOrder(get(/databases/$(database)/documents/orders/$(orderId)).data);
-      allow create,update: if verified() && exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && staff().role == 'courier' && get(/databases/$(database)/documents/orders/$(orderId)).(data.get('courierId','') == request.auth.uid && exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && staff().role == 'courier') && get(/databases/$(database)/documents/orders/$(orderId)).data.orderStatus == 'with_courier' && request.resource.data.keys().hasOnly(['coordinates','active','updatedAt']) && validCoordinates(request.resource.data.coordinates) && request.resource.data.active is bool && request.resource.data.updatedAt == request.time;
+      allow create, update: if assignedCourier(get(/databases/$(database)/documents/orders/$(orderId)).data) &&
+        (get(/databases/$(database)/documents/orders/$(orderId)).data.orderStatus == 'with_courier' ||
+         request.resource.data.active == false) &&
+        request.resource.data.keys().hasOnly(['coordinates', 'active', 'updatedAt']) &&
+        validCoordinates(request.resource.data.coordinates) && request.resource.data.active is bool &&
+        request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
     function application(d,fields) { return verified() && d.keys().hasOnly(fields) && d.ownerId == request.auth.uid && d.status == 'pending' && text(d.phone,30) && text(d.email,160) && d.updatedAt == request.time && d.createdAt is string; }
