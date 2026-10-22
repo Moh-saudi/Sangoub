@@ -66,9 +66,9 @@ export const AuthModal: React.FC<Props> = ({
     } catch (e: any) {
       const messages: Record<string, string> = {
         "auth/unauthorized-domain":
-          "أضف نطاق الموقع إلى Authorized domains في Firebase Authentication.",
+          "تسجيل الدخول غير متاح حاليًا. يرجى المحاولة لاحقًا.",
         "auth/operation-not-allowed":
-          "طريقة الدخول غير مفعّلة في Firebase Authentication.",
+          "طريقة الدخول هذه غير متاحة حاليًا. اختر طريقة أخرى.",
         "auth/popup-blocked": "اسمح بالنوافذ المنبثقة ثم أعد المحاولة.",
         "auth/popup-closed-by-user": "أُغلقت نافذة Google قبل إكمال الدخول.",
         "auth/invalid-credential": "البريد أو كلمة المرور غير صحيحة.",
@@ -78,7 +78,7 @@ export const AuthModal: React.FC<Props> = ({
         "auth/too-many-requests":
           "محاولات كثيرة. انتظر قليلًا ثم أعد المحاولة.",
       };
-      setError(messages[e.code] || e.message || "تعذر تسجيل الدخول.");
+      setError(messages[e.code] || "تعذر تسجيل الدخول. يرجى المحاولة مرة أخرى.");
     } finally {
       setBusy(false);
     }
@@ -115,7 +115,7 @@ export const AuthModal: React.FC<Props> = ({
           </button>
         </div>
         <p className="text-xs text-slate-500">
-          حسابك محمي بمصادقة Firebase. صلاحيات الإدارة يمنحها مسؤول المشروع فقط.
+          سجّل الدخول بأمان لإدارة حسابك وطلبـاتك.
         </p>
         {checkoutInterceptNotice && (
           <p className="text-sm bg-orange-50 p-3 rounded-xl">

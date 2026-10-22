@@ -1,3 +1,4 @@
+import { customerMessage } from "../utils/customerMessage";
 import React, { useState } from "react";
 import {
   X,
@@ -256,9 +257,7 @@ export const CartModal: React.FC<CartModalProps> = ({
       onClose();
     } catch (error) {
       setFormError(
-        error instanceof Error
-          ? error.message
-          : "تعذر حفظ الطلب. السلة لم تتغير.",
+        customerMessage(error, "تعذر حفظ الطلب. السلة لم تتغير."),
       );
     } finally {
       setIsSubmitting(false);

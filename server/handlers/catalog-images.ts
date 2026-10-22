@@ -47,6 +47,6 @@ export default async function handler(req: any, res: any) {
     await db.collection("auditLogs").add(auditRecord(identity,"images.upload.authorized","images",spec!.key,null,{key:spec!.key,size:spec!.size,contentType:spec!.contentType}));
     return res.status(200).json({ key: spec!.key, uploadUrl, publicUrl: `${publicUrl}/${spec!.key}` });
   } catch {
-    return res.status(503).json({ error: "رفع الصور غير متاح. راجع إعدادات R2 والخادم." });
+    return res.status(503).json({ error: "رفع الصور غير متاح حاليًا. يرجى المحاولة لاحقًا." });
   }
 }

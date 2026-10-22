@@ -1,3 +1,4 @@
+import { customerMessage } from "./utils/customerMessage";
 import { DeploymentVersion } from "./components/DeploymentVersion";
 import { adminApi } from "./lib/adminApi";
 import "./admin.css";
@@ -15,11 +16,11 @@ const logo = "/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png";
 function message(error: unknown): string {
   const code = (error as { code?: string })?.code || "";
   if (/invalid-credential|wrong-password|user-not-found/.test(code)) return "راجع البريد وكلمة المرور.";
-  if (/unauthorized-domain/.test(code)) return "هذا النطاق غير مضاف إلى نطاقات Firebase المسموحة للمصادقة.";
+  if (/unauthorized-domain/.test(code)) return "تسجيل الدخول غير متاح حاليًا. يرجى المحاولة لاحقًا.";
   if (/permission-denied/.test(code)) return "تعذر الوصول. راجع صلاحية الإدارة وقواعد قاعدة البيانات.";
   if (/popup-closed-by-user|cancelled-popup-request/.test(code)) return "أُغلقت نافذة تسجيل الدخول قبل الإكمال.";
   if (/network|unavailable/.test(code)) return "تعذر الاتصال بالخادم. تحقق من الشبكة وأعد المحاولة.";
-  return error instanceof Error ? error.message : "تعذر تنفيذ العملية.";
+  return customerMessage(error, "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
 }
 
 export default function AdminApp() {
@@ -139,7 +140,7 @@ export default function AdminApp() {
           </form>
           <button disabled={busy} className="text-sm text-orange-700" onClick={() => action(async () => { if (!email.includes("@")) throw new Error("اكتب بريدك الإلكتروني أولًا."); await sendPasswordResetEmail(auth, email.trim()); }, "إذا كان البريد مسجلًا فستصلك تعليمات استعادة كلمة المرور.")}>نسيت كلمة المرور؟</button>
         </> : access === "verify" ? <><h2 className="font-bold text-xl">أكد بريد الحساب أولًا</h2><p className="text-sm text-slate-600">التحقق من هوية الحساب مطلوب قبل فحص صلاحية الإدارة.</p><button disabled={busy} onClick={() => action(() => sendEmailVerification(identity!), "أُرسلت رسالة تأكيد البريد.")} className="p-3 border rounded-xl text-sm">إرسال رسالة التأكيد</button><button disabled={busy} onClick={() => action(async () => { await identity!.reload(); await identity!.getIdToken(true); setRevision((value) => value + 1); })} className="p-3 mr-2 bg-orange-600 text-white rounded-xl text-sm">تم التأكيد، إعادة الفحص</button></> : <>
-          <h2 className="font-black text-xl">الحساب غير مخوّل للإدارة</h2><p className="text-sm text-slate-600 leading-7">استخدم تطبيق الموبايل لحساب الموظف أو الشيف أو المندوب. إذا كنت مسؤول المشروع، أضف صلاحية هذا الحساب من Firebase Console.</p>
+          <h2 className="font-black text-xl">الحساب غير مخوّل للإدارة</h2><p className="text-sm text-slate-600 leading-7">استخدم تطبيق الموبايل لحساب الموظف أو الشيف أو المندوب. إذا كنت مسؤول المشروع، اطلب تفعيل صلاحية الإدارة من مسؤول المنصة.</p>
           <label className="block text-xs space-y-2">معرف حسابك الحقيقي (UID)<input aria-label="معرف حسابك" readOnly value={identity?.uid || ""} dir="ltr" className="w-full p-3 border rounded-xl text-xs" /></label><p className="text-xs text-slate-500">وثيقة الصلاحية: admins / UID نفسه. وجود الوثيقة يمنح الإدارة، وحذفها يلغيها.</p>
           <button disabled={busy} onClick={() => setRevision((value) => value + 1)} className="rounded-xl p-3 border text-sm">إعادة فحص الصلاحية</button>
         </>}

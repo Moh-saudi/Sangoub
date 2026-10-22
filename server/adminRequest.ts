@@ -16,14 +16,14 @@ export async function requireAdmin(req: any) {
 }
 export function adminError(res: any, error: any) {
   const code = String(error?.code || '');
-  if (code === 'FIREBASE_ADMIN_NOT_CONFIGURED') return res.status(503).json({error:'واجهة الإدارة تحتاج FIREBASE_CLIENT_EMAIL وFIREBASE_PRIVATE_KEY في إعدادات الخادم. مفاتيح R2 تخص الصور ولا تمنح صلاحية إدارة الحسابات.',code});
-  if (code.includes('invalid-credential')) return res.status(503).json({error:'بيانات اعتماد Firebase Admin على الخادم غير صالحة. راجع إعدادها في منصة الاستضافة.',code:'FIREBASE_ADMIN_INVALID_CREDENTIALS'});
+  if (code === 'FIREBASE_ADMIN_NOT_CONFIGURED') return res.status(503).json({error:'خدمة الإدارة غير متاحة حاليًا. يرجى التواصل مع مسؤول المنصة.',code});
+  if (code.includes('invalid-credential')) return res.status(503).json({error:'تعذر الاتصال بخدمة الإدارة. يرجى التواصل مع مسؤول المنصة.',code:'FIREBASE_ADMIN_INVALID_CREDENTIALS'});
   if (error instanceof AdminError) return res.status(error.status).json({error:error.message});
   if (code.includes('email-already-exists')) return res.status(409).json({error:'البريد مستخدم في حساب آخر.'});
   if (code.includes('user-not-found')) return res.status(404).json({error:'الحساب غير موجود.'});
-  if (code==='9'||code.includes('failed-precondition')) return res.status(503).json({error:'فهارس Firestore المطلوبة غير منشورة أو ما زالت قيد الإنشاء. انشر firestore.indexes.json وانتظر اكتمالها.'});
+  if (code==='9'||code.includes('failed-precondition')) return res.status(503).json({error:'البيانات غير متاحة حاليًا. يرجى المحاولة لاحقًا.'});
   if (code.includes('invalid-')) return res.status(400).json({error:'راجع بيانات الحساب.'});
-  return res.status(503).json({error:'تعذر تنفيذ العملية. راجع إعدادات Firebase Admin بالخادم وسجل التدقيق.'});
+  return res.status(503).json({error:'تعذر تنفيذ العملية. يرجى المحاولة لاحقًا أو التواصل مع مسؤول المنصة.'});
 }
 export function validId(value: unknown): asserts value is string {
   if (typeof value !== 'string' || !/^[A-Za-z0-9_.@+-]{1,128}$/.test(value)) throw new AdminError(400,'معرّف غير صالح.');
