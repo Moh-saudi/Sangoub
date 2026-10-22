@@ -24,3 +24,6 @@ The source page explicitly identifies the footage as the Government District. Th
 - government-district-night.jpg: frame at 01:24 — government complex lit at night.
 
 Frames were exported at 1600×900 with ffmpeg. They illustrate the service area; they are not photographs of Capital Talabat's employees or completed deliveries. The older breakfast and coffee photos remain illustrative food images in the menu overview, not claims about particular local restaurants.
+
+Google Play badge: vendored SVG from https://github.com/steverichey/google-play-badge-svg/blob/master/img/en_get.svg. Google Play and the Google Play logo are trademarks of Google LLC. The badge opens the app information prompt until the official release URL is supplied.
+WhatsApp mark: https://github.com/simple-icons/simple-icons/blob/develop/icons/whatsapp.svg (Simple Icons, CC0). Brand mark identifies the support link.

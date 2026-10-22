@@ -8,7 +8,7 @@ export function useSiteMotion(root: RefObject<HTMLDivElement | null>) {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     const running = new Set<Animation>();
     const tracked = new WeakSet<Element>();
-    const selector = '.site-header,.hero-photograph,.showcase-copy>*,.hero-actions,.showcase-controls,.hero-location,.service-strip>span,.section-heading,.public-discovery-card,.public-how>h2,.public-how article,.public-partners>div,.public-store-list>button,.public-product-card,.site-footer';
+    const selector = '.site-header,.hero-photograph,.showcase-copy>*,.hero-actions,.showcase-controls,.hero-location,.service-strip>span,.section-heading,.public-discovery-card,.public-how>h2,.public-how article,.public-partners>div,.public-store-list>button,.public-product-card,.site-footer,.careers-entry,.careers-roles article,.public-careers>header';
     const observer = new IntersectionObserver(entries => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
