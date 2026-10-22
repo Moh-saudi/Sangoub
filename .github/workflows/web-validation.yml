@@ -25,6 +25,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run test:native-api
+      - run: npm run test:compiled-api
       - run: npm run build
       - run: npm run test:auth
       - run: npm run test:rules

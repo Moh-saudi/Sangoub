@@ -25,6 +25,11 @@ try {
       navigator.serviceWorker.ready,
       new Promise((_, reject) => setTimeout(() => reject(new Error('Worker activation timed out')), 20000)),
     ]);
+    if(registration.active?.state !== 'activated') await new Promise((resolve,reject)=>{
+      const worker=registration.active;const timeout=setTimeout(()=>reject(new Error('Activation did not finish')),10000);
+      const changed=()=>{if(worker?.state==='activated'){clearTimeout(timeout);worker.removeEventListener('statechange',changed);resolve();}};
+      worker?.addEventListener('statechange',changed);changed();
+    });
     const keys = await caches.keys();
     const urls = (await Promise.all(keys.filter(key => key.includes('precache')).map(async key => (await (await caches.open(key)).keys()).map(request => request.url)))).flat();
     return { active: registration.active?.state, logos: urls.filter(url => url.includes('Capital_Talabat_App_Icon_7e80c871.png')) };
@@ -32,6 +37,9 @@ try {
   assert.equal(result.active, 'activated');
   assert.equal(result.logos.length, 1, 'The logo must have exactly one precache entry');
   assert.match(result.logos[0], /__WB_REVISION__=/, 'Public logo must retain content-based cache invalidation');
+  await page.route('**/build-info.json?check=*',route=>route.fulfill({json:{id:'test-next-release'}}));
+  await page.goto('http://127.0.0.1:3112/admin');
+  await page.getByRole('button',{name:'تحميل النسخة الجديدة',exact:true}).waitFor();
   assert.deepEqual(errors, []);
   console.log('Production service worker activated; logo cached once with content revision.');
 } finally {

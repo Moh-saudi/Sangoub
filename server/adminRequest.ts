@@ -16,6 +16,8 @@ export async function requireAdmin(req: any) {
 }
 export function adminError(res: any, error: any) {
   const code = String(error?.code || '');
+  if (code === 'FIREBASE_ADMIN_NOT_CONFIGURED') return res.status(503).json({error:'واجهة الإدارة تحتاج FIREBASE_CLIENT_EMAIL وFIREBASE_PRIVATE_KEY في إعدادات الخادم. مفاتيح R2 تخص الصور ولا تمنح صلاحية إدارة الحسابات.',code});
+  if (code.includes('invalid-credential')) return res.status(503).json({error:'بيانات اعتماد Firebase Admin على الخادم غير صالحة. راجع إعدادها في منصة الاستضافة.',code:'FIREBASE_ADMIN_INVALID_CREDENTIALS'});
   if (error instanceof AdminError) return res.status(error.status).json({error:error.message});
   if (code.includes('email-already-exists')) return res.status(409).json({error:'البريد مستخدم في حساب آخر.'});
   if (code.includes('user-not-found')) return res.status(404).json({error:'الحساب غير موجود.'});
