@@ -53,7 +53,20 @@ export default defineConfig(() => {
           // Only Vite's hashed chunks are immutable; public/assets images are not.
           dontCacheBustURLsMatching: /^assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff2}'],
+          // Fetch current HTML on navigation instead of pinning visitors to precached releases.
+          globIgnores: ['**/index.html'],
+          navigateFallback: null,
           runtimeCaching: [
+            {
+              urlPattern: ({ request, url }) => request.mode === 'navigate' && url.origin === self.location.origin,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'capital-page-navigation',
+                networkTimeoutSeconds: 4,
+                cacheableResponse: { statuses: [200] },
+                expiration: { maxEntries: 12, maxAgeSeconds: 24 * 60 * 60 },
+              },
+            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'CacheFirst',

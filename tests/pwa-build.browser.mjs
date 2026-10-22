@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import {readFile,writeFile} from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 // Exercise the production worker, which Vite's development server disables.
 const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '3112', '--strictPort'], { stdio: 'ignore' });
 let browser;
+const htmlPath=new URL('../dist/index.html',import.meta.url);
+const originalHtml=await readFile(htmlPath,'utf8');
 try {
   for (let attempt = 0; attempt < 100; attempt++) {
     try { await fetch('http://127.0.0.1:3112'); break; }
@@ -37,7 +40,20 @@ try {
   assert.equal(result.active, 'activated');
   assert.equal(result.logos.length, 1, 'The logo must have exactly one precache entry');
   assert.match(result.logos[0], /__WB_REVISION__=/, 'Public logo must retain content-based cache invalidation');
+  await page.reload();
+  // A controlled navigation must fetch current HTML, including after a prior visit.
+  await writeFile(htmlPath,originalHtml.replace('</head>','<meta name="capital-navigation-probe" content="fresh-network-html"></head>'));
+  await page.reload();assert.equal(await page.locator('meta[name="capital-navigation-probe"]').getAttribute('content'),'fresh-network-html');
+  await context.setOffline(true);await page.reload();assert.equal(await page.locator('meta[name="capital-navigation-probe"]').getAttribute('content'),'fresh-network-html','offline uses the last successful navigation');
+  await context.setOffline(false);await writeFile(htmlPath,originalHtml);await page.reload();
+  for(const width of [320,390]){
+    await page.setViewportSize({width,height:844});await page.locator('.site-header').waitFor();
+    const brand=await page.locator('.site-brand').boundingBox(),app=await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).boundingBox();assert.ok(Math.abs(brand.y-app.y)<12,'production mobile header uses a single row');
+    const photograph=await page.locator('.hero-photograph').boundingBox(),copy=await page.locator('.hero-copy').boundingBox();assert.ok(photograph.y<copy.y,'production mobile photo precedes the copy');
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'production mobile overflow '+width);
+  }
   await page.route('**/build-info.json?check=*',route=>route.fulfill({json:{id:'test-next-release'}}));
+  await page.reload();await page.getByText('حدّث الصفحة لعرض أحدث تصميم للموقع.',{exact:true}).waitFor();
   await page.goto('http://127.0.0.1:3112/admin');
   await page.getByRole('button',{name:'تحميل النسخة الجديدة',exact:true}).waitFor();
   assert.deepEqual(errors, []);
@@ -45,4 +61,5 @@ try {
 } finally {
   await browser?.close();
   server.kill('SIGTERM');
+  await writeFile(htmlPath,originalHtml);
 }

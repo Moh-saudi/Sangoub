@@ -1,3 +1,4 @@
+import { DeploymentVersion } from "./DeploymentVersion";
 import { lazy, Suspense, useState } from "react";
 import { ArrowLeft, Bike, Building2, Coffee, MapPin, ShoppingBag, Smartphone } from "lucide-react";
 import { AppPromotionDialog, type AppSelection } from "./AppPromotionDialog";
@@ -18,6 +19,7 @@ export function PublicWebsite() {
   const selectItem = (item: AppSelection) => { setSelection(item); setShowApp(true); };
   const openPartners = () => document.getElementById("partners")?.scrollIntoView({ behavior: "smooth" });
   return <div className="capital-site min-h-screen text-slate-900" dir="rtl">
+    <DeploymentVersion publicSite />
     <header className="site-header">
       <a href="/" className="site-brand" aria-label="طلبات العاصمة — الرئيسية"><img className="official-logo" src={logo} alt="شعار طلبات العاصمة الرسمي" width="80" height="80" /><span><span className="brand-accent">طلبات</span> العاصمة<small lang="en" dir="ltr">Capital Talabat</small></span></a>
       <nav className="site-nav" aria-label="القائمة الرئيسية"><a href="#how-it-works">كيف تعمل؟</a><a href="#partners">للمطاعم والمتاجر</a><a href="#contact">تواصل معنا</a></nav>
