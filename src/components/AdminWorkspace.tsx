@@ -16,7 +16,7 @@ const sections = [
   { id: "management", label: "الطلبات والتقديمات", hint: "الطلبات والشراكات والتوظيف", icon: ClipboardList },
   { id: "kitchen", label: "شاشة المطبخ", hint: "التحضير والاستلام", icon: ChefHat },
   { id: "catalog", label: "المنتجات والمتاجر", hint: "المنيو والأسعار والصور", icon: ShoppingBag },
-  { id: "users", label: "المستخدمون", hint: "الحسابات والأدوار والوصول", icon: UserRoundCog, PanelRightClose, PanelRightOpen },
+  { id: "users", label: "المستخدمون", hint: "الحسابات والأدوار والوصول", icon: UserRoundCog },
   { id: "audit", label: "سجل التدقيق", hint: "العمليات والتغييرات والمنفّذون", icon: ScrollText },
   { id: "settings", label: "الفريق والخصومات", hint: "الصلاحيات وأكواد الخصم", icon: Users },
 ];
