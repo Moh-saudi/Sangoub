@@ -1,5 +1,7 @@
+import "../site-motion.css";
+import { useSiteMotion } from "../utils/useSiteMotion";
 import { DeploymentVersion } from "./DeploymentVersion";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { ArrowLeft, Bike, Building2, Coffee, MapPin, ShoppingBag, Smartphone } from "lucide-react";
 import { AppPromotionDialog, type AppSelection } from "./AppPromotionDialog";
 const PublicCatalog = lazy(() => import("./PublicCatalog"));
@@ -13,12 +15,14 @@ const appUrl = (() => {
 })();
 
 export function PublicWebsite() {
+  const site = useRef<HTMLDivElement>(null);
+  useSiteMotion(site);
   const [showApp, setShowApp] = useState(false);
   const [selection, setSelection] = useState<AppSelection | undefined>();
   const openApp = () => { setSelection(undefined); setShowApp(true); };
   const selectItem = (item: AppSelection) => { setSelection(item); setShowApp(true); };
   const openPartners = () => document.getElementById("partners")?.scrollIntoView({ behavior: "smooth" });
-  return <div className="capital-site min-h-screen text-slate-900" dir="rtl">
+  return <div ref={site} className="capital-site min-h-screen text-slate-900" dir="rtl">
     <DeploymentVersion publicSite />
     <header className="site-header">
       <a href="/" className="site-brand" aria-label="طلبات العاصمة — الرئيسية"><img className="official-logo" src={logo} alt="شعار طلبات العاصمة الرسمي" width="80" height="80" /><span><span className="brand-accent">طلبات</span> العاصمة<small lang="en" dir="ltr">Capital Talabat</small></span></a>
