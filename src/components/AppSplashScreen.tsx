@@ -8,7 +8,7 @@ interface AppSplashScreenProps {
 const SPLASH_STEPS = [
   'تجهيز قائمة الفود كورت والسوبر ماركت',
   'مزامنة مقرات الـ 34 وزارة بالحي الحكومي',
-  'تفعيل مصادقة Google Firebase ومحفظة الموظف',
+  'تجهيز حسابك ومحفظتك',
 ];
 
 export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({ isOpen, onFinish }) => {

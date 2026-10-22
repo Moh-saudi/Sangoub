@@ -1,3 +1,4 @@
+import { customerMessage } from "../utils/customerMessage";
 import React, { useState } from "react";
 import type { Profile, Coupon } from "../types/index.ts";
 interface Props {
@@ -70,7 +71,7 @@ export const ProfileView: React.FC<Props> = ({
             });
             setSaved(true);
           } catch (e) {
-            setError(e instanceof Error ? e.message : "تعذر حفظ الملف.");
+            setError(customerMessage(e, "تعذر حفظ الملف."));
           } finally {
             setBusy(false);
           }

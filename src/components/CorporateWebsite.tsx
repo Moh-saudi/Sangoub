@@ -1,3 +1,4 @@
+import { customerMessage } from "../utils/customerMessage";
 import { HeroShowcase } from './HeroShowcase.tsx';
 import React, { useState, useEffect } from "react";
 import {
@@ -96,7 +97,7 @@ const AVAILABLE_JOBS = [
     location: "مقر شركة ميسك للتكنولوجيا",
     salary: "حسب الخبرة والكفاءة التقنية",
     description:
-      "تطوير وتحديث منظومة تطبيقات الويب والموبايل (React, Android Capacitor, Firebase) وبوابات الدفع الرقمي.",
+      "تطوير تطبيقات الويب والموبايل وخدمات الدفع الرقمي.",
   },
 ];
 
@@ -174,7 +175,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
       });
     } catch (error) {
       setPartnerFormError(
-        error instanceof Error ? error.message : "تعذر إرسال الطلب.",
+        customerMessage(error, "تعذر إرسال الطلب."),
       );
       return;
     }
@@ -215,7 +216,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
       });
     } catch (error) {
       setJobFormError(
-        error instanceof Error ? error.message : "تعذر إرسال الطلب.",
+        customerMessage(error, "تعذر إرسال الطلب."),
       );
       return;
     }
@@ -965,7 +966,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
             <div className="border-b border-slate-200 pb-5 space-y-2">
               <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
                 <ShieldCheck className="w-4 h-4" />
-                <span>متوافقة مع معايير Google Play و Firebase Security</span>
+                <span>حماية بياناتك وخصوصيتك</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
                 سياسة الخصوصية وحماية البيانات (Privacy Policy)
@@ -985,8 +986,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
                 <p>
                   لتقديم خدمة توصيل دقيقة داخل مباني الوزارات الـ 34 بالحي
                   الحكومي، نجمع فقط البيانات الضرورية لإتمام الطلب وهي: الاسم،
-                  البريد الإلكتروني (عند تسجيل الدخول عبر Google Firebase
-                  Authentication)، رقم الهاتف للتواصل مع المندوب، ومقر العمل
+                  البريد الإلكتروني (عند تسجيل الدخول عبر Google)، رقم الهاتف للتواصل مع المندوب، ومقر العمل
                   (الوزارة، الدور، ورقم المكتب).
                 </p>
               </section>
@@ -997,8 +997,8 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
                 </h2>
                 <p>
                   تُحفظ بيانات المستخدمين والطلبات في قواعد بيانات{" "}
-                  <strong>Google Cloud Firestore</strong> المؤمنة بقواعد حماية
-                  صارمة بحيث لا يمكن لأي مستخدم الاطلاع إلا على ملفه وطلباته
+                  محمية بصلاحيات وصول
+                  محددة بحيث لا يمكن لأي مستخدم الاطلاع إلا على ملفه وطلباته
                   الخاصة. لا نقوم ببيع أو مشاركة بيانات الموظفين مع أي جهات
                   إعلانية خارجية تحت أي ظرف.
                 </p>

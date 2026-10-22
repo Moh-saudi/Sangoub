@@ -132,7 +132,7 @@ export default async function handler(req: any, res: any) {
       return res
         .status(503)
         .json({
-          error: "خدمة الطلبات لم تُفعّل بعد. راجع إعدادات Firebase بالخادم.",
+          error: "خدمة الطلبات غير متاحة حاليًا. يرجى المحاولة لاحقًا.",
         });
     }
     return res.status(400).json({ error: error.message || "تعذر حفظ الطلب." });

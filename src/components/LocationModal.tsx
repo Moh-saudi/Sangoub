@@ -1,3 +1,4 @@
+import { customerMessage } from "../utils/customerMessage";
 import React, { useState, useEffect } from "react";
 import { X, MapPin, Loader2 } from "lucide-react";
 import { MINISTRIES_LIST } from "../data/seedData.ts";
@@ -109,7 +110,7 @@ export const LocationModal: React.FC<Props> = ({
             await onSaveLocation(ministry, floor, room, coordinates);
             onClose();
           } catch (e) {
-            setError(e instanceof Error ? e.message : "تعذر حفظ العنوان.");
+            setError(customerMessage(e, "تعذر حفظ العنوان."));
           } finally {
             setBusy(false);
           }
