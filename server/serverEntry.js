@@ -23,7 +23,7 @@ export function serverEntry(load) {
       const incidentId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
       console.error('Server entry failure', { incidentId, stage, code: error?.code || error?.name || 'unknown', ...(stage === 'module' ? { message: String(error?.message || '').slice(0, 500) } : {}) });
       if (res.headersSent) return res.end();
-      return res.status(503).json({ error: 'تعذر تحميل خدمة الخادم. راجع سجل وظائف الاستضافة بمعرّف الخطأ.', code: stage === 'module' ? 'SERVER_MODULE_LOAD_FAILED' : 'SERVER_HANDLER_FAILED', incidentId });
+      return res.status(503).json({ error: 'تعذر تحميل خدمة الخادم. راجع سجل وظائف الاستضافة بمعرّف الخطأ.', code: stage === 'module' ? 'SERVER_MODULE_LOAD_FAILED' : 'SERVER_HANDLER_FAILED', incidentId, ...(stage === 'module' ? { moduleErrorCode: String(error?.code || error?.name || 'unknown').slice(0, 80) } : {}) });
     }
   };
 }
