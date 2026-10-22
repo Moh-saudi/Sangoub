@@ -1,6 +1,7 @@
+import { adminOrderStatus } from "../utils/adminPresentation";
 import { CatalogManager } from "./CatalogManager";
 import { OrderMap } from "./OrderMap.tsx";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Bike,
   Package,
@@ -42,6 +43,7 @@ interface AdminDashboardProps {
   partnerApplications: PartnerApplication[];
   jobApplications: JobApplication[];
   initialAdminTab?: AdminTabType;
+  orderSearchRequest?: {term:string;key:number};
   onUpdateOrderStatus: (orderId: string, newStatus: OrderStatus) => Promise<void>;
   onAssignCourier: (
     orderId: string,
@@ -64,6 +66,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   partnerApplications,
   jobApplications,
   initialAdminTab = "orders",
+  orderSearchRequest,
   onUpdateOrderStatus,
   onAssignCourier,
   onUpdatePartnerStatus,
@@ -72,6 +75,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onOpenWebsitePage,
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTabType>(initialAdminTab);
+  const [selectedOrderId,setSelectedOrderId]=useState('');
+  const orderDialog=useRef<HTMLDialogElement>(null);
+  useEffect(()=>{if(selectedOrderId)orderDialog.current?.showModal();else orderDialog.current?.close();},[selectedOrderId]);
+  useEffect(()=>{if(orderSearchRequest){setOrderSearch(orderSearchRequest.term);setStatusFilter('all');setMinistryFilter('');setActiveTab('orders');}},[orderSearchRequest?.key]);
   const [orderSearch, setOrderSearch] = useState("");
   const [ministryFilter, setMinistryFilter] = useState("");
   const [pendingOrders, setPendingOrders] = useState<string[]>([]);
@@ -215,14 +222,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          {/* Orders List */}
-          <div className="space-y-3">
-            {filteredOrders.length === 0 ? (
-              <div className="text-center py-10 bg-white rounded-3xl border border-slate-200 text-slate-500">
-                لا توجد طلبات مطابقة لهذا الفلتر
-              </div>
-            ) : (
-              filteredOrders.map((order) => {
+          <section className="admin-panel compact-orders"><div className="compact-table-caption"><strong>سجل الطلبات</strong><span>عرض {filteredOrders.length} طلب</span></div><div className="admin-table-scroll"><table className="admin-data-table"><thead><tr><th>رقم الطلب / العميل</th><th>الجهة / المكتب</th><th>الأصناف</th><th>القيمة</th><th>الحالة</th><th>المندوب</th><th>التاريخ</th><th>الإجراءات</th></tr></thead><tbody>{filteredOrders.map(order=><tr key={order.id}><td><button className="admin-order-link" onClick={()=>setSelectedOrderId(order.id)}>{order.orderNumber}</button><small>{order.profileName}</small></td><td>{order.ministry}<small>{order.floorNumber} · {order.roomNumber}</small></td><td><span className="compact-item-summary">{order.itemsSummary||order.items.map(item=>`${item.quantity}× ${item.product.name}`).join('، ')||order.legacySummary||'—'}</span></td><td className="whitespace-nowrap">{formatEGP(order.total)}</td><td><span className={`admin-status status-${order.orderStatus}`}>{adminOrderStatus[order.orderStatus]}</span></td><td>{order.courierName||'لم يُعيّن'}</td><td className="whitespace-nowrap">{order.createdAt?new Date(order.createdAt).toLocaleDateString('ar-EG',{timeZone:'Africa/Cairo'}):'—'}<small>{order.createdAt?new Date(order.createdAt).toLocaleTimeString('ar-EG',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit'}):''}</small></td><td><button className="compact-row-action" aria-label={`تفاصيل الطلب ${order.orderNumber}`} onClick={()=>setSelectedOrderId(order.id)}>تفاصيل وإدارة</button></td></tr>)}</tbody></table></div>{!filteredOrders.length&&<p className="admin-empty">لا توجد طلبات مطابقة لهذا الفلتر</p>}</section>
+          <dialog ref={orderDialog} className="admin-detail-drawer" aria-label="تفاصيل وإدارة الطلب" onCancel={()=>setSelectedOrderId('')} onClose={()=>setSelectedOrderId('')} dir="rtl"><div className="admin-dialog-heading"><h2>تفاصيل وإدارة الطلب</h2><button aria-label="إغلاق تفاصيل الطلب" onClick={()=>setSelectedOrderId('')}>إغلاق ×</button></div><div className="compact-order-details">
+              {orders.filter(order=>order.id===selectedOrderId).map((order) => {
                 const statusInfo = getOrderStatusLabel(order.orderStatus);
 
                 return (
@@ -388,9 +390,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
                 );
-              })
-            )}
-          </div>
+              })}
+          </div></dialog>
         </div>
       )}
 

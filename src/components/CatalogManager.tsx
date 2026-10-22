@@ -20,9 +20,10 @@ function Editor({ title, busy, onClose, children }: { title: string; busy: boole
   </dialog>;
 }
 
-export function CatalogManager({ products, stores, orders }: { products: Product[]; stores: Store[]; orders: Order[] }) {
+export function CatalogManager({ products, stores, orders, searchRequest }: { products: Product[]; stores: Store[]; orders: Order[]; searchRequest?:{term:string;kind:"products"|"stores";key:number} }) {
   const [tab, setTab] = useState<"products" | "stores">("products");
   const [search, setSearch] = useState("");
+  useEffect(()=>{if(searchRequest){setTab(searchRequest.kind);setSearch(searchRequest.term);setStoreFilter("");setCategory("");setAvailability("active");}},[searchRequest?.key]);
   const [storeFilter, setStoreFilter] = useState("");
   const [category, setCategory] = useState("");
   const [availability, setAvailability] = useState("active");
