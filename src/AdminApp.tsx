@@ -1,5 +1,6 @@
+import { adminApi } from "./lib/adminApi";
 import "./admin.css";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { onSnapshot, doc } from "firebase/firestore";
 import { signInWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, sendEmailVerification } from "firebase/auth";
 import { LogOut, ShieldCheck, Loader2 } from "lucide-react";
@@ -21,6 +22,7 @@ function message(error: unknown): string {
 }
 
 export default function AdminApp() {
+  const loggedSession = useRef("");
   const [identity, setIdentity] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [access, setAccess] = useState<"checking" | "login" | "verify" | "denied" | "admin">("checking");
@@ -41,6 +43,7 @@ export default function AdminApp() {
   const report = (error: unknown) => setError(message(error));
 
   useEffect(() => onAuthStateChanged(auth, (user) => {
+    if (!user) loggedSession.current = "";
     setIdentity(user); setProfile(null); setError(""); setNotice(""); setPassword("");
     setAccess(user ? "checking" : "login");
   }), []);
@@ -78,6 +81,12 @@ export default function AdminApp() {
     return () => stops.forEach((stop) => stop());
   }, [profile?.id, access]);
 
+  useEffect(() => {
+    if(access !== "admin" || !identity || loggedSession.current === identity.uid) return;
+    loggedSession.current = identity.uid;
+    void adminApi("data", {action:"session",event:"open"}).catch(report);
+  }, [access, identity?.uid]);
+
   async function action(operation: () => Promise<unknown>, success?: string) {
     setBusy(true); setError(""); setNotice("");
     try { await operation(); if (success) setNotice(success); }
@@ -103,7 +112,7 @@ export default function AdminApp() {
   return <div className="admin-app min-h-screen bg-slate-50 text-slate-900" dir="rtl">
     <header className="admin-global-header border-b border-slate-200 bg-white"><div className="px-5 py-3 flex flex-wrap gap-4 items-center justify-between">
       <div className="flex items-center gap-3"><img src={logo} alt="طلبات العاصمة" className="w-14 h-14 rounded-2xl object-contain" /><div><p className="font-black text-lg">طلبات العاصمة</p><p className="text-xs text-slate-500">لوحة الإدارة · الحي الحكومي</p></div></div>
-      <div className="flex flex-wrap gap-3 items-center text-xs"><span className="inline-flex gap-2 items-center text-orange-700 bg-orange-50 px-3 py-2 rounded-full"><ShieldCheck size={15} />بوابة الإدارة فقط</span><a href="/" className="text-slate-600 underline">الموقع الرئيسي</a>{identity && <><span className="max-w-56 truncate" dir="ltr">{identity.email || identity.phoneNumber}</span><button disabled={busy} onClick={() => action(signOutFromFirebase)} className="border border-slate-200 rounded-xl px-3 py-2 flex gap-2 items-center"><LogOut size={14} />تسجيل الخروج</button></>}</div>
+      <div className="flex flex-wrap gap-3 items-center text-xs"><span className="inline-flex gap-2 items-center text-orange-700 bg-orange-50 px-3 py-2 rounded-full"><ShieldCheck size={15} />بوابة الإدارة فقط</span><a href="/" className="text-slate-600 underline">الموقع الرئيسي</a>{identity && <><span className="max-w-56 truncate" dir="ltr">{identity.email || identity.phoneNumber}</span><button disabled={busy} onClick={() => action(async () => { try { if(access === "admin") await adminApi("data", {action:"session",event:"logout"}); } finally { await signOutFromFirebase(); } })} className="border border-slate-200 rounded-xl px-3 py-2 flex gap-2 items-center"><LogOut size={14} />تسجيل الخروج</button></>}</div>
     </div></header>
     {access === "admin" && profile ? <>
       {(error || notice) && <div className="max-w-7xl mx-auto px-4 pt-4">{error && <p role="alert" className="bg-red-50 text-red-700 rounded-xl p-3">{error}</p>}{notice && <p role="status" className="bg-emerald-50 text-emerald-800 rounded-xl p-3">{notice}</p>}</div>}

@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function verified() { return request.auth != null && (request.auth.token.get('email_verified', false) == true || request.auth.token.get('phone_number', '') != ''); }
+    function verified() { return request.auth != null && (request.auth.token.get('email_verified', false) == true || request.auth.token.get('phone_number', '') != '') && (!exists(/databases/$(database)/documents/accountAccess/$(request.auth.uid)) || (get(/databases/$(database)/documents/accountAccess/$(request.auth.uid)).data.get('disabled', false) == false && get(/databases/$(database)/documents/accountAccess/$(request.auth.uid)).data.get('operationLocked', false) == false && request.auth.token.get('auth_time', 0) > get(/databases/$(database)/documents/accountAccess/$(request.auth.uid)).data.get('revokedBefore', 0))); }
     function admin() { return verified() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
     function staff() { return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data; }
     function validCoordinates(c) { return c is map && c.keys().hasOnly(['latitude','longitude']) && c.latitude is number && c.longitude is number && c.latitude >= -90 && c.latitude <= 90 && c.longitude >= -180 && c.longitude <= 180; }
@@ -23,42 +23,35 @@ service cloud.firestore {
     match /admins/{uid} { allow get: if verified() && (uid == request.auth.uid || admin()); allow list: if admin(); allow write: if false; }
     match /staff/{uid} {
       allow get: if verified() && (uid == request.auth.uid || admin()); allow list: if admin();
-      allow create,update: if admin() && request.resource.data.keys().hasOnly(['role','name','phone','storeId','updatedAt']) && request.resource.data.role in ['courier','restaurant'] && text(request.resource.data.name,120) && text(request.resource.data.phone,30) && request.resource.data.updatedAt == request.time && (request.resource.data.role != 'restaurant' || exists(/databases/$(database)/documents/stores/$(request.resource.data.storeId)));
-      allow delete: if admin();
+      allow create,update,delete: if false; // Admin mutations must include a server audit event.
     }
     match /users/{uid} {
       allow get: if verified() && (uid == request.auth.uid || admin()); allow list: if admin();
       allow create: if verified() && uid == request.auth.uid && profile(request.resource.data) && request.resource.data.email == request.auth.token.get('email','') && request.resource.data.role == 'employee' && request.resource.data.walletBalance == 0 && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
       allow update: if verified() && uid == request.auth.uid && profile(request.resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName','phone','ministry','floorNumber','roomNumber','avatarUrl','coordinates','updatedAt']) && request.resource.data.updatedAt == request.time;
-      allow delete: if admin();
+      allow delete: if false;
     }
     function productValid(d) { return d.keys().hasAll(['id','storeId','storeName','name','description','price','category','imageType','inStock','updatedAt']) && text(d.name,120) && text(d.description,1000) && d.price is number && d.price >= 0 && d.price <= 100000 && d.inStock is bool && exists(/databases/$(database)/documents/stores/$(d.storeId)) && d.updatedAt == request.time; }
     match /products/{id} {
       allow read: if true;
-      allow create: if verified() && productValid(request.resource.data) && (admin() || (staff().role == 'restaurant' && staff().storeId == request.resource.data.storeId));
-      allow update: if verified() && productValid(request.resource.data) && request.resource.data.storeId == resource.data.storeId && (admin() || (staff().role == 'restaurant' && staff().storeId == resource.data.storeId));
-      allow delete: if admin();
+      allow create: if verified() && productValid(request.resource.data) && (staff().role == 'restaurant' && staff().storeId == request.resource.data.storeId);
+      allow update: if verified() && productValid(request.resource.data) && request.resource.data.storeId == resource.data.storeId && (staff().role == 'restaurant' && staff().storeId == resource.data.storeId);
+      allow delete: if false;
     }
     match /stores/{id} {
       allow read: if true;
-      allow create,update: if admin() && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.minOrder is number && request.resource.data.minOrder >= 0 && request.resource.data.deliveryFee is number && request.resource.data.deliveryFee >= 0 && request.resource.data.deliveryFee <= 1000 && request.resource.data.status in ['open','closed','busy'] && request.resource.data.updatedAt == request.time;
+      allow create: if false;
       allow update: if verified() && staff().role == 'restaurant' && staff().storeId == id && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt']) && request.resource.data.status in ['open','closed','busy'] && request.resource.data.updatedAt == request.time;
-      allow delete: if admin();
+      allow delete: if false;
     }
-    match /coupons/{id} { allow read: if true; allow create,update: if admin() && request.resource.data.code == id && request.resource.data.value is number && request.resource.data.value >= 0 && request.resource.data.value <= 10000 && request.resource.data.minOrder is number && request.resource.data.minOrder >= 0 && request.resource.data.discountType in ['fixed','percent'] && request.resource.data.updatedAt == request.time; allow delete: if admin(); }
+    match /coupons/{id} { allow read: if true; allow write: if false; }
     function transition(old,next) { return old == next || (old == 'received' && next in ['preparing','cancelled']) || (old == 'preparing' && next in ['ready','cancelled']) || (old == 'ready' && next in ['with_courier','cancelled']) || (old == 'with_courier' && next in ['delivered','cancelled']); }
     function validCourierAssignment(before, after) {
       return !after.diff(before).affectedKeys().hasAny(['courierId']) ||
         (exists(/databases/$(database)/documents/staff/$(after.courierId)) &&
          get(/databases/$(database)/documents/staff/$(after.courierId)).data.role == 'courier');
     }
-    function adminOrderUpdate(before, after) {
-      return admin() && validCourierAssignment(before, after) &&
-        after.diff(before).affectedKeys().hasOnly([
-          'orderStatus', 'courierId', 'courierName', 'courierPhone',
-          'courierChecklist', 'restaurantStatus', 'kitchenStatus', 'estimatedDelivery', 'paymentStatus', 'updatedAt', 'readyAt', 'deliveredAt'
-        ]);
-    }
+    function adminOrderUpdate(before, after) { return false; } // Audited admin API only.
     function restaurantOrderUpdate(before, after) {
       let storeId = staff().storeId;
       let oldStage = before.get('kitchenStatus', {}).get(storeId, before.orderStatus == 'preparing' ? 'preparing' : 'received');
@@ -112,12 +105,14 @@ service cloud.firestore {
     function application(d,fields) { return verified() && d.keys().hasOnly(fields) && d.ownerId == request.auth.uid && d.status == 'pending' && text(d.phone,30) && text(d.email,160) && d.updatedAt == request.time && d.createdAt is string; }
     match /partnerApplications/{id} {
       allow create: if application(request.resource.data,['ownerId','status','createdAt','updatedAt','businessName','partnerType','contactName','phone','email','locationInCapital','branchesCount','notes']) && text(request.resource.data.businessName,120) && text(request.resource.data.contactName,120) && text(request.resource.data.locationInCapital,500) && text(request.resource.data.get('notes',''),2000);
-      allow read: if admin(); allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt']) && request.resource.data.status in ['pending','contacted','approved','rejected'] && request.resource.data.updatedAt == request.time; allow delete: if admin();
+      allow read: if admin(); allow update,delete: if false;
     }
     match /jobApplications/{id} {
       allow create: if application(request.resource.data,['ownerId','status','createdAt','updatedAt','jobTitle','department','applicantName','phone','email','experienceYears','residenceArea','summary']) && text(request.resource.data.applicantName,120) && text(request.resource.data.summary,4000) && text(request.resource.data.residenceArea,500);
-      allow read: if admin(); allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt']) && request.resource.data.status in ['pending','contacted','approved','rejected'] && request.resource.data.updatedAt == request.time; allow delete: if admin();
+      allow read: if admin(); allow update,delete: if false;
     }
+    match /auditLogs/{id} { allow read: if admin(); allow write: if false; }
+    match /accountAccess/{uid} { allow get: if request.auth != null && (request.auth.uid == uid || admin()); allow write: if false; }
     match /{document=**} { allow read,write: if false; }
   }
 }

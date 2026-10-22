@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { saveRecord } from "../lib/firebase.ts";
+import { saveRecord, deleteRecord } from "../lib/firebase.ts";
 import type { Store, Coupon, Order } from "../types/index.ts";
-import { deleteDoc, doc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 export interface AdminStaff { id: string; role: string; name: string; phone: string; storeId?: string; }
 export function AdminSetupPanel({
@@ -51,7 +51,7 @@ export function AdminSetupPanel({
     }
     if (!window.confirm(collection === "staff" ? "إلغاء صلاحية هذا الموظف؟ سيظل حسابه وطلبات العملاء محفوظة." : "حذف كود الخصم؟ لن تتغير الطلبات السابقة.")) return;
     setBusy(true); setError(""); setMessage("");
-    try { await deleteDoc(doc(db, collection, id)); setEditingStaff(null); setEditingCoupon(null); setMessage("تم الحذف من إعدادات التشغيل."); }
+    try { await deleteRecord(collection, id); setEditingStaff(null); setEditingCoupon(null); setMessage("تم الحذف من إعدادات التشغيل."); }
     catch (error) { setError((error as Error).message); }
     finally { setBusy(false); }
   }

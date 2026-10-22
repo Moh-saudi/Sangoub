@@ -1,3 +1,5 @@
+import users from "../api/admin-users.ts";
+import data from "../api/admin-data.ts";
 // Run without tsx: production ESM must load without a development loader.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -6,7 +8,7 @@ import images from "../api/catalog-images.ts";
 import delivery from "../api/order-delivery.ts";
 import assistant from "../api/gemini/[action].ts";
 
-for (const [name, handler] of Object.entries({ orders, images, delivery, assistant })) {
+for (const [name, handler] of Object.entries({ orders, images, delivery, assistant, users, data })) {
   test(`native ESM loads ${name} and rejects unauthenticated requests before cloud access`, async () => {
     const response = {
       statusCode: 0,
