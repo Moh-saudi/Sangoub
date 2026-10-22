@@ -1,8 +1,9 @@
+import CareersPage from "./CareersPage";
 import "../site-motion.css";
 import { useSiteMotion } from "../utils/useSiteMotion";
 import { DeploymentVersion } from "./DeploymentVersion";
 import { lazy, Suspense, useRef, useState } from "react";
-import { ArrowLeft, Bike, Building2, Coffee, MapPin, ShoppingBag, Smartphone } from "lucide-react";
+import { ArrowLeft, Bike, Building2, Coffee, MapPin, ShoppingBag } from "lucide-react";
 import { AppPromotionDialog, type AppSelection } from "./AppPromotionDialog";
 const PublicCatalog = lazy(() => import("./PublicCatalog"));
 import { HeroShowcase } from "./HeroShowcase";
@@ -15,6 +16,7 @@ const appUrl = (() => {
 })();
 
 export function PublicWebsite() {
+  const careers = /^\/careers\/?$/.test(window.location.pathname);
   const site = useRef<HTMLDivElement>(null);
   useSiteMotion(site);
   const [showApp, setShowApp] = useState(false);
@@ -22,14 +24,15 @@ export function PublicWebsite() {
   const openApp = () => { setSelection(undefined); setShowApp(true); };
   const selectItem = (item: AppSelection) => { setSelection(item); setShowApp(true); };
   const openPartners = () => document.getElementById("partners")?.scrollIntoView({ behavior: "smooth" });
-  return <div ref={site} className="capital-site min-h-screen text-slate-900" dir="rtl">
+  return <div ref={site} data-careers={careers} className="capital-site min-h-screen text-slate-900" dir="rtl">
     <DeploymentVersion publicSite />
     <header className="site-header">
       <a href="/" className="site-brand" aria-label="طلبات العاصمة — الرئيسية"><img className="official-logo" src={logo} alt="شعار طلبات العاصمة الرسمي" width="80" height="80" /><span><span className="brand-accent">طلبات</span> العاصمة<small lang="en" dir="ltr">Capital Talabat</small></span></a>
-      <nav className="site-nav" aria-label="القائمة الرئيسية"><a href="#how-it-works">كيف تعمل؟</a><a href="#partners">للمطاعم والمتاجر</a><a href="#contact">تواصل معنا</a></nav>
-      <button className="site-button site-button-dark" onClick={openApp}>تطبيق الموبايل <Smartphone size={17} /></button>
+      <nav className="site-nav" aria-label="القائمة الرئيسية"><a href="/#how-it-works">كيف تعمل؟</a><a href="/#partners">للمطاعم والمتاجر</a><a href="/careers">الوظائف</a><a href="#contact">تواصل معنا</a></nav>
+      <button className="site-button site-button-dark google-play-button" aria-label="تطبيق الموبايل" onClick={openApp}><img src="/images/google-play-badge.svg" alt="Google Play" width="135" height="40" /></button>
     </header>
     <main className="landing-main">
+      {careers ? <CareersPage /> : <>
       <HeroShowcase onOpenApp={openApp} onOpenPartners={openPartners} />
       <div className="service-strip"><span><MapPin /> الحي الحكومي بالعاصمة الإدارية</span><span><ShoppingBag /> مطاعم وكافيهات ومتاجر</span><span><Building2 /> الوزارة · الدور · المكتب</span></div>
       <Suspense fallback={null}><PublicCatalog onSelect={selectItem} /></Suspense>
@@ -46,10 +49,13 @@ export function PublicWebsite() {
         { icon: Building2, title: "حدّد مكتبك", text: "اسم الوزارة والدور ورقم المكتب؛ العنوان يفرق." },
         { icon: Bike, title: "تابع التوصيل", text: "حالة طلبك من التجهيز حتى الاستلام." },
       ].map(({ icon: Icon, title, text }, index) => <article key={title} className="rounded-3xl bg-white border border-slate-200 p-7"><div className="flex justify-between text-orange-600 mb-5"><Icon size={28} /><span className="font-bold">0{index + 1}</span></div><h3 className="font-black text-xl">{title}</h3><p className="text-slate-600 mt-3 leading-7">{text}</p></article>)}</div></section>
+      <a href="/careers" className="careers-entry"><span role="img" aria-label="سكوتر توصيل">🛵</span><div><small>فرصتك مع طلبات العاصمة</small><h2>انضم لفريقنا</h2><p>التوصيل · المطبخ · التشغيل</p></div><ArrowLeft size={21}/></a>
       <section id="partners" className="public-partners max-w-6xl mx-auto px-6 pb-16"><div className="bg-slate-900 text-white rounded-3xl p-8 md:p-12 flex flex-wrap items-center justify-between gap-8"><div><span className="text-orange-400 font-bold text-sm">للمطاعم والكافيهات والمتاجر</span><h2 className="text-3xl font-black mt-4">مطعمك بالعاصمة؟ قرّب لعملائك.</h2><p className="mt-4 text-slate-300">تواصل مع فريقنا لعرض منتجاتك على طلبات العاصمة.</p></div><a className="site-button site-button-orange" href={`${whatsapp}?text=${encodeURIComponent("مرحبًا، أريد الانضمام كشريك إلى طلبات العاصمة")}`} target="_blank" rel="noopener noreferrer">انضم كشريك <ArrowLeft size={18} /></a></div></section>
+      </>}
     </main>
     <footer className="site-footer" id="contact"><div className="footer-brand"><img className="official-logo" src={logo} alt="طلبات العاصمة" width="80" height="80" loading="lazy" /><div><strong>طلبات العاصمة</strong><p>خدمة موظفي الحي الحكومي · العاصمة الإدارية</p></div></div><nav aria-label="روابط الموقع" className="flex flex-wrap gap-5 items-center"><a href={whatsapp} target="_blank" rel="noopener noreferrer">تواصل عبر واتساب</a><a href="mailto:info@el7lm.com">راسلنا</a><a href="/admin">دخول الإدارة</a></nav><small>© 2026 جميع الحقوق محفوظة لشركة ميسك للتكنولوجيا.</small></footer>
-    {!showApp && <div className="mobile-order-bar"><div><strong>طلبك لحد مكتبك</strong><span>في الحي الحكومي</span></div><button onClick={openApp}>اطلب من التطبيق <ArrowLeft size={17} /></button></div>}
+    {!showApp && <a className="floating-whatsapp" aria-label="تواصل مع الدعم عبر واتساب" href="https://wa.me/201017799580" target="_blank" rel="noopener noreferrer"><img src="/images/whatsapp.svg" alt="" width="25" height="25"/><span>الدعم</span></a>}
+    {!showApp && !careers && <div className="mobile-order-bar"><div><strong>طلبك لحد مكتبك</strong><span>في الحي الحكومي</span></div><button onClick={openApp}>اطلب من التطبيق <ArrowLeft size={17} /></button></div>}
     <AppPromotionDialog open={showApp} selection={selection} appUrl={appUrl} onClose={() => setShowApp(false)} />
   </div>;
 }

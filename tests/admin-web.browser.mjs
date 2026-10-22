@@ -41,6 +41,12 @@ try{
  assert.equal(await page.evaluate(()=>document.body.style.overflow),'hidden');assert.equal(await appPrompt.getByRole('link',{name:'افتح التطبيق',exact:true}).count(),0);
  await page.screenshot({path:join(tmpdir(),'capital-public-app-prompt.png'),fullPage:false});await page.keyboard.press('Escape');await appPrompt.waitFor({state:'hidden'});assert.notEqual(await page.evaluate(()=>document.body.style.overflow),'hidden');
  await page.setViewportSize({width:1440,height:1000});
+ const support=page.getByRole('link',{name:'تواصل مع الدعم عبر واتساب',exact:true});assert.equal(await support.getAttribute('href'),'https://wa.me/201017799580');
+ await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).getByAltText('Google Play',{exact:true}).waitFor();
+ assert.equal(await page.locator('.public-how>div').evaluate(el=>el.scrollWidth>el.clientWidth),true,'ordering steps swipe horizontally on mobile');
+ await page.getByRole('navigation',{name:'القائمة الرئيسية'}).getByRole('link',{name:'الوظائف',exact:true}).click();await page.getByRole('heading',{name:'مكانك مع فريقنا.',exact:true}).waitFor();
+ assert.equal(new URL(page.url()).pathname,'/careers');assert.equal(await page.getByRole('link',{name:'استفسر عن فرص العمل',exact:true}).count(),3);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'careers mobile overflow');
+ await page.emulateMedia({reducedMotion:'reduce'});await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:join(tmpdir(),'capital-careers-mobile.png'),fullPage:true});await page.emulateMedia({reducedMotion:'no-preference'});await page.getByRole('link',{name:'العودة للرئيسية',exact:true}).click();await page.setViewportSize({width:1440,height:1000});
  await page.getByRole('link',{name:'دخول الإدارة',exact:true}).click();
  assert.equal(new URL(page.url()).pathname,'/admin');
  assert.equal(await page.evaluate(async()=> (await import('/src/lib/firebase.ts')).firebaseConfig.projectId),'demo-capital-talabat');await page.getByRole('heading',{name:'تسجيل دخول الإدارة',exact:true}).waitFor();
@@ -125,7 +131,10 @@ try{
  await page.setViewportSize({width:390,height:1000});await page.screenshot({path:join(tmpdir(),'capital-catalog-mobile.png'),fullPage:true});
  // A signed-out visitor sees only real public catalog records and can continue via the app prompt.
  await services.db.doc('stores/'+catalogStore).update({status:'open'});
+ for(let i=0;i<5;i++)await services.db.doc('stores/carousel-'+i).set({id:'carousel-'+i,name:'متجر اختبار الشريط '+i,status:'open',type:'اختبار معزول'});
  const visitor=await browser.newPage({viewport:{width:390,height:844}});await visitor.goto('http://127.0.0.1:3105/');
+ await visitor.getByRole('button',{name:'المتاجر التالية',exact:true}).waitFor();await visitor.getByRole('button',{name:'إيقاف حركة المتاجر',exact:true}).click();assert.equal(await visitor.getByRole('button',{name:'تشغيل حركة المتاجر',exact:true}).getAttribute('aria-pressed'),'false');await visitor.getByRole('button',{name:'المتاجر التالية',exact:true}).click();await visitor.waitForFunction(()=>Math.abs(document.querySelector('.public-store-list').scrollLeft)>20);await visitor.getByRole('button',{name:'المتاجر السابقة',exact:true}).click();await visitor.waitForFunction(()=>Math.abs(document.querySelector('.public-store-list').scrollLeft)<3);
+
  await visitor.getByRole('button',{name:/اختبار بوابة الإدارة.*مفتوح الآن/}).click();const visitorPrompt=visitor.getByRole('dialog',{name:'نكمل على التطبيق؟',exact:true});await visitorPrompt.getByText('اختبار بوابة الإدارة',{exact:true}).waitFor();await visitorPrompt.getByRole('button',{name:'أكمل تصفح الموقع',exact:true}).click();
  await visitor.getByRole('button',{name:/صنف اختبار 02/}).click();await visitorPrompt.getByText('صنف اختبار 02',{exact:true}).waitFor();await visitorPrompt.getByRole('button',{name:'إغلاق',exact:true}).click();
  assert.equal(await visitor.getByRole('button',{name:/صنف اختبار 01/}).count(),0,'unavailable products do not appear in the public catalog');assert.equal(await visitor.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'real public catalog mobile overflow');await visitor.screenshot({path:join(tmpdir(),'capital-public-catalog.png'),fullPage:true});await services.db.doc('stores/'+catalogStore).update({status:'closed'});await visitor.getByRole('button',{name:/صنف اختبار 02/}).waitFor({state:'hidden'});await visitor.close();
