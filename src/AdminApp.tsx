@@ -1,3 +1,4 @@
+import { DeploymentVersion } from "./components/DeploymentVersion";
 import { adminApi } from "./lib/adminApi";
 import "./admin.css";
 import { useEffect, useState, useRef } from "react";
@@ -115,6 +116,7 @@ export default function AdminApp() {
       <div id="admin-header-search" className="admin-header-search-slot" />
       <div className="flex flex-wrap gap-3 items-center text-xs"><span className="inline-flex gap-2 items-center text-orange-700 bg-orange-50 px-3 py-2 rounded-full"><ShieldCheck size={15} />بوابة الإدارة فقط</span><a href="/" className="text-slate-600 underline">الموقع الرئيسي</a>{identity && <><span className="max-w-56 truncate" dir="ltr">{identity.email || identity.phoneNumber}</span><button disabled={busy} onClick={() => action(async () => { try { if(access === "admin") await adminApi("data", {action:"session",event:"logout"}); } finally { await signOutFromFirebase(); } })} className="border border-slate-200 rounded-xl px-3 py-2 flex gap-2 items-center"><LogOut size={14} />تسجيل الخروج</button></>}</div>
     </div></header>
+    <DeploymentVersion />
     {access === "admin" && profile ? <>
       {(error || notice) && <div className="max-w-7xl mx-auto px-4 pt-4">{error && <p role="alert" className="bg-red-50 text-red-700 rounded-xl p-3">{error}</p>}{notice && <p role="status" className="bg-emerald-50 text-emerald-800 rounded-xl p-3">{notice}</p>}</div>}
       <AdminWorkspace orders={orders} stores={stores} products={products} couriers={staff.filter((person) => person.role === "courier")} staff={staff} coupons={coupons} connected={connected} onError={report}>

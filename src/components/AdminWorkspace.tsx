@@ -68,7 +68,7 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
     {tab === "management" && (isValidElement(children) ? cloneElement(children as ReactElement<{orderSearchRequest?:{term:string;key:number}}>,{orderSearchRequest:orderRequest}) : children)}
     {tab === "users" && <UserManagement stores={stores} />}
     {tab === "audit" && <AuditLog />}
-      <footer className="admin-footer">© 2026 جميع الحقوق محفوظة لشركة ميسك للتكنولوجيا.</footer>
+      <footer className="admin-footer">© 2026 جميع الحقوق محفوظة لشركة ميسك للتكنولوجيا. <span className="admin-build-label" dir="ltr">{String(import.meta.env.VITE_BUILD_ID || "local").slice(0,8)}</span></footer>
     </main>
   </div>;
 }

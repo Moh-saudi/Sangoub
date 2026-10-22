@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -5,8 +6,13 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
+  let buildId = process.env.CF_PAGES_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA;
+  if (!buildId) { try { buildId = execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(); } catch { buildId = 'build-'+Date.now(); } }
+  const builtAt = new Date().toISOString();
   return {
+    define: { 'import.meta.env.VITE_BUILD_ID': JSON.stringify(buildId) },
     plugins: [
+      { name: 'capital-build-info', generateBundle() { this.emitFile({type:'asset',fileName:'build-info.json',source:JSON.stringify({id:buildId,builtAt})}); } },
       react(),
       tailwindcss(),
       VitePWA({

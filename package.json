@@ -14,11 +14,12 @@
     "mobile:build": "npm run build && npx cap sync android && cd android && ./gradlew assembleRelease bundleRelease",
     "test": "node --import tsx --test src/utils/orderCalculations.test.ts server/orderBuilder.test.ts server/mobileCors.test.ts server/r2.test.ts src/utils/orderIntegration.test.ts src/utils/catalogManagement.test.ts",
     "test:rules": "firebase emulators:exec --config firebase.emulators.json --only firestore,auth --project demo-capital-talabat \"node --import tsx --test --test-concurrency=1 tests/firestore.security.test.ts tests/order-api.integration.test.ts tests/admin-api.integration.test.ts\"",
-    "test:auth": "firebase emulators:exec --config firebase.emulators.json --only auth --project demo-capital-talabat \"node --import tsx --test tests/auth.integration.test.ts\"",
+    "test:auth": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/auth.integration.test.ts\"",
     "cloud:check": "node --use-env-proxy scripts/check-cloud.mjs",
     "firebase:deploy": "firebase deploy --only firestore --project capital-talabat",
     "test:admin-web": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx tests/admin-web.browser.mjs\"",
-    "test:native-api": "node --test tests/server-native.test.mjs"
+    "test:native-api": "node --test tests/server-native.test.mjs",
+    "test:compiled-api": "node --test tests/server-compiled.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1154.0",
@@ -54,5 +55,8 @@
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
     "vite-plugin-pwa": "^2.0.0"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }
