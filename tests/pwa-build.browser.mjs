@@ -49,7 +49,7 @@ try {
   for(const width of [320,390]){
     await page.setViewportSize({width,height:844});await page.locator('.site-header').waitFor();
     const brand=await page.locator('.site-brand').boundingBox(),app=await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).boundingBox();assert.ok(Math.abs(brand.y-app.y)<12,'production mobile header uses a single row');
-    const photograph=await page.locator('.hero-photograph').boundingBox(),copy=await page.locator('.hero-copy').boundingBox();assert.ok(photograph.y<copy.y,'production mobile photo precedes the copy');
+    const photograph=await page.locator('.hero-photograph').boundingBox(),copy=await page.locator('.hero-copy').boundingBox();assert.ok(photograph.height>350,'production mobile photo fills the compact hero');assert.equal(await page.locator('.hero-photograph').evaluate(element=>getComputedStyle(element).position),'absolute');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'production mobile overflow '+width);
   }
   await page.emulateMedia({reducedMotion:'no-preference'});
