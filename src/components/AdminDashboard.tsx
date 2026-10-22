@@ -165,158 +165,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-5 space-y-5" dir="rtl">
-      {/* Top Admin Header */}
-      <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-slate-800">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white text-xl font-bold shadow-inner shrink-0">
-              🏛️
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold">
-                  لوحة تحكم إدارة الحي الحكومي
-                </h2>
-                <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-lg">
-                  شركة ميسك للتكنولوجيا
-                </span>
-              </div>
-              <p className="text-xs text-slate-300 mt-0.5">
-                إدارة الطلبات المباشرة، طلبات انضمام الشركاء، طلبات التوظيف،
-                ومتاجر الفود كورت
-              </p>
-            </div>
-          </div>
-
-          {/* Sub Navigation Tabs */}
-          <div className="flex items-center bg-slate-800 p-1 rounded-2xl border border-slate-700 text-xs overflow-x-auto no-scrollbar gap-1">
-            <button
-              onClick={() => setActiveTab("orders")}
-              className={`px-3 py-1.5 font-bold rounded-xl transition-all whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === "orders"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "text-slate-300 hover:text-white"
-              }`}
-            >
-              الطلبات المباشرة ({orders.length})
-            </button>
-
-            <button
-              onClick={() => setActiveTab("partners")}
-              className={`px-3 py-1.5 font-bold rounded-xl transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
-                activeTab === "partners"
-                  ? "bg-orange-600 text-white shadow-xs"
-                  : "text-slate-300 hover:text-white"
-              }`}
-            >
-              <Handshake className="w-3.5 h-3.5" />
-              <span>طلبات الشركاء ({partnerApplications.length})</span>
-              {pendingPartnersCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-md bg-white text-orange-700 text-[10px] font-extrabold tabular-nums">
-                  {pendingPartnersCount} جديد
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab("jobs")}
-              className={`px-3 py-1.5 font-bold rounded-xl transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
-                activeTab === "jobs"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "text-slate-300 hover:text-white"
-              }`}
-            >
-              <Briefcase className="w-3.5 h-3.5" />
-              <span>طلبات التوظيف ({jobApplications.length})</span>
-              {pendingJobsCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-md bg-amber-400 text-slate-950 text-[10px] font-extrabold tabular-nums">
-                  {pendingJobsCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab("catalog")}
-              className={`px-3 py-1.5 font-bold rounded-xl transition-all whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === "catalog"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "text-slate-300 hover:text-white"
-              }`}
-            >
-              المتاجر والمنتجات ({stores.length})
-            </button>
-
-            <button
-              onClick={() => setActiveTab("stats")}
-              className={`px-3 py-1.5 font-bold rounded-xl transition-all whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === "stats"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "text-slate-300 hover:text-white"
-              }`}
-            >
-              إحصائيات الوزارات
-            </button>
-          </div>
-        </div>
-
-        {/* 4 KPI Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-5 border-t border-slate-800 text-right">
-          <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700/60">
-            <span className="text-[11px] text-slate-400 block mb-1">
-              الطلبات النشطة الآن
-            </span>
-            <span className="text-xl font-bold text-amber-400 tabular-nums">
-              {activeOrdersCount}
-            </span>
-            <span className="text-[10px] text-slate-400 block mt-0.5">
-              قيد التجهيز والتوصيل
-            </span>
-          </div>
-
-          <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700/60">
-            <span className="text-[11px] text-slate-400 block mb-1">
-              إجمالي المبيعات
-            </span>
-            <span className="text-xl font-bold text-emerald-400 tabular-nums">
-              {formatEGP(totalRevenue)}
-            </span>
-            <span className="text-[10px] text-slate-400 block mt-0.5">
-              عبر إنستا باي وجيديا وكاش
-            </span>
-          </div>
-
-          <div
-            onClick={() => setActiveTab("partners")}
-            className="bg-slate-800/80 hover:bg-slate-800 rounded-2xl p-3 border border-slate-700/60 cursor-pointer transition-colors"
-          >
-            <span className="text-[11px] text-slate-400 block mb-1">
-              طلبات انضمام الشركاء
-            </span>
-            <span className="text-xl font-bold text-orange-400 tabular-nums">
-              {partnerApplications.length} طلبات
-            </span>
-            <span className="text-[10px] text-slate-300 block mt-0.5">
-              {pendingPartnersCount} بانتظار المراجعة والتعاقد
-            </span>
-          </div>
-
-          <div
-            onClick={() => setActiveTab("jobs")}
-            className="bg-slate-800/80 hover:bg-slate-800 rounded-2xl p-3 border border-slate-700/60 cursor-pointer transition-colors"
-          >
-            <span className="text-[11px] text-slate-400 block mb-1">
-              طلبات التوظيف بالموقع
-            </span>
-            <span className="text-xl font-bold text-blue-400 tabular-nums">
-              {jobApplications.length} متقدمين
-            </span>
-            <span className="text-[10px] text-slate-300 block mt-0.5">
-              مرسلة من صفحة الوظائف بالموقع
-            </span>
-          </div>
-        </div>
-      </div>
+    <div className="admin-management max-w-6xl mx-auto px-4 py-5 space-y-5" dir="rtl">
+      <header className="ops-heading"><div><p className="admin-eyebrow">متابعة الطلبات والمراجعات</p><h1 className="text-2xl font-black">الطلبات والتقديمات</h1><p>ابحث عن الطلب، حدّث حالته، وعيّن المندوب المناسب.</p></div></header>
+      <div className="management-summary"><span>طلبات نشطة <strong>{activeOrdersCount}</strong></span><span>قيمة الطلبات المسلّمة <strong>{formatEGP(totalRevenue)}</strong></span><span>شركاء بانتظار المراجعة <strong>{pendingPartnersCount}</strong></span><span>متقدمون بانتظار المراجعة <strong>{pendingJobsCount}</strong></span></div>
+      <nav aria-label="أقسام الطلبات والتقديمات" className="admin-section-tabs">
+        {([['orders','الطلبات',orders.length],['partners','الشراكات',partnerApplications.length],['jobs','التوظيف',jobApplications.length],['catalog','الكتالوج',stores.length],['stats','توزيع الجهات',0]] as const).map(([id,label,count]) => <button key={id} onClick={() => setActiveTab(id)} aria-pressed={activeTab === id}>{label}{id !== 'stats' && <span>{count}</span>}</button>)}
+      </nav>
 
       {/* Tab 1: Orders Queue & Courier Assignment */}
       {activeTab === "orders" && (
@@ -378,7 +232,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   >
                     {/* Header Row */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex flex-wrap items-center gap-2.5 min-w-0">
                         <span className="font-mono text-sm font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
                           {order.orderNumber}
                         </span>
@@ -466,7 +320,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {/* Courier Assignment & Status Controls Bar */}
                     <div className="pt-2 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
                       {/* Courier Selector */}
-                      <div className="flex items-center gap-2 flex-1 max-w-md">
+                      <div className="flex items-center gap-2 flex-1 max-w-md min-w-0">
                         <Bike className="w-4 h-4 text-emerald-700 shrink-0" />
                         <span className="text-xs font-bold text-slate-800 shrink-0">
                           تعيين المندوب:
@@ -481,7 +335,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           onChange={(e) =>
                             handleCourierSelect(order.id, e.target.value)
                           }
-                          className="flex-1 p-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500/20 text-slate-800 truncate"
+                          className="min-w-0 flex-1 p-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500/20 text-slate-800 truncate"
                         >
                           <option value="">
                             -- اضغط لتعيين مندوب التوصيل --
@@ -902,7 +756,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   key={c.id}
                   className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between"
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex flex-wrap items-center gap-2.5 min-w-0">
                     <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
                       🛵
                     </div>
