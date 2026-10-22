@@ -215,3 +215,4 @@
 }
 @media(max-width:359px){.capital-site .site-brand{font-size:14px}.capital-site .site-header>.site-button{font-size:9px;padding:9px 8px}.capital-site .hero-actions .quiet-link{font-size:10px}.capital-site .public-discovery-card{grid-template-columns:92px minmax(0,1fr)}}
 @media(max-width:700px){.capital-site .site-header>.site-brand{grid-row:1;grid-column:1}.capital-site .site-header>.site-button{grid-row:1;grid-column:2}.capital-site .site-header>.site-nav{grid-row:2}}
+.site-version-notice{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;padding:9px 16px;background:#fff1e5;border-bottom:1px solid #f2d5bf;color:#8f4e27;font-size:12px;line-height:1.8}.site-version-notice button{background:#fff;border:1px solid #efc2a1;border-radius:7px;padding:6px 12px;font-weight:700;min-height:38px}.site-version-notice button:disabled{opacity:.6}@media(max-width:600px){.site-version-notice{font-size:11px;gap:7px}}
