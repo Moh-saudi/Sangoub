@@ -52,6 +52,15 @@ try {
     const photograph=await page.locator('.hero-photograph').boundingBox(),copy=await page.locator('.hero-copy').boundingBox();assert.ok(photograph.y<copy.y,'production mobile photo precedes the copy');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'production mobile overflow '+width);
   }
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.evaluate(()=>document.querySelector('.public-how').scrollIntoView());
+  await page.waitForFunction(()=>document.getAnimations().some(animation=>{const target=animation.effect?.target;return target instanceof Element&&target.closest('.public-how')&&animation.playState==='running';}));
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.waitForFunction(()=>document.getAnimations().filter(animation=>animation.effect?.target?.closest?.('.capital-site')).every(animation=>animation.playState!=='running'));
+  await page.getByRole('button',{name:/فطار يظبط يومك/}).click();
+  await page.getByRole('dialog',{name:'نكمل على التطبيق؟',exact:true}).waitFor();
+  assert.equal(await page.getByRole('dialog').evaluate(element=>getComputedStyle(element).animationName),'none','reduced motion disables modal animations');
+  await page.keyboard.press('Escape');await page.getByRole('dialog').waitFor({state:'hidden'});
   await page.route('**/build-info.json?check=*',route=>route.fulfill({json:{id:'test-next-release'}}));
   await page.reload();await page.getByText('حدّث الصفحة لعرض أحدث تصميم للموقع.',{exact:true}).waitFor();
   await page.goto('http://127.0.0.1:3112/admin');
