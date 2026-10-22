@@ -33,7 +33,7 @@ try{
    await page.getByRole('button',{name:new RegExp('^عرض الميزة '+slide+':')}).click();
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'public hero overflow '+width+' slide '+slide);
   }
-  if(width<=430){const brand=await page.locator('.site-brand').boundingBox(),app=await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).boundingBox();assert.ok(Math.abs(brand.y-app.y)<12,'mobile brand and app share a row');const photo=await page.locator('.showcase-images').boundingBox();assert.ok(photo.y<170&&photo.y+photo.height<410,'district photograph remains above the fold');}
+  if(width<=430){const brand=await page.locator('.site-brand').boundingBox(),app=await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).boundingBox();assert.ok(Math.abs(brand.y-app.y)<12,'mobile brand and app share a row');const photo=await page.locator('.showcase-images').boundingBox();assert.ok(photo.y<180&&photo.height>350,'district photograph fills the mobile hero');}
  }
  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:/^عرض الميزة 1:/}).click();await page.waitForFunction(()=>{const slide=document.querySelector('.showcase-image.is-active'),img=slide?.querySelector('img');return slide&&Number(getComputedStyle(slide).opacity)>.99&&img?.complete&&img.naturalWidth>0;});await page.screenshot({path:join(tmpdir(),'capital-public-mobile.png'),fullPage:false});
  await page.getByRole('button',{name:/فطار يظبط يومك/}).click();const appPrompt=page.getByRole('dialog',{name:'نكمل على التطبيق؟',exact:true});await appPrompt.waitFor();
