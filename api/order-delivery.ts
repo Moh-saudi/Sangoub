@@ -1,3 +1,4 @@
+import { auditInTransaction, attachAuditContext } from "../server/audit.ts";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminServices } from "../server/firebaseAdmin.ts";
 import { mobileCors } from "../server/mobileCors.ts";
@@ -16,6 +17,9 @@ export default async function handler(req: any, res: any) {
     let user;
     try { user = await auth.verifyIdToken(bearer, true); }
     catch { return res.status(401).json({ error: "جلسة الدخول غير صالحة." }); }
+    const access=(await db.doc('accountAccess/'+user.uid).get()).data();
+    if(access?.disabled||access?.operationLocked||user.auth_time<=(access?.revokedBefore||0))return res.status(401).json({error:'أُلغيت هذه الجلسة أو عُلّق الحساب. سجل الدخول من جديد.'});
+    attachAuditContext(req,user);
     if (!user.email_verified && !user.phone_number) return res.status(403).json({ error: "أكد حسابك أولًا." });
     const orderRef = db.collection("orders").doc(orderId);
     const secretRef = db.collection("orderSecrets").doc(orderId);
@@ -51,6 +55,7 @@ export default async function handler(req: any, res: any) {
       tx.update(orderRef, { orderStatus: "delivered", deliveredAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), paymentStatus: "paid",
         courierChecklist: { ...order.courierChecklist, collectedPayment: true, collectedAmount, arrivedAtCustomerOffice: true },
       });
+      auditInTransaction(db,tx,user,"orders.delivered","orders",orderId,{orderStatus:order.orderStatus,paymentStatus:order.paymentStatus},{orderStatus:"delivered",paymentStatus:"paid",collectedAmount},"","delivery-api");
       tx.delete(secretRef);
       return { status: 200, body: { ok: true } };
     });

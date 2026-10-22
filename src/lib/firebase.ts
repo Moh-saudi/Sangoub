@@ -1,6 +1,7 @@
+import { adminApi } from "./adminApi";
 import { initializeApp } from "firebase/app";
 import { apiUrl } from "./apiUrl";
-import { normalizeOrder, nextKitchenUpdate } from "../utils/orderIntegration";
+import { normalizeOrder } from "../utils/orderIntegration";
 import {
   getAuth,
   GoogleAuthProvider,
@@ -14,14 +15,12 @@ import {
   getFirestore,
   doc,
   getDoc,
-  setDoc,
   updateDoc,
   collection,
   query,
   where,
   onSnapshot,
   serverTimestamp,
-  writeBatch,
   connectFirestoreEmulator,
   runTransaction,
   type QueryConstraint,
@@ -146,19 +145,13 @@ export async function updateUserLocationInFirestore(
 }
 export const cleanData = <T>(data: T): T => JSON.parse(JSON.stringify(data));
 export async function saveRecord(name: string, id: string, data: object) {
-  await setDoc(
-    doc(db, name, id),
-    { ...cleanData(data), updatedAt: serverTimestamp() },
-    { merge: true },
-  );
+  await adminApi("data", { action: "save", collection: name, id, data: cleanData(data) });
+}
+export async function deleteRecord(name: string, id: string) {
+  await adminApi("data", { action: "delete", collection: name, id });
 }
 export async function updateOrderRecord(id: string, changes: Partial<Order>) {
-  await updateDoc(doc(db, "orders", id), {
-    ...cleanData(changes),
-    ...(changes.orderStatus === "ready" ? { readyAt: serverTimestamp() } : {}),
-    ...(changes.orderStatus === "delivered" ? { deliveredAt: serverTimestamp() } : {}),
-    updatedAt: serverTimestamp(),
-  });
+  await adminApi("data", { action: "save", collection: "orders", id, data: cleanData(changes) });
 }
 export function watchCollection<T>(
   name: string,
@@ -220,15 +213,7 @@ export function subscribeToOrders(
 }
 
 export async function updateKitchenStage(id: string, storeId: string, next: "preparing" | "ready") {
-  await runTransaction(db, async (transaction) => {
-    const target = doc(db, "orders", id);
-    const snapshot = await transaction.get(target);
-    if (!snapshot.exists()) throw new Error("الطلب غير موجود.");
-    const changes = nextKitchenUpdate(normalizeOrder({ ...snapshot.data(), id }), storeId, next);
-    transaction.update(target, { ...changes, updatedAt: serverTimestamp(),
-      ...(changes.orderStatus === "ready" ? { readyAt: serverTimestamp() } : {}),
-    });
-  });
+  await adminApi("data", { action: "kitchen", id, storeId, next });
 }
 export async function saveOrderToFirestore(order: Order): Promise<Order> {
   if (!auth.currentUser) throw new Error("يرجى تسجيل الدخول.");
@@ -247,18 +232,6 @@ export async function saveOrderToFirestore(order: Order): Promise<Order> {
   if (!response.ok) throw new Error(result.error || "تعذر حفظ الطلب.");
   return result.order;
 }
-export async function approvePartner(
-  partnerId: string,
-  store: import("../types/index.ts").Store,
-) {
-  const batch = writeBatch(db);
-  batch.update(doc(db, "partnerApplications", partnerId), {
-    status: "approved",
-    updatedAt: serverTimestamp(),
-  });
-  batch.set(doc(db, "stores", store.id), {
-    ...cleanData(store),
-    updatedAt: serverTimestamp(),
-  });
-  await batch.commit();
+export async function approvePartner(partnerId: string, store: import("../types/index.ts").Store) {
+  await adminApi("data", { action: "approve", collection: "partnerApplications", id: partnerId, store: cleanData(store) });
 }

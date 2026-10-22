@@ -1,3 +1,4 @@
+import { auditInTransaction, attachAuditContext } from "../server/audit.ts";
 import { FieldValue } from "firebase-admin/firestore";
 import { randomInt } from "node:crypto";
 import { adminServices } from "../server/firebaseAdmin.ts";
@@ -20,6 +21,9 @@ export default async function handler(req: any, res: any) {
         .status(401)
         .json({ error: "جلسة الدخول غير صالحة. سجّل الدخول مجددًا." });
     }
+    const access=(await db.doc('accountAccess/'+identity.uid).get()).data();
+    if(access?.disabled||access?.operationLocked||identity.auth_time<=(access?.revokedBefore||0))return res.status(401).json({error:'أُلغيت هذه الجلسة أو عُلّق الحساب. سجل الدخول من جديد.'});
+    attachAuditContext(req,identity);
     if (!identity.email_verified && !identity.phone_number)
       return res.status(403).json({ error: "يرجى تأكيد البريد أو الهاتف." });
     const input = req.body;
@@ -98,6 +102,7 @@ export default async function handler(req: any, res: any) {
       tx.create(db.collection("orderSecrets").doc(ref.id), {
         otpCode: randomInt(1000, 10000).toString(), attempts: 0,
       });
+      auditInTransaction(db, tx, identity, "orders.create", "orders", ref.id, null, order, "", "orders-api");
       return order;
     });
     return res

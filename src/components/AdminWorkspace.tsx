@@ -1,3 +1,5 @@
+import { UserManagement } from "./UserManagement";
+import { AuditLog } from "./AuditLog";
 import { useEffect, useState, type ReactNode } from "react";
 import type { Order, Store, Product, Coupon } from "../types";
 import { OperationsDashboard, type OperationsCourier } from "./OperationsDashboard";
@@ -5,13 +7,15 @@ import { KitchenDisplay } from "./KitchenDisplay";
 import { AdminSetupPanel, type AdminStaff } from "./AdminSetupPanel";
 import { CatalogManager } from "./CatalogManager";
 import { updateKitchenStage } from "../lib/firebase";
-import { LayoutDashboard, ChefHat, ShoppingBag, ClipboardList, Users, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin } from "lucide-react";
+import { LayoutDashboard, ChefHat, ShoppingBag, ClipboardList, Users, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog } from "lucide-react";
 
 const sections = [
   { id: "operations", label: "مركز العمليات", hint: "نظرة عامة على التشغيل", icon: LayoutDashboard },
   { id: "management", label: "الطلبات والتقديمات", hint: "الطلبات والشراكات والتوظيف", icon: ClipboardList },
   { id: "kitchen", label: "شاشة المطبخ", hint: "التحضير والاستلام", icon: ChefHat },
   { id: "catalog", label: "المنتجات والمتاجر", hint: "المنيو والأسعار والصور", icon: ShoppingBag },
+  { id: "users", label: "المستخدمون", hint: "الحسابات والأدوار والوصول", icon: UserRoundCog },
+  { id: "audit", label: "سجل التدقيق", hint: "العمليات والتغييرات والمنفّذون", icon: ScrollText },
   { id: "settings", label: "الفريق والخصومات", hint: "الصلاحيات وأكواد الخصم", icon: Users },
 ];
 
@@ -51,6 +55,8 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
     {tab === "catalog" && <CatalogManager stores={stores} products={products} orders={orders} />}
     {tab === "settings" && <AdminSetupPanel stores={stores} staff={staff} coupons={coupons} orders={orders} onError={onError} defaultOpen />}
     {tab === "management" && children}
+    {tab === "users" && <UserManagement stores={stores} />}
+    {tab === "audit" && <AuditLog />}
       <footer className="admin-footer">© 2026 جميع الحقوق محفوظة لشركة ميسك للتكنولوجيا.</footer>
     </main>
   </div>;
