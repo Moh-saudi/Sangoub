@@ -1,3 +1,4 @@
+import "./admin.css";
 import { useEffect, useState } from "react";
 import { onSnapshot, doc } from "firebase/firestore";
 import { signInWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, sendEmailVerification } from "firebase/auth";
@@ -99,8 +100,8 @@ export default function AdminApp() {
     }), "أُضيف المتجر مغلقًا؛ راجع بياناته ورسومه من الكتالوج قبل فتحه.");
   };
 
-  return <div className="min-h-screen bg-slate-50 text-slate-900" dir="rtl">
-    <header className="border-b border-slate-200 bg-white"><div className="max-w-7xl mx-auto p-4 flex flex-wrap gap-4 items-center justify-between">
+  return <div className="admin-app min-h-screen bg-slate-50 text-slate-900" dir="rtl">
+    <header className="admin-global-header border-b border-slate-200 bg-white"><div className="px-5 py-3 flex flex-wrap gap-4 items-center justify-between">
       <div className="flex items-center gap-3"><img src={logo} alt="طلبات العاصمة" className="w-14 h-14 rounded-2xl object-contain" /><div><p className="font-black text-lg">طلبات العاصمة</p><p className="text-xs text-slate-500">لوحة الإدارة · الحي الحكومي</p></div></div>
       <div className="flex flex-wrap gap-3 items-center text-xs"><span className="inline-flex gap-2 items-center text-orange-700 bg-orange-50 px-3 py-2 rounded-full"><ShieldCheck size={15} />بوابة الإدارة فقط</span><a href="/" className="text-slate-600 underline">الموقع الرئيسي</a>{identity && <><span className="max-w-56 truncate" dir="ltr">{identity.email || identity.phoneNumber}</span><button disabled={busy} onClick={() => action(signOutFromFirebase)} className="border border-slate-200 rounded-xl px-3 py-2 flex gap-2 items-center"><LogOut size={14} />تسجيل الخروج</button></>}</div>
     </div></header>
