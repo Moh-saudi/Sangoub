@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import {readFile,writeFile} from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 // Exercise the production worker, which Vite's development server disables.
 const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '3112', '--strictPort'], { stdio: 'ignore' });
 let browser;
+const htmlPath=new URL('../dist/index.html',import.meta.url);
+const originalHtml=await readFile(htmlPath,'utf8');
 try {
   for (let attempt = 0; attempt < 100; attempt++) {
     try { await fetch('http://127.0.0.1:3112'); break; }
@@ -25,6 +28,11 @@ try {
       navigator.serviceWorker.ready,
       new Promise((_, reject) => setTimeout(() => reject(new Error('Worker activation timed out')), 20000)),
     ]);
+    if(registration.active?.state !== 'activated') await new Promise((resolve,reject)=>{
+      const worker=registration.active;const timeout=setTimeout(()=>reject(new Error('Activation did not finish')),10000);
+      const changed=()=>{if(worker?.state==='activated'){clearTimeout(timeout);worker.removeEventListener('statechange',changed);resolve();}};
+      worker?.addEventListener('statechange',changed);changed();
+    });
     const keys = await caches.keys();
     const urls = (await Promise.all(keys.filter(key => key.includes('precache')).map(async key => (await (await caches.open(key)).keys()).map(request => request.url)))).flat();
     return { active: registration.active?.state, logos: urls.filter(url => url.includes('Capital_Talabat_App_Icon_7e80c871.png')) };
@@ -32,9 +40,35 @@ try {
   assert.equal(result.active, 'activated');
   assert.equal(result.logos.length, 1, 'The logo must have exactly one precache entry');
   assert.match(result.logos[0], /__WB_REVISION__=/, 'Public logo must retain content-based cache invalidation');
+  await page.reload();
+  // A controlled navigation must fetch current HTML, including after a prior visit.
+  await writeFile(htmlPath,originalHtml.replace('</head>','<meta name="capital-navigation-probe" content="fresh-network-html"></head>'));
+  await page.reload();assert.equal(await page.locator('meta[name="capital-navigation-probe"]').getAttribute('content'),'fresh-network-html');
+  await context.setOffline(true);await page.reload();assert.equal(await page.locator('meta[name="capital-navigation-probe"]').getAttribute('content'),'fresh-network-html','offline uses the last successful navigation');
+  await context.setOffline(false);await writeFile(htmlPath,originalHtml);await page.reload();
+  for(const width of [320,390]){
+    await page.setViewportSize({width,height:844});await page.locator('.site-header').waitFor();
+    const brand=await page.locator('.site-brand').boundingBox(),app=await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).boundingBox();assert.ok(Math.abs(brand.y-app.y)<12,'production mobile header uses a single row');
+    const photograph=await page.locator('.hero-photograph').boundingBox(),copy=await page.locator('.hero-copy').boundingBox();assert.ok(photograph.height>350,'production mobile photo fills the compact hero');assert.equal(await page.locator('.hero-photograph').evaluate(element=>getComputedStyle(element).position),'absolute');
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'production mobile overflow '+width);
+  }
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.evaluate(()=>document.querySelector('.public-how').scrollIntoView());
+  await page.waitForFunction(()=>document.getAnimations().some(animation=>{const target=animation.effect?.target;return target instanceof Element&&target.closest('.public-how')&&animation.playState==='running';}));
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.waitForFunction(()=>document.getAnimations().filter(animation=>animation.effect?.target?.closest?.('.capital-site')).every(animation=>animation.playState!=='running'));
+  await page.getByRole('button',{name:/فطار يظبط يومك/}).click();
+  await page.getByRole('dialog',{name:'نكمل على التطبيق؟',exact:true}).waitFor();
+  assert.equal(await page.getByRole('dialog').evaluate(element=>getComputedStyle(element).animationName),'none','reduced motion disables modal animations');
+  await page.keyboard.press('Escape');await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.route('**/build-info.json?check=*',route=>route.fulfill({json:{id:'test-next-release'}}));
+  await page.reload();await page.getByText('حدّث الصفحة لعرض أحدث تصميم للموقع.',{exact:true}).waitFor();
+  await page.goto('http://127.0.0.1:3112/admin');
+  await page.getByRole('button',{name:'تحميل النسخة الجديدة',exact:true}).waitFor();
   assert.deepEqual(errors, []);
   console.log('Production service worker activated; logo cached once with content revision.');
 } finally {
   await browser?.close();
   server.kill('SIGTERM');
+  await writeFile(htmlPath,originalHtml);
 }

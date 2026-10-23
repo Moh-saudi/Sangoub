@@ -60,7 +60,7 @@ export function KitchenDisplay({ orders, stores, fixedStoreId, connected, onChan
     finally { setPending((ids) => ids.filter((id) => id !== order.id)); }
   }
   return <section dir="rtl" className="space-y-5" aria-label="شاشة المطبخ الحية">
-    <div className="bg-slate-900 rounded-3xl p-5 text-white flex flex-wrap justify-between gap-4 items-center">
+    <div className="admin-module-header bg-slate-900 rounded-3xl p-5 text-white flex flex-wrap justify-between gap-4 items-center">
       <div><p className="text-orange-300 text-xs mb-2">CAPITAL TALABAT · KITCHEN</p><h2 className="text-2xl font-black flex items-center gap-2"><ChefHat /> شاشة المطبخ</h2>
         <p className="text-sm mt-2 text-slate-300">استلام، تحضير، ثم تجهيز للمندوب.</p></div>
       <div className="flex items-center gap-3"><span className={`text-xs ${connected ? "text-emerald-300" : "text-amber-300"}`}>{connected ? "متصل بالطلبات الحية" : "الاتصال غير مؤكد — تحقق من الشبكة"}</span>

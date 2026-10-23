@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { saveRecord } from "../lib/firebase.ts";
+import { saveRecord, deleteRecord } from "../lib/firebase.ts";
 import type { Store, Coupon, Order } from "../types/index.ts";
-import { deleteDoc, doc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 export interface AdminStaff { id: string; role: string; name: string; phone: string; storeId?: string; }
 export function AdminSetupPanel({
@@ -51,7 +51,7 @@ export function AdminSetupPanel({
     }
     if (!window.confirm(collection === "staff" ? "إلغاء صلاحية هذا الموظف؟ سيظل حسابه وطلبات العملاء محفوظة." : "حذف كود الخصم؟ لن تتغير الطلبات السابقة.")) return;
     setBusy(true); setError(""); setMessage("");
-    try { await deleteDoc(doc(db, collection, id)); setEditingStaff(null); setEditingCoupon(null); setMessage("تم الحذف من إعدادات التشغيل."); }
+    try { await deleteRecord(collection, id); setEditingStaff(null); setEditingCoupon(null); setMessage("تم الحذف من إعدادات التشغيل."); }
     catch (error) { setError((error as Error).message); }
     finally { setBusy(false); }
   }
@@ -67,7 +67,7 @@ export function AdminSetupPanel({
         إدارة الفريق والخصومات
       </summary>
       <p className="text-xs text-slate-500 my-3">
-        البيانات هنا حقيقية وتحفظ في Firestore. لا توجد حسابات أو طلبات تجريبية.
+        أضف أعضاء فريقك وحدد صلاحياتهم ومهامهم.
       </p>
       {message && <p role="status">{message}</p>}
       {error && <p role="alert" className="p-3 bg-red-50 text-red-700 rounded-xl">{error}</p>}
@@ -111,14 +111,14 @@ export function AdminSetupPanel({
           <h3 className="font-bold">{editingStaff ? "تعديل بيانات الموظف وصلاحياته" : "تعيين مندوب أو مدير مطعم"}</h3>
           <p className="text-xs">
             يجب أن يسجل الشخص حسابًا حقيقيًا أولًا. انسخ UID من صفحة حسابه أو
-            Firebase Authentication.
+            خدمة الحسابات.
           </p>
           <input
             aria-label="UID الموظف"
             name="uid"
             defaultValue={editingStaff?.id}
             readOnly={Boolean(editingStaff)}
-            placeholder="Firebase UID"
+            placeholder="معرّف المستخدم"
             dir="ltr"
             required
             className={input}
@@ -165,7 +165,7 @@ export function AdminSetupPanel({
           </button>
           <p className="text-xs">
             على الموظف إعادة تسجيل الدخول بعد تغيير صلاحياته. المدير الرئيسي
-            يُضاف من Firebase Console فقط.
+            يُضاف بواسطة مسؤول المنصة فقط.
           </p>
         </form>
         <form

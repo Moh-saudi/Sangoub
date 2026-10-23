@@ -1,4 +1,8 @@
-import { useEffect, useState } from "react";
+import { customerMessage } from "./utils/customerMessage";
+import { DeploymentVersion } from "./components/DeploymentVersion";
+import { adminApi } from "./lib/adminApi";
+import "./admin.css";
+import { useEffect, useState, useRef } from "react";
 import { onSnapshot, doc } from "firebase/firestore";
 import { signInWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, sendEmailVerification } from "firebase/auth";
 import { LogOut, ShieldCheck, Loader2 } from "lucide-react";
@@ -12,14 +16,15 @@ const logo = "/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png";
 function message(error: unknown): string {
   const code = (error as { code?: string })?.code || "";
   if (/invalid-credential|wrong-password|user-not-found/.test(code)) return "راجع البريد وكلمة المرور.";
-  if (/unauthorized-domain/.test(code)) return "هذا النطاق غير مضاف إلى نطاقات Firebase المسموحة للمصادقة.";
+  if (/unauthorized-domain/.test(code)) return "تسجيل الدخول غير متاح حاليًا. يرجى المحاولة لاحقًا.";
   if (/permission-denied/.test(code)) return "تعذر الوصول. راجع صلاحية الإدارة وقواعد قاعدة البيانات.";
   if (/popup-closed-by-user|cancelled-popup-request/.test(code)) return "أُغلقت نافذة تسجيل الدخول قبل الإكمال.";
   if (/network|unavailable/.test(code)) return "تعذر الاتصال بالخادم. تحقق من الشبكة وأعد المحاولة.";
-  return error instanceof Error ? error.message : "تعذر تنفيذ العملية.";
+  return customerMessage(error, "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
 }
 
 export default function AdminApp() {
+  const loggedSession = useRef("");
   const [identity, setIdentity] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [access, setAccess] = useState<"checking" | "login" | "verify" | "denied" | "admin">("checking");
@@ -40,6 +45,7 @@ export default function AdminApp() {
   const report = (error: unknown) => setError(message(error));
 
   useEffect(() => onAuthStateChanged(auth, (user) => {
+    if (!user) loggedSession.current = "";
     setIdentity(user); setProfile(null); setError(""); setNotice(""); setPassword("");
     setAccess(user ? "checking" : "login");
   }), []);
@@ -77,6 +83,12 @@ export default function AdminApp() {
     return () => stops.forEach((stop) => stop());
   }, [profile?.id, access]);
 
+  useEffect(() => {
+    if(access !== "admin" || !identity || loggedSession.current === identity.uid) return;
+    loggedSession.current = identity.uid;
+    void adminApi("data", {action:"session",event:"open"}).catch(report);
+  }, [access, identity?.uid]);
+
   async function action(operation: () => Promise<unknown>, success?: string) {
     setBusy(true); setError(""); setNotice("");
     try { await operation(); if (success) setNotice(success); }
@@ -99,11 +111,13 @@ export default function AdminApp() {
     }), "أُضيف المتجر مغلقًا؛ راجع بياناته ورسومه من الكتالوج قبل فتحه.");
   };
 
-  return <div className="min-h-screen bg-slate-50 text-slate-900" dir="rtl">
-    <header className="border-b border-slate-200 bg-white"><div className="max-w-7xl mx-auto p-4 flex flex-wrap gap-4 items-center justify-between">
+  return <div className="admin-app min-h-screen bg-slate-50 text-slate-900" dir="rtl">
+    <header className="admin-global-header border-b border-slate-200 bg-white"><div className="px-5 py-3 flex flex-wrap gap-4 items-center justify-between">
       <div className="flex items-center gap-3"><img src={logo} alt="طلبات العاصمة" className="w-14 h-14 rounded-2xl object-contain" /><div><p className="font-black text-lg">طلبات العاصمة</p><p className="text-xs text-slate-500">لوحة الإدارة · الحي الحكومي</p></div></div>
-      <div className="flex flex-wrap gap-3 items-center text-xs"><span className="inline-flex gap-2 items-center text-orange-700 bg-orange-50 px-3 py-2 rounded-full"><ShieldCheck size={15} />بوابة الإدارة فقط</span><a href="/" className="text-slate-600 underline">الموقع الرئيسي</a>{identity && <><span className="max-w-56 truncate" dir="ltr">{identity.email || identity.phoneNumber}</span><button disabled={busy} onClick={() => action(signOutFromFirebase)} className="border border-slate-200 rounded-xl px-3 py-2 flex gap-2 items-center"><LogOut size={14} />تسجيل الخروج</button></>}</div>
+      <div id="admin-header-search" className="admin-header-search-slot" />
+      <div className="flex flex-wrap gap-3 items-center text-xs"><span className="inline-flex gap-2 items-center text-orange-700 bg-orange-50 px-3 py-2 rounded-full"><ShieldCheck size={15} />بوابة الإدارة فقط</span><a href="/" className="text-slate-600 underline">الموقع الرئيسي</a>{identity && <><span className="max-w-56 truncate" dir="ltr">{identity.email || identity.phoneNumber}</span><button disabled={busy} onClick={() => action(async () => { try { if(access === "admin") await adminApi("data", {action:"session",event:"logout"}); } finally { await signOutFromFirebase(); } })} className="border border-slate-200 rounded-xl px-3 py-2 flex gap-2 items-center"><LogOut size={14} />تسجيل الخروج</button></>}</div>
     </div></header>
+    <DeploymentVersion />
     {access === "admin" && profile ? <>
       {(error || notice) && <div className="max-w-7xl mx-auto px-4 pt-4">{error && <p role="alert" className="bg-red-50 text-red-700 rounded-xl p-3">{error}</p>}{notice && <p role="status" className="bg-emerald-50 text-emerald-800 rounded-xl p-3">{notice}</p>}</div>}
       <AdminWorkspace orders={orders} stores={stores} products={products} couriers={staff.filter((person) => person.role === "courier")} staff={staff} coupons={coupons} connected={connected} onError={report}>
@@ -126,7 +140,7 @@ export default function AdminApp() {
           </form>
           <button disabled={busy} className="text-sm text-orange-700" onClick={() => action(async () => { if (!email.includes("@")) throw new Error("اكتب بريدك الإلكتروني أولًا."); await sendPasswordResetEmail(auth, email.trim()); }, "إذا كان البريد مسجلًا فستصلك تعليمات استعادة كلمة المرور.")}>نسيت كلمة المرور؟</button>
         </> : access === "verify" ? <><h2 className="font-bold text-xl">أكد بريد الحساب أولًا</h2><p className="text-sm text-slate-600">التحقق من هوية الحساب مطلوب قبل فحص صلاحية الإدارة.</p><button disabled={busy} onClick={() => action(() => sendEmailVerification(identity!), "أُرسلت رسالة تأكيد البريد.")} className="p-3 border rounded-xl text-sm">إرسال رسالة التأكيد</button><button disabled={busy} onClick={() => action(async () => { await identity!.reload(); await identity!.getIdToken(true); setRevision((value) => value + 1); })} className="p-3 mr-2 bg-orange-600 text-white rounded-xl text-sm">تم التأكيد، إعادة الفحص</button></> : <>
-          <h2 className="font-black text-xl">الحساب غير مخوّل للإدارة</h2><p className="text-sm text-slate-600 leading-7">استخدم تطبيق الموبايل لحساب الموظف أو الشيف أو المندوب. إذا كنت مسؤول المشروع، أضف صلاحية هذا الحساب من Firebase Console.</p>
+          <h2 className="font-black text-xl">الحساب غير مخوّل للإدارة</h2><p className="text-sm text-slate-600 leading-7">استخدم تطبيق الموبايل لحساب الموظف أو الشيف أو المندوب. إذا كنت مسؤول المشروع، اطلب تفعيل صلاحية الإدارة من مسؤول المنصة.</p>
           <label className="block text-xs space-y-2">معرف حسابك الحقيقي (UID)<input aria-label="معرف حسابك" readOnly value={identity?.uid || ""} dir="ltr" className="w-full p-3 border rounded-xl text-xs" /></label><p className="text-xs text-slate-500">وثيقة الصلاحية: admins / UID نفسه. وجود الوثيقة يمنح الإدارة، وحذفها يلغيها.</p>
           <button disabled={busy} onClick={() => setRevision((value) => value + 1)} className="rounded-xl p-3 border text-sm">إعادة فحص الصلاحية</button>
         </>}

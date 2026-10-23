@@ -292,7 +292,7 @@ test("restaurant can mark readiness but cannot assign a courier or complete deli
       .update({ courierId: "restaurant", updatedAt: timestamp() }),
   );
 });
-test("admin can assign registered couriers only", async () => {
+test("admin assignments must use the audited server API", async () => {
   await env.withSecurityRulesDisabled((c) =>
     c
       .firestore()
@@ -308,7 +308,7 @@ test("admin can assign registered couriers only", async () => {
         updatedAt: timestamp(),
       }),
   );
-  await assertSucceeds(
+  await assertFails(
     db("admin")
       .doc("orders/o1")
       .update({
@@ -363,7 +363,7 @@ test("multi-store kitchens can change only their own stage and must wait for eve
   await assertSucceeds(first.update({ orderStatus: "preparing", kitchenStatus: { s1: "ready", s2: "received" }, updatedAt: timestamp() }));
   await assertSucceeds(second.update({ orderStatus: "preparing", kitchenStatus: { s1: "ready", s2: "preparing" }, updatedAt: timestamp() }));
   await assertSucceeds(second.update({ orderStatus: "ready", kitchenStatus: { s1: "ready", s2: "ready" }, readyAt: timestamp(), updatedAt: timestamp() }));
-  await assertSucceeds(db("admin").doc("orders/o1").update({ orderStatus: "with_courier", updatedAt: timestamp() }));
+  await assertFails(db("admin").doc("orders/o1").update({ orderStatus: "with_courier", updatedAt: timestamp() }));
 });
 
 test("OTP secrets are never readable or writable from any client role", async () => {
@@ -397,4 +397,15 @@ test("a scoped realtime listener receives kitchen preparation and readiness", as
     await ready;
     if (!observed.includes("preparing")) throw new Error("Missing realtime preparation update");
   } finally { stop(); clearTimeout(timer!); }
+});
+
+test("audit entries are admin-readable and cannot be forged, edited or deleted by any client", async()=>{
+  await env.withSecurityRulesDisabled(c=>c.firestore().doc('auditLogs/e1').set({action:'user.create'}));
+  await assertSucceeds(db('admin').doc('auditLogs/e1').get());
+  await assertFails(db('customer').doc('auditLogs/e1').get());
+  for(const uid of ['customer','admin']){await assertFails(db(uid).doc('auditLogs/e2').set({action:'forged'}));await assertFails(db(uid).doc('auditLogs/e1').delete());}
+});
+test("disabled accounts are denied even with a cached ID token",async()=>{
+  await env.withSecurityRulesDisabled(c=>c.firestore().doc('accountAccess/customer').set({disabled:true,revokedBefore:0}));
+  await assertFails(db('customer').doc('users/customer').get());
 });

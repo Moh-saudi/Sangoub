@@ -1,4 +1,6 @@
 import express from "express";
+import adminUsersHandler from "./api/admin-users.ts";
+import adminDataHandler from "./api/admin-data.ts";
 import ordersHandler from "./api/orders.ts";
 import geminiHandler from "./api/gemini/[action].ts";
 import catalogImagesHandler from "./api/catalog-images.ts";
@@ -19,6 +21,10 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json({ limit: "1mb" }));
+  app.post("/api/admin-users", adminUsersHandler);
+  app.options("/api/admin-users", adminUsersHandler);
+  app.post("/api/admin-data", adminDataHandler);
+  app.options("/api/admin-data", adminDataHandler);
   app.post("/api/orders", ordersHandler);
   app.options("/api/orders", ordersHandler);
   app.post("/api/order-delivery", orderDeliveryHandler);

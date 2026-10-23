@@ -104,7 +104,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
         {/* Footer */}
         <div className="p-3 bg-slate-50 border-t border-slate-200 text-center text-[10px] text-slate-400">
-          متصل بنظام Firebase Cloud Messaging (FCM) المباشر
+          إشعارات الطلبات والتحديثات
         </div>
       </div>
     </div>

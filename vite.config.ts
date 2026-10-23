@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -5,8 +6,13 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
+  let buildId = process.env.CF_PAGES_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA;
+  if (!buildId) { try { buildId = execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(); } catch { buildId = 'build-'+Date.now(); } }
+  const builtAt = new Date().toISOString();
   return {
+    define: { 'import.meta.env.VITE_BUILD_ID': JSON.stringify(buildId) },
     plugins: [
+      { name: 'capital-build-info', generateBundle() { this.emitFile({type:'asset',fileName:'build-info.json',source:JSON.stringify({id:buildId,builtAt})}); } },
       react(),
       tailwindcss(),
       VitePWA({
@@ -47,7 +53,20 @@ export default defineConfig(() => {
           // Only Vite's hashed chunks are immutable; public/assets images are not.
           dontCacheBustURLsMatching: /^assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff2}'],
+          // Fetch current HTML on navigation instead of pinning visitors to precached releases.
+          globIgnores: ['**/index.html'],
+          navigateFallback: null,
           runtimeCaching: [
+            {
+              urlPattern: ({ request, url }) => request.mode === 'navigate' && url.origin === self.location.origin,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'capital-page-navigation',
+                networkTimeoutSeconds: 4,
+                cacheableResponse: { statuses: [200] },
+                expiration: { maxEntries: 12, maxAgeSeconds: 24 * 60 * 60 },
+              },
+            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'CacheFirst',

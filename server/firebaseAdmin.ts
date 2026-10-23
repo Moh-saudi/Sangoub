@@ -6,14 +6,16 @@ import {
 } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
-import config from "../firebase-applet-config.json" with { type: "json" };
+// Server defaults are public identifiers, not credentials. Avoid JSON module
+// loading differences in serverless runtimes.
+const config = { projectId: "capital-talabat", firestoreDatabaseId: "(default)" };
 export function adminServices() {
   const projectId = process.env.FIREBASE_PROJECT_ID || config.projectId;
   if (
     !process.env.FIRESTORE_EMULATOR_HOST &&
     !(process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY)
   )
-    throw new Error("Firebase server credentials are not configured");
+    throw Object.assign(new Error("Firebase server credentials are not configured"), { code: "FIREBASE_ADMIN_NOT_CONFIGURED" });
   const app =
     getApps()[0] ||
     initializeApp({

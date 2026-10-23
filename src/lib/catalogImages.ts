@@ -27,7 +27,7 @@ export async function uploadCatalogImage(collection: "stores" | "products", id: 
     const response = await fetch(target.uploadUrl, { method: "PUT", body: file, headers: {
       "Content-Type": file.type, "Cache-Control": "public, max-age=31536000, immutable",
     }});
-    if (!response.ok) throw new Error("تعذر رفع الصورة إلى R2. راجع إعداد CORS للحاوية.");
+    if (!response.ok) throw new Error("تعذر رفع الصورة. يرجى المحاولة مرة أخرى.");
     return { key: target.key as string, url: target.publicUrl as string };
   } catch (error) {
     await imageRequest({ action: "delete", key: target.key }).catch(() => {});
