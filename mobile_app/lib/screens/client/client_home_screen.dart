@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
@@ -7,6 +9,7 @@ import '../../core/constants/colors.dart';
 import '../../models/ministry_model.dart';
 import '../../models/order_model.dart';
 import '../../models/product_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/catalog_provider.dart';
 import '../../providers/orders_provider.dart';
@@ -29,10 +32,13 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   final PageController _offersPageController = PageController();
   int _currentOfferIndex = 0;
   Timer? _offersTimer;
+  final TextEditingController _searchController = TextEditingController();
+  int _ordersFilterIndex = 0; // 0: All, 1: Active, 2: Delivered & Paid
 
   // ─── 1. عروض حصرية (سلايدر العروض الترويجية) ─────────────────────
   final List<Map<String, dynamic>> _offersBanners = [
     {
+      'image': 'assets/images/slide_1.png',
       'title': 'قسيمة شراء 100 جنيه 🎁',
       'subtitle': 'كود: CAPITAL100 لجميع موظفي الـ 34 وزارة',
       'tag': 'عرض ترحيبي حصري',
@@ -40,6 +46,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
       'icon': Icons.card_giftcard_rounded,
     },
     {
+      'image': 'assets/images/slide_2.png',
       'title': 'خصم 40% على الفود كورت 🍔',
       'subtitle': 'على جميع وجبات الغداء بين 12 ظهراً و 4 عصراً',
       'tag': 'وجبات الغداء الحكومية',
@@ -47,6 +54,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
       'icon': Icons.lunch_dining_rounded,
     },
     {
+      'image': 'assets/images/slide_3.png',
       'title': 'توصيل مجاني فوري 🛵',
       'subtitle': 'توصيل سريع لكافة مكاتب وأجنحة الوزارات',
       'tag': 'خدمة سريعة VIP',
@@ -54,6 +62,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
       'icon': Icons.electric_moped_rounded,
     },
     {
+      'image': 'assets/images/slide_4.png',
       'title': 'قهوة الصباح وفطور طازج ☕',
       'subtitle': 'خصم 25% مع كل طلب إفطار قبل الساعة 10 صباحاً',
       'tag': 'إفطار الموظف الذكي',
@@ -94,7 +103,28 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   void dispose() {
     _offersTimer?.cancel();
     _offersPageController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleAutoLocationDetection(BuildContext context, CartProvider cart) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return _AutoLocationSheet(
+          currentMinistry: cart.selectedMinistry,
+          onResolved: (ministryName) {
+            cart.setMinistry(ministryName);
+          },
+          onOpenManualList: () {
+            Navigator.pop(sheetContext);
+            _showMinistryPickerModal(context, cart);
+          },
+        );
+      },
+    );
   }
 
   void _showMinistryPickerModal(BuildContext context, CartProvider cart) {
@@ -173,6 +203,88 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     );
   }
 
+  Widget _buildUserAvatar(AuthProvider auth) {
+    final photoUrl = auth.currentUser?.avatarUrl ?? auth.firebaseUser?.photoURL;
+    final hasPhoto = photoUrl != null && photoUrl.trim().isNotEmpty;
+
+    return InkWell(
+      onTap: () => setState(() => _currentBottomNavIndex = 3),
+      borderRadius: BorderRadius.circular(22),
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [AppColors.primary, Color(0xFFFF8A00)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.25),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: hasPhoto
+                  ? Image.network(
+                      photoUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _buildAvatarInitials(auth),
+                    )
+                  : _buildAvatarInitials(auth),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: const Color(0xFF22C55E),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarInitials(AuthProvider auth) {
+    final name = (auth.currentUser?.name.isNotEmpty == true)
+        ? auth.currentUser!.name
+        : (auth.firebaseUser?.displayName?.isNotEmpty == true
+            ? auth.firebaseUser!.displayName!
+            : 'موظف العاصمة');
+    final parts = name.trim().split(' ').where((p) => p.isNotEmpty).toList();
+    String initials = 'م';
+    if (parts.length >= 2) {
+      initials = '${parts[0][0]}${parts[1][0]}';
+    } else if (parts.isNotEmpty && parts[0].isNotEmpty) {
+      initials = parts[0].substring(0, parts[0].length >= 2 ? 2 : 1);
+    }
+    return Center(
+      child: Text(
+        initials,
+        style: GoogleFonts.cairo(
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
   void _openProductDetails(ProductModel product) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -194,6 +306,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     final cart = Provider.of<CartProvider>(context);
     final orders = Provider.of<OrdersProvider>(context);
     final catalog = Provider.of<CatalogProvider>(context);
+    final auth = Provider.of<AuthProvider>(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -201,38 +314,51 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
+        leading: Padding(
+          padding: const EdgeInsetsDirectional.only(start: 12),
+          child: _buildUserAvatar(auth),
+        ),
         title: InkWell(
-          onTap: () => _showMinistryPickerModal(context, cart),
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          onTap: () => _handleAutoLocationDetection(context, cart),
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            constraints: const BoxConstraints(maxWidth: 215),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.location_on, color: AppColors.primary, size: 20),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'التوصيل إلى مكتبك بالحي الحكومي',
-                        style: GoogleFonts.cairo(fontSize: 10, color: AppColors.textSecondary),
-                      ),
-                      Text(
-                        cart.selectedMinistry,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.cairo(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.navy,
-                        ),
-                      ),
-                    ],
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.near_me_rounded, color: AppColors.primary, size: 12),
                   ),
                 ),
-                const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.navy, size: 20),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    cart.selectedMinistry,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: GoogleFonts.cairo(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.navy,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 3),
+                const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary, size: 16),
               ],
             ),
           ),
@@ -241,14 +367,22 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
           Stack(
             alignment: Alignment.center,
             children: [
-              IconButton(
-                icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.navy),
-                onPressed: _openCheckout,
+              Container(
+                margin: const EdgeInsetsDirectional.only(end: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.navy, size: 20),
+                  onPressed: _openCheckout,
+                ),
               ),
               if (cart.itemCount > 0)
                 Positioned(
-                  top: 8,
-                  left: 8,
+                  top: 6,
+                  right: 14,
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: const BoxDecoration(
@@ -269,7 +403,6 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                 ),
             ],
           ),
-          const SizedBox(width: 8),
         ],
       ),
 
@@ -281,7 +414,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
           _buildHomeTab(context, cart, orders, catalog),
 
           // Tab 1: Orders & Live Tracking
-          _buildOrdersTab(context, orders),
+          _buildOrdersTab(context, orders, cart),
 
           // Tab 2: Checkout & Invoicing
           const CheckoutInvoiceScreen(),
@@ -440,44 +573,74 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ─── Search Bar ───────────────────────────────────────────
+          // ─── Search Bar (تصميم عصري ستايل أبل / جوجل) ───────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.search_rounded, color: AppColors.textMuted, size: 22),
+                  const Icon(Icons.search_rounded, color: AppColors.primary, size: 22),
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
-                      onChanged: (val) => catalog.setSearchQuery(val),
-                      style: GoogleFonts.cairo(fontSize: 13, color: AppColors.navy),
+                      controller: _searchController,
+                      onChanged: (val) {
+                        catalog.setSearchQuery(val);
+                        setState(() {});
+                      },
+                      style: GoogleFonts.cairo(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.navy,
+                      ),
                       decoration: InputDecoration(
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                        hintText: 'ابحث عن وجبة، متجر، قهوة في الحي الحكومي...',
+                        hintText: 'ابحث عن وجبة، متجر، أو قهوة في الحي الحكومي...',
                         hintStyle: GoogleFonts.cairo(
                           fontSize: 12,
                           color: AppColors.textMuted,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.normal,
                         ),
                         border: InputBorder.none,
                       ),
                     ),
                   ),
+                  if (_searchController.text.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textMuted),
+                      splashRadius: 18,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      onPressed: () {
+                        _searchController.clear();
+                        catalog.setSearchQuery('');
+                        setState(() {});
+                      },
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.tune_rounded, color: AppColors.navy, size: 16),
+                    ),
                 ],
               ),
             ),
@@ -486,87 +649,37 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
           // ─── 1. سلايدر العروض الترويجية (Offers Slider) ─────────────
           const SizedBox(height: 10),
           SizedBox(
-            height: 145,
+            height: 165,
             child: PageView.builder(
               controller: _offersPageController,
               itemCount: _offersBanners.length,
               onPageChanged: (idx) => setState(() => _currentOfferIndex = idx),
               itemBuilder: (context, index) {
                 final banner = _offersBanners[index];
+                final imagePath = banner['image'] as String?;
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: banner['gradient'] as List<Color>,
-                      begin: Alignment.topRight,
-                      end: Alignment.bottomLeft,
-                    ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: (banner['gradient'][0] as Color).withValues(alpha: 0.3),
+                        color: Colors.black.withValues(alpha: 0.12),
                         blurRadius: 14,
                         offset: const Offset(0, 6),
                       ),
                     ],
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                banner['tag'] as String,
-                                style: GoogleFonts.cairo(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              banner['title'] as String,
-                              style: GoogleFonts.cairo(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                              ),
-                            ),
-                            Text(
-                              banner['subtitle'] as String,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.cairo(
-                                fontSize: 11,
-                                color: Colors.white.withValues(alpha: 0.85),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          banner['icon'] as IconData,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                    ],
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: imagePath != null
+                        ? Image.asset(
+                            imagePath,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (ctx, err, stack) => _buildFallbackBanner(banner),
+                          )
+                        : _buildFallbackBanner(banner),
                   ),
                 );
               },
@@ -1037,155 +1150,917 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   }
 
   // ═════════════════════════════════════════════════════════════════════
-  // TAB 1: ORDERS & LIVE TRACKING TAB
+  // TAB 1: ORDERS & LIVE TRACKING TAB (مع تفاصيل المدفوعات والفلاتر)
   // ═════════════════════════════════════════════════════════════════════
-  Widget _buildOrdersTab(BuildContext context, OrdersProvider orders) {
-    if (orders.orders.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.receipt_long_outlined, size: 64, color: Color(0xFFCBD5E1)),
-            const SizedBox(height: 16),
-            Text(
-              'لا توجد طلبات سابقة',
-              style: GoogleFonts.cairo(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppColors.navy,
-              ),
-            ),
-            Text(
-              'اطلب وجبتك المفضلة لتصلك فوراً إلى مكتبك بالوزارة',
-              style: GoogleFonts.cairo(fontSize: 12, color: AppColors.textMuted),
-            ),
-          ],
-        ),
-      );
+  Widget _buildOrdersTab(BuildContext context, OrdersProvider orders, CartProvider cart) {
+    final allOrders = orders.orders;
+    final activeOrders = orders.clientActiveOrders;
+    final deliveredOrders = allOrders.where((o) => o.status == OrderStatus.delivered).toList();
+
+    List<OrderModel> displayedOrders;
+    if (_ordersFilterIndex == 1) {
+      displayedOrders = activeOrders;
+    } else if (_ordersFilterIndex == 2) {
+      displayedOrders = deliveredOrders;
+    } else {
+      displayedOrders = allOrders;
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: orders.orders.length,
-      itemBuilder: (context, index) {
-        final order = orders.orders[index];
-        return InkWell(
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => OrderTrackingScreen(orderId: order.id),
+    return Column(
+      children: [
+        // ─── Filter Segmented Badges ───────────────────────────────
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              _buildOrderFilterChip(
+                label: 'الكل (${allOrders.length})',
+                index: 0,
               ),
-            );
-          },
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: order.status.color.withValues(alpha: 0.3)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+              const SizedBox(width: 8),
+              _buildOrderFilterChip(
+                label: 'قيد التوصيل (${activeOrders.length})',
+                index: 1,
+              ),
+              const SizedBox(width: 8),
+              _buildOrderFilterChip(
+                label: 'المكتملة (${deliveredOrders.length})',
+                index: 2,
+              ),
+            ],
+          ),
+        ),
+
+        // ─── Orders List ───────────────────────────────────────────
+        Expanded(
+          child: displayedOrders.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.receipt_long_outlined, size: 60, color: Color(0xFFCBD5E1)),
+                      const SizedBox(height: 14),
+                      Text(
+                        _ordersFilterIndex == 1
+                            ? 'لا توجد طلبات جارية الآن'
+                            : (_ordersFilterIndex == 2
+                                ? 'لا توجد طلبات مكتملة بعد'
+                                : 'لا توجد طلبات سابقة'),
+                        style: GoogleFonts.cairo(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.navy,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'وجباتك المفضلة من فود كورت العاصمة تصل لمكتبك فوراً',
+                        style: GoogleFonts.cairo(fontSize: 12, color: AppColors.textMuted),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: displayedOrders.length,
+                  itemBuilder: (context, index) {
+                    final order = displayedOrders[index];
+                    final isDelivered = order.status == OrderStatus.delivered;
+
+                    return InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => OrderTrackingScreen(orderId: order.id),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(18),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: order.status.color.withValues(alpha: 0.35),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Order ID & Status Header
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF1F5F9),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.receipt_rounded, color: AppColors.navy, size: 16),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      order.orderNumber.isNotEmpty ? order.orderNumber : order.id.split('_').last,
+                                      style: GoogleFonts.cairo(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.navy,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: order.status.color.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(order.status.icon, size: 13, color: order.status.color),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        order.status.arabicLabel,
+                                        style: GoogleFonts.cairo(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: order.status.color,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Ministry & Office
+                            Row(
+                              children: [
+                                const Icon(Icons.apartment_rounded, size: 14, color: AppColors.textMuted),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    '${order.ministryName} • ${order.floor} - ${order.officeNumber}',
+                                    style: GoogleFonts.cairo(fontSize: 11, color: AppColors.textSecondary),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+
+                            // Restaurant & Items
+                            if (order.restaurantName.isNotEmpty)
+                              Row(
+                                children: [
+                                  const Icon(Icons.storefront_rounded, size: 14, color: AppColors.primary),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      order.restaurantName,
+                                      style: GoogleFonts.cairo(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.navy,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            const SizedBox(height: 4),
+                            Text(
+                              order.itemsSummary.isNotEmpty
+                                  ? order.itemsSummary
+                                  : '${order.items.length} وجبات بالطلب',
+                              style: GoogleFonts.cairo(fontSize: 11, color: AppColors.textMuted),
+                            ),
+
+                            const Divider(height: 20, color: Color(0xFFF1F5F9)),
+
+                            // Payment Method & Status Badges Row
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // Payment Method Badge
+                                _buildOrderPaymentBadge(order.paymentMethod),
+
+                                // Payment Status Badge
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: (isDelivered || order.paymentStatus == 'paid')
+                                        ? const Color(0xFFF0FDF4)
+                                        : const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: (isDelivered || order.paymentStatus == 'paid')
+                                          ? const Color(0xFFBBF7D0)
+                                          : const Color(0xFFFDE68A),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    (isDelivered || order.paymentStatus == 'paid')
+                                        ? 'تم السداد بنجاح ✅'
+                                        : 'بانتظار السداد للمندوب ⏳',
+                                    style: GoogleFonts.cairo(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: (isDelivered || order.paymentStatus == 'paid')
+                                          ? const Color(0xFF166534)
+                                          : const Color(0xFFB45309),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            // Price & Action Button Row
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'الإجمالي: ${order.total.toStringAsFixed(0)} ج.م',
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                if (!isDelivered)
+                                  Row(
+                                    children: [
+                                      if (order.otpCode != null)
+                                        Container(
+                                          margin: const EdgeInsetsDirectional.only(end: 8),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primaryContainer,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            'OTP: ${order.otpCode}',
+                                            style: GoogleFonts.cairo(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w900,
+                                              color: AppColors.primaryDark,
+                                            ),
+                                          ),
+                                        ),
+                                      Text(
+                                        'تتبع المسار 🛵 ⬅️',
+                                        style: GoogleFonts.cairo(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                else
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      // Re-order items
+                                      for (final item in order.items) {
+                                        for (int q = 0; q < item.quantity; q++) {
+                                          cart.addItem(
+                                            id: item.productId,
+                                            name: item.name,
+                                            price: item.price,
+                                          );
+                                        }
+                                      }
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          backgroundColor: AppColors.navy,
+                                          content: Text(
+                                            'تمت إضافة أصناف الطلب إلى سلتك بنجاح! 🛒',
+                                            style: GoogleFonts.cairo(),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.replay_rounded, size: 14),
+                                    label: Text(
+                                      'إعادة الطلب',
+                                      style: GoogleFonts.cairo(fontSize: 11, fontWeight: FontWeight.bold),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.navy,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      minimumSize: Size.zero,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOrderFilterChip({required String label, required int index}) {
+    final isSelected = _ordersFilterIndex == index;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _ordersFilterIndex = index),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.cairo(
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              color: isSelected ? Colors.white : AppColors.textSecondary,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderPaymentBadge(String method) {
+    switch (method.toLowerCase()) {
+      case 'instapay':
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3E8FF),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE9D5FF)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/icons/payment/instapay.png',
+                width: 14,
+                height: 14,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(Icons.bolt, size: 12, color: Color(0xFF7E22CE)),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'انستاباي (InstaPay)',
+                style: GoogleFonts.cairo(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF7E22CE),
+                ),
+              ),
+            ],
+          ),
+        );
+      case 'vodafone_cash':
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEE2E2),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFFECACA)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/icons/payment/vodafone cach.png',
+                width: 14,
+                height: 14,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(Icons.phone_android, size: 12, color: Color(0xFFDC2626)),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'فودافون كاش',
+                style: GoogleFonts.cairo(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFFDC2626),
+                ),
+              ),
+            ],
+          ),
+        );
+      case 'card':
+      case 'visa':
+      case 'meeza':
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFDBEAFE),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFBFDBFE)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/icons/payment/visa--logo.png',
+                width: 16,
+                height: 12,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(Icons.credit_card, size: 12, color: Color(0xFF1D4ED8)),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'بطاقة بنكية',
+                style: GoogleFonts.cairo(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1D4ED8),
+                ),
+              ),
+            ],
+          ),
+        );
+      case 'wallet':
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEF3C7),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFFDE68A)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.account_balance_wallet_rounded, size: 12, color: Color(0xFFB45309)),
+              const SizedBox(width: 4),
+              Text(
+                'محفظة الموظف',
+                style: GoogleFonts.cairo(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFFB45309),
+                ),
+              ),
+            ],
+          ),
+        );
+      case 'cash':
+      default:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.payments_rounded, size: 12, color: AppColors.navy),
+              const SizedBox(width: 4),
+              Text(
+                'نقداً عند الاستلام',
+                style: GoogleFonts.cairo(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.navy,
+                ),
+              ),
+            ],
+          ),
+        );
+    }
+  }
+
+  Widget _buildFallbackBanner(Map<String, dynamic> banner) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: banner['gradient'] as List<Color>,
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      order.id,
-                      style: GoogleFonts.cairo(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.navy,
-                      ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    banner['tag'] as String,
+                    style: GoogleFonts.cairo(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: order.status.color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(order.status.icon, size: 14, color: order.status.color),
-                          const SizedBox(width: 4),
-                          Text(
-                            order.status.arabicLabel,
-                            style: GoogleFonts.cairo(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: order.status.color,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  order.ministryName,
-                  style: GoogleFonts.cairo(fontSize: 12, color: AppColors.textSecondary),
-                ),
-                Text(
-                  '${order.items.length} وجبات • الإجمالي: ${order.total.toStringAsFixed(0)} ج.م',
+                  banner['title'] as String,
                   style: GoogleFonts.cairo(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.navy,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'رمز الاستلام (OTP): ',
-                          style: GoogleFonts.cairo(fontSize: 11, color: AppColors.textMuted),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryContainer,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            order.otpCode ?? '****',
-                            style: GoogleFonts.cairo(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.primaryDark,
-                              letterSpacing: 2,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      'تتبع الطلب ⬅️',
-                      style: GoogleFonts.cairo(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
+                Text(
+                  banner['subtitle'] as String,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.cairo(
+                    fontSize: 11,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
                 ),
               ],
             ),
           ),
-        );
-      },
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              banner['icon'] as IconData,
+              color: Colors.white,
+              size: 30,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Apple / Google Style Smart Auto-Location Detection Sheet
+// ─────────────────────────────────────────────────────────────────────────────
+class _AutoLocationSheet extends StatefulWidget {
+  final String currentMinistry;
+  final ValueChanged<String> onResolved;
+  final VoidCallback onOpenManualList;
+
+  const _AutoLocationSheet({
+    required this.currentMinistry,
+    required this.onResolved,
+    required this.onOpenManualList,
+  });
+
+  @override
+  State<_AutoLocationSheet> createState() => _AutoLocationSheetState();
+}
+
+class _AutoLocationSheetState extends State<_AutoLocationSheet> with SingleTickerProviderStateMixin {
+  bool _isLocating = true;
+  String _statusText = 'جاري الاتصال بالأقمار الصناعية ورصد الإحداثيات...';
+  MinistryModel? _resolvedMinistry;
+  double? _userLat;
+  double? _userLng;
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _startAutoDetection();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  double _calculateDistanceKm(double lat1, double lon1, double lat2, double lon2) {
+    const p = 0.017453292519943295;
+    final a = 0.5 -
+        math.cos((lat2 - lat1) * p) / 2 +
+        math.cos(lat1 * p) * math.cos(lat2 * p) * (1 - math.cos((lon2 - lon1) * p)) / 2;
+    return 12742 * math.asin(math.sqrt(a));
+  }
+
+  Future<void> _startAutoDetection() async {
+    try {
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
+      setState(() {
+        _statusText = 'جاري مطابقة الموقع مع مباني الحي الحكومي...';
+      });
+
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      Position? position;
+      if (serviceEnabled &&
+          (permission == LocationPermission.always || permission == LocationPermission.whileInUse)) {
+        try {
+          position = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 4),
+            ),
+          );
+        } catch (_) {
+          position = await Geolocator.getLastKnownPosition();
+        }
+      }
+
+      MinistryModel chosen = MinistryModel.allMinistries.firstWhere(
+        (m) => m.name == widget.currentMinistry,
+        orElse: () => MinistryModel.allMinistries[2], // Default MCIT
+      );
+
+      if (position != null) {
+        _userLat = position.latitude;
+        _userLng = position.longitude;
+
+        MinistryModel? closest;
+        double minDistance = double.infinity;
+        for (final m in MinistryModel.allMinistries) {
+          final d = _calculateDistanceKm(position.latitude, position.longitude, m.latitude, m.longitude);
+          if (d < minDistance) {
+            minDistance = d;
+            closest = m;
+          }
+        }
+        if (closest != null && minDistance < 50) {
+          chosen = closest;
+        }
+      }
+
+      _userLat ??= chosen.latitude;
+      _userLng ??= chosen.longitude;
+
+      await Future.delayed(const Duration(milliseconds: 700));
+      if (!mounted) return;
+
+      setState(() {
+        _resolvedMinistry = chosen;
+        _isLocating = false;
+        _statusText = 'تم تحديد موقعك بدقة 🎯';
+      });
+
+      widget.onResolved(chosen.name);
+
+      await Future.delayed(const Duration(milliseconds: 1800));
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      final fallback = MinistryModel.allMinistries.firstWhere(
+        (m) => m.name == widget.currentMinistry,
+        orElse: () => MinistryModel.allMinistries[2],
+      );
+      setState(() {
+        _resolvedMinistry = fallback;
+        _userLat = fallback.latitude;
+        _userLng = fallback.longitude;
+        _isLocating = false;
+        _statusText = 'تم تأكيد موقعك بالحي الحكومي';
+      });
+      widget.onResolved(fallback.name);
+      await Future.delayed(const Duration(milliseconds: 1800));
+      if (mounted) Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag indicator
+            Container(
+              width: 44,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 22),
+
+            // Animated Pulse Radar & Pin Icon
+            AnimatedBuilder(
+              animation: _pulseController,
+              builder: (context, child) {
+                final scale = 1.0 + (_pulseController.value * 0.16);
+                final color = _isLocating ? AppColors.primary : const Color(0xFF10B981);
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 76 * scale,
+                      height: 76 * scale,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: color.withValues(alpha: 0.16 * (1 - _pulseController.value)),
+                      ),
+                    ),
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: color,
+                        boxShadow: [
+                          BoxShadow(
+                            color: color.withValues(alpha: 0.35),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        _isLocating ? Icons.near_me_rounded : Icons.check_circle_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 18),
+
+            Text(
+              _isLocating ? 'تحديد موقعك الجغرافي الذكي' : 'تم التقاط الموقع بنجاح',
+              style: GoogleFonts.cairo(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: AppColors.navy,
+              ),
+            ),
+            const SizedBox(height: 4),
+
+            Text(
+              _statusText,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.cairo(
+                fontSize: 13,
+                color: _isLocating ? AppColors.textSecondary : const Color(0xFF059669),
+                fontWeight: _isLocating ? FontWeight.normal : FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Detected Location Card
+            if (_resolvedMinistry != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryContainer.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_rounded,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _resolvedMinistry!.name,
+                            style: GoogleFonts.cairo(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.navy,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${_resolvedMinistry!.sector} • ${_resolvedMinistry!.buildingNumber}',
+                            style: GoogleFonts.cairo(
+                              fontSize: 11.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          if (_userLat != null && _userLng != null) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.gps_fixed_rounded, size: 12, color: Color(0xFF10B981)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'GPS: ${_userLat!.toStringAsFixed(4)}° N, ${_userLng!.toStringAsFixed(4)}° E',
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF059669),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 22),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'تم ضبط عنوان التوصيل لمكتبك تلقائياً دون أي تدخل منك.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.cairo(
+                  fontSize: 11.5,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ] else ...[
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 16),
+            // Option to switch manually if needed
+            TextButton.icon(
+              onPressed: widget.onOpenManualList,
+              icon: const Icon(Icons.list_alt_rounded, size: 16, color: AppColors.primary),
+              label: Text(
+                'اختيار مبنى أو جهة حكومية أخرى يدوياً',
+                style: GoogleFonts.cairo(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+

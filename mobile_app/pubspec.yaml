@@ -45,6 +45,7 @@ dependencies:
   connectivity_plus: ^6.1.4
   package_info_plus: ^8.3.0
   timeago: ^3.7.0
+  geolocator: ^14.0.2
 
 dev_dependencies:
   flutter_test:
@@ -57,4 +58,5 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/icons/payment/
     - assets/animations/

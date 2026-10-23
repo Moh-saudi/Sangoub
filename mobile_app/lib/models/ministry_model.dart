@@ -5,6 +5,10 @@ class MinistryModel {
   final String buildingNumber;
   final int totalOffices;
   final String icon;
+  final String category; // 'government', 'business', 'residential', 'surrounding', 'downtown'
+
+  final double latitude;
+  final double longitude;
 
   const MinistryModel({
     required this.id,
@@ -13,12 +17,18 @@ class MinistryModel {
     required this.buildingNumber,
     required this.totalOffices,
     required this.icon,
+    this.category = 'government',
+    this.latitude = 30.0135,
+    this.longitude = 31.7050,
   });
 
   String get name => nameArabic;
-  static List<MinistryModel> get allMinistries => governmentDistrictMinistries;
+  static List<MinistryModel> get allMinistries => allCapitalLocations;
+  static List<MinistryModel> get governmentDistrictMinistries =>
+      allCapitalLocations.where((loc) => loc.category == 'government').toList();
 
-  static const List<MinistryModel> governmentDistrictMinistries = [
+  static const List<MinistryModel> allCapitalLocations = [
+    // ─── 1. الحي الحكومي والوزارات ──────────────────────────────
     MinistryModel(
       id: 'cabinet',
       nameArabic: 'رئاسة مجلس الوزراء',
@@ -26,6 +36,9 @@ class MinistryModel {
       buildingNumber: 'مبنى 01',
       totalOffices: 180,
       icon: 'account_balance',
+      category: 'government',
+      latitude: 30.0150,
+      longitude: 31.7020,
     ),
     MinistryModel(
       id: 'mof',
@@ -34,6 +47,9 @@ class MinistryModel {
       buildingNumber: 'مبنى 04',
       totalOffices: 240,
       icon: 'payments',
+      category: 'government',
+      latitude: 30.0125,
+      longitude: 31.7040,
     ),
     MinistryModel(
       id: 'mcit',
@@ -42,6 +58,9 @@ class MinistryModel {
       buildingNumber: 'مبنى 07',
       totalOffices: 310,
       icon: 'devices',
+      category: 'government',
+      latitude: 30.0138,
+      longitude: 31.7055,
     ),
     MinistryModel(
       id: 'mohp',
@@ -50,6 +69,9 @@ class MinistryModel {
       buildingNumber: 'مبنى 12',
       totalOffices: 260,
       icon: 'local_hospital',
+      category: 'government',
+      latitude: 30.0115,
+      longitude: 31.7070,
     ),
     MinistryModel(
       id: 'moe',
@@ -58,6 +80,9 @@ class MinistryModel {
       buildingNumber: 'مبنى 15',
       totalOffices: 290,
       icon: 'school',
+      category: 'government',
+      latitude: 30.0160,
+      longitude: 31.7080,
     ),
     MinistryModel(
       id: 'moee',
@@ -66,6 +91,9 @@ class MinistryModel {
       buildingNumber: 'مبنى 09',
       totalOffices: 210,
       icon: 'bolt',
+      category: 'government',
+      latitude: 30.0145,
+      longitude: 31.7090,
     ),
     MinistryModel(
       id: 'housing',
@@ -74,6 +102,9 @@ class MinistryModel {
       buildingNumber: 'مبنى 03',
       totalOffices: 350,
       icon: 'apartment',
+      category: 'government',
+      latitude: 30.0130,
+      longitude: 31.7010,
     ),
     MinistryModel(
       id: 'mofa',
@@ -82,6 +113,193 @@ class MinistryModel {
       buildingNumber: 'مبنى 02',
       totalOffices: 200,
       icon: 'public',
+      category: 'government',
+      latitude: 30.0170,
+      longitude: 31.7030,
+    ),
+
+    // ─── 2. حي المال والأعمال (CBD & البرج الأيقوني) ─────────────
+    MinistryModel(
+      id: 'cbd_iconic',
+      nameArabic: 'حي المال والأعمال (منطقة البرج الأيقوني)',
+      sector: 'منطقة الأبراج وناطحات السحاب العالمية',
+      buildingNumber: 'البرج الأيقوني (Iconic Tower)',
+      totalOffices: 500,
+      icon: 'domain',
+      category: 'business',
+      latitude: 30.0100,
+      longitude: 31.7420,
+    ),
+    MinistryModel(
+      id: 'cbd_banks',
+      nameArabic: 'مجمع البنوك والمؤسسات المالية (CBD)',
+      sector: 'قطاع البنوك المركزية والاستثمار',
+      buildingNumber: 'برج البنك الأهلي / مصر',
+      totalOffices: 400,
+      icon: 'account_balance',
+      category: 'business',
+      latitude: 30.0080,
+      longitude: 31.7380,
+    ),
+
+    // ─── 3. الأحياء السكنية والكمبوندات بالعاصمة الإدارية ────────
+    MinistryModel(
+      id: 'r3_capital',
+      nameArabic: 'الحي السكني الثالث R3 (كابيتال ريزيدنس)',
+      sector: 'المجاورات السكنية الأولى بالعاصمة',
+      buildingNumber: 'عمارة سكنية / فيلا',
+      totalOffices: 600,
+      icon: 'home',
+      category: 'residential',
+      latitude: 30.0300,
+      longitude: 31.7100,
+    ),
+    MinistryModel(
+      id: 'r3_maqsad',
+      nameArabic: 'كمبوند المقصد (Al Maqsad - R3)',
+      sector: 'الفيلات والمجمعات السكنية الراقية',
+      buildingNumber: 'فيلا / تاون هاوس',
+      totalOffices: 350,
+      icon: 'villa',
+      category: 'residential',
+      latitude: 30.0350,
+      longitude: 31.7250,
+    ),
+    MinistryModel(
+      id: 'celia',
+      nameArabic: 'كمبوند سيليا (Celia - النهر الأخضر)',
+      sector: 'مجمع طلعت مصطفى بالنهر الأخضر',
+      buildingNumber: 'عمارة سيليا / فيلا',
+      totalOffices: 700,
+      icon: 'park',
+      category: 'residential',
+      latitude: 30.0200,
+      longitude: 31.6850,
+    ),
+    MinistryModel(
+      id: 'r5_gardencity',
+      nameArabic: 'الحي السكني الخامس R5 (جاردن سيتي الجديدة)',
+      sector: 'القطاع السكني التراثي الكلاسيكي',
+      buildingNumber: 'عمارة جاردن سيتي',
+      totalOffices: 450,
+      icon: 'location_city',
+      category: 'residential',
+      latitude: 30.0050,
+      longitude: 31.7200,
+    ),
+    MinistryModel(
+      id: 'r7_residential',
+      nameArabic: 'الحي السكني السابع R7 (منطقة الكمبوندات)',
+      sector: 'مجمعات R7 السكنية والخدمية',
+      buildingNumber: 'كمبوند سكني',
+      totalOffices: 500,
+      icon: 'holiday_village',
+      category: 'residential',
+      latitude: 29.9950,
+      longitude: 31.7100,
+    ),
+
+    // ─── 4. الداون تاون والأنشطة التجارية ────────────────────────
+    MinistryModel(
+      id: 'downtown_plaza',
+      nameArabic: 'منطقة الداون تاون وسوق الذهب (Downtown)',
+      sector: 'المنطقة التجارية والترفيهية المركزية',
+      buildingNumber: 'مول تجاري / إداري',
+      totalOffices: 400,
+      icon: 'shopping_bag',
+      category: 'downtown',
+      latitude: 30.0050,
+      longitude: 31.6950,
+    ),
+
+    // ─── 5. مدينة الشروق والمدن المجاورة ونطاق التوسع ────────────
+    MinistryModel(
+      id: 'shorouk_city',
+      nameArabic: 'مدينة الشروق (سكن الموظفين / المقر السكني)',
+      sector: 'المدن المجاورة للعاصمة الإدارية - الشروق',
+      buildingNumber: 'عمارة / فيلا سكنية',
+      totalOffices: 800,
+      icon: 'location_on',
+      category: 'surrounding',
+      latitude: 30.1320,
+      longitude: 31.6280,
+    ),
+    MinistryModel(
+      id: 'shorouk_central',
+      nameArabic: 'مدينة الشروق (مركز المدينة والجامعات)',
+      sector: 'المنطقة المركزية لمدينة الشروق',
+      buildingNumber: 'مقر تجاري / سكني',
+      totalOffices: 600,
+      icon: 'apartment',
+      category: 'surrounding',
+      latitude: 30.1450,
+      longitude: 31.6150,
+    ),
+    MinistryModel(
+      id: 'madinaty',
+      nameArabic: 'مدينتي (المجموعات السكنية والخدمية)',
+      sector: 'المدن المجاورة للعاصمة الإدارية - مدينتي',
+      buildingNumber: 'مجموعة سكنية / فيلا',
+      totalOffices: 900,
+      icon: 'home_work',
+      category: 'surrounding',
+      latitude: 30.0980,
+      longitude: 31.6180,
+    ),
+    MinistryModel(
+      id: 'badr_city',
+      nameArabic: 'مدينة بدر (سكن مصر لموظفي العاصمة الإدارية)',
+      sector: 'إسكان العاملين والموظفين بالعاصمة',
+      buildingNumber: 'عمارة سكن مصر',
+      totalOffices: 750,
+      icon: 'house',
+      category: 'surrounding',
+      latitude: 30.1480,
+      longitude: 31.7450,
+    ),
+    MinistryModel(
+      id: 'mostakbal_city',
+      nameArabic: 'مدينة المستقبل (Mostakbal City)',
+      sector: 'امتداد التنمية العمرانية للعاصمة',
+      buildingNumber: 'كمبوند المستقبل',
+      totalOffices: 400,
+      icon: 'nature_people',
+      category: 'surrounding',
+      latitude: 30.0800,
+      longitude: 31.6500,
+    ),
+    MinistryModel(
+      id: 'zahret_alassema',
+      nameArabic: 'مدينة بدر (زهرة العاصمة - سكن موظفي العاصمة)',
+      sector: 'سكن العاملين والموظفين بالعاصمة الإدارية (زهرة العاصمة)',
+      buildingNumber: 'عمارة زهرة العاصمة',
+      totalOffices: 1200,
+      icon: 'house',
+      category: 'surrounding',
+      latitude: 30.1520,
+      longitude: 31.7480,
+    ),
+    MinistryModel(
+      id: 'octagon_military',
+      nameArabic: 'الكيان العسكري (الأوكتاجون - مقر القيادة الاستراتيجية)',
+      sector: 'الكيان العسكري ووزارة الدفاع',
+      buildingNumber: 'مبنى القيادة',
+      totalOffices: 500,
+      icon: 'shield',
+      category: 'government',
+      latitude: 29.9850,
+      longitude: 31.7500,
+    ),
+    MinistryModel(
+      id: 'knowledge_city',
+      nameArabic: 'مدينة المعرفة وجامعة مصر للمعلوماتية',
+      sector: 'واحة المعرفة والبحث والابتكار',
+      buildingNumber: 'مبنى الابتكار / الجامعة',
+      totalOffices: 350,
+      icon: 'psychology',
+      category: 'business',
+      latitude: 30.0450,
+      longitude: 31.7350,
     ),
   ];
 }

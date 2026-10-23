@@ -6,6 +6,10 @@ import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/orders_provider.dart';
 import '../auth/login_screen.dart';
+import '../profile/settings_screen.dart';
+import '../profile/account_info_screen.dart';
+import '../profile/saved_addresses_screen.dart';
+import '../profile/privacy_policy_screen.dart';
 
 class UserProfileScreen extends StatelessWidget {
   const UserProfileScreen({super.key});
@@ -30,6 +34,17 @@ class UserProfileScreen extends StatelessWidget {
             color: AppColors.navy,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: AppColors.navy, size: 22),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -232,31 +247,47 @@ class UserProfileScreen extends StatelessWidget {
               child: Column(
                 children: [
                   _buildProfileTile(
-                    icon: Icons.account_balance_rounded,
-                    title: 'مقر الوزارة والمكتب المعتمد',
+                    icon: Icons.location_on_outlined,
+                    title: 'العناوين ومقر الوزارة المحفوظ',
                     subtitle: user?.ministryName ?? 'وزارة الاتصالات - الدور الرابع',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SavedAddressesScreen()),
+                      );
+                    },
                   ),
                   const Divider(height: 1, indent: 56),
                   _buildProfileTile(
-                    icon: Icons.receipt_long_rounded,
-                    title: 'سجل الفواتير والمعاملات',
-                    subtitle: 'عرض وتنزيل فواتير الوجبات المعتمدة ضريبياً',
-                    onTap: () {},
+                    icon: Icons.person_outline_rounded,
+                    title: 'معلومات الحساب (Account info)',
+                    subtitle: 'الاسم، رقم الهاتف، والبريد الإلكتروني',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const AccountInfoScreen()),
+                      );
+                    },
                   ),
                   const Divider(height: 1, indent: 56),
                   _buildProfileTile(
-                    icon: Icons.credit_card_rounded,
-                    title: 'طرق الدفع وبطاقة ميزة',
-                    subtitle: 'إدارة بطاقات الدفع الإلكتروني المربوطة',
-                    onTap: () {},
+                    icon: Icons.settings_outlined,
+                    title: 'الإعدادات العامة (Settings)',
+                    subtitle: 'الإشعارات، اللغة، وتفضيلات الحساب',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                      );
+                    },
                   ),
                   const Divider(height: 1, indent: 56),
                   _buildProfileTile(
-                    icon: Icons.support_agent_rounded,
-                    title: 'الدعم الفني للحي الحكومي',
-                    subtitle: 'مساعدة فورية وتواصل مع عمليات العاصمة',
-                    onTap: () {},
+                    icon: Icons.shield_outlined,
+                    title: 'سياسة الخصوصية (Privacy Policy)',
+                    subtitle: 'شروط الاستخدام وحماية البيانات الشخصية',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
+                      );
+                    },
                   ),
                 ],
               ),

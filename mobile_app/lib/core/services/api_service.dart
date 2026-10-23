@@ -29,6 +29,7 @@ class ApiService {
     required String floorNumber,
     required String roomNumber,
     required List<Map<String, dynamic>> items,
+    String paymentMethod = 'cash',
     double tip = 0.0,
     String? couponCode,
     String? notes,
@@ -47,7 +48,7 @@ class ApiService {
       'floorNumber': floorNumber,
       'roomNumber': roomNumber,
       'items': items,
-      'paymentMethod': 'cash',
+      'paymentMethod': paymentMethod,
       'tip': tip,
       if (couponCode != null && couponCode.trim().isNotEmpty)
         'couponCode': couponCode.trim(),

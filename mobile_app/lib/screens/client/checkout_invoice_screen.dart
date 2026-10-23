@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/colors.dart';
 import '../../core/services/api_service.dart';
 import '../../models/ministry_model.dart';
@@ -183,13 +184,27 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
         floorNumber: floor,
         roomNumber: office,
         items: cart.toApiItems(),
+        paymentMethod: _selectedPaymentMethod,
         couponCode: cart.couponCode,
         notes: notes.isNotEmpty ? notes : null,
       );
 
       final createdDocId = (res['order']?['id'] as String?) ?? orderId;
+      final redirectUrl = res['redirectUrl'] as String?;
 
       cart.clearCart();
+
+      // فتح بوابة جيديا إذا كان الدفع إلكترونياً
+      if (res['requiresPaymentRedirect'] == true && redirectUrl != null && redirectUrl.isNotEmpty) {
+        try {
+          final uri = Uri.parse(redirectUrl);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        } catch (launchErr) {
+          debugPrint('Error launching Geidea gateway: $launchErr');
+        }
+      }
 
       if (!mounted) return;
       setState(() => _isProcessing = false);
@@ -527,29 +542,66 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
                   ),
                   const SizedBox(height: 12),
                   _buildPaymentOption(
+                    id: 'instapay',
+                    title: 'انستاباي (InstaPay) - الدفع اللحظي',
+                    assetIcon: 'assets/icons/payment/instapay.png',
+                    subtitle: 'تحويل بنكي فوري معتمد من البنك المركزي المصري',
+                    badge: 'فوري ⚡',
+                  ),
+                  _buildPaymentOption(
+                    id: 'vodafone_cash',
+                    title: 'فودافون كاش ومحافظ المحمول',
+                    assetIcon: 'assets/icons/payment/vodafone cach.png',
+                    subtitle: 'أورنج كاش، وي باي، إتصالات، وفودافون كاش',
+                    badge: 'محافظ ذكية 📱',
+                  ),
+                  _buildPaymentOption(
+                    id: 'geidea',
+                    title: 'بطاقة بنكية / Apple Pay (بوابة جيديا Geidea)',
+                    assetIcon: 'assets/icons/payment/visa--logo.png',
+                    subtitle: 'دفع فوري وآمن 100% عبر بوابة جيديا الرسمية (مدى / فيزا / ماستركارد / Apple Pay)',
+                    badge: 'جيديا 💳',
+                  ),
+                  _buildPaymentOption(
                     id: 'wallet',
-                    title: 'محفظة الموظف الذكية (رصيد 100 ج.م)',
+                    title: 'محفظة الموظف الذكية (رصيد الحساب)',
                     icon: Icons.account_balance_wallet_rounded,
-                    subtitle: 'خصم فوري مباشر من الرصيد الترحيبي',
-                  ),
-                  _buildPaymentOption(
-                    id: 'meeza',
-                    title: 'بطاقة ميزة الوطنية (Meeza)',
-                    icon: Icons.credit_card_rounded,
-                    subtitle: 'دفع إلكتروني معتمد للمصالح الحكومية',
-                  ),
-                  _buildPaymentOption(
-                    id: 'card',
-                    title: 'بطاقة بنكية (فيزا / ماستركارد)',
-                    icon: Icons.payment_rounded,
-                    subtitle: 'دفع إلكتروني آمن ومشفر',
+                    subtitle: 'خصم فوري مباشر من الرصيد الترحيبي (100 ج.م)',
+                    badge: 'رصيد متاح',
                   ),
                   _buildPaymentOption(
                     id: 'cash',
                     title: 'الدفع نقداً عند الاستلام بمكتبك',
-                    icon: Icons.attach_money_rounded,
-                    subtitle: 'الدفع المباشر لمندوب التوصيل',
+                    icon: Icons.payments_rounded,
+                    subtitle: 'الدفع المباشر لمندوب التوصيل بعد استلام الوجبة',
+                    badge: 'كاش 💵',
                   ),
+                  if (_selectedPaymentMethod != 'cash' && _selectedPaymentMethod != 'wallet')
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.verified_user_rounded, color: Color(0xFF16A34A), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'بوابة الدفع الإلكتروني جاهزة ومؤمنة، سيتم تسجيل العملية رسميًا في الفاتورة الضريبية.',
+                              style: GoogleFonts.cairo(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF166534),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -671,8 +723,10 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
   Widget _buildPaymentOption({
     required String id,
     required String title,
-    required IconData icon,
+    IconData? icon,
+    String? assetIcon,
     required String subtitle,
+    String? badge,
   }) {
     final isSelected = _selectedPaymentMethod == id;
     return InkWell(
@@ -698,25 +752,60 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
             ),
             const SizedBox(width: 12),
             Container(
-              padding: const EdgeInsets.all(8),
+              width: 44,
+              height: 44,
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: Icon(icon, color: isSelected ? AppColors.primary : AppColors.navy, size: 20),
+              child: assetIcon != null
+                  ? Image.asset(
+                      assetIcon,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => Icon(
+                        Icons.credit_card_rounded,
+                        color: isSelected ? AppColors.primary : AppColors.navy,
+                        size: 20,
+                      ),
+                    )
+                  : Icon(icon ?? Icons.payment, color: isSelected ? AppColors.primary : AppColors.navy, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.cairo(
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      color: AppColors.navy,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: GoogleFonts.cairo(
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                            color: AppColors.navy,
+                          ),
+                        ),
+                      ),
+                      if (badge != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppColors.primary.withValues(alpha: 0.15) : const Color(0xFFE2E8F0),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            badge,
+                            style: GoogleFonts.cairo(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? AppColors.primaryDark : AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   Text(
                     subtitle,

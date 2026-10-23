@@ -107,6 +107,26 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// إرسال رابط استعادة كلمة المرور عبر البريد الإلكتروني الرسمي
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = _mapAuthError(e.code);
+      throw Exception(_errorMessage);
+    } catch (e) {
+      _errorMessage = 'تعذر إرسال رابط الاستعادة: $e';
+      throw Exception(_errorMessage);
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// إنشاء حساب موظف جديد بالبريد الإلكتروني مع بيانات الوزارة
   Future<void> signUpWithEmailAndPassword({
     required String email,
