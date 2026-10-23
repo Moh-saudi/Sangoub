@@ -3,6 +3,7 @@ import { randomInt } from "node:crypto";
 import { adminServices } from "../server/firebaseAdmin.ts";
 import { buildOrder } from "../server/orderBuilder.ts";
 import { mobileCors } from "../server/mobileCors.ts";
+import { GeideaGateway, ChatAmanGateway } from "../server/integrations.ts";
 export default async function handler(req: any, res: any) {
   res.setHeader("Cache-Control", "no-store");
   if (mobileCors(req, res)) return;
@@ -100,16 +101,46 @@ export default async function handler(req: any, res: any) {
       });
       return order;
     });
-    return res
-      .status(200)
-      .json({
-        order: {
-          ...result,
-          createdAt: result?.createdAt?.toDate
-            ? result.createdAt.toDate().toISOString()
-            : result?.createdAt,
-        },
-      });
+    // إذا كانت طريقة الدفع إلكترونية عبر Geidea
+    let paymentResult: any = null;
+    if (result.paymentMethod === "geidea") {
+      try {
+        paymentResult = await GeideaGateway.createOrderPayment({
+          orderId: ref.id,
+          amount: result.total,
+          currency: "EGP",
+          customerEmail: identity.email || "customer@capital-talabat.eg",
+          customerName: input.profileName || "عميل العاصمة",
+          returnUrl: `${process.env.APP_URL || "https://capital-talabat.vercel.app"}/checkout/success?orderId=${ref.id}`,
+        });
+      } catch (payErr) {
+        console.error("Geidea order session error:", payErr);
+      }
+    }
+
+    // إرسال رسالة تأكيد الطلب الفورية عبر واتساب شات أمان
+    if (input.phone) {
+      ChatAmanGateway.sendOrderConfirmation({
+        phone: input.phone,
+        customerName: input.profileName || "عميل العاصمة",
+        orderNumber: ref.id.slice(0, 10),
+        totalAmount: result.total,
+        currency: "ج.م",
+        deliveryAddress: `${input.ministry || "الحي الحكومي"} - دور ${input.floorNumber || ""} - مكتب ${input.roomNumber || ""}`,
+      }).catch((waErr) => console.warn("ChatAman confirmation warning:", waErr));
+    }
+
+    return res.status(200).json({
+      order: {
+        ...result,
+        createdAt: result?.createdAt?.toDate
+          ? result.createdAt.toDate().toISOString()
+          : result?.createdAt,
+      },
+      requiresPaymentRedirect: !!paymentResult?.redirectUrl,
+      redirectUrl: paymentResult?.redirectUrl || null,
+      sessionId: paymentResult?.sessionId || null,
+    });
   } catch (error: any) {
     if (error.message === "ORDER_RATE_LIMIT")
       return res

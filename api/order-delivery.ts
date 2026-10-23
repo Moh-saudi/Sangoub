@@ -46,14 +46,25 @@ export default async function handler(req: any, res: any) {
         });
         return { status: 400, body: { error: "رمز الاستلام غير صحيح." } };
       }
-      if (order.paymentMethod !== "cash" || !Number.isFinite(collectedAmount) || Math.abs(collectedAmount - order.total) > 0.01)
+      if (order.paymentMethod === "cash" && (!Number.isFinite(collectedAmount) || Math.abs(collectedAmount - order.total) > 0.01))
         return { status: 400, body: { error: "أكّد تحصيل قيمة الطلب النقدية كاملة." } };
       tx.update(orderRef, { orderStatus: "delivered", deliveredAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), paymentStatus: "paid",
-        courierChecklist: { ...order.courierChecklist, collectedPayment: true, collectedAmount, arrivedAtCustomerOffice: true },
+        courierChecklist: { ...order.courierChecklist, collectedPayment: true, collectedAmount: order.paymentMethod === "cash" ? collectedAmount : 0, arrivedAtCustomerOffice: true },
       });
       tx.delete(secretRef);
-      return { status: 200, body: { ok: true } };
+      return { status: 200, body: { ok: true, phone: order.phone, orderId } };
     });
+
+    // إشعار تسليم الطلب عبر واتساب شات أمان
+    if (result.status === 200 && result.body?.phone) {
+      import("../server/integrations.ts").then(({ ChatAmanGateway }) => {
+        ChatAmanGateway.sendDirectMessage(
+          result.body.phone,
+          `تم تسليم وجبتك بنجاح لمكتبك بالحي الحكومي من مندوب "طلبات العاصمة" 🛵✨\nبالهناء والشفاء، ونتشرف دائماً بخدمتكم!`,
+        ).catch(() => {});
+      }).catch(() => {});
+    }
+
     return res.status(result.status).json(result.body);
   } catch { return res.status(503).json({ error: "خدمة تأكيد التسليم غير متاحة حاليًا." }); }
 }

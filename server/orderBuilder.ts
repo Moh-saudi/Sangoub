@@ -29,8 +29,10 @@ export function buildOrder(
       throw new Error(`بيانات غير صالحة: ${key}`);
     return value.trim();
   };
-  if (input.paymentMethod !== "cash")
-    throw new Error("الدفع الإلكتروني غير مفعّل. اختر الدفع عند الاستلام.");
+  const allowedPaymentMethods = ["cash", "instapay", "vodafone_cash", "card", "wallet", "geidea"];
+  const paymentMethod = input.paymentMethod || "cash";
+  if (!allowedPaymentMethods.includes(paymentMethod))
+    throw new Error("طريقة الدفع المختارة غير صالحة.");
   const items: CartItem[] = input.items.map((item: any, index: number) => {
     const product = products.get(item?.product?.id);
     if (
@@ -154,8 +156,8 @@ export function buildOrder(
     discount: round(discount),
     tip: round(tip),
     total,
-    paymentMethod: "cash",
-    paymentStatus: "cash_on_delivery",
+    paymentMethod,
+    paymentStatus: paymentMethod === "cash" ? "cash_on_delivery" : "paid",
     orderStatus: "received",
     createdAt: new Date().toISOString(),
     estimatedDelivery: "بانتظار تأكيد المتجر",

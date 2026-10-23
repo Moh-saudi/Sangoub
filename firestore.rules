@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function verified() { return request.auth != null && (request.auth.token.get('email_verified', false) == true || request.auth.token.get('phone_number', '') != ''); }
+    function verified() { return request.auth != null; }
     function admin() { return verified() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
     function staff() { return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data; }
     function validCoordinates(c) { return c is map && c.keys().hasOnly(['latitude','longitude']) && c.latitude is number && c.longitude is number && c.latitude >= -90 && c.latitude <= 90 && c.longitude >= -180 && c.longitude <= 180; }
