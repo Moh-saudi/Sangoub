@@ -20,7 +20,8 @@
     "firebase:deploy": "firebase deploy --only firestore --project capital-talabat",
     "test:admin-web": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx tests/admin-web.browser.mjs\"",
     "test:native-api": "node --test tests/server-native.test.mjs",
-    "test:compiled-api": "node --test tests/server-compiled.test.mjs"
+    "test:compiled-api": "node --test tests/server-compiled.test.mjs",
+    "test:visitors": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/visitors.integration.test.ts\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1154.0",

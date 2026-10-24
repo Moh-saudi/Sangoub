@@ -1,4 +1,5 @@
 import express from "express";
+import visitorsHandler from "./api/visitors.ts";
 import operationsHandler from "./api/operations.ts";
 import appContentHandler from "./api/app-content.ts";
 import adminUsersHandler from "./api/admin-users.ts";
@@ -24,6 +25,8 @@ async function startServer() {
 
   app.use((_req, res, next) => { res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups"); next(); });
   app.use(express.json({ limit: "1mb" }));
+  app.get("/api/visitors", visitorsHandler);
+  app.post("/api/visitors", visitorsHandler);
   app.post("/api/operations", operationsHandler);
   app.options("/api/operations", operationsHandler);
   app.get("/api/app-content", appContentHandler);

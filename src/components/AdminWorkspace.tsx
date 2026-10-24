@@ -6,6 +6,7 @@ import { useEffect, useState, useRef, cloneElement, isValidElement, type ReactEl
 import type { Order, Store, Product, Coupon } from "../types";
 import { OperationsDashboard, type OperationsCourier } from "./OperationsDashboard";
 import { PreparationMonitor } from "./PreparationMonitor";
+import { VisitorStats } from "./VisitorStats";
 import { AppContentManager } from "./AppContentManager";
 import { CouponManager } from "./CouponManager";
 import type { AdminTabType } from "./AdminDashboard";
@@ -20,6 +21,7 @@ const sections = [
   { id: "stores", group: "المتاجر والمنتجات", label: "المتاجر", hint: "البيانات والتوافر والتوصيل", icon: StoreIcon },
   { id: "products", label: "المنتجات", hint: "المنيو والأسعار والصور", icon: Package },
   { id: "offers", group: "التسويق", label: "عروض المنتجات", hint: "المنتجات المخفّضة على الموقع", icon: Tag },
+  { id: "visitors", label: "عدد الزوار", hint: "إجمالي زوار الموقع وزوار اليوم", icon: LayoutDashboard },
   { id: "content", label: "واجهة التطبيق والحملات", hint: "الأقسام والسلايدر والتشغيل", icon: PanelsTopLeft },
   { id: "coupons", label: "أكواد الخصم", hint: "قسائم خصم الطلبات", icon: TicketPercent },
   { id: "users", group: "الحسابات والشراكات", label: "المستخدمون", hint: "العملاء والمناديب وفريق المتاجر", icon: UserRoundCog },
@@ -100,6 +102,7 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
     {tab === "operations" && <OperationsDashboard orders={orders} stores={stores} couriers={couriers} connected={connected} onNavigate={navigate} />}
     {tab === "kitchen" && <PreparationMonitor orders={orders} stores={stores} connected={connected} />}
     {["stores", "products", "offers"].includes(tab) && <CatalogManager key={tab} mode={tab as "stores" | "products" | "offers"} stores={stores} products={products} orders={orders} searchRequest={catalogRequest?.kind === tab ? catalogRequest : undefined} />}
+    {tab === "visitors" && <VisitorStats />}
     {tab === "content" && <AppContentManager stores={stores} products={products} />}
     {tab === "coupons" && <CouponManager coupons={coupons} />}
     {["orders", "partners", "jobs"].includes(tab) && (isValidElement(children) ? cloneElement(children as ReactElement<{ initialAdminTab: AdminTabType; orderSearchRequest?: {term:string;key:number} }>, { initialAdminTab: tab as AdminTabType, orderSearchRequest: tab === "orders" ? orderRequest : undefined }) : children)}

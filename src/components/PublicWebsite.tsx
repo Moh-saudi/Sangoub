@@ -1,3 +1,4 @@
+import { useVisitorCounter } from "../utils/useVisitorCounter";
 import CareersPage from "./CareersPage";
 import "../site-motion.css";
 import { useSiteMotion } from "../utils/useSiteMotion";
@@ -20,6 +21,7 @@ const appUrl = (() => {
 })();
 
 export function PublicWebsite() {
+  useVisitorCounter();
   const offers = /^\/offers\/?$/.test(window.location.pathname);
   const careers = /^\/careers\/?$/.test(window.location.pathname);
   const site = useRef<HTMLDivElement>(null);

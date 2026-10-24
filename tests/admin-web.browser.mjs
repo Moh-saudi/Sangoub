@@ -129,6 +129,16 @@ try{
  }
  await login('admin');await page.getByRole('heading',{name:'الحي الحكومي، في شاشة واحدة.',exact:true}).waitFor();
  assert.equal((await services.db.doc('users/'+accounts.admin.uid).get()).exists,true);
+ // A normal browser counts once, including reloads and local cache resets.
+ const countContext=await browser.newContext({viewport:{width:390,height:844},userAgent:'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36'});
+ const countPage=await countContext.newPage();const counted=countPage.waitForResponse(response=>response.url().endsWith('/api/visitors')&&response.request().method()==='POST');await countPage.goto('http://127.0.0.1:3105/');assert.equal((await counted).status(),200);
+ assert.equal((await services.db.doc('siteMetrics/summary').get()).data().visitors,1);
+ await countPage.evaluate(()=>localStorage.removeItem('capital-site-visitor-day-v1'));const recounted=countPage.waitForResponse(response=>response.url().endsWith('/api/visitors')&&response.request().method()==='POST');await countPage.reload();assert.equal((await recounted).status(),200);assert.equal((await services.db.doc('siteMetrics/summary').get()).data().visitors,1);await countContext.close();
+ await page.getByRole('navigation',{name:'أقسام إدارة التشغيل'}).getByRole('button',{name:'عدد الزوار',exact:true}).click();await page.getByRole('heading',{name:'عدد زوار الموقع',exact:true}).waitFor();await page.getByText('إجمالي الزوار',{exact:false}).waitFor();
+ assert.deepEqual(await page.locator('.management-summary strong').allTextContents(),['١','١']);await page.getByRole('button',{name:'تحديث العدد',exact:true}).click();await page.getByRole('button',{name:'تحديث العدد',exact:true}).waitFor();
+ for(const width of [390,768,1440]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'visitor statistics fit '+width);}
+ await accessible(page,'visitor statistics');await page.screenshot({path:join(tmpdir(),'capital-admin-visitors.png'),fullPage:true});
+
  await page.getByRole('navigation',{name:'أقسام إدارة التشغيل'}).getByRole('button',{name:'المتاجر',exact:true}).click();await page.getByRole('heading',{name:'المتاجر',exact:true}).waitFor();
  await page.getByRole('button',{name:'إضافة متجر',exact:true}).click();const dialog=page.getByRole('dialog');
  await dialog.getByLabel('اسم المتجر',{exact:true}).fill('اختبار بوابة الإدارة');await dialog.getByLabel('عنوان المتجر',{exact:true}).fill('محاكي معزول');await dialog.getByLabel('نوع النشاط',{exact:true}).fill('متجر اختبار');await dialog.getByRole('button',{name:'حفظ',exact:true}).click();await dialog.waitFor({state:'hidden'});
