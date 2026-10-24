@@ -78,7 +78,7 @@ export function PublicWebsite() {
       </>}
     </main>
     <PublicFooter />
-    {!showApp && <MascotSupport />}
+    {!showApp && <MascotSupport autoInvite={!offers && !careers} />}
     {!showApp && !careers && <div className="mobile-order-bar"><button onClick={openApp}>اطلب من التطبيق <ArrowLeft size={17} /></button></div>}
     <AppPromotionDialog open={showApp} selection={selection} appUrl={appUrl} onClose={() => setShowApp(false)} />
   </div>;

@@ -22,6 +22,7 @@ try {
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('http://127.0.0.1:3112/');
+  const invitation=page.getByRole('dialog',{name:'اطلب فطارك مع سنجوب',exact:true});await invitation.waitFor({timeout:7000});await invitation.getByRole('button',{name:'هطلب بعدين',exact:true}).click();await invitation.waitFor({state:'hidden'});
   const result = await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.register('/sw.js');
     await Promise.race([

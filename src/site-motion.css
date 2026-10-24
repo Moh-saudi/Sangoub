@@ -34,3 +34,9 @@
     animation: none !important; transition: none !important; scroll-behavior: auto !important;
   }
 }
+@media (prefers-reduced-motion: no-preference) {
+  .mascot-actions.is-invite[open] { animation: sangoub-invite-enter .25s ease-out; }
+  .mascot-actions.is-invite[open] .sangoub-invite-character { animation: sangoub-invite-greet 2.2s ease-in-out .25s 2; }
+}
+@keyframes sangoub-invite-enter { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes sangoub-invite-greet { 0%, 100% { transform: none; } 20% { transform: translateY(-8px) rotate(-6deg); } 40% { transform: translateY(-3px) rotate(5deg); } 60% { transform: translateY(-6px) rotate(-3deg); } 80% { transform: translateY(-2px) rotate(2deg); } }

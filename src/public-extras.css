@@ -602,3 +602,24 @@ button.mascot-support { padding: 0; border: 0; background: transparent; font: in
 .breakfast-primary { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 12px; border: 0; border-radius: 11px; background: #ad3909; color: #fff; text-align: center; font-size: 13px; font-weight: 800; }
 .breakfast-primary:hover { background: #873009; color: #fff; }
 .breakfast-error { font-size: 12px; padding: 8px; border-radius: 8px; color: #8e2424; background: #fff0ed; margin-bottom: 8px; flex-shrink: 0; }
+
+/* One welcome invitation per browsing session; the CTA opens breakfast directly. */
+.mascot-actions.is-invite { inset: 0; margin: auto; width: min(480px, calc(100vw - 28px)); max-width: calc(100vw - 28px); height: fit-content; max-height: calc(100dvh - 28px - env(safe-area-inset-bottom)); padding: 0 0 18px; border-radius: 26px; background: #fffdf9; overflow-y: auto; box-shadow: 0 24px 80px #10213f40; }
+.mascot-actions.is-invite::backdrop { background: #10213f85; backdrop-filter: blur(3px); }
+.sangoub-invite-art { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 26px 24px 18px; background: radial-gradient(ellipse at center, #ffe0b0 0%, #fff1df 55%, #fffdf9 90%); }
+.sangoub-invite-character { position: relative; width: 180px; height: 180px; overflow: hidden; border-radius: 42%; background: #fff; box-shadow: 0 10px 26px #b950151c; transform-origin: 50% 85%; }
+.sangoub-invite-character img { position: absolute; width: 180%; max-width: none; height: auto; left: -40%; top: -2%; }
+.sangoub-invite-art > span { padding: 4px 12px; border-radius: 30px; background: #fff; color: #913209; border: 1px solid #f2cc9b; font-size: 12px; font-weight: 800; }
+.mascot-actions.is-invite > header { display: block; padding: 0 24px; margin: 2px 0 18px; text-align: center; }
+.mascot-actions.is-invite h2 { font-size: clamp(23px, 6vw, 28px); line-height: 1.6; }
+.mascot-actions.is-invite header p { max-width: 340px; margin: 8px auto 0; font-size: 13px; line-height: 1.9; }
+.mascot-actions.is-invite .mascot-actions-close { position: absolute; top: 12px; left: 12px; z-index: 2; }
+.sangoub-invite-actions { display: grid; gap: 8px; padding: 0 24px; }
+.sangoub-invite-actions .breakfast-primary { gap: 8px; min-height: 48px; font-size: 15px; }
+.sangoub-invite-later { min-height: 44px; padding: 8px; border: 0; background: transparent; color: #41516b; font-size: 13px; font-weight: 700; }
+.sangoub-invite-actions p { margin: 0; text-align: center; color: #526773; font-size: 11px; line-height: 1.9; }
+@media (max-height: 650px) {
+  .sangoub-invite-art { padding-top: 18px; padding-bottom: 10px; }
+  .sangoub-invite-character { width: 130px; height: 130px; }
+  .mascot-actions.is-invite > header { margin-bottom: 12px; }
+}
