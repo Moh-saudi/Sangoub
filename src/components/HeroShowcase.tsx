@@ -4,8 +4,9 @@ import { ArrowLeft, ArrowRight, Pause, Play } from "lucide-react";
 const SLIDES = [
   {
     theme: "delivery",
-    image: "/images/breakfast.jpg",
-    alt: "كرواسون للفطار في بداية اليوم",
+    image: "/images/government-district-gardens.jpg",
+    height: 841,
+    alt: "مباني الوزارات والممرات والحدائق في الحي الحكومي",
     eyebrow: "صديق يومك في العاصمة",
     title: "معاك في يومك،",
     highlight: "لحد مكتبك.",
@@ -15,8 +16,9 @@ const SLIDES = [
   },
   {
     theme: "morning",
-    image: "/images/coffee.jpg",
-    alt: "تشكيلة من القهوة والمشروبات الساخنة",
+    image: "/images/government-district-ministries.jpg",
+    height: 836,
+    alt: "منشآت الوزارات والساحات في الحي الحكومي بالعاصمة الإدارية",
     eyebrow: "فطارك وبريكك من مكانك",
     title: "بريكك قصير؟",
     highlight: "وفّر المشوار.",
@@ -26,8 +28,9 @@ const SLIDES = [
   },
   {
     theme: "daily",
-    image: "/images/office.jpg",
-    alt: "مساحة عمل مكتبية، لتكمل يومك وطلباتك تصلك",
+    image: "/images/government-district-skyline.jpg",
+    height: 812,
+    alt: "مشهد بانورامي للوزارات ومسجد مصر في خلفية الحي الحكومي",
     eyebrow: "من المطعم والسوبر ماركت",
     title: "طلبات يومك،",
     highlight: "في مكان واحد.",
@@ -37,8 +40,9 @@ const SLIDES = [
   },
   {
     theme: "partners",
-    image: "/images/cafe.jpg",
-    alt: "فريق العمل داخل كافيه",
+    image: "/images/government-district-night.jpg",
+    height: 819,
+    alt: "منشآت الحي الحكومي مضاءة ليلًا",
     eyebrow: "للمطاعم والكافيهات والمتاجر",
     title: "كبر شغلك،",
     highlight: "وقرّب لعملائك.",
@@ -128,7 +132,7 @@ export function HeroShowcase({
         }
       }}
     >
-      <div className="hero-photograph"><div className="showcase-images"><img key={slide.image} src={slide.image} alt={slide.alt} width="900" height="640" fetchPriority={active === 0 ? 'high' : 'auto'} /></div></div>
+      <div className="hero-photograph"><div className="showcase-images"><img key={slide.image} src={slide.image} alt={slide.alt} width="1600" height={slide.height} fetchPriority={active === 0 ? 'high' : 'auto'} /></div></div>
       <div className="hero-layout">
         <div className="hero-copy showcase-copy" aria-live={paused ? "polite" : "off"} aria-atomic="true">
           <span className="eyebrow">{slide.eyebrow}</span>

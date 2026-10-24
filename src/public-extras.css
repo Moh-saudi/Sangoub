@@ -459,7 +459,7 @@
 .photographic-showcase::before { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(270deg, #10213ff2 0%, #10213fdb 42%, #10213f80 72%, #10213f38 100%); pointer-events: none; }
 .photographic-showcase .hero-photograph { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
 .photographic-showcase .showcase-images { width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; background: #10213f; box-shadow: none; }
-.photographic-showcase .showcase-images > img { width: 100%; height: 100%; left: 0; top: 0; object-fit: cover; object-position: center; }
+.photographic-showcase .showcase-images > img { width: 100%; height: 100%; left: 0; top: 0; object-fit: cover; object-position: center top; }
 .photographic-showcase .hero-layout { position: relative; z-index: 2; display: block; }
 .photographic-showcase .hero-copy { width: 65%; min-height: 180px; }
 .photographic-showcase .hero-copy .eyebrow { color: #ffd0a7; }
@@ -622,4 +622,18 @@ button.mascot-support { padding: 0; border: 0; background: transparent; font: in
   .sangoub-invite-art { padding-top: 18px; padding-bottom: 10px; }
   .sangoub-invite-character { width: 130px; height: 130px; }
   .mascot-actions.is-invite > header { margin-bottom: 12px; }
+}
+
+/* The owner's panoramic district photos remain uncropped on phones. */
+@media (max-width: 600px) {
+  .photographic-showcase { padding: 0 14px 6px; }
+  .photographic-showcase::before { display: none; }
+  .photographic-showcase .hero-photograph { position: relative; inset: auto; width: calc(100% + 28px); height: auto; margin-inline: -14px; margin-bottom: 10px; }
+  .photographic-showcase .showcase-images { height: auto; }
+  .photographic-showcase .showcase-images > img { position: static; display: block; width: 100%; height: auto; object-fit: contain; }
+  .photographic-showcase .hero-copy { width: 100%; min-height: 0; }
+  .photographic-showcase .hero-copy .eyebrow, .photographic-showcase .hero-copy p { display: none; }
+  .photographic-showcase .hero-copy h1 { min-height: 58px; margin: 0; font-size: 22px; line-height: 1.4; display: flex; flex-wrap: wrap; align-content: center; column-gap: 6px; }
+  .photographic-showcase .hero-copy h1 em { display: inline; }
+  .photographic-showcase .hero-actions { margin-top: 8px; }
 }

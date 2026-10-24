@@ -51,7 +51,7 @@ try {
   for(const width of [320,390]){
     await page.setViewportSize({width,height:844});await page.locator('.site-header').waitFor();
     const brand=await page.locator('.site-brand').boundingBox(),app=await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).boundingBox();assert.ok(Math.abs(brand.y-app.y)<12,'production mobile header uses a single row');
-    const mascot=await page.locator('.hero-photograph').boundingBox(),copy=await page.locator('.hero-copy').boundingBox(),hero=await page.locator('.hero-showcase').boundingBox();assert.ok(hero.height<360,'production carousel is compact on mobile');assert.ok(Math.abs(mascot.width-hero.width)<2,'hero photograph fills its card');assert.match(await page.locator('.showcase-images img').getAttribute('src'),/^\/images\/(office|breakfast|coffee|cafe)\.jpg$/);
+    const mascot=await page.locator('.hero-photograph').boundingBox(),copy=await page.locator('.hero-copy').boundingBox(),hero=await page.locator('.hero-showcase').boundingBox();assert.ok(hero.height<430,'production carousel is compact on mobile');assert.ok(Math.abs(mascot.width-hero.width)<2,'hero photograph fills its card');assert.match(await page.locator('.showcase-images img').getAttribute('src'),/^\/images\/government-district-(gardens|ministries|skyline|night)\.jpg$/);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'production mobile overflow '+width);
   }
   const manifest=await page.evaluate(async()=>fetch(document.querySelector('link[rel=manifest]').href).then(response=>response.json()));
