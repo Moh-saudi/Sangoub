@@ -247,7 +247,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
         >
           <img
             className="official-logo"
-            src="/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png"
+            src="/brand/capital-talabat-mascot-logo-256x256.png"
             alt="شعار طلبات العاصمة الرسمي"
             width="80"
             height="80"
@@ -1050,7 +1050,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
         <div className="footer-brand">
           <img
             className="official-logo"
-            src="/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png"
+            src="/brand/capital-talabat-mascot-logo-256x256.png"
             alt="شعار طلبات العاصمة الرسمي"
             width="80"
             height="80"

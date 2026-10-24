@@ -56,7 +56,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             title="الصفحة الرئيسية - طلبات العاصمة"
           >
             <img
-              src="/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png"
+              src="/brand/capital-talabat-mascot-logo-256x256.png"
               alt="شعار طلبات العاصمة"
               className="w-full h-full object-cover"
             />

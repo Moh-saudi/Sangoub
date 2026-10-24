@@ -63,6 +63,13 @@ try{
  await page.setViewportSize({width:1440,height:1000});
  await accessible(page,'public homepage');
  const support=page.getByRole('link',{name:'تواصل مع الدعم عبر واتساب',exact:true});assert.equal(await support.getAttribute('href'),'https://wa.me/201017799580');
+ assert.equal(await support.locator('img').getAttribute('src'),'/brand/capital-talabat-mascot-logo-256x256.png');
+ await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await support.locator('.mascot-support-portrait').evaluate(el=>getComputedStyle(el).animationName),'none','mascot respects reduced motion');
+ for(const width of [320,390,600,768,1440]){
+  await page.setViewportSize({width,height:844});const box=await support.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width&&box.height>=44,'support is a visible touch target');
+  if(width<=600){const bar=await page.locator('.mobile-order-bar').boundingBox();assert.ok(box.y+box.height<bar.y,'mascot stays above the mobile order bar');}
+ }
+ await page.setViewportSize({width:390,height:844});await accessible(page,'mobile mascot support');await page.emulateMedia({reducedMotion:'no-preference'});
  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).getByAltText('Google Play',{exact:true}).waitFor();
  assert.equal(await page.locator('.public-how>div').evaluate(el=>el.scrollWidth>el.clientWidth),true,'ordering steps swipe horizontally on mobile');
  await page.getByRole('navigation',{name:'القائمة الرئيسية'}).getByRole('link',{name:'الوظائف',exact:true}).click();await page.getByRole('heading',{name:'مكانك مع فريقنا.',exact:true}).waitFor();

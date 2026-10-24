@@ -41,13 +41,13 @@ export default defineConfig(() => {
           scope: '/',
           icons: [
             {
-              src: '/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png',
-              sizes: '192x192',
+              src: '/brand/capital-talabat-mascot-logo-256x256.png',
+              sizes: '256x256',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png',
+              src: '/brand/capital-talabat-mascot-logo-512x512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any',

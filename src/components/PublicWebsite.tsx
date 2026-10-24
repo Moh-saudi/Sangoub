@@ -8,9 +8,11 @@ import { AppPromotionDialog, type AppSelection } from "./AppPromotionDialog";
 const PublicOffers = lazy(() => import("./PublicOffers"));
 const PublicCatalog = lazy(() => import("./PublicCatalog"));
 import { HeroShowcase } from "./HeroShowcase";
+import { BRAND } from "../brand";
+import { MascotSupport } from "./MascotSupport";
 
-const logo = "/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png";
-const whatsapp = "https://wa.me/201017799580";
+const logo = BRAND.logoSmall;
+const whatsapp = BRAND.supportUrl;
 const appUrl = (() => {
   try { const url = new URL(import.meta.env.VITE_MOBILE_APP_URL || ""); return url.protocol === "https:" ? url.href : null; }
   catch { return null; }
@@ -58,7 +60,7 @@ export function PublicWebsite() {
       </>}
     </main>
     <footer className="site-footer" id="contact"><div className="footer-brand"><img className="official-logo" src={logo} alt="طلبات العاصمة" width="80" height="80" loading="lazy" /><div><strong>طلبات العاصمة</strong><p>خدمة موظفي الحي الحكومي · العاصمة الإدارية</p></div></div><nav aria-label="روابط الموقع" className="flex flex-wrap gap-5 items-center"><a href={whatsapp} target="_blank" rel="noopener noreferrer">تواصل عبر واتساب</a><a href="mailto:info@el7lm.com">راسلنا</a><a href="/admin">دخول الإدارة</a></nav><small>© 2026 جميع الحقوق محفوظة لشركة ميسك للتكنولوجيا.</small></footer>
-    {!showApp && <a className="floating-whatsapp" aria-label="تواصل مع الدعم عبر واتساب" href="https://wa.me/201017799580" target="_blank" rel="noopener noreferrer"><img src="/images/whatsapp.svg" alt="" width="25" height="25"/><span>الدعم</span></a>}
+    {!showApp && <MascotSupport />}
     {!showApp && !careers && <div className="mobile-order-bar"><div><strong>طلبك لحد مكتبك</strong><span>في الحي الحكومي</span></div><button onClick={openApp}>اطلب من التطبيق <ArrowLeft size={17} /></button></div>}
     <AppPromotionDialog open={showApp} selection={selection} appUrl={appUrl} onClose={() => setShowApp(false)} />
   </div>;

@@ -35,7 +35,7 @@ try {
     });
     const keys = await caches.keys();
     const urls = (await Promise.all(keys.filter(key => key.includes('precache')).map(async key => (await (await caches.open(key)).keys()).map(request => request.url)))).flat();
-    return { active: registration.active?.state, logos: urls.filter(url => url.includes('Capital_Talabat_App_Icon_7e80c871.png')) };
+    return { active: registration.active?.state, logos: urls.filter(url => url.includes('/brand/capital-talabat-mascot-logo-512x512.png')) };
   });
   assert.equal(result.active, 'activated');
   assert.equal(result.logos.length, 1, 'The logo must have exactly one precache entry');
@@ -46,12 +46,16 @@ try {
   await page.reload();assert.equal(await page.locator('meta[name="capital-navigation-probe"]').getAttribute('content'),'fresh-network-html');
   await context.setOffline(true);await page.reload();assert.equal(await page.locator('meta[name="capital-navigation-probe"]').getAttribute('content'),'fresh-network-html','offline uses the last successful navigation');
   await context.setOffline(false);await writeFile(htmlPath,originalHtml);await page.reload();
+  await page.emulateMedia({reducedMotion:'reduce'});
   for(const width of [320,390]){
     await page.setViewportSize({width,height:844});await page.locator('.site-header').waitFor();
     const brand=await page.locator('.site-brand').boundingBox(),app=await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).boundingBox();assert.ok(Math.abs(brand.y-app.y)<12,'production mobile header uses a single row');
-    const photograph=await page.locator('.hero-photograph').boundingBox(),copy=await page.locator('.hero-copy').boundingBox();assert.ok(photograph.height>350,'production mobile photo fills the compact hero');assert.equal(await page.locator('.hero-photograph').evaluate(element=>getComputedStyle(element).position),'absolute');
+    const photograph=await page.locator('.hero-photograph').boundingBox(),copy=await page.locator('.hero-copy').boundingBox();assert.ok(photograph.height>=140&&photograph.height<=220,'production mobile photo leaves room for the message');assert.equal(await page.locator('.hero-photograph').evaluate(element=>getComputedStyle(element).position),'relative');assert.ok(photograph.y+photograph.height<=copy.y+1,'photo and message do not overlap');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'production mobile overflow '+width);
   }
+  const manifest=await page.evaluate(async()=>fetch(document.querySelector('link[rel=manifest]').href).then(response=>response.json()));
+  assert.deepEqual(manifest.icons.map(icon=>[icon.src,icon.sizes]),[['/brand/capital-talabat-mascot-logo-256x256.png','256x256'],['/brand/capital-talabat-mascot-logo-512x512.png','512x512']]);
+  await context.setOffline(true);await page.reload();await page.waitForFunction(()=>{const img=document.querySelector('.mascot-support-portrait img');return img?.complete&&img.naturalWidth===256;});await context.setOffline(false);
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.evaluate(()=>document.querySelector('.public-how').scrollIntoView());
   await page.waitForFunction(()=>document.getAnimations().some(animation=>{const target=animation.effect?.target;return target instanceof Element&&target.closest('.public-how')&&animation.playState==='running';}));

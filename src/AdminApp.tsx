@@ -13,7 +13,7 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import type { AdminStaff } from "./components/AdminSetupPanel";
 import type { Profile, Store, Product, Order, Coupon, PartnerApplication, JobApplication, ApplicationStatus } from "./types";
 
-const logo = "/assets/aistudio/Capital_Talabat_App_Icon_7e80c871.png";
+const logo = "/brand/capital-talabat-mascot-logo-128x128.png";
 function message(error: unknown): string {
   const code = (error as { code?: string })?.code || "";
   if (/invalid-credential|wrong-password|user-not-found/.test(code)) return "راجع البريد وكلمة المرور.";
