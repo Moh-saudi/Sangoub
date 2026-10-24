@@ -1,5 +1,6 @@
 /* Public web: one stylesheet, one set of breakpoints, shared design tokens. */
 .capital-site {
+  --font-ui: 'Cairo Web', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --accent: var(--color-primary);
   --ink: var(--color-ink);
   --muted: var(--color-muted);
@@ -7,7 +8,13 @@
   color: var(--ink);
   font-family: var(--font-ui);
   overflow-wrap: break-word;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
+.capital-site :is(.site-header, .landing-main, .site-footer) { box-sizing: border-box; width: 100%; min-width: 0; }
+.site-mobile-menu, .mobile-app-icon { display: none; }
+.public-products-title { font-size: 17px; font-weight: 800; margin: 10px 0 12px; }
 .capital-site button { cursor: pointer; }
 .capital-site :is(section, nav, article, .hero-copy, .footer-brand) { min-width: 0; }
 .capital-site :is(h1, h2, h3, p) { overflow-wrap: anywhere; }
@@ -378,4 +385,71 @@
   .showcase-dots button.is-current span { width: 18px; }
   .showcase-count { display: none; }
   .showcase-arrows button { width: 44px; height: 44px; }
+}
+
+/* Phone navigation and catalog use their own layout, with no horizontal page rails. */
+@media (max-width: 1000px) {
+  .site-header { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px; gap: 8px; padding: 10px 14px; }
+  .site-header > .site-nav { display: none; }
+  .site-brand { font-size: 17px; gap: 8px; min-width: 0; white-space: normal; line-height: 1.5; }
+  .site-brand > span { min-width: 0; }
+  .site-brand small { font-size: 9px; margin-top: 3px; }
+  .site-header .official-logo { width: 44px; height: 44px; border-radius: 10px; }
+  .site-header .google-play-button { width: 44px; height: 44px; min-height: 44px; border: 1px solid var(--color-line); background: #fff; color: #10213f; padding: 0; border-radius: 12px; }
+  .site-header .google-play-button img { display: none; }
+  .site-header .mobile-app-icon { display: block; }
+  .site-mobile-menu { display: block; }
+  .site-mobile-menu summary { display: grid; place-items: center; width: 44px; height: 44px; list-style: none; cursor: pointer; border: 1px solid var(--color-line); border-radius: 12px; background: #fff; }
+  .site-mobile-menu summary::-webkit-details-marker { display: none; }
+  .site-menu-close { display: none; }
+  .site-mobile-menu[open] .site-menu-open { display: none; }
+  .site-mobile-menu[open] .site-menu-close { display: block; }
+  .site-mobile-menu nav { position: absolute; top: calc(100% - 3px); inset-inline-end: 14px; z-index: 60; width: min(260px, calc(100% - 28px)); display: flex; flex-direction: column; padding: 8px; gap: 2px; border: 1px solid var(--color-line); border-radius: 16px; background: #fff; box-shadow: 0 12px 32px #10213f18; }
+  .site-mobile-menu nav a { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; border-radius: 9px; color: var(--ink); font-size: 14px; font-weight: 700; }
+  .site-mobile-menu nav a:is(:hover, :focus-visible) { background: #fff0de; }
+}
+@media (max-width: 600px) {
+  .landing-main { padding-inline: 14px; }
+  .hero-showcase { margin-top: 14px; padding: 16px 14px 6px; }
+  .hero-layout { grid-template-columns: minmax(0, 1fr) minmax(76px, 30%); gap: 12px 12px; }
+  .hero-copy h1 { font-size: clamp(21px, 6vw, 26px); font-weight: 800; overflow-wrap: anywhere; line-height: 1.55; }
+  .hero-actions .site-button { min-width: 0; white-space: normal; gap: 6px; }
+  .hero-actions svg { flex-shrink: 0; }
+  .hero-copy p { font-size: 12px; line-height: 1.9; }
+  .hero-copy .eyebrow { font-size: 10px; font-weight: 700; }
+  .showcase-arrows button { border: 0; background: transparent; }
+  .showcase-arrows button svg { box-sizing: content-box; width: 16px; height: 16px; padding: 7px; border: 1px solid #10213f26; background: #fff; border-radius: 10px; }
+  .service-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; padding: 0; gap: 6px; }
+  .service-strip > span { font-size: 11px; line-height: 1.6; padding: 8px 4px; justify-content: center; gap: 4px; }
+  .service-strip svg { width: 14px; height: 14px; }
+  .public-catalog { padding-block: 22px 12px; }
+  .public-catalog .section-heading { align-items: center; margin-bottom: 14px; }
+  .public-catalog .section-heading h2 { font-size: 21px; font-weight: 800; }
+  .public-catalog-hint { max-width: none; font-size: 11px; }
+  .store-carousel-heading { display: none; }
+  .public-store-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; overflow: visible; padding: 0; }
+  .public-store-list > button { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 8px; padding: 12px 9px; min-height: 76px; border-radius: 14px; text-align: right; }
+  .public-store-logo { width: 38px; height: 38px; border-radius: 10px; }
+  .public-store-list > button > span:nth-child(2) { min-width: 0; font-size: 12px; font-weight: 700; text-align: right; line-height: 1.7; overflow-wrap: anywhere; }
+  .public-store-list small { font-size: 10px; margin-top: 2px; }
+  .public-store-list > button > svg { display: none; }
+  .public-store-carousel { margin-bottom: 20px; }
+  .public-products-title { font-size: 15px; margin: 0 0 10px; }
+  .public-product-grid { display: grid; grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; overflow: visible; padding: 0; }
+  .public-product-grid.is-single { grid-template-columns: minmax(0, 1fr); }
+  .public-product-grid.is-single .public-product-card { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; }
+  .public-product-grid.is-single .public-product-image { height: 100%; min-height: 100px; }
+  .public-product-image img { object-fit: contain; background: #f8fafb; }
+  .public-product-copy strong { font-size: 13px; font-weight: 700; }
+  .capital-site:not([data-careers=true]) > .mascot-support { display: none; }
+  .mobile-order-bar { display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 10px; padding-inline: 12px; }
+  .mobile-order-bar > div { display: none; }
+  .mobile-order-bar strong { font-size: 12px; line-height: 1.7; }
+  .mobile-order-bar span { font-size: 10px; }
+  .mobile-order-bar button { font-size: 13px; padding-inline: 12px; min-width: 0; white-space: normal; }
+  .mobile-order-bar .mascot-support { display: flex; position: relative; inset: auto; width: 48px; height: 48px; }
+  .mobile-order-bar .mascot-support-portrait { width: 48px; height: 48px; }
+  .mobile-order-bar .mascot-support-badge { width: 20px; height: 20px; }
+  .mobile-order-bar .mascot-support-badge svg { width: 11px; height: 11px; }
+  .mobile-order-bar .mascot-support-label { left: 0; bottom: 60px; }
 }

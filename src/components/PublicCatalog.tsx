@@ -15,10 +15,10 @@ export default function PublicCatalog({ onSelect }: { onSelect: (item: AppSelect
     const stopStores=watchCollection<Store>('stores', data => setStores(data.filter(item => item.name)), () => setStores([]), [where('status','==','open'),limit(12)]);
     return () => {stopProducts();stopStores();};
   }, []);
-  const availableProducts=products.filter(product => stores.some(store => store.id === product.storeId));
+  const availableProducts=products.filter(product => stores.some(store => store.id === product.storeId)).sort((a,b)=>a.name.localeCompare(b.name,'ar',{numeric:true})).slice(0,4);
   if(!availableProducts.length && !stores.length)return null;
-  return <section className="public-catalog" aria-labelledby="public-catalog-title"><div className="section-heading"><div><span className="eyebrow">من متاجر العاصمة</span><h2 id="public-catalog-title">اختار اللي على مزاجك.</h2></div><span className="public-catalog-hint">اكمل طلبك في التطبيق</span></div>
+  return <section className="public-catalog" aria-labelledby="public-catalog-title"><div className="section-heading"><div><span className="eyebrow">قريبين منك</span><h2 id="public-catalog-title">اختار متجرك</h2></div><span className="public-catalog-hint">الطلب من التطبيق</span></div>
     {stores.length>0 && <StoreCarousel stores={stores} onSelect={onSelect} />}
-    {availableProducts.length>0 && <div className="public-product-grid">{availableProducts.map(product=><button key={product.id} className="public-product-card" onClick={()=>onSelect({title:product.name,kind:'product'})}><span className="public-product-image"><ShoppingBag size={30}/>{product.imageUrl&&<img src={product.imageUrl} alt="" loading="lazy" onError={event=>{event.currentTarget.style.visibility='hidden';}}/>}</span><span className="public-product-copy"><strong>{product.name}</strong><small>{product.storeName}</small><span><b>{formatEGP(product.price)}</b><ArrowLeft size={17}/></span></span></button>)}</div>}
+    {availableProducts.length>0 && <><h3 className="public-products-title">منتجات مختارة</h3><div className={`public-product-grid${availableProducts.length===1?' is-single':''}`}>{availableProducts.map(product=><button key={product.id} className="public-product-card" onClick={()=>onSelect({title:product.name,kind:'product'})}><span className="public-product-image"><ShoppingBag size={30}/>{product.imageUrl&&<img src={product.imageUrl} alt="" loading="lazy" onError={event=>{event.currentTarget.style.visibility='hidden';}}/>}</span><span className="public-product-copy"><strong>{product.name}</strong><small>{product.storeName}</small><span><b>{formatEGP(product.price)}</b><ArrowLeft size={17}/></span></span></button>)}</div></>}
   </section>;
 }

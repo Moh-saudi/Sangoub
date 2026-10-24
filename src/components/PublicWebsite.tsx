@@ -2,8 +2,8 @@ import CareersPage from "./CareersPage";
 import "../site-motion.css";
 import { useSiteMotion } from "../utils/useSiteMotion";
 import { DeploymentVersion } from "./DeploymentVersion";
-import { lazy, Suspense, useRef, useState } from "react";
-import { ArrowLeft, Bike, Building2, Coffee, MapPin, ShoppingBag, Tag } from "lucide-react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { ArrowLeft, Bike, Building2, Coffee, MapPin, Menu, ShoppingBag, Smartphone, Tag, X } from "lucide-react";
 import { AppPromotionDialog, type AppSelection } from "./AppPromotionDialog";
 const PublicOffers = lazy(() => import("./PublicOffers"));
 const PublicCatalog = lazy(() => import("./PublicCatalog"));
@@ -22,19 +22,36 @@ export function PublicWebsite() {
   const offers = /^\/offers\/?$/.test(window.location.pathname);
   const careers = /^\/careers\/?$/.test(window.location.pathname);
   const site = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDetailsElement>(null);
   useSiteMotion(site);
+  useEffect(() => {
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !menu.current?.contains(event.target)) menu.current?.removeAttribute('open');
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && menu.current?.open) {
+        menu.current.open = false;
+        menu.current.querySelector('summary')?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+  }, []);
   const [showApp, setShowApp] = useState(false);
   const [selection, setSelection] = useState<AppSelection | undefined>();
   const openApp = () => { setSelection(undefined); setShowApp(true); };
   const selectItem = (item: AppSelection) => { setSelection(item); setShowApp(true); };
   const openPartners = () => document.getElementById("partners")?.scrollIntoView({ behavior: "smooth" });
+  const links = () => <><a href="/offers" aria-current={offers ? "page" : undefined}>العروض</a><a href="/#how-it-works">كيف تعمل؟</a><a href="/#partners">للمطاعم والمتاجر</a><a href="/careers">الوظائف</a><a href="#contact">تواصل معنا</a></>;
   return <div ref={site} data-careers={careers} className="capital-site min-h-screen text-slate-900" dir="rtl">
     <a className="skip-link" href="#main-content">انتقل إلى المحتوى</a>
     <DeploymentVersion publicSite />
     <header className="site-header">
       <a href="/" className="site-brand" aria-label="طلبات العاصمة — الرئيسية"><img className="official-logo" src={logo} alt="شعار طلبات العاصمة الرسمي" width="80" height="80" /><span><span className="brand-accent">طلبات</span> العاصمة<small lang="en" dir="ltr">Capital Talabat</small></span></a>
-      <nav className="site-nav" aria-label="القائمة الرئيسية"><a href="/offers" aria-current={offers ? "page" : undefined}>العروض</a><a href="/#how-it-works">كيف تعمل؟</a><a href="/#partners">للمطاعم والمتاجر</a><a href="/careers">الوظائف</a><a href="#contact">تواصل معنا</a></nav>
-      <button className="site-button site-button-dark google-play-button" aria-label="تطبيق الموبايل" onClick={openApp}><img src="/images/google-play-badge.svg" alt="Google Play" width="135" height="40" /></button>
+      <nav className="site-nav" aria-label="القائمة الرئيسية">{links()}</nav>
+      <button className="site-button site-button-dark google-play-button" aria-label="تطبيق الموبايل" onClick={openApp}><img src="/images/google-play-badge.svg" alt="Google Play" width="135" height="40" /><Smartphone className="mobile-app-icon" size={21} /></button>
+      <details ref={menu} className="site-mobile-menu"><summary aria-label="قائمة الموقع"><Menu className="site-menu-open" size={22} /><X className="site-menu-close" size={22} /></summary><nav aria-label="القائمة الرئيسية" onClick={() => menu.current?.removeAttribute('open')}>{links()}</nav></details>
     </header>
     <main id="main-content" tabIndex={-1} className="landing-main">
       {careers ? <CareersPage /> : offers ? <Suspense fallback={<p className="offers-state" role="status">جارٍ تحميل صفحة العروض…</p>}><PublicOffers onSelect={selectItem} /></Suspense> : <>
@@ -61,7 +78,7 @@ export function PublicWebsite() {
     </main>
     <footer className="site-footer" id="contact"><div className="footer-brand"><img className="official-logo" src={logo} alt="طلبات العاصمة" width="80" height="80" loading="lazy" /><div><strong>طلبات العاصمة</strong><p>خدمة موظفي الحي الحكومي · العاصمة الإدارية</p></div></div><nav aria-label="روابط الموقع" className="flex flex-wrap gap-5 items-center"><a href={whatsapp} target="_blank" rel="noopener noreferrer">تواصل عبر واتساب</a><a href="mailto:info@el7lm.com">راسلنا</a><a href="/admin">دخول الإدارة</a></nav><small>© 2026 جميع الحقوق محفوظة لشركة ميسك للتكنولوجيا.</small></footer>
     {!showApp && <MascotSupport />}
-    {!showApp && !careers && <div className="mobile-order-bar"><div><strong>طلبك لحد مكتبك</strong><span>في الحي الحكومي</span></div><button onClick={openApp}>اطلب من التطبيق <ArrowLeft size={17} /></button></div>}
+    {!showApp && !careers && <div className="mobile-order-bar"><div><strong>طلبك لحد مكتبك</strong><span>في الحي الحكومي</span></div><button onClick={openApp}>اطلب من التطبيق <ArrowLeft size={17} /></button><MascotSupport /></div>}
     <AppPromotionDialog open={showApp} selection={selection} appUrl={appUrl} onClose={() => setShowApp(false)} />
   </div>;
 }

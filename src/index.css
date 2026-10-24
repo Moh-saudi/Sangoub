@@ -2,6 +2,14 @@
 @layer theme, base, bootstrap, components, utilities;
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Cairo Web';
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/fonts/cairo-variable.woff') format('woff');
+}
+
 :root {
   color-scheme: light;
   --font-ui: 'Cairo', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -30,7 +38,7 @@
 }
 
 html { scroll-behavior: smooth; scroll-padding-top: 110px; }
-body { margin: 0; min-width: 320px; font-family: var(--font-ui); color: var(--color-ink); line-height: 1.8; }
+body { margin: 0; min-width: 0; font-family: var(--font-ui); color: var(--color-ink); line-height: 1.8; }
 button, input, select, textarea { font: inherit; }
 button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 button, a { touch-action: manipulation; }

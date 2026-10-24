@@ -57,7 +57,7 @@ export default defineConfig(() => {
         workbox: {
           // Only Vite's hashed chunks are immutable; public/assets images are not.
           dontCacheBustURLsMatching: /^assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/,
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff2}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff,woff2}'],
           // Fetch current HTML on navigation instead of pinning visitors to precached releases.
           globIgnores: ['**/index.html'],
           navigateFallback: null,

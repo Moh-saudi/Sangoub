@@ -36,11 +36,12 @@ try{
  for(const width of [390,768,1440]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'public overflow '+width);}
  await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).click();await page.getByRole('dialog').waitFor();await page.getByRole('button',{name:'إغلاق',exact:true}).click();
  // Every hero slide fits small screens; app prompts remain dismissible without a release URL.
- for(const width of [320,360,390,430,768,1440]){
+ for(const width of [320,360,367,390,430,768,1440]){
   await page.setViewportSize({width,height:844});
   for(let slide=1;slide<=4;slide++){
    await page.getByRole('button',{name:new RegExp('^عرض الميزة '+slide+':')}).click();
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'public hero overflow '+width+' slide '+slide);
+   for(const selector of ['.site-brand','.hero-copy h1','.hero-copy p','.hero-actions'])assert.equal(await page.locator(selector).evaluate(el=>el.scrollWidth>el.clientWidth+1),false,'no clipped content '+selector+' at '+width+' slide '+slide);
   }
   if(width<=430){
    const brand=await page.locator('.site-brand').boundingBox(),app=await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).boundingBox();assert.ok(Math.abs(brand.y-app.y)<12,'mobile brand and app share a row');
@@ -67,17 +68,18 @@ try{
  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await support.locator('.mascot-support-portrait').evaluate(el=>getComputedStyle(el).animationName),'none','mascot respects reduced motion');
  for(const width of [320,390,600,768,1440]){
   await page.setViewportSize({width,height:844});const box=await support.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width&&box.height>=44,'support is a visible touch target');
-  if(width<=600){const bar=await page.locator('.mobile-order-bar').boundingBox();assert.ok(box.y+box.height<bar.y,'mascot stays above the mobile order bar');}
+  if(width<=600){const bar=await page.locator('.mobile-order-bar').boundingBox();assert.ok(box.y>=bar.y&&box.y+box.height<=bar.y+bar.height,'mascot sits inside the mobile bar without covering products');}
  }
  await page.setViewportSize({width:390,height:844});await accessible(page,'mobile mascot support');await page.emulateMedia({reducedMotion:'no-preference'});
- await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).getByAltText('Google Play',{exact:true}).waitFor();
+ await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).locator('.mobile-app-icon').waitFor();
+ await page.getByLabel('قائمة الموقع',{exact:true}).click();await page.getByRole('navigation',{name:'القائمة الرئيسية'}).waitFor();await page.keyboard.press('Escape');assert.equal(await page.locator('.site-mobile-menu').getAttribute('open'),null,'mobile menu closes with Escape');
  assert.equal(await page.locator('.public-how>div').evaluate(el=>el.scrollWidth>el.clientWidth),false,'all ordering steps fit without sideways scrolling');
  assert.ok((await page.locator('.food-grid').boundingBox()).height<200,'discovery categories fit in one compact row');
  assert.ok((await page.locator('.service-strip').boundingBox()).height<60,'service information uses one compact strip');
  await page.getByRole('button',{name:/^عرض الميزة 1:/}).click();await page.getByRole('button',{name:'الصورة التالية',exact:true}).click();assert.equal(await page.locator('.hero-showcase').getAttribute('data-theme'),'morning');await page.getByRole('button',{name:'الصورة السابقة',exact:true}).click();assert.equal(await page.locator('.hero-showcase').getAttribute('data-theme'),'delivery');
  const swipeTarget=page.locator('.showcase-images');await swipeTarget.dispatchEvent('pointerdown',{clientX:50,clientY:200,pointerId:1});await swipeTarget.dispatchEvent('pointerup',{clientX:130,clientY:203,pointerId:1});assert.equal(await page.locator('.hero-showcase').getAttribute('data-theme'),'morning','horizontal swipe changes slides');
  await swipeTarget.dispatchEvent('pointerdown',{clientX:100,clientY:200,pointerId:1});await swipeTarget.dispatchEvent('pointerup',{clientX:102,clientY:280,pointerId:1});assert.equal(await page.locator('.hero-showcase').getAttribute('data-theme'),'morning','vertical scrolling does not change slides');
- await page.getByRole('navigation',{name:'القائمة الرئيسية'}).getByRole('link',{name:'الوظائف',exact:true}).click();await page.getByRole('heading',{name:'مكانك مع فريقنا.',exact:true}).waitFor();
+ await page.getByLabel('قائمة الموقع',{exact:true}).click();await page.getByRole('navigation',{name:'القائمة الرئيسية'}).getByRole('link',{name:'الوظائف',exact:true}).click();await page.getByRole('heading',{name:'مكانك مع فريقنا.',exact:true}).waitFor();
  assert.equal(new URL(page.url()).pathname,'/careers');assert.equal(await page.getByRole('link',{name:'استفسر عن فرص العمل',exact:true}).count(),3);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'careers mobile overflow');
  await page.emulateMedia({reducedMotion:'reduce'});await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:join(tmpdir(),'capital-careers-mobile.png'),fullPage:true});await page.emulateMedia({reducedMotion:'no-preference'});await page.getByRole('link',{name:'العودة للرئيسية',exact:true}).click();await page.setViewportSize({width:1440,height:1000});
  await page.getByRole('link',{name:'دخول الإدارة',exact:true}).click();await page.waitForURL('**/admin');
@@ -174,12 +176,16 @@ try{
  // A signed-out visitor sees only real public catalog records and can continue via the app prompt.
  await services.db.doc('stores/'+catalogStore).update({status:'open'});
  for(let i=0;i<5;i++)await services.db.doc('stores/carousel-'+i).set({id:'carousel-'+i,name:'متجر اختبار الشريط '+i,status:'open',type:'اختبار معزول'});
- const visitorContext=await browser.newContext({viewport:{width:390,height:844}});const visitor=await visitorContext.newPage();await visitor.goto('http://127.0.0.1:3105/');
+ const visitorContext=await browser.newContext({viewport:{width:820,height:844}});const visitor=await visitorContext.newPage();await visitor.goto('http://127.0.0.1:3105/');
  await visitor.getByRole('button',{name:'المتاجر التالية',exact:true}).waitFor();await visitor.getByRole('button',{name:'إيقاف حركة المتاجر',exact:true}).click();assert.equal(await visitor.getByRole('button',{name:'تشغيل حركة المتاجر',exact:true}).getAttribute('aria-pressed'),'false');await visitor.getByRole('button',{name:'المتاجر التالية',exact:true}).click();await visitor.waitForFunction(()=>Math.abs(document.querySelector('.public-store-list').scrollLeft)>20);await visitor.getByRole('button',{name:'المتاجر السابقة',exact:true}).click();await visitor.waitForFunction(()=>Math.abs(document.querySelector('.public-store-list').scrollLeft)<3);
 
+ await visitor.setViewportSize({width:390,height:844});assert.equal(await visitor.getByRole('button',{name:'المتاجر التالية',exact:true}).isVisible(),false,'mobile stores do not need carousel controls');assert.equal(await visitor.locator('.public-store-list').evaluate(el=>el.scrollWidth>el.clientWidth),false,'mobile store grid fits the viewport');
  await visitor.getByRole('button',{name:/اختبار بوابة الإدارة.*مفتوح الآن/}).click();const visitorPrompt=visitor.getByRole('dialog',{name:'نكمل على التطبيق؟',exact:true});await visitorPrompt.getByText('اختبار بوابة الإدارة',{exact:true}).waitFor();await visitorPrompt.getByRole('button',{name:'أكمل تصفح الموقع',exact:true}).click();
  await visitor.getByRole('button',{name:/صنف اختبار 02/}).click();await visitorPrompt.getByText('صنف اختبار 02',{exact:true}).waitFor();await visitorPrompt.getByRole('button',{name:'إغلاق',exact:true}).click();
- assert.equal(await visitor.getByRole('button',{name:/صنف اختبار 01/}).count(),0,'unavailable products do not appear in the public catalog');assert.equal(await visitor.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'real public catalog mobile overflow');await visitor.screenshot({path:join(tmpdir(),'capital-public-catalog.png'),fullPage:true});await services.db.doc('stores/'+catalogStore).update({status:'closed'});await visitor.getByRole('button',{name:/صنف اختبار 02/}).waitFor({state:'hidden'});await visitor.close();
+ assert.equal(await visitor.getByRole('button',{name:/صنف اختبار 01/}).count(),0,'unavailable products do not appear in the public catalog');assert.equal(await visitor.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'real public catalog mobile overflow');await visitor.screenshot({path:join(tmpdir(),'capital-public-catalog.png'),fullPage:true});const catalogSnapshot=await services.db.collection('products').get();const oneItem=services.db.batch();for(const doc of catalogSnapshot.docs)oneItem.update(doc.ref,{inStock:doc.id==='catalog-layout-2'});await oneItem.commit();
+ await visitor.waitForFunction(()=>document.querySelector('.public-product-grid.is-single'));const single=await visitor.locator('.public-product-card').boundingBox(),singleGrid=await visitor.locator('.public-product-grid').boundingBox();assert.equal(await visitor.locator('.public-product-card').count(),1);assert.ok(Math.abs(single.width-singleGrid.width)<1,'a lone product fills the row');assert.ok(single.height<180,'a lone product uses a compact horizontal card');
+ const restoreStock=services.db.batch();for(const doc of catalogSnapshot.docs)restoreStock.update(doc.ref,{inStock:doc.data().inStock});await restoreStock.commit();
+ await services.db.doc('stores/'+catalogStore).update({status:'closed'});await visitor.getByRole('button',{name:/صنف اختبار 02/}).waitFor({state:'hidden'});await visitor.close();
  // Create an offer on an existing product, then observe real-time public eligibility.
  await page.setViewportSize({width:1440,height:1000});
  const navigation=page.getByRole('navigation',{name:'أقسام إدارة التشغيل'});
