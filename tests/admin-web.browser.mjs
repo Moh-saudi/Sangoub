@@ -44,13 +44,13 @@ try{
   }
   if(width<=430){
    const brand=await page.locator('.site-brand').boundingBox(),app=await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).boundingBox();assert.ok(Math.abs(brand.y-app.y)<12,'mobile brand and app share a row');
-   const photo=await page.locator('.showcase-images').boundingBox(),hero=await page.locator('.hero-showcase').boundingBox();assert.ok(photo.y<180&&photo.height>=140&&photo.height<=220,'mobile photograph leaves room for the message');assert.ok(hero.height<600,'mobile hero has no oversized fixed height');
+   const mascot=await page.locator('.showcase-images').boundingBox(),hero=await page.locator('.hero-showcase').boundingBox();assert.ok(mascot.height>=75&&mascot.height<=150,'mobile mascot is compact beside the message');assert.ok(hero.height<360,'mobile carousel fits within a compact card');assert.ok(mascot.x+mascot.width<=hero.x+hero.width,'mascot remains inside the carousel');
    const action=await page.locator('.hero-actions button').boundingBox(),bar=await page.locator('.mobile-order-bar').boundingBox();assert.ok(action.y+action.height<bar.y,'primary action is visible above the fixed bar without scrolling');
    assert.equal(await page.locator('.showcase-controls').evaluate(el=>el.scrollWidth>el.clientWidth),false,'mobile carousel controls fit');
    for(const button of await page.locator('.showcase-arrows button').all()){const box=await button.boundingBox();assert.ok(box.width>=44&&box.height>=44,'carousel buttons have accessible touch targets');}
   }
  }
- await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:/^عرض الميزة 1:/}).click();await page.waitForFunction(()=>{const slide=document.querySelector('.showcase-image.is-active'),img=slide?.querySelector('img');return slide&&Number(getComputedStyle(slide).opacity)>.99&&img?.complete&&img.naturalWidth>0;});await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:join(tmpdir(),'capital-public-mobile.png'),fullPage:false});
+ await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:/^عرض الميزة 1:/}).click();await page.waitForFunction(()=>{const img=document.querySelector('.showcase-images img');return img?.complete&&img.naturalWidth===512;});await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:join(tmpdir(),'capital-public-mobile.png'),fullPage:false});
  await page.getByRole('button',{name:/فطار يظبط يومك/}).click();const appPrompt=page.getByRole('dialog',{name:'نكمل على التطبيق؟',exact:true});await appPrompt.waitFor();
  await appPrompt.getByText('فطار يظبط يومك',{exact:true}).waitFor();await appPrompt.getByText('رابط التحميل الرسمي سيتاح قريبًا.',{exact:true}).waitFor();
  for(const [width,height] of [[320,568],[390,650],[667,375]]){
@@ -71,7 +71,12 @@ try{
  }
  await page.setViewportSize({width:390,height:844});await accessible(page,'mobile mascot support');await page.emulateMedia({reducedMotion:'no-preference'});
  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).getByAltText('Google Play',{exact:true}).waitFor();
- assert.equal(await page.locator('.public-how>div').evaluate(el=>el.scrollWidth>el.clientWidth),true,'ordering steps swipe horizontally on mobile');
+ assert.equal(await page.locator('.public-how>div').evaluate(el=>el.scrollWidth>el.clientWidth),false,'all ordering steps fit without sideways scrolling');
+ assert.ok((await page.locator('.food-grid').boundingBox()).height<200,'discovery categories fit in one compact row');
+ assert.ok((await page.locator('.service-strip').boundingBox()).height<60,'service information uses one compact strip');
+ await page.getByRole('button',{name:/^عرض الميزة 1:/}).click();await page.getByRole('button',{name:'الصورة التالية',exact:true}).click();assert.equal(await page.locator('.hero-showcase').getAttribute('data-theme'),'morning');await page.getByRole('button',{name:'الصورة السابقة',exact:true}).click();assert.equal(await page.locator('.hero-showcase').getAttribute('data-theme'),'delivery');
+ const swipeTarget=page.locator('.showcase-images');await swipeTarget.dispatchEvent('pointerdown',{clientX:50,clientY:200,pointerId:1});await swipeTarget.dispatchEvent('pointerup',{clientX:130,clientY:203,pointerId:1});assert.equal(await page.locator('.hero-showcase').getAttribute('data-theme'),'morning','horizontal swipe changes slides');
+ await swipeTarget.dispatchEvent('pointerdown',{clientX:100,clientY:200,pointerId:1});await swipeTarget.dispatchEvent('pointerup',{clientX:102,clientY:280,pointerId:1});assert.equal(await page.locator('.hero-showcase').getAttribute('data-theme'),'morning','vertical scrolling does not change slides');
  await page.getByRole('navigation',{name:'القائمة الرئيسية'}).getByRole('link',{name:'الوظائف',exact:true}).click();await page.getByRole('heading',{name:'مكانك مع فريقنا.',exact:true}).waitFor();
  assert.equal(new URL(page.url()).pathname,'/careers');assert.equal(await page.getByRole('link',{name:'استفسر عن فرص العمل',exact:true}).count(),3);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'careers mobile overflow');
  await page.emulateMedia({reducedMotion:'reduce'});await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:join(tmpdir(),'capital-careers-mobile.png'),fullPage:true});await page.emulateMedia({reducedMotion:'no-preference'});await page.getByRole('link',{name:'العودة للرئيسية',exact:true}).click();await page.setViewportSize({width:1440,height:1000});

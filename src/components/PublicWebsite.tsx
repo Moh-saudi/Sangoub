@@ -39,7 +39,7 @@ export function PublicWebsite() {
     <main id="main-content" tabIndex={-1} className="landing-main">
       {careers ? <CareersPage /> : offers ? <Suspense fallback={<p className="offers-state" role="status">جارٍ تحميل صفحة العروض…</p>}><PublicOffers onSelect={selectItem} /></Suspense> : <>
       <HeroShowcase onOpenApp={openApp} onOpenPartners={openPartners} />
-      <div className="service-strip"><span><MapPin /> الحي الحكومي بالعاصمة الإدارية</span><span><ShoppingBag /> مطاعم وكافيهات ومتاجر</span><span><Building2 /> الوزارة · الدور · المكتب</span></div>
+      <div className="service-strip" role="region" aria-label="نطاق الخدمة" tabIndex={0}><span><MapPin /> الحي الحكومي</span><span><ShoppingBag /> مطاعم ومتاجر</span><span><Building2 /> لحد مكتبك</span></div>
       <Suspense fallback={null}><PublicCatalog onSelect={selectItem} /></Suspense>
       <a href="/offers" className="offers-entry"><Tag size={28}/><div><small>من متاجر العاصمة</small><h2>شوف عروض المنتجات</h2><p>المنتجات المخفّضة المتاحة في مكان واحد.</p></div><ArrowLeft size={22}/></a>
       <section className="food-section" id="discover"><div className="section-heading"><div><span className="eyebrow">على مزاجك</span><h2>لكل بريك، طلبه.</h2></div></div>
@@ -47,7 +47,7 @@ export function PublicWebsite() {
           { image: "breakfast.jpg", title: "فطار يظبط يومك", text: "ابدأ يومك بلقمة حلوة." },
           { image: "coffee.jpg", title: "قهوتك من غير مشوار", text: "بريكك يستاهل تستمتع بيه." },
           { image: "cafe.jpg", title: "اختيارات من حواليك", text: "من مطاعم وكافيهات العاصمة." },
-        ].map(item => <button type="button" onClick={() => selectItem({title:item.title,kind:"category"})} key={item.image} className="public-discovery-card relative overflow-hidden rounded-3xl bg-white border border-slate-100"><img src={`/images/${item.image}`} alt={item.title} loading="lazy" className="h-56 w-full object-cover" /><div className="p-6"><h3 className="font-black text-xl">{item.title}</h3><p className="mt-2 text-slate-500">{item.text}</p><span className="public-card-action">شوف الاختيارات في التطبيق <ArrowLeft size={15} /></span></div></button>)}</div>
+        ].map(item => <button type="button" onClick={() => selectItem({title:item.title,kind:"category"})} key={item.image} className="public-discovery-card relative overflow-hidden rounded-3xl bg-white border border-slate-100"><img src={`/images/${item.image}`} alt={item.title} loading="lazy" className="h-56 w-full object-cover" /><div className="p-6"><h3 className="font-black text-xl">{item.title}</h3><p className="mt-2 text-slate-500">{item.text}</p><span className="public-card-action">شوف في التطبيق <ArrowLeft size={15} /></span></div></button>)}</div>
         <p className="text-xs text-slate-500 mt-4">صور الطعام توضيحية؛ الأصناف والأسعار الفعلية تظهر في التطبيق.</p>
       </section>
       <section id="how-it-works" className="public-how max-w-6xl mx-auto px-6 py-16"><span className="eyebrow">من المنيو إلى مكتبك</span><h2 className="text-3xl font-black mt-3 mb-8">ثلاث خطوات. وبريكك عليك.</h2><div className="grid md:grid-cols-3 gap-6" role="region" aria-label="خطوات الطلب" tabIndex={0}>{[
