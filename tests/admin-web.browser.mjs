@@ -63,14 +63,21 @@ try{
  await page.screenshot({path:join(tmpdir(),'capital-public-app-prompt.png'),fullPage:false});await page.keyboard.press('Escape');await appPrompt.waitFor({state:'hidden'});assert.notEqual(await page.evaluate(()=>document.body.style.overflow),'hidden');
  await page.setViewportSize({width:1440,height:1000});
  await accessible(page,'public homepage');
- const support=page.getByRole('link',{name:'تواصل مع الدعم عبر واتساب',exact:true});assert.equal(await support.getAttribute('href'),'https://wa.me/201017799580');
+ const support=page.getByRole('button',{name:'افتح قائمة السنجاب',exact:true});assert.equal(await support.getAttribute('aria-haspopup'),'dialog');
  assert.equal(await support.locator('img').getAttribute('src'),'/brand/capital-talabat-mascot-logo-256x256.png');
  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await support.locator('.mascot-support-portrait').evaluate(el=>getComputedStyle(el).animationName),'none','mascot respects reduced motion');
  for(const width of [320,390,600,768,1440]){
   await page.setViewportSize({width,height:844});const box=await support.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width&&box.height>=44,'support is a visible touch target');
   if(width<=600){const bar=await page.locator('.mobile-order-bar').boundingBox();assert.ok(box.y+box.height<bar.y,'floating mascot remains visible above the order bar');}
  }
- await page.setViewportSize({width:390,height:844});await accessible(page,'mobile mascot support');await page.emulateMedia({reducedMotion:'no-preference'});
+ await page.setViewportSize({width:390,height:844});await accessible(page,'mobile mascot support');
+ await support.click();const mascotMenu=page.getByRole('dialog',{name:'نساعدك إزاي؟',exact:true});await mascotMenu.waitFor();assert.equal(await support.getAttribute('aria-expanded'),'true');assert.equal(await mascotMenu.getByRole('link').count(),3);
+ for(const [title,word] of [['التواصل مع الدعم','مساعدة'],['طلب أوردر فطار','فطار'],['طلب أوردر سوبر ماركت','سوبر ماركت']]){const link=mascotMenu.getByRole('link',{name:new RegExp('^'+title)});const target=new URL(await link.getAttribute('href'));assert.equal(target.origin,'https://wa.me');assert.equal(target.pathname,'/201017799580');assert.ok(target.searchParams.get('text').includes(word));assert.equal(await link.getAttribute('target'),'_blank');}
+ for(const [width,height] of [[320,568],[367,830],[390,650],[667,375]]){await page.setViewportSize({width,height});const box=await mascotMenu.boundingBox();assert.ok(box.x>=0&&box.y>=0&&box.x+box.width<=width&&box.y+box.height<=height,'mascot choices fit phone and landscape');}
+ await page.setViewportSize({width:390,height:844});await accessible(page,'mascot service chooser');await page.keyboard.press('Tab');assert.equal(await mascotMenu.evaluate(el=>el.contains(document.activeElement)),true,'keyboard focus stays in service chooser');await page.keyboard.press('Escape');await mascotMenu.waitFor({state:'hidden'});assert.equal(await support.getAttribute('aria-expanded'),'false');assert.equal(await support.evaluate(el=>el===document.activeElement),true,'closing restores focus to mascot');assert.notEqual(await page.evaluate(()=>document.body.style.overflow),'hidden');
+ await support.click();await mascotMenu.waitFor();await page.mouse.click(388,2);await mascotMenu.waitFor({state:'hidden'});
+ await context.route('https://wa.me/**',route=>route.fulfill({contentType:'text/plain',body:'WhatsApp navigation intercepted in local browser test.'}));await support.click();const [draft]=await Promise.all([context.waitForEvent('page'),mascotMenu.getByRole('link',{name:/^طلب أوردر فطار/}).click()]);await draft.waitForLoadState('domcontentloaded');assert.ok(new URL(draft.url()).searchParams.get('text').includes('فطار'));await draft.close();await mascotMenu.waitFor({state:'hidden'});await context.unroute('https://wa.me/**');
+ await page.emulateMedia({reducedMotion:'no-preference'});
  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).locator('.mobile-app-icon').waitFor();
  await page.getByLabel('قائمة الموقع',{exact:true}).click();await page.getByRole('navigation',{name:'القائمة الرئيسية'}).waitFor();await page.keyboard.press('Escape');assert.equal(await page.locator('.site-mobile-menu').getAttribute('open'),null,'mobile menu closes with Escape');
  assert.equal(await page.locator('.public-how>div').evaluate(el=>el.scrollWidth>el.clientWidth),false,'all ordering steps fit without sideways scrolling');
