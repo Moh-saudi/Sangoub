@@ -10,6 +10,7 @@ const PublicCatalog = lazy(() => import("./PublicCatalog"));
 import { HeroShowcase } from "./HeroShowcase";
 import { BRAND } from "../brand";
 import { MascotSupport } from "./MascotSupport";
+import { PublicFooter } from "./PublicFooter";
 
 const logo = BRAND.logoSmall;
 const whatsapp = BRAND.supportUrl;
@@ -76,9 +77,9 @@ export function PublicWebsite() {
       <section id="partners" className="public-partners max-w-6xl mx-auto px-6 pb-16"><div className="bg-slate-900 text-white rounded-3xl p-8 md:p-12 flex flex-wrap items-center justify-between gap-8"><div><span className="text-orange-400 font-bold text-sm">للمطاعم والكافيهات والمتاجر</span><h2 className="text-3xl font-black mt-4">مطعمك بالعاصمة؟ قرّب لعملائك.</h2><p className="mt-4 text-slate-300">تواصل مع فريقنا لعرض منتجاتك على طلبات العاصمة.</p></div><a className="site-button site-button-orange btn btn-primary" href={`${whatsapp}?text=${encodeURIComponent("مرحبًا، أريد الانضمام كشريك إلى طلبات العاصمة")}`} target="_blank" rel="noopener noreferrer">انضم كشريك <ArrowLeft size={18} /></a></div></section>
       </>}
     </main>
-    <footer className="site-footer" id="contact"><div className="footer-brand"><img className="official-logo" src={logo} alt="طلبات العاصمة" width="80" height="80" loading="lazy" /><div><strong>طلبات العاصمة</strong><p>خدمة موظفي الحي الحكومي · العاصمة الإدارية</p></div></div><nav aria-label="روابط الموقع" className="flex flex-wrap gap-5 items-center"><a href={whatsapp} target="_blank" rel="noopener noreferrer">تواصل عبر واتساب</a><a href="mailto:info@el7lm.com">راسلنا</a><a href="/admin">دخول الإدارة</a></nav><small>© 2026 جميع الحقوق محفوظة لشركة ميسك للتكنولوجيا.</small></footer>
+    <PublicFooter />
     {!showApp && <MascotSupport />}
-    {!showApp && !careers && <div className="mobile-order-bar"><div><strong>طلبك لحد مكتبك</strong><span>في الحي الحكومي</span></div><button onClick={openApp}>اطلب من التطبيق <ArrowLeft size={17} /></button><MascotSupport /></div>}
+    {!showApp && !careers && <div className="mobile-order-bar"><button onClick={openApp}>اطلب من التطبيق <ArrowLeft size={17} /></button></div>}
     <AppPromotionDialog open={showApp} selection={selection} appUrl={appUrl} onClose={() => setShowApp(false)} />
   </div>;
 }

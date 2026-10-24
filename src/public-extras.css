@@ -453,3 +453,77 @@
   .mobile-order-bar .mascot-support-badge svg { width: 11px; height: 11px; }
   .mobile-order-bar .mascot-support-label { left: 0; bottom: 60px; }
 }
+
+/* Photographic hero: distinct editorial images, readable copy, restrained shadow. */
+.photographic-showcase { background: #10213f; border: 0; box-shadow: 0 8px 24px #10213f1a; color: #fff; }
+.photographic-showcase::before { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(270deg, #10213ff2 0%, #10213fdb 42%, #10213f80 72%, #10213f38 100%); pointer-events: none; }
+.photographic-showcase .hero-photograph { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.photographic-showcase .showcase-images { width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; background: #10213f; box-shadow: none; }
+.photographic-showcase .showcase-images > img { width: 100%; height: 100%; left: 0; top: 0; object-fit: cover; object-position: center; }
+.photographic-showcase .hero-layout { position: relative; z-index: 2; display: block; }
+.photographic-showcase .hero-copy { width: 65%; min-height: 180px; }
+.photographic-showcase .hero-copy .eyebrow { color: #ffd0a7; }
+.photographic-showcase .hero-copy h1 { color: #fff; }
+.photographic-showcase .hero-copy h1 em { color: #ffb477; }
+.photographic-showcase .hero-copy p { color: #ecf1f7; }
+.photographic-showcase .hero-actions { margin-top: 16px; max-width: 420px; }
+.photographic-showcase .quiet-link { color: #fff; }
+.photographic-showcase .showcase-controls { position: relative; z-index: 2; border-color: #ffffff30; }
+.photographic-showcase .showcase-dots button span { background: #ffffff80; }
+.photographic-showcase .showcase-dots button.is-current span { background: #ffb477; }
+.photographic-showcase .showcase-count, .photographic-showcase .showcase-count > span { color: #fff; }
+.photographic-showcase .showcase-arrows button { color: #fff; background: transparent; border-color: #ffffff50; }
+.photographic-showcase .showcase-arrows button svg { background: #10213f50; border-color: #ffffff50; color: #fff; }
+
+/* Both rails remain a single native-scrolling row, including on phones. */
+.public-rail-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.public-rail-heading > span { font-size: 12px; color: var(--muted); }
+.public-rail-heading h3 { margin: 0; }
+.public-rail-controls { display: flex; gap: 2px; flex-shrink: 0; }
+.public-rail-controls button { width: 36px; height: 44px; display: grid; place-items: center; border: 0; background: transparent; color: var(--ink); border-radius: 10px; }
+.public-rail-controls button:hover { background: #edf2f3; }
+.public-store-list { display: flex; gap: 12px; padding: 4px 2px 12px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-inline: contain; scrollbar-width: thin; }
+.public-store-list > button { flex: 0 0 140px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 10px; scroll-snap-align: start; }
+.public-store-list > button > span:nth-child(2) { text-align: center; }
+.public-store-logo { width: 48px; height: 48px; }
+.public-product-grid { display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px 12px; scroll-snap-type: x mandatory; overscroll-behavior-inline: contain; scrollbar-width: thin; }
+.public-product-card { flex: 0 0 200px; scroll-snap-align: start; }
+.public-product-grid.is-single { padding-inline: 0; }
+.public-product-grid.is-single .public-product-card { flex-basis: 100%; display: grid; grid-template-columns: 100px minmax(0,1fr); align-items: center; }
+.public-product-grid.is-single .public-product-image { height: 100%; min-height: 100px; }
+.footer-social > strong { display: block; font-size: 13px; margin-bottom: 8px; }
+.footer-social-icons { display: flex; gap: 8px; flex-wrap: wrap; }
+.social-icon { width: 42px; height: 44px; display: grid; place-items: center; border: 1px solid #cbd9d0; border-radius: 12px; background: #fff; color: #244e40; }
+.social-icon:is(a):hover { color: #ad3909; border-color: #d69068; }
+.social-pending { color: #62766d; }
+.site-footer > nav { width: 100%; }
+.footer-credit { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; width: 100%; padding-top: 18px; border-top: 1px solid #cddad1; }
+.footer-credit > span { font-size: 12px; color: #526773; }
+.executor-wordmark { display: flex; align-items: center; gap: 14px; line-height: 1.1; font-family: system-ui, sans-serif; }
+.executor-wordmark > b { font-size: 30px; font-weight: 900; letter-spacing: -1px; color: #0842b1; }
+.executor-wordmark > i { width: 1px; height: 27px; background: #36414b; }
+.executor-wordmark > strong { font-size: 28px; font-weight: 800; letter-spacing: -1px; color: #007c78; }
+.executor-wordmark > strong > span { color: #6823ca; margin-left: 4px; }
+.footer-credit > small { font-size: 11px; color: #526773; }
+@media (max-width: 600px) {
+  .photographic-showcase .hero-copy { width: 82%; min-height: 172px; }
+  .photographic-showcase .hero-copy h1 { font-size: clamp(24px, 7vw, 30px); }
+  .photographic-showcase .hero-copy p { max-width: 245px; }
+  .photographic-showcase .hero-actions { margin-top: 10px; }
+  .public-store-list > button { flex-basis: 124px; min-height: 130px; }
+  .public-store-list > button > svg { display: none; }
+  .public-product-card { flex-basis: min(175px, 48vw); }
+  .public-how > div { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .public-how article { display: flex; flex-direction: column; align-items: center; padding: 12px 7px; text-align: center; gap: 6px; }
+  .public-how article > div { flex-direction: row; gap: 6px; }
+  .public-how h3 { font-size: 13px; }
+  .public-how article p { font-size: 11px; line-height: 1.8; margin: 0; }
+  .capital-site:not([data-careers=true]) > .mascot-support { display: flex; }
+  .capital-site > .mascot-support { bottom: calc(88px + env(safe-area-inset-bottom)); left: 12px; }
+  .capital-site > .mascot-support .mascot-support-portrait { width: 62px; height: 62px; }
+  .capital-site[data-careers=true] > .mascot-support { bottom: calc(20px + env(safe-area-inset-bottom)); }
+  .mobile-order-bar { display: flex; justify-content: stretch; }
+  .mobile-order-bar > button { width: 100%; }
+  .footer-credit { justify-content: center; text-align: center; gap: 10px; }
+  .footer-credit > span, .footer-credit > small { width: 100%; }
+}

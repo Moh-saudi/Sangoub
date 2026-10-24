@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { BRAND } from "../brand";
 import { ArrowLeft, ArrowRight, Pause, Play } from "lucide-react";
 
 const SLIDES = [
   {
     theme: "delivery",
+    image: "/images/breakfast.jpg",
+    alt: "كرواسون للفطار في بداية اليوم",
     eyebrow: "صديق يومك في العاصمة",
     title: "معاك في يومك،",
     highlight: "لحد مكتبك.",
@@ -14,6 +15,8 @@ const SLIDES = [
   },
   {
     theme: "morning",
+    image: "/images/coffee.jpg",
+    alt: "تشكيلة من القهوة والمشروبات الساخنة",
     eyebrow: "فطارك وبريكك من مكانك",
     title: "بريكك قصير؟",
     highlight: "وفّر المشوار.",
@@ -23,6 +26,8 @@ const SLIDES = [
   },
   {
     theme: "daily",
+    image: "/images/office.jpg",
+    alt: "مساحة عمل مكتبية، لتكمل يومك وطلباتك تصلك",
     eyebrow: "من المطعم والسوبر ماركت",
     title: "طلبات يومك،",
     highlight: "في مكان واحد.",
@@ -32,6 +37,8 @@ const SLIDES = [
   },
   {
     theme: "partners",
+    image: "/images/cafe.jpg",
+    alt: "فريق العمل داخل كافيه",
     eyebrow: "للمطاعم والكافيهات والمتاجر",
     title: "كبر شغلك،",
     highlight: "وقرّب لعملائك.",
@@ -49,6 +56,13 @@ export function HeroShowcase({
   onOpenPartners: () => void;
 }) {
   const [active, setActive] = useState(0);
+  useEffect(() => {
+    for (const slide of SLIDES.slice(1)) {
+      const image = new Image();
+      image.fetchPriority = 'low';
+      image.src = slide.image;
+    }
+  }, []);
   const [autoplay, setAutoplay] = useState(
     () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
@@ -83,7 +97,7 @@ export function HeroShowcase({
     setActive((index) => (index + step + SLIDES.length) % SLIDES.length);
   return (
     <section
-      className="hero-showcase mascot-showcase"
+      className="hero-showcase photographic-showcase"
       data-theme={slide.theme}
       aria-label="مميزات طلبات العاصمة والشراكة"
       aria-roledescription="عرض شرائح"
@@ -114,17 +128,12 @@ export function HeroShowcase({
         }
       }}
     >
+      <div className="hero-photograph"><div className="showcase-images"><img key={slide.image} src={slide.image} alt={slide.alt} width="900" height="640" fetchPriority={active === 0 ? 'high' : 'auto'} /></div></div>
       <div className="hero-layout">
         <div className="hero-copy showcase-copy" aria-live={paused ? "polite" : "off"} aria-atomic="true">
           <span className="eyebrow">{slide.eyebrow}</span>
           <h1>{slide.title}<em>{slide.highlight}</em></h1>
           <p>{slide.description}</p>
-        </div>
-        <div className="hero-photograph">
-          <div className="showcase-images">
-            <img src={BRAND.logoLarge} alt="سنجاب طلبات العاصمة، صديقك في كل خطوة" width="512" height="512" fetchPriority="high" />
-          </div>
-          <span className="hero-mascot-caption">طلبات العاصمة</span>
         </div>
         <div className="hero-actions">
           <button className="site-button site-button-orange btn btn-primary" onClick={slide.partner ? onOpenPartners : onOpenApp}>
