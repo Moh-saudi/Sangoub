@@ -34,7 +34,7 @@ test('parallel retries, repeated visits and returning browsers never inflate the
  let stats = (await call('GET', {}, { authorization: 'Bearer ' + token })).result;
  assert.equal(stats.total, 1);assert.equal(stats.today, 1);assert.ok(stats.startedAt);
  const visitor = services.db.doc('siteVisitors/' + createHash('sha256').update(visitorId).digest('hex'));
- assert.deepEqual((await visitor.get()).data(), { lastDay: cairoVisitorDay() });
+ assert.deepEqual((await visitor.get()).data(), { lastDay: cairoVisitorDay(), source: 'direct', events: [] });
  // Model an existing browser last seen yesterday, with today's counter reset.
  await visitor.update({ lastDay: '2000-01-01' });await services.db.doc('siteMetricDays/' + cairoVisitorDay()).set({ visitors: 0 });
  await call('POST', { visitorId });stats = (await call('GET', {}, { authorization: 'Bearer ' + token })).result;
@@ -46,4 +46,24 @@ test('parallel retries, repeated visits and returning browsers never inflate the
 });
 test('day boundary uses Cairo rather than UTC', () => {
  assert.equal(cairoVisitorDay(new Date('2026-10-24T22:30:00Z')), '2026-10-25');
+});
+
+test('sources and event stages are unique per browser/day, support legacy visitors, and cannot expose order data', async () => {
+ const visitorId=randomUUID();
+ await services.db.doc('siteVisitors/'+createHash('sha256').update(visitorId).digest('hex')).set({lastDay:cairoVisitorDay()});
+ const before=(await call('GET',{}, {authorization:'Bearer '+token})).result;
+ const priorSource=before.days[6].sources.facebook||0, priorEvents=before.days[6].events.mascot_open||0;
+ await Promise.all(Array.from({length:3},()=>call('POST',{visitorId,source:'facebook',event:'mascot_open'})));
+ await call('POST',{visitorId,source:'whatsapp',event:'breakfast'});
+ await call('POST',{visitorId,source:'facebook',event:'review_breakfast'});
+ await call('POST',{visitorId,source:'facebook',event:'whatsapp_breakfast'});
+ const after=(await call('GET',{}, {authorization:'Bearer '+token})).result;
+ assert.equal(after.total,before.total);assert.equal(after.today,before.today);assert.equal(after.days.length,7);
+ assert.equal(new Set(after.days.map((day:any)=>day.day)).size,7);
+ assert.equal(after.days[6].sources.facebook,priorSource+1);
+ assert.equal(after.days[6].events.mascot_open,priorEvents+1);
+ for(const event of ['breakfast','review_breakfast','whatsapp_breakfast'])assert.ok(after.days[6].events[event]>=1);
+ assert.ok(after.analyticsStartedAt);
+ for(const input of [{visitorId,event:'arbitrary'},{visitorId,source:'private-value'},{visitorId,event:'breakfast',name:'forbidden'}])assert.equal((await call('POST',input)).status,400);
+ assert.equal((await call('GET')).status,401);
 });

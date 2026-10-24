@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, Coffee, Minus, Plus, ShoppingBag } from 'lucide-react';
+import { trackSiteEvent } from '../utils/siteAnalytics';
 import { BRAND } from '../brand';
 import { BREAKFAST_MENU, SUPERMARKET_MENU, MAX_ITEM_QUANTITY, MAX_BREAKFAST_QUANTITY, breakfastCount, breakfastLines, breakfastPaymentLabel, buildBreakfastMessage, parseBreakfastQuantity, type BreakfastDraft } from '../utils/breakfastOrder';
 
@@ -25,7 +26,7 @@ export function BreakfastOrder({ active, onBack, onSend, kind = 'breakfast' }: {
   if (step === 'review') { try { message = buildBreakfastMessage(draft, menu, orderName); } catch { /* Review is only entered after validation. */ } }
   const target = new URL(BRAND.supportUrl); target.searchParams.set('text', message);
   const headings = { category: 'تحب تطلب إيه؟', items: 'حدد عدد كل صنف', details: 'اسمك والتوصيل والدفع', review: 'راجع طلبك قبل واتساب' };
-  return <form className={`breakfast-flow${supermarket ? ' supermarket-flow' : ''}`} onSubmit={event => { event.preventDefault(); if(step !== 'details')return; try { buildBreakfastMessage(draft, menu, orderName); go('review'); } catch(e) { setError((e as Error).message); } }}>
+  return <form className={`breakfast-flow${supermarket ? ' supermarket-flow' : ''}`} onSubmit={event => { event.preventDefault(); if(step !== 'details')return; try { buildBreakfastMessage(draft, menu, orderName); trackSiteEvent(supermarket ? 'review_supermarket' : 'review_breakfast'); go('review'); } catch(e) { setError((e as Error).message); } }}>
     <div className="breakfast-progress"><button type="button" className="breakfast-back" onClick={() => step === 'category' ? onBack() : go(step === 'items' ? 'category' : step === 'details' ? 'items' : 'details')}><ArrowRight size={16} />رجوع</button><span>{step === 'category' || step === 'items' ? '1 · الأصناف' : step === 'details' ? '2 · بياناتك' : '3 · المراجعة'}</span></div>
     <h3 ref={title} tabIndex={-1} className="breakfast-step-title">{headings[step]}</h3>
     {error && <p role="alert" className="breakfast-error">{error}</p>}
