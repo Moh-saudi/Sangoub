@@ -48,7 +48,7 @@ export function PublicWebsite() {
         ].map(item => <button type="button" onClick={() => selectItem({title:item.title,kind:"category"})} key={item.image} className="public-discovery-card relative overflow-hidden rounded-3xl bg-white border border-slate-100"><img src={`/images/${item.image}`} alt={item.title} loading="lazy" className="h-56 w-full object-cover" /><div className="p-6"><h3 className="font-black text-xl">{item.title}</h3><p className="mt-2 text-slate-500">{item.text}</p><span className="public-card-action">شوف الاختيارات في التطبيق <ArrowLeft size={15} /></span></div></button>)}</div>
         <p className="text-xs text-slate-500 mt-4">صور الطعام توضيحية؛ الأصناف والأسعار الفعلية تظهر في التطبيق.</p>
       </section>
-      <section id="how-it-works" className="public-how max-w-6xl mx-auto px-6 py-16"><span className="eyebrow">من المنيو إلى مكتبك</span><h2 className="text-3xl font-black mt-3 mb-8">ثلاث خطوات. وبريكك عليك.</h2><div className="grid md:grid-cols-3 gap-6">{[
+      <section id="how-it-works" className="public-how max-w-6xl mx-auto px-6 py-16"><span className="eyebrow">من المنيو إلى مكتبك</span><h2 className="text-3xl font-black mt-3 mb-8">ثلاث خطوات. وبريكك عليك.</h2><div className="grid md:grid-cols-3 gap-6" role="region" aria-label="خطوات الطلب" tabIndex={0}>{[
         { icon: Coffee, title: "اختار طلبك", text: "تصفح المتاجر والأصناف المتاحة في التطبيق." },
         { icon: Building2, title: "حدّد مكتبك", text: "اسم الوزارة والدور ورقم المكتب؛ العنوان يفرق." },
         { icon: Bike, title: "تابع التوصيل", text: "حالة طلبك من التجهيز حتى الاستلام." },

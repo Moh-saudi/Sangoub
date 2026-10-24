@@ -42,11 +42,22 @@ try{
    await page.getByRole('button',{name:new RegExp('^عرض الميزة '+slide+':')}).click();
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'public hero overflow '+width+' slide '+slide);
   }
-  if(width<=430){const brand=await page.locator('.site-brand').boundingBox(),app=await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).boundingBox();assert.ok(Math.abs(brand.y-app.y)<12,'mobile brand and app share a row');const photo=await page.locator('.showcase-images').boundingBox();assert.ok(photo.y<180&&photo.height>350,'district photograph fills the mobile hero');}
+  if(width<=430){
+   const brand=await page.locator('.site-brand').boundingBox(),app=await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).boundingBox();assert.ok(Math.abs(brand.y-app.y)<12,'mobile brand and app share a row');
+   const photo=await page.locator('.showcase-images').boundingBox(),hero=await page.locator('.hero-showcase').boundingBox();assert.ok(photo.y<180&&photo.height>=140&&photo.height<=220,'mobile photograph leaves room for the message');assert.ok(hero.height<600,'mobile hero has no oversized fixed height');
+   const action=await page.locator('.hero-actions button').boundingBox(),bar=await page.locator('.mobile-order-bar').boundingBox();assert.ok(action.y+action.height<bar.y,'primary action is visible above the fixed bar without scrolling');
+   assert.equal(await page.locator('.showcase-controls').evaluate(el=>el.scrollWidth>el.clientWidth),false,'mobile carousel controls fit');
+   for(const button of await page.locator('.showcase-arrows button').all()){const box=await button.boundingBox();assert.ok(box.width>=44&&box.height>=44,'carousel buttons have accessible touch targets');}
+  }
  }
  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:/^عرض الميزة 1:/}).click();await page.waitForFunction(()=>{const slide=document.querySelector('.showcase-image.is-active'),img=slide?.querySelector('img');return slide&&Number(getComputedStyle(slide).opacity)>.99&&img?.complete&&img.naturalWidth>0;});await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:join(tmpdir(),'capital-public-mobile.png'),fullPage:false});
  await page.getByRole('button',{name:/فطار يظبط يومك/}).click();const appPrompt=page.getByRole('dialog',{name:'نكمل على التطبيق؟',exact:true});await appPrompt.waitFor();
  await appPrompt.getByText('فطار يظبط يومك',{exact:true}).waitFor();await appPrompt.getByText('رابط التحميل الرسمي سيتاح قريبًا.',{exact:true}).waitFor();
+ for(const [width,height] of [[320,568],[390,650],[667,375]]){
+  await page.setViewportSize({width,height});const box=await appPrompt.boundingBox();assert.ok(box.x>=0&&box.y>=0&&box.x+box.width<=width&&box.y+box.height<=height,'app dialog fits small and landscape viewports');
+  await appPrompt.getByRole('link',{name:'استفسر عن التطبيق',exact:true}).scrollIntoViewIfNeeded();assert.equal(await appPrompt.getByRole('link',{name:'استفسر عن التطبيق',exact:true}).isVisible(),true);
+ }
+ await page.setViewportSize({width:390,height:844});
  assert.equal(await page.evaluate(()=>document.body.style.overflow),'hidden');assert.equal(await appPrompt.getByRole('link',{name:'افتح التطبيق',exact:true}).count(),0);
  await page.screenshot({path:join(tmpdir(),'capital-public-app-prompt.png'),fullPage:false});await page.keyboard.press('Escape');await appPrompt.waitFor({state:'hidden'});assert.notEqual(await page.evaluate(()=>document.body.style.overflow),'hidden');
  await page.setViewportSize({width:1440,height:1000});
