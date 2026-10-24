@@ -1,4 +1,6 @@
 import express from "express";
+import operationsHandler from "./api/operations.ts";
+import appContentHandler from "./api/app-content.ts";
 import adminUsersHandler from "./api/admin-users.ts";
 import adminDataHandler from "./api/admin-data.ts";
 import ordersHandler from "./api/orders.ts";
@@ -22,6 +24,11 @@ async function startServer() {
 
   app.use((_req, res, next) => { res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups"); next(); });
   app.use(express.json({ limit: "1mb" }));
+  app.post("/api/operations", operationsHandler);
+  app.options("/api/operations", operationsHandler);
+  app.get("/api/app-content", appContentHandler);
+  app.post("/api/app-content", appContentHandler);
+  app.options("/api/app-content", appContentHandler);
   app.post("/api/admin-users", adminUsersHandler);
   app.options("/api/admin-users", adminUsersHandler);
   app.post("/api/admin-data", adminDataHandler);

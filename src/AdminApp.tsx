@@ -1,5 +1,6 @@
 import { customerMessage } from "./utils/customerMessage";
 import { DeploymentVersion } from "./components/DeploymentVersion";
+import { operationsApi } from "./lib/operationsApi";
 import { adminApi } from "./lib/adminApi";
 import "./admin.css";
 import { useEffect, useState, useRef } from "react";
@@ -41,6 +42,7 @@ export default function AdminApp() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [partners, setPartners] = useState<PartnerApplication[]>([]);
   const [jobs, setJobs] = useState<JobApplication[]>([]);
+  const [workAccount, setWorkAccount] = useState<any>(null);
   const [connected, setConnected] = useState(false);
   const report = (error: unknown) => setError(message(error));
 
@@ -89,6 +91,11 @@ export default function AdminApp() {
     void adminApi("data", {action:"session",event:"open"}).catch(report);
   }, [access, identity?.uid]);
 
+  useEffect(() => {
+    setWorkAccount(null);if(access!=="denied"||!identity)return;
+    let active=true;void operationsApi("operations",{action:"profile"}).then(result=>{if(active)setWorkAccount(result);}).catch(()=>{});
+    return()=>{active=false;};
+  },[access,identity?.uid]);
   async function action(operation: () => Promise<unknown>, success?: string) {
     setBusy(true); setError(""); setNotice("");
     try { await operation(); if (success) setNotice(success); }
@@ -98,7 +105,8 @@ export default function AdminApp() {
   async function assignCourier(orderId: string, courierId: string) {
     const courier = staff.find((person) => person.id === courierId && person.role === "courier");
     if (!courier || !orders.some((order) => order.id === orderId && ["ready", "with_courier"].includes(order.orderStatus))) throw new Error("راجع حالة الطلب والمندوب المختار.");
-    await updateOrderRecord(orderId, { courierId, courierName: courier.name, courierPhone: courier.phone, orderStatus: "with_courier" });
+    const order = orders.find(item => item.id === orderId)!;
+    await updateOrderRecord(orderId, { courierId, courierName: courier.name, courierPhone: courier.phone, ...(order.fulfillmentVersion === 2 ? {} : { orderStatus: "with_courier" as const }) });
   }
   const updateApplication = (collection: string, id: string, status: ApplicationStatus) => {
     void action(() => saveRecord(collection, id, { status }), "تم تحديث الطلب.");
@@ -142,6 +150,7 @@ export default function AdminApp() {
           <button disabled={busy} className="text-sm text-orange-700" onClick={() => action(async () => { if (!email.includes("@")) throw new Error("اكتب بريدك الإلكتروني أولًا."); await sendPasswordResetEmail(auth, email.trim()); }, "إذا كان البريد مسجلًا فستصلك تعليمات استعادة كلمة المرور.")}>نسيت كلمة المرور؟</button>
         </> : access === "verify" ? <><h2 className="font-bold text-xl">أكد بريد الحساب أولًا</h2><p className="text-sm text-slate-600">التحقق من هوية الحساب مطلوب قبل فحص صلاحية الإدارة.</p><button disabled={busy} onClick={() => action(() => sendEmailVerification(identity!), "أُرسلت رسالة تأكيد البريد.")} className="p-3 border rounded-xl text-sm">إرسال رسالة التأكيد</button><button disabled={busy} onClick={() => action(async () => { await identity!.reload(); await identity!.getIdToken(true); setRevision((value) => value + 1); })} className="p-3 mr-2 bg-orange-600 text-white rounded-xl text-sm">تم التأكيد، إعادة الفحص</button></> : <>
           <h2 className="font-black text-xl">الحساب غير مخوّل للإدارة</h2><p className="text-sm text-slate-600 leading-7">استخدم تطبيق الموبايل لحساب الموظف أو الشيف أو المندوب. إذا كنت مسؤول المشروع، اطلب تفعيل صلاحية الإدارة من مسؤول المنصة.</p>
+          {workAccount && ["restaurant","courier"].includes(workAccount.role) && <div className="account-access-guide"><strong>{workAccount.role === "courier" ? "حساب مندوب التوصيل" : workAccount.store?.preparationType === "picking" ? "حساب تحضير السوبر ماركت" : "حساب المطعم والتحضير"}</strong><p>سجل الدخول بنفس الحساب في التطبيق لتظهر مهامك تلقائيًا.{workAccount.store?.name ? ` المتجر المرتبط: ${workAccount.store.name}.` : ""}{workAccount.requiresStoreAssignment ? " اطلب من الإدارة ربط الحساب بمتجر قبل بدء التحضير." : ""}</p></div>}
           <label className="block text-xs space-y-2">معرف حسابك الحقيقي (UID)<input aria-label="معرف حسابك" readOnly value={identity?.uid || ""} dir="ltr" className="w-full p-3 border rounded-xl text-xs" /></label><p className="text-xs text-slate-500">وثيقة الصلاحية: admins / UID نفسه. وجود الوثيقة يمنح الإدارة، وحذفها يلغيها.</p>
           <button disabled={busy} onClick={() => setRevision((value) => value + 1)} className="rounded-xl p-3 border text-sm">إعادة فحص الصلاحية</button>
         </>}

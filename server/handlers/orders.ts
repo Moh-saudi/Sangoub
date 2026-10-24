@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { randomInt } from "node:crypto";
 import { adminServices } from "../firebaseAdmin.ts";
 import { buildOrder } from "../orderBuilder.ts";
+import { rolloutReady, writeTickets } from "../operations.ts";
 import { mobileCors } from "../mobileCors.ts";
 import { GeideaGateway, ChatAmanGateway } from "../integrations.ts";
 export default async function handler(req: any, res: any) {
@@ -51,9 +52,11 @@ export default async function handler(req: any, res: any) {
     )
       return res.status(400).json({ error: "معرّف صنف أو خصم غير صالح." });
     const ref = db.collection("orders").doc(`${identity.uid}_${input.id}`);
-    const result = await db.runTransaction(async (tx) => {
+    const result = await db.runTransaction<Record<string, any>>(async (tx) => {
       const existing = await tx.get(ref);
-      if (existing.exists) return existing.data();
+      if (existing.exists) return existing.data()!;
+      const operationsConfig = await tx.get(db.doc("appConfig/operations"));
+      const useFulfillments = rolloutReady() && operationsConfig.data()?.enabled === true;
       const quotaRef = db.collection("orderLimits").doc(identity.uid);
       const quota = await tx.get(quotaRef);
       const windowStart = Date.now() - 24 * 60 * 60 * 1000;
@@ -95,6 +98,10 @@ export default async function handler(req: any, res: any) {
         coupon as any,
       );
       order.id = ref.id;
+      if (useFulfillments) {
+        Object.assign(order, { fulfillmentVersion: 2, paymentStatus: order.paymentMethod === "cash" ? "cash_on_delivery" : "pending" });
+        writeTickets(db, tx, order, stores);
+      }
       tx.set(quotaRef, {
         startedAt: recent ? quota.data()!.startedAt : Date.now(),
         count: recent ? quota.data()!.count + 1 : 1,
@@ -112,7 +119,7 @@ export default async function handler(req: any, res: any) {
     });
     // إذا كانت طريقة الدفع إلكترونية عبر Geidea
     let paymentResult: any = null;
-    if (result.paymentMethod === "geidea") {
+    if (result.paymentMethod === "geidea" && !process.env.FIRESTORE_EMULATOR_HOST) {
       try {
         paymentResult = await GeideaGateway.createOrderPayment({
           orderId: ref.id,
@@ -128,7 +135,7 @@ export default async function handler(req: any, res: any) {
     }
 
     // إرسال رسالة تأكيد الطلب الفورية عبر واتساب شات أمان
-    if (input.phone) {
+    if (input.phone && !process.env.FIRESTORE_EMULATOR_HOST) {
       ChatAmanGateway.sendOrderConfirmation({
         phone: input.phone,
         customerName: input.profileName || "عميل العاصمة",

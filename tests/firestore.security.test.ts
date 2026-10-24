@@ -409,3 +409,31 @@ test("disabled accounts are denied even with a cached ID token",async()=>{
   await env.withSecurityRulesDisabled(c=>c.firestore().doc('accountAccess/customer').set({disabled:true,revokedBefore:0}));
   await assertFails(db('customer').doc('users/customer').get());
 });
+
+test('V2 tickets and queues cannot be read or forged directly, and merchants cannot read other stores in the parent order',async()=>{
+ await env.withSecurityRulesDisabled(async context=>{const db=context.firestore();await db.doc('orders/o1').update({fulfillmentVersion:2});await db.doc('orders/o1/fulfillments/s1').set({storeId:'s1',items:[],status:'received'});await db.doc('stores/s1/preparationQueue/o1').set({active:true});await db.doc('appConfig/customerHome').set({config:{}});});
+ await assertSucceeds(db('customer').doc('orders/o1').get());
+ await assertSucceeds(db('admin').doc('orders/o1').get());
+ await assertFails(db('restaurant').doc('orders/o1').get());
+ for(const uid of ['customer','restaurant','other-restaurant','courier','admin']){
+  for(const path of ['orders/o1/fulfillments/s1','stores/s1/preparationQueue/o1','courierAssignments/courier/orders/o1','appConfig/customerHome','promotions/forged']){
+   await assertFails(db(uid).doc(path).get());await assertFails(db(uid).doc(path).set({active:true,status:'picked_up',role:'admin',caption:'x'.repeat(10000)}));
+  }
+ }
+ await assertFails(db('customer').doc('orders/o1').update({orderStatus:'cancelled',updatedAt:timestamp()}));
+ await assertFails(db('restaurant').doc('orders/o1').update({orderStatus:'preparing',kitchenStatus:{s1:'preparing'},updatedAt:timestamp()}));
+ await assertFails(db('courier').doc('orders/o1').update({orderStatus:'with_courier',courierChecklist:{onTheWayToMinistry:true},updatedAt:timestamp()}));
+ await assertFails(env.unauthenticatedContext().firestore().collection('appConfig').get());
+ await assertFails(db('restaurant').collection('orders/o1/fulfillments').get());
+ await assertFails(db('restaurant').doc('orders/missing/fulfillments/s1').get());
+});
+
+test('new preparation-only accounts cannot edit prices, create products, close stores or promote their own duty',async()=>{
+ await env.withSecurityRulesDisabled(context=>context.firestore().doc('staff/restaurant').update({duty:'preparer'}));
+ const product={id:'duty-product',storeId:'s1',storeName:'متجر',name:'منتج',description:'اختبار',price:10,category:'فطور',imageType:'foul',inStock:true,updatedAt:timestamp()};
+ await assertFails(db('restaurant').doc('products/duty-product').set(product));
+ await assertFails(db('restaurant').doc('stores/s1').update({status:'closed',updatedAt:timestamp()}));
+ await assertFails(db('restaurant').doc('staff/restaurant').update({duty:'manager'}));
+ await env.withSecurityRulesDisabled(context=>context.firestore().doc('staff/restaurant').update({duty:'manager'}));
+ await assertSucceeds(db('restaurant').doc('products/duty-product').set(product));
+});

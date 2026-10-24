@@ -165,6 +165,9 @@ export interface CourierChecklist {
 }
 
 export interface Order {
+  fulfillmentVersion?: 2;
+  pickedUpStoreIds?: string[];
+  departedAt?: string;
   itemsSummary?: string;
   restaurantName?: string;
   kitchenStatus?: Record<string, "received" | "preparing" | "ready">;

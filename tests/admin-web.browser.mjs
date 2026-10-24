@@ -115,7 +115,7 @@ try{
  await page.setViewportSize({width:1440,height:1000});
  for(const width of [390,768,1440]){
   await page.setViewportSize({width,height:1000});
-  for(const label of ['الطلبات','شاشة المطبخ','المتاجر','المنتجات','عروض المنتجات','أكواد الخصم','المستخدمون','طلبات الشراكة','طلبات التوظيف','سجل التدقيق','مركز العمليات']){
+  for(const label of ['الطلبات','متابعة التحضير','واجهة التطبيق والحملات','المتاجر','المنتجات','عروض المنتجات','أكواد الخصم','المستخدمون','طلبات الشراكة','طلبات التوظيف','سجل التدقيق','مركز العمليات']){
    if(width<=800)await page.getByRole('button',{name:'أقسام الإدارة',exact:true}).click();
    await page.getByRole('navigation',{name:'أقسام إدارة التشغيل'}).getByRole('button',{name:label,exact:true}).click();
    if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)){console.log(await page.evaluate(()=>[...document.querySelectorAll('main *')].filter(el=>{const r=el.getBoundingClientRect();return r.width>innerWidth||r.left<0||r.right>innerWidth;}).slice(0,18).map(el=>({tag:el.tagName,cls:el.className,width:el.getBoundingClientRect().width,text:el.textContent.slice(0,60)}))));await page.screenshot({path:join(tmpdir(),'capital-admin-overflow.png'),fullPage:true});}
@@ -229,6 +229,27 @@ try{
  await navigation.getByRole('button',{name:'المنتجات',exact:true}).click();await page.getByRole('heading',{name:'المنتجات',exact:true}).waitFor();
  await page.goBack();await page.getByRole('heading',{name:'أكواد الخصم',exact:true}).first().waitFor();
  await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:join(tmpdir(),'capital-admin-navigation.png'),fullPage:true});
+ // Customer-home ordering and campaigns are managed on the web, with a safe rollout gate.
+ await navigation.getByRole('button',{name:'واجهة التطبيق والحملات',exact:true}).click();
+ await page.getByRole('heading',{name:'ترتيب الصفحة الرئيسية',exact:true}).waitFor();
+ const storesSection=page.locator('.content-section-row').filter({hasText:'المتاجر'});
+ await storesSection.getByRole('checkbox').uncheck();await page.getByRole('button',{name:'حفظ إعدادات الصفحة',exact:true}).click();
+ await page.getByText('تم حفظ ترتيب الصفحة وإعدادات السلايدر.',{exact:true}).waitFor();
+ const home=await(await page.request.get('http://127.0.0.1:3105/api/app-content')).json();assert.equal(home.config.sections.find(section=>section.type==='stores').enabled,false);
+ await page.getByRole('button',{name:'إضافة حملة',exact:true}).click();const campaignEditor=page.getByRole('dialog',{name:'محرر الحملة',exact:true});
+ await campaignEditor.getByLabel('عنوان الحملة',{exact:true}).fill('حملة ويب اختبار');await campaignEditor.getByLabel('رابط صورة الحملة',{exact:true}).fill('https://example.com/campaign.png');
+ await campaignEditor.getByLabel('نوع الهدف',{exact:true}).selectOption('offers');await campaignEditor.getByRole('button',{name:'حفظ الحملة',exact:true}).click();await campaignEditor.waitFor({state:'hidden'});
+ await page.getByRole('row').filter({hasText:'حملة ويب اختبار'}).waitFor();
+ assert.equal(await page.getByRole('checkbox',{name:'تفعيل تذاكر المتاجر وتأكيد استلام كل نقطة',exact:true}).isDisabled(),true);
+ await accessible(page,'customer-home settings');
+ // Team accounts receive a private password-setup link and an explicit store assignment.
+ await navigation.getByRole('button',{name:'المستخدمون',exact:true}).click();await page.getByRole('button',{name:'إضافة مستخدم',exact:true}).click();
+ const teamEditor=page.getByRole('dialog');await teamEditor.getByLabel('دور المستخدم',{exact:true}).selectOption('restaurant');
+ await teamEditor.getByLabel('متجر الحساب',{exact:true}).selectOption(catalogStore);await teamEditor.getByLabel('مهمة فريق المتجر',{exact:true}).selectOption('preparer');
+ await teamEditor.getByLabel('اسم المستخدم',{exact:true}).fill('تحضير متجر اختبار');await teamEditor.getByLabel('بريد المستخدم',{exact:true}).fill('team-ui@example.com');await teamEditor.getByLabel('سبب تعديل المستخدم',{exact:true}).fill('إنشاء حساب مسؤول التحضير');
+ await teamEditor.getByRole('button',{name:'تأكيد العملية',exact:true}).click();await teamEditor.getByLabel('رابط الاستعادة',{exact:true}).waitFor();assert.ok((await teamEditor.getByLabel('رابط الاستعادة',{exact:true}).inputValue()).length>0);
+ await teamEditor.getByRole('button',{name:'إغلاق إدارة المستخدم',exact:true}).click();await teamEditor.waitFor({state:'hidden'});
+ const teamUser=await services.auth.getUserByEmail('team-ui@example.com');assert.equal((await services.db.doc('staff/'+teamUser.uid).get()).data().storeId,catalogStore);
  // Existing bookmarked destinations still resolve without duplicate pages.
  for(const [hash,heading] of [['catalog','المنتجات'],['management','الطلبات'],['settings','إدارة المستخدمين']]){
   await page.goto('http://127.0.0.1:3105/admin#'+hash);await page.getByRole('heading',{name:heading,exact:true}).waitFor();
@@ -237,5 +258,5 @@ try{
  await page.reload();await page.getByRole('heading',{name:'عروض المنتجات',exact:true}).waitFor();
  await services.db.doc('admins/'+accounts.admin.uid).delete();await page.getByRole('heading',{name:'الحساب غير مخوّل للإدارة',exact:true}).waitFor();assert.equal(await page.getByRole('navigation',{name:'أقسام إدارة التشغيل'}).count(),0);
  assert.deepEqual(errors,[]);
- console.log('Public homepage and protected admin passed: public navigation, mobile dialog, /admin login, no simulator/role picker, employee/chef/courier denial, real admin admission, store persistence, session reload, live revocation, server-backed user creation/role/disable, audited export and eleven responsive sections at 390/768/1440. Emulator data only.');
+ console.log('Public homepage and protected admin passed: public navigation, mobile dialog, /admin login, no simulator/role picker, employee/chef/courier denial, real admin admission, store persistence, session reload, live revocation, server-backed user creation/role/disable, audited export and twelve responsive sections at 390/768/1440. Emulator data only.');
 }finally{await browser?.close();vite.kill('SIGTERM');}

@@ -101,3 +101,9 @@ test("server only accepts configured cash payment and valid coupons", () => {
   } as Coupon);
   assert.equal(order.total, 75);
 });
+
+test("electronic payment selection does not mark an order paid", () => {
+  const order = build({ ...payload(), paymentMethod: "geidea" });
+  assert.equal(order.paymentMethod, "geidea");
+  assert.equal(order.paymentStatus, "pending");
+});

@@ -4,6 +4,7 @@ service cloud.firestore {
     function verified() { return request.auth != null && (request.auth.token.get('email_verified', false) == true || request.auth.token.get('phone_number', '') != '') && (!exists(/databases/$(database)/documents/accountAccess/$(request.auth.uid)) || (get(/databases/$(database)/documents/accountAccess/$(request.auth.uid)).data.get('disabled', false) == false && get(/databases/$(database)/documents/accountAccess/$(request.auth.uid)).data.get('operationLocked', false) == false && request.auth.token.get('auth_time', 0) > get(/databases/$(database)/documents/accountAccess/$(request.auth.uid)).data.get('revokedBefore', 0))); }
     function admin() { return verified() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
     function staff() { return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data; }
+    function catalogManager() { return staff().role == 'restaurant' && staff().get('duty', 'manager') == 'manager'; }
     function validCoordinates(c) { return c is map && c.keys().hasOnly(['latitude','longitude']) && c.latitude is number && c.longitude is number && c.latitude >= -90 && c.latitude <= 90 && c.longitude >= -180 && c.longitude <= 180; }
     function text(value,max) { return value is string && value.size() <= max; }
     function assignedCourier(data) {
@@ -17,7 +18,7 @@ service cloud.firestore {
     }
     function ownerOrder(data) {
       return verified() && (data.profileId == request.auth.uid || admin() ||
-        assignedCourier(data) || restaurantOrder(data));
+        assignedCourier(data) || (data.get('fulfillmentVersion', 1) != 2 && restaurantOrder(data)));
     }
     function profile(data) { return data.keys().hasAll(['uid','fullName','email','phone','ministry','floorNumber','roomNumber','role','walletBalance','createdAt','updatedAt']) && data.keys().hasOnly(['uid','fullName','email','phone','ministry','floorNumber','roomNumber','role','walletBalance','createdAt','updatedAt','avatarUrl','coordinates']) && data.uid == request.auth.uid && text(data.fullName,120) && text(data.email,160) && text(data.phone,30) && text(data.ministry,120) && text(data.floorNumber,60) && text(data.roomNumber,80) && (!('coordinates' in data) || validCoordinates(data.coordinates)); }
     match /admins/{uid} { allow get: if verified() && (uid == request.auth.uid || admin()); allow list: if admin(); allow write: if false; }
@@ -34,14 +35,14 @@ service cloud.firestore {
     function productValid(d) { return d.keys().hasAll(['id','storeId','storeName','name','description','price','category','imageType','inStock','updatedAt']) && text(d.name,120) && text(d.description,1000) && d.price is number && d.price >= 0 && d.price <= 100000 && d.inStock is bool && exists(/databases/$(database)/documents/stores/$(d.storeId)) && d.updatedAt == request.time; }
     match /products/{id} {
       allow read: if true;
-      allow create: if verified() && productValid(request.resource.data) && (staff().role == 'restaurant' && staff().storeId == request.resource.data.storeId);
-      allow update: if verified() && productValid(request.resource.data) && request.resource.data.storeId == resource.data.storeId && (staff().role == 'restaurant' && staff().storeId == resource.data.storeId);
+      allow create: if verified() && productValid(request.resource.data) && (catalogManager() && staff().storeId == request.resource.data.storeId);
+      allow update: if verified() && productValid(request.resource.data) && request.resource.data.storeId == resource.data.storeId && (catalogManager() && staff().storeId == resource.data.storeId);
       allow delete: if false;
     }
     match /stores/{id} {
       allow read: if true;
       allow create: if false;
-      allow update: if verified() && staff().role == 'restaurant' && staff().storeId == id && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt']) && request.resource.data.status in ['open','closed','busy'] && request.resource.data.updatedAt == request.time;
+      allow update: if verified() && catalogManager() && staff().storeId == id && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt']) && request.resource.data.status in ['open','closed','busy'] && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
     match /coupons/{id} { allow read: if true; allow write: if false; }
@@ -75,7 +76,7 @@ service cloud.firestore {
       allow read: if ownerOrder(resource.data);
       // Only the authenticated server calculates prices and creates orders.
       allow create, delete: if false;
-      allow update: if verified() &&
+      allow update: if verified() && resource.data.get('fulfillmentVersion', 1) != 2 &&
         request.resource.data.orderStatus != 'delivered' &&
         !(resource.data.orderStatus in ['delivered', 'cancelled']) &&
         transition(resource.data.orderStatus, request.resource.data.orderStatus) &&
@@ -92,6 +93,12 @@ service cloud.firestore {
          (resource.data.paymentMethod == 'cash' && request.resource.data.paymentStatus == 'paid' &&
           request.resource.data.orderStatus == 'delivered'));
     }
+    // V2 operational writes and merchant projections are served only by the audited API.
+    match /orders/{orderId}/fulfillments/{storeId} { allow read, write: if false; }
+    match /stores/{storeId}/preparationQueue/{orderId} { allow read, write: if false; }
+    match /courierAssignments/{uid}/orders/{orderId} { allow read, write: if false; }
+    match /appConfig/{id} { allow read, write: if false; }
+    match /promotions/{id} { allow read, write: if false; }
     match /tracking/{orderId} {
       allow read: if ownerOrder(get(/databases/$(database)/documents/orders/$(orderId)).data);
       allow create, update: if assignedCourier(get(/databases/$(database)/documents/orders/$(orderId)).data) &&

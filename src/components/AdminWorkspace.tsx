@@ -5,21 +5,22 @@ import { AuditLog } from "./AuditLog";
 import { useEffect, useState, useRef, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import type { Order, Store, Product, Coupon } from "../types";
 import { OperationsDashboard, type OperationsCourier } from "./OperationsDashboard";
-import { KitchenDisplay } from "./KitchenDisplay";
+import { PreparationMonitor } from "./PreparationMonitor";
+import { AppContentManager } from "./AppContentManager";
 import { CouponManager } from "./CouponManager";
 import type { AdminTabType } from "./AdminDashboard";
 import { type AdminStaff } from "./AdminSetupPanel";
 import { CatalogManager } from "./CatalogManager";
-import { updateKitchenStage } from "../lib/firebase";
-import { LayoutDashboard, ChefHat, ClipboardList, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog, PanelRightClose, PanelRightOpen, Store as StoreIcon, Package, Tag, TicketPercent, Handshake, Briefcase } from "lucide-react";
+import { LayoutDashboard, ChefHat, ClipboardList, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog, PanelRightClose, PanelRightOpen, Store as StoreIcon, Package, Tag, TicketPercent, Handshake, Briefcase, PanelsTopLeft } from "lucide-react";
 
 const sections = [
   { id: "operations", group: "التشغيل اليومي", label: "مركز العمليات", hint: "ملخص اليوم ومؤشرات التشغيل", icon: LayoutDashboard },
   { id: "orders", label: "الطلبات", hint: "المتابعة وتعيين المندوب", icon: ClipboardList },
-  { id: "kitchen", label: "شاشة المطبخ", hint: "التحضير والاستلام", icon: ChefHat },
+  { id: "kitchen", label: "متابعة التحضير", hint: "جاهزية المطاعم والسوبر ماركت", icon: ChefHat },
   { id: "stores", group: "المتاجر والمنتجات", label: "المتاجر", hint: "البيانات والتوافر والتوصيل", icon: StoreIcon },
   { id: "products", label: "المنتجات", hint: "المنيو والأسعار والصور", icon: Package },
   { id: "offers", group: "التسويق", label: "عروض المنتجات", hint: "المنتجات المخفّضة على الموقع", icon: Tag },
+  { id: "content", label: "واجهة التطبيق والحملات", hint: "الأقسام والسلايدر والتشغيل", icon: PanelsTopLeft },
   { id: "coupons", label: "أكواد الخصم", hint: "قسائم خصم الطلبات", icon: TicketPercent },
   { id: "users", group: "الحسابات والشراكات", label: "المستخدمون", hint: "العملاء والمناديب وفريق المتاجر", icon: UserRoundCog },
   { id: "partners", label: "طلبات الشراكة", hint: "انضمام المتاجر والتعاقد", icon: Handshake },
@@ -97,8 +98,9 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
     <main className="admin-content" id="admin-content" tabIndex={-1}>
       <nav className="admin-breadcrumb breadcrumb" aria-label="مسار الصفحة"><button onClick={() => navigate("operations")}>لوحة الإدارة</button><ChevronLeft size={13} /><strong>{current.label}</strong><span className="admin-cairo-date">{new Intl.DateTimeFormat("ar-EG", { timeZone: "Africa/Cairo", weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span></nav>
     {tab === "operations" && <OperationsDashboard orders={orders} stores={stores} couriers={couriers} connected={connected} onNavigate={navigate} />}
-    {tab === "kitchen" && <KitchenDisplay orders={orders} stores={stores} connected={connected} onChange={updateKitchenStage} />}
+    {tab === "kitchen" && <PreparationMonitor orders={orders} stores={stores} connected={connected} />}
     {["stores", "products", "offers"].includes(tab) && <CatalogManager key={tab} mode={tab as "stores" | "products" | "offers"} stores={stores} products={products} orders={orders} searchRequest={catalogRequest?.kind === tab ? catalogRequest : undefined} />}
+    {tab === "content" && <AppContentManager stores={stores} products={products} />}
     {tab === "coupons" && <CouponManager coupons={coupons} />}
     {["orders", "partners", "jobs"].includes(tab) && (isValidElement(children) ? cloneElement(children as ReactElement<{ initialAdminTab: AdminTabType; orderSearchRequest?: {term:string;key:number} }>, { initialAdminTab: tab as AdminTabType, orderSearchRequest: tab === "orders" ? orderRequest : undefined }) : children)}
     {tab === "users" && <UserManagement stores={stores} />}

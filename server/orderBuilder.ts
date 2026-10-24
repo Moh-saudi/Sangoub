@@ -35,7 +35,7 @@ export function buildOrder(
     throw new Error("طريقة الدفع المختارة غير صالحة.");
   const items: CartItem[] = input.items.map((item: any, index: number) => {
     const product = products.get(item?.product?.id);
-    const isOut = product.inStock === false;
+    const isOut = product?.inStock === false;
     if (
       !product ||
       isOut ||
@@ -158,7 +158,7 @@ export function buildOrder(
     tip: round(tip),
     total,
     paymentMethod,
-    paymentStatus: paymentMethod === "cash" ? "cash_on_delivery" : "paid",
+    paymentStatus: paymentMethod === "cash" ? "cash_on_delivery" : "pending",
     orderStatus: "received",
     createdAt: new Date().toISOString(),
     estimatedDelivery: "بانتظار تأكيد المتجر",

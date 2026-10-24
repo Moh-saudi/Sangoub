@@ -19,7 +19,7 @@ export default async function handler(req:any,res:any) {
       const result=search?{users:[await (search.includes('@')?auth.getUserByEmail(search):auth.getUser(search))],pageToken:undefined}:await auth.listUsers(50,input.pageToken||undefined);
       const users=await Promise.all(result.users.map(async user=>{
         const [profile,admin,staff]=await db.getAll(db.doc('users/'+user.uid),db.doc('admins/'+user.uid),db.doc('staff/'+user.uid));
-        return {uid:user.uid,email:user.email||'',fullName:profile.data()?.fullName||user.displayName||'',phone:profile.data()?.phone||user.phoneNumber||'',role:admin.exists?'admin':staff.data()?.role||'employee',storeId:staff.data()?.storeId||'',disabled:user.disabled,emailVerified:user.emailVerified,providers:user.providerData.map(p=>p.providerId),createdAt:user.metadata.creationTime,lastSignInAt:user.metadata.lastSignInTime||'',ministry:profile.data()?.ministry||'',floorNumber:profile.data()?.floorNumber||'',roomNumber:profile.data()?.roomNumber||'',walletBalance:profile.data()?.walletBalance||0};
+        return {uid:user.uid,email:user.email||'',fullName:profile.data()?.fullName||user.displayName||'',phone:profile.data()?.phone||user.phoneNumber||'',role:admin.exists?'admin':staff.data()?.role||'employee',storeId:staff.data()?.storeId||'',duty:staff.data()?.duty||'manager',disabled:user.disabled,emailVerified:user.emailVerified,providers:user.providerData.map(p=>p.providerId),createdAt:user.metadata.creationTime,lastSignInAt:user.metadata.lastSignInTime||'',ministry:profile.data()?.ministry||'',floorNumber:profile.data()?.floorNumber||'',roomNumber:profile.data()?.roomNumber||'',walletBalance:profile.data()?.walletBalance||0};
       }));
       return res.status(200).json({users,nextPageToken:result.pageToken||null});
     }
@@ -28,6 +28,8 @@ export default async function handler(req:any,res:any) {
     let uid=input.uid;
     const requestedRole=input.action==='create'||input.action==='role'?input.role:undefined;
     if((input.action==='create'||input.action==='role')&&!roles.includes(requestedRole))throw new AdminError(400,'اختر دورًا صحيحًا.');
+    const duty=input.duty||'preparer';
+    if(requestedRole==='restaurant'&&!['manager','preparer'].includes(duty))throw new AdminError(400,'اختر مهمة فريق المتجر.');
     if(requestedRole==='restaurant'){validId(input.storeId);if(!(await db.doc('stores/'+input.storeId).get()).exists)throw new AdminError(400,'المتجر غير موجود.');}
     let fullName='',email='',profilePatch:any={};
     if(input.action==='create'||input.action==='update') {
@@ -67,7 +69,7 @@ export default async function handler(req:any,res:any) {
     let authChanged=false;let authAttempted=false;
     try {
       let resetLink:string|undefined;
-      if(input.action==='create'){authAttempted=true;await auth.createUser({uid,email,displayName:fullName,password:randomBytes(32).toString('base64url'),emailVerified:false});authChanged=true;}
+      if(input.action==='create'){authAttempted=true;await auth.createUser({uid,email,displayName:fullName,password:randomBytes(32).toString('base64url'),emailVerified:false});authChanged=true;if(requestedRole!=='employee')resetLink=await auth.generatePasswordResetLink(email);}
       if(input.action==='update'){authAttempted=true;await auth.updateUser(uid,{email,displayName:fullName,...(email!==target!.email?{emailVerified:false}:{})});authChanged=true;}
       if(input.action==='disable'||input.action==='enable'){authAttempted=true;await auth.updateUser(uid,{disabled:input.action==='disable'});authChanged=true;}
       if(['disable','revoke','role'].includes(input.action)||(input.action==='update'&&email!==target?.email)){authAttempted=true;await auth.revokeRefreshTokens(uid);authChanged=true;}
@@ -84,7 +86,7 @@ export default async function handler(req:any,res:any) {
           tx.delete(db.doc('admins/'+uid));tx.delete(db.doc('staff/'+uid));
           after.staff=null;
           if(requestedRole==='admin')tx.set(db.doc('admins/'+uid),{active:true,grantedBy:actor.uid,updatedAt:FieldValue.serverTimestamp()});
-          if(requestedRole==='courier'||requestedRole==='restaurant'){const assignment={role:requestedRole,name:fullName||profile.data()?.fullName||target?.displayName||'',phone:profile.data()?.phone||profilePatch.phone||'',...(requestedRole==='restaurant'?{storeId:input.storeId}:{}),updatedAt:FieldValue.serverTimestamp()};tx.set(db.doc('staff/'+uid),assignment);after.staff=assignment;}
+          if(requestedRole==='courier'||requestedRole==='restaurant'){const assignment={role:requestedRole,name:fullName||profile.data()?.fullName||target?.displayName||'',phone:profile.data()?.phone||profilePatch.phone||'',...(requestedRole==='restaurant'?{storeId:input.storeId,duty}:{}),updatedAt:FieldValue.serverTimestamp()};tx.set(db.doc('staff/'+uid),assignment);after.staff=assignment;}
           tx.set(db.doc('users/'+uid),{...(!profile.exists&&input.action!=='create'?{uid,fullName:target?.displayName||'',email:target?.email||'',phone:target?.phoneNumber||'',ministry:'',floorNumber:'',roomNumber:'',walletBalance:0,createdAt:FieldValue.serverTimestamp()}:{}),role:requestedRole,updatedAt:FieldValue.serverTimestamp()},{merge:true});after.role=requestedRole;after.profile={...(after.profile||{uid,fullName:target?.displayName||'',email:target?.email||'',phone:target?.phoneNumber||'',ministry:'',floorNumber:'',roomNumber:'',walletBalance:0}),role:requestedRole};
         }
         if(input.action==='disable'||input.action==='delete'){tx.delete(db.doc('admins/'+uid));tx.delete(db.doc('staff/'+uid));after.role='employee';after.staff=null;if(after.profile)after.profile.role='employee';if(profile.exists)tx.update(db.doc('users/'+uid),{role:'employee',updatedAt:FieldValue.serverTimestamp()});}

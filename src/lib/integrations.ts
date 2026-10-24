@@ -17,7 +17,7 @@ export const ASIMA_CONFIG = {
         "3448c010-87b1-41e7-9771-cac444268cfb",
       apiPassword:
         process.env.GEIDEA_API_PASSWORD ||
-        "ecba1701-4889-4357-ba09-4d8d864f6d64",
+        "",
       baseUrl:
         process.env.GEIDEA_BASE_URL || "https://api.merchant.geidea.net",
     },
@@ -27,7 +27,7 @@ export const ASIMA_CONFIG = {
         "e510dca3-d113-47bf-b4b0-9b92bac661f6",
       apiPassword:
         process.env.GEIDEA_TEST_API_PASSWORD ||
-        "9b794cd5-9b42-4048-8e97-2c162f35710f",
+        "",
       baseUrl: "https://api.merchant.geidea.net",
     },
     callbackUrl:
@@ -43,7 +43,7 @@ export const ASIMA_CONFIG = {
   chataman: {
     apiKey:
       process.env.CHATAMAN_API_KEY ||
-      "lmVt2Y62QMdZUp52JnkTeJNhgKERlCA92Oyv1aEh",
+      "",
     baseUrl: process.env.CHATAMAN_BASE_URL || "https://chataman.com",
     senderName: process.env.CHATAMAN_SENDER_NAME || "طلبات العاصمة",
     defaultCountryCode: process.env.CHATAMAN_DEFAULT_COUNTRY_CODE || "20",

@@ -9,8 +9,8 @@ const stages: { id: Stage; title: string; color: string }[] = [
   { id: "preparing", title: "قيد التحضير", color: "border-blue-300 bg-blue-50" },
   { id: "ready", title: "جاهزة للاستلام", color: "border-emerald-300 bg-emerald-50" },
 ];
-export function KitchenDisplay({ orders, stores, fixedStoreId, connected, onChange }: {
-  orders: Order[]; stores: Store[]; fixedStoreId?: string; connected: boolean;
+export function KitchenDisplay({ orders, stores, fixedStoreId, connected, onChange, readOnly = false }: {
+  readOnly?: boolean; orders: Order[]; stores: Store[]; fixedStoreId?: string; connected: boolean;
   onChange: (id: string, storeId: string, stage: "preparing" | "ready") => Promise<void>;
 }) {
   const [selection, setSelection] = useState("");
@@ -91,7 +91,7 @@ export function KitchenDisplay({ orders, stores, fixedStoreId, connected, onChan
                 {item.notes && <p className="text-xs text-amber-700">{item.notes}</p>}</li>)}
                 {!items.length && <li className="text-sm">{order.itemsSummary || order.legacySummary || "تفاصيل الأصناف غير متاحة"}</li>}</ul>
               {order.notes && <p className="text-xs bg-amber-50 p-2 rounded-lg">{order.notes}</p>}
-              {stage.id !== "ready" ? <button disabled={!connected || pending.includes(order.id)} onClick={() => advance(order, stage.id === "received" ? "preparing" : "ready")} className="w-full py-3 rounded-xl bg-slate-900 text-white font-bold text-sm disabled:opacity-40">
+              {readOnly ? <p className="text-xs text-slate-500">التحديث من حساب المتجر في التطبيق.</p> : stage.id !== "ready" ? <button disabled={!connected || pending.includes(order.id)} onClick={() => advance(order, stage.id === "received" ? "preparing" : "ready")} className="w-full py-3 rounded-xl bg-slate-900 text-white font-bold text-sm disabled:opacity-40">
                 {pending.includes(order.id) ? "جارٍ الحفظ…" : stage.id === "received" ? "بدء التحضير" : "جاهز للاستلام"}</button> : <p className="text-emerald-700 text-xs font-bold">{order.orderStatus === "ready" ? "بانتظار استلام المندوب" : "هذا المطبخ جاهز — ننتظر باقي المطابخ"}</p>}
             </article>;
           })}{!list.length && <p className="text-center text-sm text-slate-500 py-8">لا توجد طلبات في هذه المرحلة</p>}</div>

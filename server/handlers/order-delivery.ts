@@ -1,6 +1,7 @@
 import { auditInTransaction, attachAuditContext } from "../audit.ts";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminServices } from "../firebaseAdmin.ts";
+import { closeOperationalQueues, paymentReady, ticketRef } from "../operations.ts";
 import { mobileCors } from "../mobileCors.ts";
 
 export default async function handler(req: any, res: any) {
@@ -20,7 +21,7 @@ export default async function handler(req: any, res: any) {
     const access=(await db.doc('accountAccess/'+user.uid).get()).data();
     if(access?.disabled||access?.operationLocked||user.auth_time<=(access?.revokedBefore||0))return res.status(401).json({error:'أُلغيت هذه الجلسة أو عُلّق الحساب. سجل الدخول من جديد.'});
     attachAuditContext(req,user);
-    if (!user.email_verified && !user.phone_number) return res.status(403).json({ error: "أكد حسابك أولًا." });
+    if (action === "deliver" && !user.email_verified && !user.phone_number) return res.status(403).json({ error: "أكد حسابك أولًا." });
     const orderRef = db.collection("orders").doc(orderId);
     const secretRef = db.collection("orderSecrets").doc(orderId);
     const result = await db.runTransaction(async (tx) => {
@@ -40,6 +41,10 @@ export default async function handler(req: any, res: any) {
       if (order.orderStatus === "delivered") return { status: 200, body: { ok: true } };
       if (order.orderStatus !== "with_courier" || !secretDoc.exists)
         return { status: 409, body: { error: "الطلب غير متاح للتسليم بالرمز. راجع الإدارة." } };
+      if(order.fulfillmentVersion===2){
+        const tickets=await Promise.all((order.storeIds||[]).map((storeId:string)=>tx.get(ticketRef(db,orderId,storeId))));
+        if(!tickets.length||tickets.some(ticket=>ticket.data()?.status!=='picked_up'||ticket.data()?.pickedUpBy!==user.uid))return {status:409,body:{error:'لم يكتمل تأكيد الاستلام من جميع المتاجر.'}};
+      }
       const secret = secretDoc.data()!;
       const locked = secret.lockedUntil?.toMillis?.() > Date.now();
       if (locked) return { status: 429, body: { error: "محاولات كثيرة. انتظر 15 دقيقة ثم تحقق مع العميل." } };
@@ -50,12 +55,13 @@ export default async function handler(req: any, res: any) {
         });
         return { status: 400, body: { error: "رمز الاستلام غير صحيح." } };
       }
-      if (order.paymentMethod !== "cash" || !Number.isFinite(collectedAmount) || Math.abs(collectedAmount - order.total) > 0.01)
+      if (order.fulfillmentVersion===2 && order.paymentMethod!=="cash" ? (!paymentReady(order)||collectedAmount!==0) : (order.paymentMethod !== "cash" || !Number.isFinite(collectedAmount) || Math.abs(collectedAmount - order.total) > 0.01))
         return { status: 400, body: { error: "أكّد تحصيل قيمة الطلب النقدية كاملة." } };
       tx.update(orderRef, { orderStatus: "delivered", deliveredAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), paymentStatus: "paid",
         courierChecklist: { ...order.courierChecklist, collectedPayment: true, collectedAmount, arrivedAtCustomerOffice: true },
       });
       auditInTransaction(db,tx,user,"orders.delivered","orders",orderId,{orderStatus:order.orderStatus,paymentStatus:order.paymentStatus},{orderStatus:"delivered",paymentStatus:"paid",collectedAmount},"","delivery-api");
+      if(order.fulfillmentVersion===2)closeOperationalQueues(db,tx,{...order,id:orderId});
       tx.delete(secretRef);
       return { status: 200, body: { ok: true } };
     });

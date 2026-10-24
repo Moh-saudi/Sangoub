@@ -307,7 +307,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           تعيين المندوب:
                         </span>
                         <select
-                          disabled={!["ready", "with_courier"].includes(order.orderStatus) || pendingOrders.includes(order.id)}
+                          disabled={(order.fulfillmentVersion === 2 ? order.orderStatus !== "ready" || Boolean(order.pickedUpStoreIds?.length) : !["ready", "with_courier"].includes(order.orderStatus)) || pendingOrders.includes(order.id)}
                           value={
                             order.courierId ||
                             selectedCourierForOrder[order.id] ||
@@ -333,7 +333,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                         {pendingOrders.includes(order.id) && <span role="status" className="text-xs">جارٍ الحفظ…</span>}
                         {!["delivered", "cancelled"].includes(order.orderStatus) && <button disabled={pendingOrders.includes(order.id)} className="text-xs border border-red-200 text-red-700 rounded-xl px-3 py-2" onClick={() => { if (window.confirm(`إلغاء الطلب ${order.orderNumber}؟`)) void runOrderAction(order.id, () => onUpdateOrderStatus(order.id, "cancelled")); }}>إلغاء الطلب</button>}
-                        {order.orderStatus === "received" && (
+                        {order.fulfillmentVersion !== 2 && order.orderStatus === "received" && (
                           <button
                             disabled={pendingOrders.includes(order.id)}
                             onClick={() =>
@@ -345,7 +345,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </button>
                         )}
 
-                        {order.orderStatus === "preparing" && (
+                        {order.fulfillmentVersion !== 2 && order.orderStatus === "preparing" && (
                           <button
                             disabled={pendingOrders.includes(order.id)}
                             onClick={() =>
@@ -357,6 +357,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </button>
                         )}
 
+                        {order.fulfillmentVersion === 2 && <p className="text-xs text-slate-500">التحضير والاستلام يتحدثان من حسابات المتاجر والمندوب في التطبيق.</p>}
                         {order.orderStatus === "with_courier" && <span className="text-xs text-slate-500">يؤكد المندوب التسليم برمز العميل</span>}
 
                         {order.orderStatus === "delivered" && (

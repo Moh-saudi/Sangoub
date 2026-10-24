@@ -48,6 +48,11 @@ export default async function handler(req: any, res: any) {
 
     const orderData = orderDoc.data()!;
 
+    // V2 must not trust a browser-supplied success status. Provider verification
+    // must establish paymentConfirmedAt before operational fulfillment can begin.
+    if (orderData.fulfillmentVersion === 2) {
+      return res.status(409).json({ error: "PAYMENT_VERIFICATION_REQUIRED", message: "يلزم تأكيد السداد من مزود الدفع قبل بدء التحضير." });
+    }
     if (verification.isPaid) {
       await orderRef.update({
         paymentStatus: "paid",

@@ -461,3 +461,24 @@
 .ops-shortcuts small { display: block; font-size: 11px; margin-top: 4px; color: #526773; }
 @media (max-width: 1250px) { .ops-shortcuts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .ops-shortcuts { gap: 10px; } .ops-shortcuts > button { padding: 14px; gap: 10px; } .ops-shortcuts > button > svg:last-child { display: none; } .ops-shortcuts strong { font-size: 12px; } .ops-shortcuts small { font-size: 10px; } }
+/* Operational supervision and customer-home publishing. */
+.account-access-guide { padding: 18px 22px; border: 1px solid #bfd5c7; border-radius: 16px; background: #edf6f0; }
+.account-access-guide strong { font-size: 15px; color: #174a43; }
+.account-access-guide p { margin-top: 6px; color: #526773; font-size: 13px; line-height: 2; }
+.content-settings { display: flex; flex-direction: column; align-items: stretch; gap: 16px; padding: 0 24px 24px; }
+.content-settings > .admin-primary { align-self: start; }
+.content-section-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border: 1px solid var(--admin-line); border-radius: 12px; }
+.content-section-row label, .content-activation { display: flex !important; flex-direction: row !important; align-items: center; gap: 10px !important; font-size: 13px; }
+.content-section-row > div { display: flex; gap: 6px; }
+.content-section-row button { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #cbd9de; border-radius: 10px; background: #fff; }
+.content-settings-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(100px, 1fr); gap: 12px; }
+.content-settings-grid label { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.content-order-selector { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
+.preparation-ticket-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.preparation-ticket-body { padding: 0 22px 22px; }
+.preparation-ticket-body ul { padding: 0; list-style: none; margin: 0; }
+.preparation-ticket-body li { border-top: 1px solid var(--admin-line); padding: 12px 0; font-size: 13px; }
+.preparation-ticket-body small { display: block; font-size: 12px; color: #526773; margin-top: 4px; }
+.preparation-legacy-summary { padding: 20px 24px; cursor: pointer; font-weight: 800; }
+@media (max-width: 800px) { .preparation-ticket-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) { .content-settings { padding: 0 18px 18px; } .content-settings-grid { grid-template-columns: minmax(0, 1fr); } .content-section-row { padding: 10px; } }

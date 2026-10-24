@@ -2,6 +2,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { requireAdmin, AdminError, adminError, validId } from '../adminRequest.ts';
 import { auditInTransaction, auditSafe, auditRecord } from '../audit.ts';
 import { nextKitchenUpdate, normalizeOrder } from '../../src/utils/orderIntegration.ts';
+import { assignmentRef, closeOperationalQueues, paymentReady, ticketRef } from '../operations.ts';
 import { mobileCors } from '../mobileCors.ts';
 
 const fields:Record<string,string[]>={
@@ -56,7 +57,8 @@ export default async function handler(req:any,res:any){
     if(typeof patch!=='object'||Array.isArray(patch)||Object.keys(patch).some(key=>!fields[type].includes(key)))bad('تتضمن العملية حقولًا غير مسموحة.');
     if(type==='staff'&&input.action!=='delete'&&(await auth.getUser(id)).disabled)bad('الحساب معطل.');
     await db.runTransaction(async tx=>{
-      const ref=db.doc(type+'/'+id);const [own,target]=await Promise.all([tx.get(db.doc('admins/'+actor.uid)),tx.get(ref)]);
+      const ref=db.doc(type+'/'+id);const [own,target,actorAccess]=await Promise.all([tx.get(db.doc('admins/'+actor.uid)),tx.get(ref),tx.get(db.doc('accountAccess/'+actor.uid))]);
+      const control=actorAccess.data();if(control?.disabled||control?.operationLocked||actor.auth_time<=(control?.revokedBefore||0))throw new AdminError(403,'انتهت صلاحية الجلسة.');
       if(!own.exists)throw new AdminError(403,'انتهت صلاحية الإدارة.');
       const before=target.data()||null;
       let after:any={...(before||{}),...patch};
@@ -68,15 +70,37 @@ export default async function handler(req:any,res:any){
         tx.create(db.doc('stores/'+store.id),{...store,updatedAt:FieldValue.serverTimestamp()});after={...before,status:'approved'};
         auditInTransaction(db,tx,actor,'stores.create','stores',store.id,null,store);
       }else if(input.action==='kitchen'){
-        if(!before)bad();validId(input.storeId);if(!['preparing','ready'].includes(input.next))bad();after={...before,...nextKitchenUpdate(normalizeOrder({...before,id}),input.storeId,input.next)};
+        if(!before)bad();if(before?.fulfillmentVersion===2)throw new AdminError(409,'التحضير من حساب المتجر في التطبيق.');validId(input.storeId);if(!['preparing','ready'].includes(input.next))bad();after={...before,...nextKitchenUpdate(normalizeOrder({...before,id}),input.storeId,input.next)};
       }else if(type==='orders'){
         if(!before||['delivered','cancelled'].includes(before.orderStatus))throw new AdminError(409,'الطلب مغلق أو غير موجود.');
+        let resolvedCourier:any;
+        if(after.orderStatus==='with_courier'||(before.fulfillmentVersion===2&&'courierId'in patch)){
+          validId(after.courierId);const courier=await tx.get(db.doc('staff/'+after.courierId));let account;
+          try{account=await auth.getUser(after.courierId);}catch{bad('حساب المندوب غير موجود.');}
+          if(courier.data()?.role!=='courier'||account!.disabled)bad('المندوب غير متاح.');
+          resolvedCourier=courier.data();
+        }
+        if(before.fulfillmentVersion===2){
+          const tickets=await Promise.all((before.storeIds||[]).map((storeId:string)=>tx.get(ticketRef(db,id,storeId))));
+          if(patch.orderStatus==='cancelled'){
+            if(before.paymentMethod!=='cash'&&paymentReady(before))throw new AdminError(409,'الطلب مدفوع إلكترونيًا؛ راجع إجراءات الاسترداد قبل الإلغاء.');
+            if(tickets.some(ticket=>ticket.data()?.status==='picked_up'))throw new AdminError(409,'استُلمت أصناف من المتاجر؛ راجع التسوية قبل الإلغاء.');
+            for(const ticket of tickets)if(ticket.exists)tx.update(ticket.ref,{status:'cancelled',updatedAt:FieldValue.serverTimestamp()});
+            closeOperationalQueues(db,tx,{...before,id});
+          }else{
+            if('courierId'in patch){
+              if(before.orderStatus!=='ready'||!paymentReady(before)||tickets.some(ticket=>ticket.data()?.status!=='ready'||ticket.data()?.issueOpen))throw new AdminError(409,'التكليف متاح بعد جاهزية جميع المتاجر وقبل استلام أي نقطة.');
+              if(before.courierId&&before.courierId!==after.courierId)tx.set(assignmentRef(db,before.courierId,id),{active:false},{merge:true});
+              // Assignment is not pickup. Preserve the ready state for old admin clients too.
+              after.orderStatus='ready';
+            }else if(after.orderStatus!==before.orderStatus)throw new AdminError(409,'تحديث التحضير والاستلام يتم من حسابات فريق التشغيل في التطبيق.');
+          }
+        }
         const allowed:Record<string,string[]>={received:['received','preparing','cancelled'],preparing:['preparing','ready','cancelled'],ready:['ready','with_courier','cancelled'],with_courier:['with_courier','cancelled']};
         if(!allowed[before.orderStatus]?.includes(after.orderStatus))bad('انتقال حالة الطلب غير مسموح.');
-        if(after.orderStatus==='with_courier'){
-          validId(after.courierId);const courier=await tx.get(db.doc('staff/'+after.courierId));let account;try{account=await auth.getUser(after.courierId);}catch{bad('حساب المندوب غير موجود.');}
-          if(courier.data()?.role!=='courier'||account!.disabled)bad('المندوب غير متاح.');
-          after.courierName=courier.data()!.name;after.courierPhone=courier.data()!.phone;
+        if(after.orderStatus==='with_courier'||(before.fulfillmentVersion===2&&'courierId'in patch)){
+          after.courierName=resolvedCourier.name;after.courierPhone=resolvedCourier.phone;
+          if(before.fulfillmentVersion===2)tx.set(assignmentRef(db,after.courierId,id),{orderId:id,active:true,assignedAt:FieldValue.serverTimestamp()});
         }else if('courierId'in patch)bad('تعيين المندوب متاح للطلبات الجاهزة فقط.');
       }else if(type==='staff'){
         if(id===actor.uid||(await tx.get(db.doc('admins/'+id))).exists)bad('استخدم قسم المستخدمين لتعديل صلاحيات الإدارة.');

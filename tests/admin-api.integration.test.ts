@@ -83,6 +83,12 @@ test('an imported offer can be assigned its first store before enabling orders, 
  assert.equal(success.length,1);assert.equal(success[0].before.storeId,'');assert.equal(success[0].after.storeId,'admin-api-store');
 });
 
+test('store-team onboarding returns a private password-setup link and persists the assigned duty',async()=>{
+ const result=await invoke({action:'create',email:'store-team-onboarding@example.com',fullName:'مسؤول تحضير',phone:'01012345678',role:'restaurant',duty:'preparer',storeId:'admin-api-store',reason:'إنشاء حساب فريق المتجر'});
+ assert.equal(result.status,200,JSON.stringify(result.result));assert.equal(typeof result.result.resetLink,'string');
+ const staff=(await services.db.doc('staff/'+result.result.uid).get()).data()!;assert.equal(staff.storeId,'admin-api-store');assert.equal(staff.duty,'preparer');assert.equal((await services.auth.getUser(result.result.uid)).emailVerified,false);
+ const logs=await services.db.collection('auditLogs').where('entityId','==',result.result.uid).get();assert(!JSON.stringify(logs.docs.map(doc=>doc.data())).includes(result.result.resetLink));
+});
 test('concurrent administrators cannot disable each other and remove all management access',async()=>{
  const other=await services.auth.createUser({email:'second-audit-admin@example.com',emailVerified:true,password:'TestPassword123!'});await services.db.doc('admins/'+other.uid).set({active:true});
  const otherToken=await(await signInWithEmailAndPassword(client,'second-audit-admin@example.com','TestPassword123!')).user.getIdToken();
