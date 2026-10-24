@@ -21,7 +21,7 @@ export function ImageFileField({ name, label, disabled }: { name: string; label:
   }, []);
   return <div className="admin-image-field">
     <label htmlFor={fieldId}>{label}</label>
-    <input id={fieldId} aria-describedby={`${fieldId}-hint`} aria-invalid={Boolean(error)} ref={input} type="file" name={name} disabled={disabled}
+    <input id={fieldId} aria-describedby={`${fieldId}-hint`} aria-invalid={Boolean(error)} ref={input} tabIndex={-1} type="file" name={name} disabled={disabled}
       accept="image/jpeg,image/png,image/webp" className="admin-image-native"
       onChange={(event) => {
         const selected = event.target.files?.[0];

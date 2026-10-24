@@ -152,7 +152,7 @@ export function HeroShowcase({
         </div>
         <div className="hero-actions">
           <button
-            className="site-button site-button-orange"
+            className="site-button site-button-orange btn btn-primary"
             onClick={slide.partner ? onOpenPartners : onOpenApp}
           >
             {slide.action}

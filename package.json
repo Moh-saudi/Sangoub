@@ -12,7 +12,7 @@
     "lint": "tsc --noEmit",
     "mobile:sync": "npm run build && npx cap sync android",
     "mobile:build": "npm run build && npx cap sync android && cd android && ./gradlew assembleRelease bundleRelease",
-    "test": "node --import tsx --test src/utils/orderCalculations.test.ts server/orderBuilder.test.ts server/mobileCors.test.ts server/r2.test.ts src/utils/orderIntegration.test.ts src/utils/catalogManagement.test.ts",
+    "test": "node --import tsx --test src/utils/orderCalculations.test.ts server/orderBuilder.test.ts server/mobileCors.test.ts server/r2.test.ts src/utils/orderIntegration.test.ts src/utils/catalogManagement.test.ts src/utils/productOffers.test.ts",
     "test:rules": "firebase emulators:exec --config firebase.emulators.json --only firestore,auth --project demo-capital-talabat \"node --import tsx --test --test-concurrency=1 tests/firestore.security.test.ts tests/order-api.integration.test.ts tests/admin-api.integration.test.ts\"",
     "test:auth": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/auth.integration.test.ts\"",
     "cloud:check": "node --use-env-proxy scripts/check-cloud.mjs",
@@ -30,6 +30,7 @@
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",
+    "bootstrap": "5.3.8",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "firebase": "^13.0.0",
@@ -41,6 +42,7 @@
     "vite": "^8.3.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.11.1",
     "@firebase/eslint-plugin-security-rules": "^0.0.2",
     "@firebase/rules-unit-testing": "6.0.0",
     "@types/express": "^4.17.21",
@@ -51,6 +53,7 @@
     "eslint": "^10.13.0",
     "firebase-tools": "15.34.0",
     "playwright": "^1.64.1",
+    "sass": "1.93.2",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",

@@ -14,6 +14,10 @@
     {
       "source": "/careers",
       "destination": "/index.html"
+    },
+    {
+      "source": "/offers",
+      "destination": "/index.html"
     }
   ],
   "headers": [

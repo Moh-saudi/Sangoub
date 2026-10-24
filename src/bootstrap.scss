@@ -1,0 +1,17 @@
+// Import component foundations only: no Bootstrap grid, reset or utility overrides.
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "bootstrap/scss/variables-dark";
+@import "bootstrap/scss/maps";
+@import "bootstrap/scss/mixins";
+
+@layer bootstrap {
+  @import "bootstrap/scss/root";
+  @import "bootstrap/scss/buttons";
+  @import "bootstrap/scss/forms";
+  @import "bootstrap/scss/alert";
+  @import "bootstrap/scss/badge";
+  @import "bootstrap/scss/breadcrumb";
+  @import "bootstrap/scss/tables";
+  @import "bootstrap/scss/spinners";
+}

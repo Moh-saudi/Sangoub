@@ -1,5 +1,4 @@
 import { adminOrderStatus } from "../utils/adminPresentation";
-import { CatalogManager } from "./CatalogManager";
 import { OrderMap } from "./OrderMap.tsx";
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -7,7 +6,6 @@ import {
   Package,
   CheckCircle,
   Clock,
-  TrendingUp,
   Store as StoreIcon,
   Filter,
   Building,
@@ -27,19 +25,15 @@ import type {
   Order,
   OrderStatus,
   PartnerApplication,
-  Product,
-  Store,
 } from "../types/index.ts";
 
 import { formatEGP, getOrderStatusLabel } from "../utils/orderCalculations.ts";
 
-export type AdminTabType = "orders" | "partners" | "jobs" | "catalog" | "stats";
+export type AdminTabType = "orders" | "partners" | "jobs";
 
 interface AdminDashboardProps {
   couriers: Array<{ id: string; name: string; phone: string }>;
   orders: Order[];
-  stores: Store[];
-  products: Product[];
   partnerApplications: PartnerApplication[];
   jobApplications: JobApplication[];
   initialAdminTab?: AdminTabType;
@@ -61,8 +55,6 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   orders,
   couriers,
-  stores,
-  products,
   partnerApplications,
   jobApplications,
   initialAdminTab = "orders",
@@ -125,17 +117,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     (j) => j.status === "pending",
   ).length;
 
-  // Ministry breakdown count
-  const ministryOrdersCount: Record<string, number> = {};
-  orders.forEach((o) => {
-    ministryOrdersCount[o.ministry] =
-      (ministryOrdersCount[o.ministry] || 0) + 1;
-  });
-
-  const topMinistry = Object.entries(ministryOrdersCount).sort(
-    (a, b) => b[1] - a[1],
-  )[0] || ["لا توجد بيانات", 0];
-
   const handleCourierSelect = (orderId: string, courierId: string) => {
     const courier = couriers.find((c) => c.id === courierId);
     if (courier) {
@@ -173,11 +154,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   return (
     <div className="admin-management max-w-6xl mx-auto px-4 py-5 space-y-5" dir="rtl">
-      <header className="ops-heading"><div><p className="admin-eyebrow">متابعة الطلبات والمراجعات</p><h1 className="text-2xl font-black">الطلبات والتقديمات</h1><p>ابحث عن الطلب، حدّث حالته، وعيّن المندوب المناسب.</p></div></header>
-      <div className="management-summary"><span>طلبات نشطة <strong>{activeOrdersCount}</strong></span><span>قيمة الطلبات المسلّمة <strong>{formatEGP(totalRevenue)}</strong></span><span>شركاء بانتظار المراجعة <strong>{pendingPartnersCount}</strong></span><span>متقدمون بانتظار المراجعة <strong>{pendingJobsCount}</strong></span></div>
-      <nav aria-label="أقسام الطلبات والتقديمات" className="admin-section-tabs">
-        {([['orders','الطلبات',orders.length],['partners','الشراكات',partnerApplications.length],['jobs','التوظيف',jobApplications.length],['catalog','الكتالوج',stores.length],['stats','توزيع الجهات',0]] as const).map(([id,label,count]) => <button key={id} onClick={() => setActiveTab(id)} aria-pressed={activeTab === id}>{label}{id !== 'stats' && <span>{count}</span>}</button>)}
-      </nav>
+      <header className="ops-heading"><div><p className="admin-eyebrow">{activeTab === "orders" ? "التشغيل اليومي" : "نمو المنصة"}</p><h1 className="text-2xl font-black">{activeTab === "orders" ? "الطلبات" : activeTab === "partners" ? "طلبات الشراكة" : "طلبات التوظيف"}</h1><p>{activeTab === "orders" ? "كل الطلبات، تحديث الحالات وتعيين المندوب من مكان واحد." : activeTab === "partners" ? "راجع المتاجر المتقدمة وتابع التواصل والتعاقد." : "راجع المتقدمين وتابع المقابلات وقرارات التعيين."}</p></div></header>
+      <div className="management-summary">{activeTab === "orders" ? <><span>طلبات نشطة <strong>{activeOrdersCount}</strong></span><span>قيمة الطلبات المسلّمة <strong>{formatEGP(totalRevenue)}</strong></span></> : <span>بانتظار المراجعة <strong>{activeTab === "partners" ? pendingPartnersCount : pendingJobsCount}</strong></span>}</div>
 
       {/* Tab 1: Orders Queue & Courier Assignment */}
       {activeTab === "orders" && (
@@ -209,6 +187,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               ].map((filter) => (
                 <button
                   key={filter.id}
+                  aria-pressed={statusFilter === filter.id}
                   onClick={() => setStatusFilter(filter.id)}
                   className={`px-3 py-1 text-xs font-bold rounded-xl transition-colors cursor-pointer ${
                     statusFilter === filter.id
@@ -222,7 +201,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          <section className="admin-panel compact-orders"><div className="compact-table-caption"><strong>سجل الطلبات</strong><span>عرض {filteredOrders.length} طلب</span></div><div className="admin-table-scroll"><table className="admin-data-table"><thead><tr><th>رقم الطلب / العميل</th><th>الجهة / المكتب</th><th>الأصناف</th><th>القيمة</th><th>الحالة</th><th>المندوب</th><th>التاريخ</th><th>الإجراءات</th></tr></thead><tbody>{filteredOrders.map(order=><tr key={order.id}><td><button className="admin-order-link" onClick={()=>setSelectedOrderId(order.id)}>{order.orderNumber}</button><small>{order.profileName}</small></td><td>{order.ministry}<small>{order.floorNumber} · {order.roomNumber}</small></td><td><span className="compact-item-summary">{order.itemsSummary||order.items.map(item=>`${item.quantity}× ${item.product.name}`).join('، ')||order.legacySummary||'—'}</span></td><td className="whitespace-nowrap">{formatEGP(order.total)}</td><td><span className={`admin-status status-${order.orderStatus}`}>{adminOrderStatus[order.orderStatus]}</span></td><td>{order.courierName||'لم يُعيّن'}</td><td className="whitespace-nowrap">{order.createdAt?new Date(order.createdAt).toLocaleDateString('ar-EG',{timeZone:'Africa/Cairo'}):'—'}<small>{order.createdAt?new Date(order.createdAt).toLocaleTimeString('ar-EG',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit'}):''}</small></td><td><button className="compact-row-action" aria-label={`تفاصيل الطلب ${order.orderNumber}`} onClick={()=>setSelectedOrderId(order.id)}>تفاصيل وإدارة</button></td></tr>)}</tbody></table></div>{!filteredOrders.length&&<p className="admin-empty">لا توجد طلبات مطابقة لهذا الفلتر</p>}</section>
+          <section className="admin-panel compact-orders"><div className="compact-table-caption"><strong>سجل الطلبات</strong><span>عرض {filteredOrders.length} طلب</span></div><div className="admin-table-scroll"><table className="table table-hover align-middle admin-data-table"><thead><tr><th>رقم الطلب / العميل</th><th>الجهة / المكتب</th><th>الأصناف</th><th>القيمة</th><th>الحالة</th><th>المندوب</th><th>التاريخ</th><th>الإجراءات</th></tr></thead><tbody>{filteredOrders.map(order=><tr key={order.id}><td><button className="admin-order-link" onClick={()=>setSelectedOrderId(order.id)}>{order.orderNumber}</button><small>{order.profileName}</small></td><td>{order.ministry}<small>{order.floorNumber} · {order.roomNumber}</small></td><td><span className="compact-item-summary">{order.itemsSummary||order.items.map(item=>`${item.quantity}× ${item.product.name}`).join('، ')||order.legacySummary||'—'}</span></td><td className="whitespace-nowrap">{formatEGP(order.total)}</td><td><span className={`badge admin-status status-${order.orderStatus}`}>{adminOrderStatus[order.orderStatus]}</span></td><td>{order.courierName||'لم يُعيّن'}</td><td className="whitespace-nowrap">{order.createdAt?new Date(order.createdAt).toLocaleDateString('ar-EG',{timeZone:'Africa/Cairo'}):'—'}<small>{order.createdAt?new Date(order.createdAt).toLocaleTimeString('ar-EG',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit'}):''}</small></td><td><button className="compact-row-action btn btn-outline-secondary" aria-label={`تفاصيل الطلب ${order.orderNumber}`} onClick={()=>setSelectedOrderId(order.id)}>تفاصيل وإدارة</button></td></tr>)}</tbody></table></div>{!filteredOrders.length&&<p className="admin-empty">لا توجد طلبات مطابقة لهذا الفلتر</p>}</section>
           <dialog ref={orderDialog} className="admin-detail-drawer" aria-label="تفاصيل وإدارة الطلب" onCancel={()=>setSelectedOrderId('')} onClose={()=>setSelectedOrderId('')} dir="rtl"><div className="admin-dialog-heading"><h2>تفاصيل وإدارة الطلب</h2><button aria-label="إغلاق تفاصيل الطلب" onClick={()=>setSelectedOrderId('')}>إغلاق ×</button></div><div className="compact-order-details">
               {orders.filter(order=>order.id===selectedOrderId).map((order) => {
                 const statusInfo = getOrderStatusLabel(order.orderStatus);
@@ -707,79 +686,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {activeTab === "catalog" && <CatalogManager products={products} stores={stores} orders={orders} />}
-
-      {/* Tab 5: Ministry Statistics */}
-      {activeTab === "stats" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-emerald-700" />
-              <span>
-                أكثر الوزارات طلباً في الحي الحكومي ({topMinistry[0]})
-              </span>
-            </h3>
-
-            <div className="space-y-3">
-              {Object.entries(ministryOrdersCount).map(
-                ([ministryName, count]) => {
-                  const percent = Math.round((count / orders.length) * 100);
-                  return (
-                    <div key={ministryName} className="space-y-1">
-                      <div className="flex justify-between text-xs font-semibold text-slate-800">
-                        <span>{ministryName}</span>
-                        <span className="tabular-nums">
-                          {count} طلب ({percent}%)
-                        </span>
-                      </div>
-                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-600 rounded-full transition-all duration-500"
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                },
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-              <Bike className="w-4 h-4 text-emerald-700" />
-              <span>فريق المناديب المعتمد للحي الحكومي بالعاصمة</span>
-            </h3>
-
-            <div className="space-y-2.5">
-              {couriers.map((c) => (
-                <div
-                  key={c.id}
-                  className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between"
-                >
-                  <div className="flex flex-wrap items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
-                      🛵
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900">
-                        {c.name}
-                      </h4>
-                      <p className="text-[11px] text-slate-500 font-mono">
-                        {c.phone}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                    مسجل بالتشغيل
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

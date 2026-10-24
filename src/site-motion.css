@@ -1,35 +1,21 @@
-/* Animate transforms and opacity; leave layout and readable content intact. */
-.capital-site .hero-showcase .showcase-copy{animation:none}
-@media(prefers-reduced-motion:no-preference){
-  .capital-site .site-button{transition:transform .22s ease,box-shadow .22s ease,background .22s ease}
-  .capital-site .site-button:active{transform:scale(.96);box-shadow:0 2px 6px #10213f10}
-  .capital-site .site-button svg,.capital-site .quiet-link svg,.capital-site .public-card-action svg,.capital-site .public-store-list>button>svg,.capital-site .public-product-copy>span>svg{transition:transform .25s ease}
-  .capital-site .site-button:hover svg,.capital-site .quiet-link:hover svg,.capital-site .public-discovery-card:hover .public-card-action svg,.capital-site .public-store-list>button:hover>svg,.capital-site .public-product-card:hover .public-product-copy>span>svg{transform:translateX(-4px)}
-  .capital-site .site-nav a,.capital-site .site-footer nav a{position:relative}
-  .capital-site .site-nav a:after,.capital-site .site-footer nav a:after{content:'';position:absolute;bottom:3px;right:0;width:100%;height:2px;background:var(--accent);border-radius:2px;transform:scaleX(0);transform-origin:right;transition:transform .25s ease}
-  .capital-site .site-nav a:hover:after,.capital-site .site-nav a:focus-visible:after,.capital-site .site-footer nav a:hover:after,.capital-site .site-footer nav a:focus-visible:after{transform:scaleX(1)}
-  .capital-site .public-discovery-card>img,.capital-site .public-product-image img{transition:transform .65s cubic-bezier(.2,.7,.2,1)}
-  .capital-site .public-discovery-card:hover>img,.capital-site .public-product-card:hover .public-product-image img{transform:scale(1.055)}
-  .capital-site .public-product-card,.capital-site .public-store-list>button,.capital-site .public-how article{transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease}
-  .capital-site .public-product-card:active,.capital-site .public-store-list>button:active,.capital-site .public-discovery-card:active{transform:scale(.985)}
-  .capital-site .public-how article>div>svg{transition:transform .4s cubic-bezier(.2,.7,.2,1)}
-  .capital-site .public-how article:hover>div>svg{transform:rotate(-9deg) scale(1.12)}
-  .capital-site .showcase-photo-tag{animation:site-tag-arrive .65s .25s backwards}
-  .capital-site .showcase-arrows button{transition:background .2s,border-color .2s,transform .2s}
-  .capital-site .showcase-arrows button:active{transform:scale(.88)}
-  .capital-site .app-promotion[open]{animation:site-dialog-arrive .38s cubic-bezier(.16,1,.3,1)}
-  .capital-site .app-promotion[open]::backdrop{animation:site-backdrop-arrive .24s ease}
-  .capital-site .app-promotion[open] .app-promotion-visual img{animation:site-phone-arrive .6s .08s cubic-bezier(.16,1,.3,1) backwards}
-  .capital-site .app-promotion[open] .app-promotion-copy{animation:site-copy-arrive .45s .14s both}
-  @media(hover:hover) and (pointer:fine){
-    .capital-site .public-how article:hover,.capital-site .public-product-card:hover,.capital-site .public-store-list>button:hover{transform:translateY(-4px);box-shadow:0 12px 25px #10213f0a}
+/* Short, optional interactions; motion never hides content or delays keyboard access. */
+@media (prefers-reduced-motion: no-preference) {
+  .capital-site .site-button, .capital-site .offer-card, .capital-site .public-product-card,
+  .capital-site .public-discovery-card, .capital-site .careers-roles article {
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease;
   }
+  @media (hover: hover) and (pointer: fine) {
+    .capital-site .offer-card:hover, .capital-site .public-product-card:hover,
+    .capital-site .public-discovery-card:hover, .capital-site .careers-roles article:hover {
+      transform: translateY(-4px); box-shadow: 0 14px 35px rgb(21 45 56 / 10%); border-color: #a8bfb6;
+    }
+  }
+  .capital-site .site-button:active { transform: translateY(1px); }
+  .capital-site .app-promotion[open] { animation: dialog-enter .22s ease-out; }
 }
-@keyframes site-tag-arrive{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
-@keyframes site-dialog-arrive{from{opacity:0;transform:translateY(22px) scale(.96)}to{opacity:1;transform:none}}
-@keyframes site-backdrop-arrive{from{opacity:0}to{opacity:1}}
-@keyframes site-phone-arrive{from{opacity:0;transform:translateY(28px) rotate(-4deg)}to{opacity:1;transform:none}}
-@keyframes site-copy-arrive{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-@media(prefers-reduced-motion:reduce){
-  .capital-site *,.capital-site *:before,.capital-site *:after,.capital-site dialog::backdrop{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+@keyframes dialog-enter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .capital-site *, .capital-site *::before, .capital-site *::after, .capital-site dialog::backdrop {
+    animation: none !important; transition: none !important; scroll-behavior: auto !important;
+  }
 }

@@ -10,6 +10,11 @@ export default defineConfig(() => {
   if (!buildId) { try { buildId = execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(); } catch { buildId = 'build-'+Date.now(); } }
   const builtAt = new Date().toISOString();
   return {
+    css: {
+      preprocessorOptions: {
+        scss: { quietDeps: true, silenceDeprecations: ["import", "global-builtin", "color-functions"] },
+      },
+    },
     define: { 'import.meta.env.VITE_BUILD_ID': JSON.stringify(buildId) },
     plugins: [
       { name: 'capital-build-info', generateBundle() { this.emitFile({type:'asset',fileName:'build-info.json',source:JSON.stringify({id:buildId,builtAt})}); } },

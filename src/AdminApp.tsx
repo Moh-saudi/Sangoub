@@ -112,6 +112,7 @@ export default function AdminApp() {
   };
 
   return <div className="admin-app min-h-screen bg-slate-50 text-slate-900" dir="rtl">
+    <a className="skip-link" href="#admin-content">انتقل إلى محتوى الإدارة</a>
     <header className="admin-global-header border-b border-slate-200 bg-white"><div className="px-5 py-3 flex flex-wrap gap-4 items-center justify-between">
       <div className="flex items-center gap-3"><img src={logo} alt="طلبات العاصمة" className="w-14 h-14 rounded-2xl object-contain" /><div><p className="font-black text-lg">طلبات العاصمة</p><p className="text-xs text-slate-500">لوحة الإدارة · الحي الحكومي</p></div></div>
       <div id="admin-header-search" className="admin-header-search-slot" />
@@ -121,12 +122,12 @@ export default function AdminApp() {
     {access === "admin" && profile ? <>
       {(error || notice) && <div className="max-w-7xl mx-auto px-4 pt-4">{error && <p role="alert" className="bg-red-50 text-red-700 rounded-xl p-3">{error}</p>}{notice && <p role="status" className="bg-emerald-50 text-emerald-800 rounded-xl p-3">{notice}</p>}</div>}
       <AdminWorkspace orders={orders} stores={stores} products={products} couriers={staff.filter((person) => person.role === "courier")} staff={staff} coupons={coupons} connected={connected} onError={report}>
-        <AdminDashboard couriers={staff.filter((person) => person.role === "courier")} orders={orders} stores={stores} products={products} partnerApplications={partners} jobApplications={jobs}
+        <AdminDashboard couriers={staff.filter((person) => person.role === "courier")} orders={orders} partnerApplications={partners} jobApplications={jobs}
           onUpdateOrderStatus={(id, status) => updateOrderRecord(id, { orderStatus: status })} onAssignCourier={assignCourier}
           onUpdatePartnerStatus={(id, status) => updateApplication("partnerApplications", id, status)}
           onApprovePartnerAsStore={approveStore} onUpdateJobStatus={(id, status) => updateApplication("jobApplications", id, status)} />
       </AdminWorkspace>
-    </> : <main className="max-w-5xl mx-auto px-4 py-12 sm:py-20 grid lg:grid-cols-2 gap-8 items-center">
+    </> : <main id="admin-content" tabIndex={-1} className="max-w-5xl mx-auto px-4 py-12 sm:py-20 grid lg:grid-cols-2 gap-8 items-center">
       <section><p className="text-orange-600 font-bold text-sm mb-4">CAPITAL TALABAT · ADMIN</p><h1 className="text-3xl sm:text-4xl font-black leading-relaxed">إدارة التشغيل،<br />من مكان واحد.</h1><p className="text-slate-600 leading-8 mt-5">الطلبات، المتاجر، المنتجات، وفريق التوصيل.</p><p className="text-sm text-slate-500 mt-4">حسابات الموظف والشيف والمندوب تعمل من تطبيق الموبايل. هذه البوابة مخصصة للإدارة.</p></section>
       <section className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-5" aria-label="دخول الإدارة">
         {access === "checking" ? <div role="status" className="py-8 text-center space-y-3"><Loader2 className="animate-spin mx-auto text-orange-600" /><p>جارٍ التحقق من جلسة الإدارة والاتصال…</p></div> : access === "login" ? <>
