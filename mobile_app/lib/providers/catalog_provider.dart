@@ -16,8 +16,20 @@ class CatalogProvider with ChangeNotifier {
   String? _selectedCategory;
   String _searchQuery = '';
 
-  List<StoreModel> get stores => [..._stores];
-  List<ProductModel> get products => [..._products];
+  // تصفية المتاجر: فقط المتاجر المفتوحة والنشطة تظهر لعملاء التطبيق
+  List<StoreModel> get stores => _stores.where((s) => s.isOpen).toList();
+  List<StoreModel> get allStores => [..._stores];
+
+  // تصفية المنتجات: تظهر فقط المنتجات المتاحة غير المؤرشفة التابعة لمتاجر مفتوحة
+  List<ProductModel> get products {
+    final openStoreIds = _stores.where((s) => s.isOpen).map((s) => s.id).toSet();
+    return _products.where((p) {
+      if (p.archived || !p.inStock) return false;
+      if (p.storeId.isNotEmpty && !openStoreIds.contains(p.storeId)) return false;
+      return true;
+    }).toList();
+  }
+
   bool get isLoading => _isLoading;
   String? get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
@@ -68,12 +80,16 @@ class CatalogProvider with ChangeNotifier {
   }
 
   List<ProductModel> getProductsForStore(String storeId) {
-    return _products.where((p) => p.storeId == storeId && p.isAvailable).toList();
+    final store = getStoreById(storeId);
+    if (store == null || !store.isOpen) return [];
+    return _products.where((p) => p.storeId == storeId && p.isAvailable && !p.archived).toList();
   }
 
   List<ProductModel> get filteredProducts {
+    final openStoreIds = _stores.where((s) => s.isOpen).map((s) => s.id).toSet();
     return _products.where((p) {
-      if (!p.isAvailable) return false;
+      if (!p.isAvailable || p.archived) return false;
+      if (p.storeId.isNotEmpty && !openStoreIds.contains(p.storeId)) return false;
       if (_selectedCategory != null &&
           _selectedCategory!.isNotEmpty &&
           _selectedCategory != 'الكل' &&

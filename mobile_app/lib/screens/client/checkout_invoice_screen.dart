@@ -159,7 +159,7 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
           ? cart.selectedMinistry
           : (auth.currentUser?.ministry.isNotEmpty == true
               ? auth.currentUser!.ministry
-              : 'وزارة الاتصالات وتكنولوجيا المعلومات');
+              : 'الحي الحكومي بالعاصمة الإدارية');
 
       final floor = _floorController.text.trim().isNotEmpty
           ? _floorController.text.trim()
@@ -649,7 +649,10 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
                   ),
                   const SizedBox(height: 12),
                   _buildInvoiceRow('المجموع الفرعي للوجبات', '${cart.subtotal.toStringAsFixed(0)} ج.م'),
-                  _buildInvoiceRow('خدمة التوصيل للحي الحكومي', '${cart.deliveryFee.toStringAsFixed(0)} ج.م'),
+                  _buildInvoiceRow(
+                    'خدمة التوصيل (${cart.deliveryZoneName} - ${cart.deliveryDistanceLabel})',
+                    '${cart.deliveryFee.toStringAsFixed(0)} ج.م',
+                  ),
                   if (cart.discount > 0)
                     _buildInvoiceRow(
                       'خصم قسيمة الموظف (CAPITAL100)',

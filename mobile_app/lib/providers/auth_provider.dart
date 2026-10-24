@@ -60,6 +60,19 @@ class AuthProvider with ChangeNotifier {
         profile = await _firebaseService.getUserProfile(firebaseUser.uid);
       }
 
+      // ─── مزامنة صورة الملف الشخصي من Google/Firebase Auth ──────────
+      // إذا لم تُحفظ الصورة في Firestore (حسابات قديمة أو فاتت عند الإنشاء)
+      if (profile != null &&
+          (profile.avatarUrl == null || profile.avatarUrl!.trim().isEmpty) &&
+          firebaseUser.photoURL != null &&
+          firebaseUser.photoURL!.isNotEmpty) {
+        await _firebaseService.updateUserAvatarUrl(
+          uid: firebaseUser.uid,
+          avatarUrl: firebaseUser.photoURL!,
+        );
+        profile = profile.copyWith(avatarUrl: firebaseUser.photoURL);
+      }
+
       _currentUser = profile;
       _errorMessage = null;
     } catch (e) {
@@ -70,6 +83,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
 
   /// تسجيل الدخول بالبريد الإلكتروني وكلمة المرور الحقيقيين
   Future<UserRole> signInWithEmailAndPassword({

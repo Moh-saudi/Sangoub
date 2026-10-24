@@ -15,7 +15,7 @@ class CartProvider with ChangeNotifier {
   double get discount => _appliedDiscount;
   String? get couponCode => _couponCode;
 
-  String _selectedMinistry = 'وزارة الاتصالات وتكنولوجيا المعلومات';
+  String _selectedMinistry = 'العاصمة الإدارية الجديدة';
   String get selectedMinistry => _selectedMinistry;
 
   void setMinistry(String ministry) {

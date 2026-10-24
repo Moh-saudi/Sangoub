@@ -9,12 +9,15 @@ import '../../core/constants/colors.dart';
 import '../../models/ministry_model.dart';
 import '../../models/order_model.dart';
 import '../../models/product_model.dart';
+import '../../providers/app_config_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/catalog_provider.dart';
 import '../../providers/orders_provider.dart';
 import '../../widgets/app_image.dart';
+import '../../widgets/map_address_picker.dart';
 import 'checkout_invoice_screen.dart';
+import 'offers_screen.dart';
 import 'order_tracking_screen.dart';
 import 'product_details_screen.dart';
 import 'user_profile_screen.dart';
@@ -107,105 +110,45 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     super.dispose();
   }
 
-  void _handleAutoLocationDetection(BuildContext context, CartProvider cart) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return _AutoLocationSheet(
-          currentMinistry: cart.selectedMinistry,
-          onResolved: (ministryName) {
-            cart.setMinistry(ministryName);
-          },
-          onOpenManualList: () {
-            Navigator.pop(sheetContext);
-            _showMinistryPickerModal(context, cart);
-          },
-        );
-      },
-    );
-  }
-
-  void _showMinistryPickerModal(BuildContext context, CartProvider cart) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+  Future<void> _handleAutoLocationDetection(BuildContext context, CartProvider cart) async {
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => MapAddressPickerScreen(
+          initialTitle: cart.selectedMinistry,
+        ),
       ),
-      builder: (ctx) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 48,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'موقع التوصيل بالحي الحكومي بالعاصمة',
-                style: GoogleFonts.cairo(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.navy,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: MinistryModel.allMinistries.length,
-                  itemBuilder: (context, index) {
-                    final ministry = MinistryModel.allMinistries[index];
-                    final isSelected = cart.selectedMinistry == ministry.name;
-                    return Material(
-                      color: Colors.transparent,
-                      child: ListTile(
-                        dense: true,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        tileColor: isSelected ? AppColors.primaryContainer.withValues(alpha: 0.3) : null,
-                        leading: Icon(
-                          Icons.account_balance_rounded,
-                          color: isSelected ? AppColors.primary : AppColors.navy,
-                          size: 20,
-                        ),
-                        title: Text(
-                          ministry.name,
-                          style: GoogleFonts.cairo(
-                            fontSize: 13,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? AppColors.primaryDark : AppColors.textPrimary,
-                          ),
-                        ),
-                        trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.primary, size: 18) : null,
-                        onTap: () {
-                          cart.setMinistry(ministry.name);
-                          Navigator.pop(ctx);
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
+    if (result != null && mounted) {
+      final details = (result['details'] as String?) ?? (result['address'] as String?);
+      final district = (result['district'] as String?)?.trim() ?? '';
+      final city = (result['city'] as String?)?.trim() ?? '';
+      final title = (result['title'] as String?)?.trim() ?? '';
+
+      String chosenLocation = '';
+      if (details != null && details.isNotEmpty && details != 'الموقع المحدد على الخريطة') {
+        chosenLocation = details;
+      } else if (district.isNotEmpty) {
+        chosenLocation = city.isNotEmpty ? '$district، $city' : district;
+      } else if (city.isNotEmpty) {
+        chosenLocation = city;
+      } else if (title.isNotEmpty && title != 'عنواني' && title != 'المنزل') {
+        chosenLocation = title;
+      } else {
+        chosenLocation = 'موقعي على الخريطة';
+      }
+
+      cart.setMinistry(chosenLocation);
+    }
   }
 
   Widget _buildUserAvatar(AuthProvider auth) {
-    final photoUrl = auth.currentUser?.avatarUrl ?? auth.firebaseUser?.photoURL;
-    final hasPhoto = photoUrl != null && photoUrl.trim().isNotEmpty;
+    // 1. صورة مخصصة قام المستخدم برفعها / 2. صورة حساب Google التي سجل بها
+    final customAvatar = auth.currentUser?.avatarUrl?.trim();
+    final googleAvatar = auth.firebaseUser?.photoURL?.trim();
+    final photoUrl = (customAvatar != null && customAvatar.isNotEmpty)
+        ? customAvatar
+        : ((googleAvatar != null && googleAvatar.isNotEmpty) ? googleAvatar : null);
+    final hasPhoto = photoUrl != null;
 
     return InkWell(
       onTap: () => setState(() => _currentBottomNavIndex = 3),
@@ -301,17 +244,232 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     );
   }
 
+  void _showAllPopularMealsSheet(
+    BuildContext context,
+    List<ProductModel> meals,
+    String sectionTitle,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      enableDrag: true,
+      isDismissible: true,
+      useSafeArea: true,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          minChildSize: 0.25,
+          maxChildSize: 0.95,
+          expand: false,
+          snap: true,
+          snapSizes: const [0.5, 0.75, 0.95],
+          shouldCloseOnMinExtent: true,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  // مقبض السحب لأسفل مع التعرف على سحب الإصبع للإغلاق
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onVerticalDragUpdate: (details) {
+                      if (details.primaryDelta != null && details.primaryDelta! > 10) {
+                        Navigator.of(ctx).pop();
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      color: Colors.transparent,
+                      child: Center(
+                        child: Container(
+                          width: 48,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFCBD5E1),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 30, color: AppColors.navy),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              tooltip: 'إغلاق القائمة',
+                              onPressed: () => Navigator.of(ctx).pop(),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('🔥 ', style: TextStyle(fontSize: 18)),
+                            Text(
+                              sectionTitle,
+                              style: GoogleFonts.cairo(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.navy,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${meals.length} صنف',
+                            style: GoogleFonts.cairo(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: meals.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final meal = meals[index];
+                        return InkWell(
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            _openProductDetails(meal);
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: (meal.effectiveImageUrl ?? meal.imageUrl)?.isNotEmpty == true
+                                      ? Image.network(
+                                          (meal.effectiveImageUrl ?? meal.imageUrl)!,
+                                          width: 72,
+                                          height: 72,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => Container(
+                                            width: 72,
+                                            height: 72,
+                                            color: const Color(0xFFE2E8F0),
+                                            child: const Icon(Icons.fastfood_rounded, color: AppColors.textMuted),
+                                          ),
+                                        )
+                                      : Container(
+                                          width: 72,
+                                          height: 72,
+                                          color: const Color(0xFFE2E8F0),
+                                          child: const Icon(Icons.fastfood_rounded, color: AppColors.textMuted),
+                                        ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        meal.name,
+                                        style: GoogleFonts.cairo(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.navy,
+                                        ),
+                                      ),
+                                      Text(
+                                        meal.storeName,
+                                        style: GoogleFonts.cairo(
+                                          fontSize: 11,
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            '${meal.price.toStringAsFixed(0)} ج.م',
+                                            style: GoogleFonts.cairo(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w900,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primary,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              'عرض التفاصيل',
+                                              style: GoogleFonts.cairo(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context);
     final orders = Provider.of<OrdersProvider>(context);
     final catalog = Provider.of<CatalogProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
+    final appConfig = Provider.of<AppConfigProvider>(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       // ─── Header AppBar ─────────────────────────────────────────────
-      appBar: AppBar(
+      appBar: (_currentBottomNavIndex == 2 || _currentBottomNavIndex == 3)
+          ? null
+          : AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
@@ -411,7 +569,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         index: _currentBottomNavIndex,
         children: [
           // Tab 0: Home Page (مع كافة السلايدرز والمطاعم)
-          _buildHomeTab(context, cart, orders, catalog),
+          _buildHomeTab(context, cart, orders, catalog, appConfig),
 
           // Tab 1: Orders & Live Tracking
           _buildOrdersTab(context, orders, cart),
@@ -563,10 +721,13 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     CartProvider cart,
     OrdersProvider orders,
     CatalogProvider catalog,
+    AppConfigProvider appConfig,
   ) {
     final products = catalog.products;
     final filteredProducts = catalog.filteredProducts;
     final stores = catalog.stores;
+    final banners = appConfig.offersBanners.isNotEmpty ? appConfig.offersBanners : _offersBanners;
+    final dynamicPopularTitle = appConfig.getDynamicPopularTitle(userAddressTitle: cart.selectedMinistry);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 90),
@@ -603,7 +764,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                       decoration: InputDecoration(
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                        hintText: 'ابحث عن وجبة، متجر، أو قهوة في الحي الحكومي...',
+                        hintText: 'ابحث عن وجبة، متجر، أو قهوة مفضلة...',
                         hintStyle: GoogleFonts.cairo(
                           fontSize: 12,
                           color: AppColors.textMuted,
@@ -652,34 +813,42 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             height: 165,
             child: PageView.builder(
               controller: _offersPageController,
-              itemCount: _offersBanners.length,
+              itemCount: banners.length,
               onPageChanged: (idx) => setState(() => _currentOfferIndex = idx),
               itemBuilder: (context, index) {
-                final banner = _offersBanners[index];
+                final banner = banners[index];
                 final imagePath = banner['image'] as String?;
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: imagePath != null
-                        ? Image.asset(
-                            imagePath,
-                            width: double.infinity,
-                            height: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (ctx, err, stack) => _buildFallbackBanner(banner),
-                          )
-                        : _buildFallbackBanner(banner),
+                return InkWell(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const OffersScreen()),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: imagePath != null
+                          ? Image.asset(
+                              imagePath,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (ctx, err, stack) => _buildFallbackBanner(banner),
+                            )
+                          : _buildFallbackBanner(banner),
+                    ),
                   ),
                 );
               },
@@ -689,7 +858,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
           Center(
             child: SmoothPageIndicator(
               controller: _offersPageController,
-              count: _offersBanners.length,
+              count: banners.length,
               effect: const ExpandingDotsEffect(
                 activeDotColor: AppColors.primary,
                 dotColor: Color(0xFFCBD5E1),
@@ -701,7 +870,97 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             ),
           ),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
+
+          // ─── مدخل عروض وخصومات المنتجات (Offers Entry مطابقة لصفحة الويب) ───
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const OffersScreen()),
+                );
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFF7ED), Color(0xFFFFEDD5)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFFED7AA)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.orange.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.local_offer_rounded, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'عروض وتخفيضات اليوم',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.navy,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDC2626),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'توفير %',
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 9.5,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            'تصفح الأصناف المخفّضة المتاحة من المتاجر والسوبر ماركت',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.cairo(
+                              fontSize: 10.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
 
           // ─── 2. سلايدر شعارات المحلات والمطاعم (Brands Strip) ───────
           Padding(
@@ -710,7 +969,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'أشهر مطاعم ومتاجر العاصمة',
+                  appConfig.storesSectionTitle,
                   style: GoogleFonts.cairo(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -847,47 +1106,62 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
           const SizedBox(height: 18),
 
           // ─── 3. سلايدر الوجبات الأكثر طلباً (Popular Meals Slider) ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Text('🔥 ', style: TextStyle(fontSize: 16)),
-                    Text(
-                      'الأكثر طلباً لمكاتب الوزارات',
-                      style: GoogleFonts.cairo(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.navy,
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  'عرض المزيد',
-                  style: GoogleFonts.cairo(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
           Builder(
             builder: (context) {
               final popularMeals = products.where((p) => p.isPopular).toList();
-              final displayPopular = popularMeals.isNotEmpty ? popularMeals : products.take(6).toList();
+              final displayPopular = popularMeals.isNotEmpty ? popularMeals : products.take(8).toList();
 
-              return SizedBox(
-                height: 220,
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Text('🔥 ', style: TextStyle(fontSize: 16)),
+                            Text(
+                              dynamicPopularTitle,
+                              style: GoogleFonts.cairo(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.navy,
+                              ),
+                            ),
+                          ],
+                        ),
+                        InkWell(
+                          onTap: displayPopular.isEmpty
+                              ? null
+                              : () => _showAllPopularMealsSheet(
+                                    context,
+                                    displayPopular,
+                                    dynamicPopularTitle,
+                                  ),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            child: Text(
+                              'عرض المزيد',
+                              style: GoogleFonts.cairo(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 220,
                 child: displayPopular.isEmpty
                     ? Center(
                         child: Text(
-                          catalog.isLoading ? 'جاري تحميل الوجبات...' : 'لا توجد وجبات متاحة حالياً',
+                          catalog.isLoading ? 'جاري تحميل الأصناف...' : 'لا توجد أصناف متاحة حالياً',
                           style: GoogleFonts.cairo(fontSize: 12, color: AppColors.textMuted),
                         ),
                       )
@@ -1011,17 +1285,19 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                           );
                         },
                       ),
+                    ),
+                ],
               );
             },
           ),
 
           const SizedBox(height: 20),
 
-          // ─── 4. قائمة وجبات الفود كورت (Filtered Meals List) ────────
+          // ─── 4. قائمة الوجبات (Filtered Meals List) ─────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'وجبات وقوائم الحي الحكومي (${filteredProducts.length})',
+              '${appConfig.mealsSectionTitle} (${filteredProducts.length})',
               style: GoogleFonts.cairo(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
@@ -1530,7 +1806,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               ),
               const SizedBox(width: 4),
               Text(
-                'انستاباي (InstaPay)',
+                'إنستاباي',
                 style: GoogleFonts.cairo(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
@@ -1616,7 +1892,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               const Icon(Icons.account_balance_wallet_rounded, size: 12, color: Color(0xFFB45309)),
               const SizedBox(width: 4),
               Text(
-                'محفظة الموظف',
+                'محفظة كاش باك النقاط',
                 style: GoogleFonts.cairo(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,

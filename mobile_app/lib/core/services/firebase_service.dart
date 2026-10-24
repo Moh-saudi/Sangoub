@@ -121,6 +121,19 @@ class FirebaseService {
     debugPrint('✅ تم تحديث بيانات الموظف: $uid');
   }
 
+  /// مزامنة صورة الملف الشخصي من Google/Firebase Auth إلى Firestore
+  Future<void> updateUserAvatarUrl({
+    required String uid,
+    required String avatarUrl,
+  }) async {
+    await _firestore.collection('users').doc(uid).update({
+      'avatarUrl': avatarUrl,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    debugPrint('✅ تم تحديث صورة الملف الشخصي: $uid');
+  }
+
+
   // ─── 2. استماع الكتالوج الحقيقي (stores & products) ───────────────────
 
   /// استماع المتاجر المفتوحة (stores)

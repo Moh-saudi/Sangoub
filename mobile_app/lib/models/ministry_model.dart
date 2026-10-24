@@ -118,12 +118,12 @@ class MinistryModel {
       longitude: 31.7030,
     ),
 
-    // ─── 2. حي المال والأعمال (CBD & البرج الأيقوني) ─────────────
+    // ─── 2. حي المال والأعمال (منطقة البرج الأيقوني) ─────────────
     MinistryModel(
       id: 'cbd_iconic',
       nameArabic: 'حي المال والأعمال (منطقة البرج الأيقوني)',
       sector: 'منطقة الأبراج وناطحات السحاب العالمية',
-      buildingNumber: 'البرج الأيقوني (Iconic Tower)',
+      buildingNumber: 'البرج الأيقوني',
       totalOffices: 500,
       icon: 'domain',
       category: 'business',
@@ -132,7 +132,7 @@ class MinistryModel {
     ),
     MinistryModel(
       id: 'cbd_banks',
-      nameArabic: 'مجمع البنوك والمؤسسات المالية (CBD)',
+      nameArabic: 'مجمع البنوك والمؤسسات المالية',
       sector: 'قطاع البنوك المركزية والاستثمار',
       buildingNumber: 'برج البنك الأهلي / مصر',
       totalOffices: 400,
@@ -202,7 +202,7 @@ class MinistryModel {
     // ─── 4. الداون تاون والأنشطة التجارية ────────────────────────
     MinistryModel(
       id: 'downtown_plaza',
-      nameArabic: 'منطقة الداون تاون وسوق الذهب (Downtown)',
+      nameArabic: 'منطقة الداون تاون وسوق الذهب',
       sector: 'المنطقة التجارية والترفيهية المركزية',
       buildingNumber: 'مول تجاري / إداري',
       totalOffices: 400,
@@ -215,7 +215,7 @@ class MinistryModel {
     // ─── 5. مدينة الشروق والمدن المجاورة ونطاق التوسع ────────────
     MinistryModel(
       id: 'shorouk_city',
-      nameArabic: 'مدينة الشروق (سكن الموظفين / المقر السكني)',
+      nameArabic: 'مدينة الشروق',
       sector: 'المدن المجاورة للعاصمة الإدارية - الشروق',
       buildingNumber: 'عمارة / فيلا سكنية',
       totalOffices: 800,
@@ -226,7 +226,7 @@ class MinistryModel {
     ),
     MinistryModel(
       id: 'shorouk_central',
-      nameArabic: 'مدينة الشروق (مركز المدينة والجامعات)',
+      nameArabic: 'مدينة الشروق - المنطقة المركزية',
       sector: 'المنطقة المركزية لمدينة الشروق',
       buildingNumber: 'مقر تجاري / سكني',
       totalOffices: 600,
@@ -248,8 +248,8 @@ class MinistryModel {
     ),
     MinistryModel(
       id: 'badr_city',
-      nameArabic: 'مدينة بدر (سكن مصر لموظفي العاصمة الإدارية)',
-      sector: 'إسكان العاملين والموظفين بالعاصمة',
+      nameArabic: 'مدينة بدر - سكن مصر',
+      sector: 'مدينة بدر',
       buildingNumber: 'عمارة سكن مصر',
       totalOffices: 750,
       icon: 'house',
@@ -259,7 +259,7 @@ class MinistryModel {
     ),
     MinistryModel(
       id: 'mostakbal_city',
-      nameArabic: 'مدينة المستقبل (Mostakbal City)',
+      nameArabic: 'مدينة المستقبل',
       sector: 'امتداد التنمية العمرانية للعاصمة',
       buildingNumber: 'كمبوند المستقبل',
       totalOffices: 400,
@@ -270,8 +270,8 @@ class MinistryModel {
     ),
     MinistryModel(
       id: 'zahret_alassema',
-      nameArabic: 'مدينة بدر (زهرة العاصمة - سكن موظفي العاصمة)',
-      sector: 'سكن العاملين والموظفين بالعاصمة الإدارية (زهرة العاصمة)',
+      nameArabic: 'مدينة بدر - زهرة العاصمة',
+      sector: 'زهرة العاصمة - مدينة بدر',
       buildingNumber: 'عمارة زهرة العاصمة',
       totalOffices: 1200,
       icon: 'house',

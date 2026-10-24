@@ -47,6 +47,11 @@ dependencies:
   timeago: ^3.7.0
   geolocator: ^14.0.2
 
+  # ── خرائط حقيقية مجانية (OpenStreetMap - بلا مفاتيح API) ────────
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

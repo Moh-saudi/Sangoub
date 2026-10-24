@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/colors.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/cart_provider.dart';
 import '../../providers/orders_provider.dart';
 import '../auth/login_screen.dart';
 import '../profile/settings_screen.dart';
@@ -18,7 +19,16 @@ class UserProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final orders = Provider.of<OrdersProvider>(context);
+    final cart = Provider.of<CartProvider>(context);
     final user = auth.currentUser;
+
+    // 1. صورة مخصصة قام المستخدم برفعها / 2. صورة حساب Google الرسمي
+    final customAvatar = user?.avatarUrl?.trim();
+    final googleAvatar = auth.firebaseUser?.photoURL?.trim();
+    final photoUrl = (customAvatar != null && customAvatar.isNotEmpty)
+        ? customAvatar
+        : ((googleAvatar != null && googleAvatar.isNotEmpty) ? googleAvatar : null);
+    final hasPhoto = photoUrl != null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -93,12 +103,24 @@ class UserProfileScreen extends StatelessWidget {
                           shape: BoxShape.circle,
                           color: Colors.white,
                         ),
-                        child: Center(
-                          child: Icon(
-                            user?.role.icon ?? Icons.person_rounded,
-                            size: 42,
-                            color: AppColors.navy,
-                          ),
+                        child: ClipOval(
+                          child: hasPhoto
+                              ? Image.network(
+                                  photoUrl,
+                                  fit: BoxFit.cover,
+                                  width: 76,
+                                  height: 76,
+                                  errorBuilder: (_, __, ___) => Icon(
+                                    user?.role.icon ?? Icons.person_rounded,
+                                    size: 42,
+                                    color: AppColors.navy,
+                                  ),
+                                )
+                              : Icon(
+                                  user?.role.icon ?? Icons.person_rounded,
+                                  size: 42,
+                                  color: AppColors.navy,
+                                ),
                         ),
                       ),
                     ],
@@ -249,7 +271,9 @@ class UserProfileScreen extends StatelessWidget {
                   _buildProfileTile(
                     icon: Icons.location_on_outlined,
                     title: 'العناوين ومقر الوزارة المحفوظ',
-                    subtitle: user?.ministryName ?? 'وزارة الاتصالات - الدور الرابع',
+                    subtitle: (user?.ministryName?.isNotEmpty == true)
+                        ? user!.ministryName!
+                        : cart.selectedMinistry,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const SavedAddressesScreen()),
