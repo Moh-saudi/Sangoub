@@ -25,8 +25,12 @@ export default async function handler(req: any, res: any) {
     const access=(await db.doc('accountAccess/'+identity.uid).get()).data();
     if(access?.disabled||access?.operationLocked||identity.auth_time<=(access?.revokedBefore||0))return res.status(401).json({error:'أُلغيت هذه الجلسة أو عُلّق الحساب. سجل الدخول من جديد.'});
     attachAuditContext(req,identity);
-    if (!identity.email_verified && !identity.phone_number)
-      return res.status(403).json({ error: "يرجى تأكيد البريد أو الهاتف." });
+    if (!identity.email_verified && !identity.phone_number) {
+      const userDoc = await db.collection("users").doc(identity.uid).get();
+      if (!userDoc.exists) {
+        return res.status(403).json({ error: "يرجى تأكيد البريد أو الهاتف." });
+      }
+    }
     const input = req.body;
     if (
       !input ||
