@@ -62,6 +62,27 @@ test('an ambiguous Auth network result leaves a partial audit and a lock for rev
   const lock=await services.db.doc('adminUserLocks/'+createdUid).get();assert(lock.exists);assert.equal((await services.db.doc('auditLogs/'+lock.data()!.operationId).get()).data()?.status,'partial');assert.equal((await services.auth.getUser(createdUid)).email,'ambiguous-auth@example.com');
  }finally{services.auth.createUser=original;if(createdUid){await services.auth.deleteUser(createdUid);await services.db.doc('adminUserLocks/'+createdUid).delete();await services.db.doc('accountAccess/'+createdUid).delete();await services.db.doc('adminControl/membership').delete();}}
 });
+test('an imported offer can be assigned its first store before enabling orders, while linked products cannot move stores', async () => {
+ const id='unassigned-offer';
+ await services.db.doc('products/'+id).set({id,name:'عرض مستورد',description:'منتج غير مرتبط بمتجر بعد',storeId:'',storeName:'كتالوج مستورد',category:'وجبات خفيفة',price:20,originalPrice:40,inStock:false,archived:false});
+ const attempt=await invoke({action:'save',collection:'products',id,data:{inStock:true}},data);
+ assert.equal(attempt.status,400);assert.match(attempt.result.error,/اختر المتجر/);
+ assert.equal((await services.db.doc('products/'+id).get()).data()?.storeId,'');
+ const missingStore=await invoke({action:'save',collection:'products',id,data:{storeId:'missing-store',inStock:true}},data);
+ assert.equal(missingStore.status,400);
+ const unauthorized=await invoke({action:'save',collection:'products',id,data:{storeId:'admin-api-store',inStock:true}},data,employeeToken);
+ assert.equal(unauthorized.status,403);
+ const assigned=await invoke({action:'save',collection:'products',id,data:{storeId:'admin-api-store',storeName:'متجر اختبار',inStock:true}},data);
+ assert.equal(assigned.status,200,JSON.stringify(assigned.result));
+ const product=(await services.db.doc('products/'+id).get()).data()!;
+ assert.equal(product.storeId,'admin-api-store');assert.equal(product.inStock,true);assert.equal(product.price,20);assert.equal(product.originalPrice,40);
+ const moved=await invoke({action:'save',collection:'products',id,data:{storeId:'audited-store',inStock:true}},data);
+ assert.equal(moved.status,400);assert.match(moved.result.error,/لا يمكن نقل/);
+ const logs=await services.db.collection('auditLogs').where('entityId','==',id).get();
+ const success=logs.docs.map(doc=>doc.data()).filter(log=>log.status==='success');
+ assert.equal(success.length,1);assert.equal(success[0].before.storeId,'');assert.equal(success[0].after.storeId,'admin-api-store');
+});
+
 test('concurrent administrators cannot disable each other and remove all management access',async()=>{
  const other=await services.auth.createUser({email:'second-audit-admin@example.com',emailVerified:true,password:'TestPassword123!'});await services.db.doc('admins/'+other.uid).set({active:true});
  const otherToken=await(await signInWithEmailAndPassword(client,'second-audit-admin@example.com','TestPassword123!')).user.getIdToken();

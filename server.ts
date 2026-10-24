@@ -20,6 +20,7 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
 
+  app.use((_req, res, next) => { res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups"); next(); });
   app.use(express.json({ limit: "1mb" }));
   app.post("/api/admin-users", adminUsersHandler);
   app.options("/api/admin-users", adminUsersHandler);

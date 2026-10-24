@@ -30,6 +30,7 @@ try{
  browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,headless:true,args:['--no-sandbox']});const context=await browser.newContext({viewport:{width:1440,height:1000}});const page=await context.newPage();const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('http://127.0.0.1:3105/');
  await page.getByRole('navigation',{name:'القائمة الرئيسية'}).waitFor();
+ assert.equal((await page.request.get('http://127.0.0.1:3105/admin')).headers()['cross-origin-opener-policy'],'same-origin-allow-popups');
  assert.equal(await page.getByRole('heading',{name:'تسجيل دخول الإدارة',exact:true}).count(),0);
  assert.equal(await page.getByText('iPhone 16 Pro',{exact:true}).count(),0);
  for(const width of [390,768,1440]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'public overflow '+width);}
@@ -198,6 +199,22 @@ try{
  await services.db.doc('products/catalog-layout-2').update({originalPrice:30});
  await offersVisitor.getByRole('heading',{name:'العروض الحلوة جاية قريب',exact:true}).waitFor();
  await offersVisitor.close();
+ // Imported offers have no store until an administrator explicitly assigns one.
+ await services.db.doc('products/imported-offer').set({id:'imported-offer',name:'عرض مستورد دون متجر',description:'اختبار إتاحة العرض بعد تحديد المتجر',storeId:'',storeName:'كتالوج مستورد',category:'وجبات خفيفة',price:25,originalPrice:50,inStock:false,archived:false});
+ await navigation.getByRole('button',{name:'عروض المنتجات',exact:true}).click();
+ const imported=page.getByRole('row').filter({hasText:'عرض مستورد دون متجر'});await imported.waitFor();
+ await imported.getByRole('button',{name:'إتاحة للطلب',exact:true}).click();
+ const assignment=page.getByRole('dialog',{name:'تعديل عرض المنتج',exact:true});await assignment.waitFor();
+ assert.equal(await assignment.getByLabel('متجر العرض',{exact:true}).inputValue(),'');
+ assert.equal(await assignment.getByRole('checkbox',{name:'متاح للطلب',exact:true}).isChecked(),true);
+ assert.equal((await services.db.doc('products/imported-offer').get()).data().inStock,false,'opening the editor does not change availability');
+ await assignment.getByLabel('متجر العرض',{exact:true}).selectOption(catalogStore);
+ await assignment.getByRole('button',{name:'حفظ',exact:true}).click();await assignment.waitFor({state:'hidden'});
+ await imported.getByRole('button',{name:'إيقاف مؤقت',exact:true}).waitFor();
+ const assigned=(await services.db.doc('products/imported-offer').get()).data();
+ assert.equal(assigned.storeId,catalogStore);assert.equal(assigned.inStock,true);assert.equal(assigned.price,25);assert.equal(assigned.originalPrice,50);
+ const assignmentVisitor=await (await browser.newContext()).newPage();
+ await assignmentVisitor.goto('http://127.0.0.1:3105/offers');await assignmentVisitor.getByRole('heading',{name:'عرض مستورد دون متجر',exact:true}).waitFor();await assignmentVisitor.close();
  // Coupons have a dedicated editor and audited persistence.
  await navigation.getByRole('button',{name:'أكواد الخصم',exact:true}).click();
  await page.getByRole('button',{name:'إضافة كود خصم',exact:true}).click();

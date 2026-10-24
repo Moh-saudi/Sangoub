@@ -92,7 +92,9 @@ export default async function handler(req:any,res:any){
         tx.update(db.doc('users/'+id),{...profileChange,updatedAt:FieldValue.serverTimestamp()});
         auditInTransaction(db,tx,actor,'users.role.sync','users',id,user.data(),{...user.data(),...profileChange});
       }else if(type==='products'){
-        if(before&&before.storeId!==after.storeId)bad('لا يمكن نقل الصنف لمتجر آخر.');validId(after.storeId);
+        if(before?.storeId&&before.storeId!==after.storeId)bad('لا يمكن نقل الصنف لمتجر آخر.');
+        if(!after.storeId)bad('اختر المتجر المسؤول عن المنتج قبل إتاحته أو حفظه.');
+        validId(after.storeId);
         if(!(await tx.get(db.doc('stores/'+after.storeId))).exists)bad('المتجر غير موجود.');
       }
       if(input.action!=='delete'&&type!=='orders')validate(type,id,after);
