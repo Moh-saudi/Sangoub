@@ -637,3 +637,9 @@ button.mascot-support { padding: 0; border: 0; background: transparent; font: in
   .photographic-showcase .hero-copy h1 em { display: inline; }
   .photographic-showcase .hero-actions { margin-top: 8px; }
 }
+
+.supermarket-flow .breakfast-categories { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.supermarket-flow .breakfast-categories > button { padding: 12px; min-height: 112px; }
+.supermarket-flow .breakfast-categories strong { font-size: 14px; }
+.supermarket-flow .breakfast-tabs { flex-wrap: wrap; }
+.supermarket-flow .breakfast-tabs > button { flex: 1 1 calc(50% - 8px); }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { breakfastCount, breakfastLines, buildBreakfastMessage, parseBreakfastQuantity, type BreakfastDraft } from './breakfastOrder';
+import { SUPERMARKET_MENU, breakfastCount, breakfastLines, buildBreakfastMessage, parseBreakfastQuantity, type BreakfastDraft } from './breakfastOrder';
 const draft: BreakfastDraft = {quantities:{foul:3,falafel:2,potatoes:1,eggplant:1,'koshari-small':2},name:'عميل اختبار',address:'وزارة اختبار',office:'الدور 2 مكتب 12',notes:'بدون شطة',payment:'cash'};
 test('mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities',()=>{
  const message=buildBreakfastMessage(draft);assert.equal(breakfastCount(draft.quantities),9);assert.equal(breakfastLines(draft.quantities).length,5);
@@ -15,4 +15,13 @@ test('incomplete customer details, invalid quantities and unknown menu items can
 });
 test('Arabic and Persian quantity digits are accepted while fractional quantities are rejected',()=>{
  assert.equal(parseBreakfastQuantity('٣'),3);assert.equal(parseBreakfastQuantity('۱۲'),12);assert.equal(parseBreakfastQuantity(''),0);assert.equal(parseBreakfastQuantity('1.5'),null);assert.equal(parseBreakfastQuantity('-1'),null);
+});
+
+test('supermarket request combines packs from every section without breakfast items or payment claims',()=>{
+ const quantities={'tissues-box':2,'coffee-plain':1,'biscuit-oreo':3,'water-small':6};
+ const message=buildBreakfastMessage({...draft,quantities,notes:'شيبسي حجم كبير، لا تستبدل بدون تأكيد',payment:'instapay'},SUPERMARKET_MENU,'سوبر ماركت');
+ assert.equal(breakfastCount(quantities,SUPERMARKET_MENU),12);
+ for(const text of ['طلب سوبر ماركت','مناديل سحب — علبة × 2','بن أبو عوف سادة — 125 جم (ثُمن كيلو) × 1','بسكويت أوريو — باكو × 3','مياه معدنية — زجاجة 600 مل × 6','شيبسي حجم كبير','إجمالي الكمية: 12','إنستا باي'])assert.ok(message.includes(text),text);
+ assert.ok(!message.includes('طلب فطار'));assert.ok(!message.includes('تم الدفع'));
+ assert.throws(()=>buildBreakfastMessage({...draft,quantities:{foul:2}},SUPERMARKET_MENU,'سوبر ماركت'));
 });
