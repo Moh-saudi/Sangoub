@@ -91,7 +91,7 @@ test("server rejects invalid quantities, tips, phone and coordinates", () => {
   );
 });
 test("server only accepts configured cash payment and valid coupons", () => {
-  assert.throws(() => build({ ...payload(), paymentMethod: "geidea" }));
+  assert.throws(() => build({ ...payload(), paymentMethod: "unsupported" }));
   assert.throws(() => build({ ...payload(), couponCode: "FAKE" }));
   const order = build({ ...payload(), couponCode: "TEN" }, product, store, {
     code: "TEN",

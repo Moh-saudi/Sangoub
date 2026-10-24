@@ -35,9 +35,10 @@ export function buildOrder(
     throw new Error("طريقة الدفع المختارة غير صالحة.");
   const items: CartItem[] = input.items.map((item: any, index: number) => {
     const product = products.get(item?.product?.id);
+    const isOut = product.inStock === false;
     if (
       !product ||
-      !product.inStock ||
+      isOut ||
       product.archived ||
       !Number.isFinite(product.price) ||
       product.price < 0
