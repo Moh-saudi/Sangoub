@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/services/firebase_service.dart';
 import '../core/services/api_service.dart';
+import '../core/services/notification_service.dart';
 import '../models/order_model.dart';
 import '../models/user_model.dart';
 
@@ -67,6 +68,17 @@ class OrdersProvider with ChangeNotifier {
     }
 
     _ordersSubscription = stream.listen((ordersList) {
+      if (_orders.isNotEmpty && role == UserRole.employee) {
+        for (final newOrder in ordersList) {
+          final oldOrder = _orders.firstWhere(
+            (o) => o.id == newOrder.id,
+            orElse: () => newOrder,
+          );
+          if (oldOrder.status != newOrder.status) {
+            _notifyOrderStatusChanged(newOrder);
+          }
+        }
+      }
       _orders = ordersList;
       _isLoading = false;
       _errorMessage = null;
@@ -78,6 +90,32 @@ class OrdersProvider with ChangeNotifier {
       notifyListeners();
     });
   }
+
+  void _notifyOrderStatusChanged(OrderModel order) {
+    String title = 'تحديث حالة الطلب: ${order.orderNumber}';
+    String body = order.status.arabicLabel;
+
+    if (order.status == OrderStatus.preparing) {
+      title = 'طلبك قيد التحضير 👨‍🍳';
+      body = 'بدأ الشيف في تحضير وجبتك في ${order.restaurantName}';
+    } else if (order.status == OrderStatus.ready) {
+      title = 'طلبك جاهز للاستلام 🛍️';
+      body = 'تم تجهيز وتغليف وجبتك، بانتظار استلام كابتن التوصيل';
+    } else if (order.status == OrderStatus.withCourier) {
+      title = 'المندوب في الطريق لمكتبك 🛵';
+      body = 'كابتن العاصمة استلم وجبتك وهو متوجه الآن إلى مقر ${order.ministryName}';
+    } else if (order.status == OrderStatus.delivered) {
+      title = 'تم تسليم الطلب بنجاح ✅';
+      body = 'تم تسليم وجبتك بمكتبك. بالهناء والشفاء!';
+    }
+
+    NotificationService.instance.showOrderStageAlert(
+      orderId: order.id,
+      title: title,
+      body: body,
+    );
+  }
+
 
   /// إيقاف الاستماع ومسح بيانات الطلبات (عند الخروج أو تبديل الحساب)
   void cancelListening() {

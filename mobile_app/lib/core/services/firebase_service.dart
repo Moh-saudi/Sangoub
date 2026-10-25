@@ -270,4 +270,13 @@ class FirebaseService {
     });
     debugPrint('🛵 تم تحديث الطلب إلى with_courier: $orderId');
   }
+
+  /// 6. استماع مباشر ولحظي لطلب محدد على الخريطة وشاشة التتبع
+  Stream<OrderModel?> streamOrderById(String orderId) {
+    return _firestore.collection('orders').doc(orderId).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return OrderModel.fromFirestore(doc);
+    });
+  }
 }
+

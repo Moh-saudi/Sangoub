@@ -187,6 +187,8 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
         paymentMethod: _selectedPaymentMethod,
         couponCode: cart.couponCode,
         notes: notes.isNotEmpty ? notes : null,
+        latitude: cart.selectedLatitude,
+        longitude: cart.selectedLongitude,
       );
 
       final createdDocId = (res['order']?['id'] as String?) ?? orderId;

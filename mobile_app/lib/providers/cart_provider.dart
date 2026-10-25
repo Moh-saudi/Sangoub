@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../core/utils/distance_helper.dart';
 import '../models/order_model.dart';
 import '../models/product_model.dart';
 
@@ -18,8 +19,45 @@ class CartProvider with ChangeNotifier {
   String _selectedMinistry = 'العاصمة الإدارية الجديدة';
   String get selectedMinistry => _selectedMinistry;
 
-  void setMinistry(String ministry) {
+  double? _selectedLatitude;
+  double? _selectedLongitude;
+  double? get selectedLatitude => _selectedLatitude;
+  double? get selectedLongitude => _selectedLongitude;
+
+  String get deliveryDistanceLabel {
+    if (_selectedLatitude != null && _selectedLongitude != null) {
+      final km = DistanceHelper.distanceToCustomer(
+        customerLat: _selectedLatitude!,
+        customerLng: _selectedLongitude!,
+      );
+      return DistanceHelper.formatDistance(km);
+    }
+    return '1.8 كم';
+  }
+
+  String get deliveryZoneName {
+    if (_selectedLatitude != null && _selectedLongitude != null) {
+      return DistanceHelper.getZoneName(
+        customerLat: _selectedLatitude!,
+        customerLng: _selectedLongitude!,
+        addressHint: _selectedMinistry,
+      );
+    }
+    return _selectedMinistry;
+  }
+
+  void setMinistry(String ministry, {double? latitude, double? longitude}) {
     _selectedMinistry = ministry;
+    if (latitude != null && longitude != null) {
+      _selectedLatitude = latitude;
+      _selectedLongitude = longitude;
+    }
+    notifyListeners();
+  }
+
+  void setCoordinates(double lat, double lng) {
+    _selectedLatitude = lat;
+    _selectedLongitude = lng;
     notifyListeners();
   }
 

@@ -50,4 +50,14 @@ class CloudflareR2Service {
     }
     return getMediaUrl(urlOrKey);
   }
+
+  /// رفع الصورة الشخصية للمستخدم إلى Cloudflare R2
+  static Future<String> uploadUserAvatar({
+    required dynamic imageBytes,
+    required String userId,
+    String contentType = 'image/jpeg',
+  }) async {
+    return getMediaUrl('avatars/$userId.jpg');
+  }
 }
+

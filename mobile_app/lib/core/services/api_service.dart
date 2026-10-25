@@ -33,6 +33,8 @@ class ApiService {
     double tip = 0.0,
     String? couponCode,
     String? notes,
+    double? latitude,
+    double? longitude,
   }) async {
     final token = await _getIdToken();
     if (token == null) {
@@ -53,6 +55,11 @@ class ApiService {
       if (couponCode != null && couponCode.trim().isNotEmpty)
         'couponCode': couponCode.trim(),
       if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+      if (latitude != null && longitude != null)
+        'coordinates': {
+          'latitude': latitude,
+          'longitude': longitude,
+        },
     };
 
     debugPrint('🚀 Sending createOrder to: $url');

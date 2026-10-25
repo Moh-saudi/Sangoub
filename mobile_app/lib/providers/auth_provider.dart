@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../core/services/firebase_service.dart';
+import '../core/services/notification_service.dart';
 import '../models/user_model.dart';
 
 class AuthProvider with ChangeNotifier {
@@ -75,6 +76,9 @@ class AuthProvider with ChangeNotifier {
 
       _currentUser = profile;
       _errorMessage = null;
+
+      // مزامنة رمز إشعارات الجهاز FCM للمستخدم
+      NotificationService.instance.syncTokenWithUser(firebaseUser.uid);
     } catch (e) {
       debugPrint('reloadUserSession error: $e');
       _errorMessage = e.toString();
@@ -272,6 +276,14 @@ class AuthProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
+
+  void updateAvatarUrl(String url) {
+    if (_currentUser != null) {
+      _currentUser = _currentUser!.copyWith(avatarUrl: url);
+      notifyListeners();
+    }
+  }
+
 
   String _mapAuthError(String code) {
     switch (code) {

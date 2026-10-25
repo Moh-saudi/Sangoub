@@ -99,6 +99,13 @@ class ProductModel {
   /// المنتج متاح للطلب فقط إذا كان متوفراً وغير مؤرشف
   bool get isAvailable => inStock && !archived;
 
+  bool get hasDiscount => originalPrice != null && originalPrice! > price;
+
+  int get discountPercentage {
+    if (originalPrice == null || originalPrice! <= price || originalPrice! == 0) return 0;
+    return (((originalPrice! - price) / originalPrice!) * 100).round();
+  }
+
   String get effectiveImageUrl =>
       imageUrl ?? 'https://pub-14521cdfec73fa908fbf7e760fae362a.r2.dev/meals/$id.png';
 

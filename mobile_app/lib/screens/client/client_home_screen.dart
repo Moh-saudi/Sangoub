@@ -137,9 +137,12 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         chosenLocation = 'موقعي على الخريطة';
       }
 
-      cart.setMinistry(chosenLocation);
+      final double? lat = (result['lat'] as num?)?.toDouble();
+      final double? lng = (result['lng'] as num?)?.toDouble();
+      cart.setMinistry(chosenLocation, latitude: lat, longitude: lng);
     }
   }
+
 
   Widget _buildUserAvatar(AuthProvider auth) {
     // 1. صورة مخصصة قام المستخدم برفعها / 2. صورة حساب Google التي سجل بها

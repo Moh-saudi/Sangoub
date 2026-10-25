@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../core/constants/colors.dart';
+import '../core/utils/distance_helper.dart';
+import 'ministry_model.dart';
 
 enum OrderStatus {
   received,     // استلم الخادم الطلب
@@ -182,6 +184,12 @@ class OrderModel {
   final DateTime? readyAt;
   final DateTime? deliveredAt;
   final String estimatedDelivery;
+  final double? customerLat;
+  final double? customerLng;
+  final double? storeLat;
+  final double? storeLng;
+  final double? courierLat;
+  final double? courierLng;
 
   const OrderModel({
     required this.id,
@@ -214,11 +222,80 @@ class OrderModel {
     this.readyAt,
     this.deliveredAt,
     this.estimatedDelivery = '15-25 دقيقة',
+    this.customerLat,
+    this.customerLng,
+    this.storeLat,
+    this.storeLng,
+    this.courierLat,
+    this.courierLng,
   });
 
   String get buildingNumber => 'مبنى الوزارة C2';
   String get floorNumber => floor;
   String get roomNumber => officeNumber;
+
+  /// إحداثيات العميل الحقيقية الفعالة (GPS أو من اسم الوزارة/الحي أو العاصمة الافتراضية)
+  double get effectiveCustomerLat {
+    if (customerLat != null && customerLat != 0.0) return customerLat!;
+    for (final loc in MinistryModel.allCapitalLocations) {
+      if (ministryName.contains(loc.nameArabic) || loc.nameArabic.contains(ministryName)) {
+        return loc.latitude;
+      }
+    }
+    if (ministryName.contains('شروق') || ministryName.contains('الشروق')) {
+      return DistanceHelper.shoroukLat;
+    }
+    if (ministryName.contains('بدر') || ministryName.contains('زهرة العاصمة')) {
+      return DistanceHelper.badrLat;
+    }
+    if (ministryName.contains('مدينتي')) {
+      return DistanceHelper.madinatyLat;
+    }
+    return DistanceHelper.capitalLat;
+  }
+
+  double get effectiveCustomerLng {
+    if (customerLng != null && customerLng != 0.0) return customerLng!;
+    for (final loc in MinistryModel.allCapitalLocations) {
+      if (ministryName.contains(loc.nameArabic) || loc.nameArabic.contains(ministryName)) {
+        return loc.longitude;
+      }
+    }
+    if (ministryName.contains('شروق') || ministryName.contains('الشروق')) {
+      return DistanceHelper.shoroukLng;
+    }
+    if (ministryName.contains('بدر') || ministryName.contains('زهرة العاصمة')) {
+      return DistanceHelper.badrLng;
+    }
+    if (ministryName.contains('مدينتي')) {
+      return DistanceHelper.madinatyLng;
+    }
+    return DistanceHelper.capitalLng;
+  }
+
+  /// إحداثيات المتجر أو المطبخ المركزي الفود كورت
+  double get effectiveStoreLat => storeLat ?? 30.0165;
+  double get effectiveStoreLng => storeLng ?? 31.7010;
+
+  /// إحداثيات المندوب الحالية (إما حقيقية أو استقراء نسبي على المسار)
+  double get effectiveCourierLat {
+    if (courierLat != null && courierLat != 0.0) return courierLat!;
+    if (status == OrderStatus.delivered) return effectiveCustomerLat;
+    if (status == OrderStatus.withCourier) {
+      // إذا كان في الطريق ولم يرسل الـ GPS بعد، نضعه في منتصف المسار باتجاه العميل
+      return (effectiveStoreLat * 0.4) + (effectiveCustomerLat * 0.6);
+    }
+    return effectiveStoreLat;
+  }
+
+  double get effectiveCourierLng {
+    if (courierLng != null && courierLng != 0.0) return courierLng!;
+    if (status == OrderStatus.delivered) return effectiveCustomerLng;
+    if (status == OrderStatus.withCourier) {
+      return (effectiveStoreLng * 0.4) + (effectiveCustomerLng * 0.6);
+    }
+    return effectiveStoreLng;
+  }
 
   factory OrderModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
@@ -253,9 +330,29 @@ class OrderModel {
         ) ??
         {};
 
+    final coords = data['coordinates'] as Map<String, dynamic>?;
+    final double? cLat = (coords?['latitude'] as num?)?.toDouble() ??
+        (data['customerLat'] as num?)?.toDouble() ??
+        (data['lat'] as num?)?.toDouble();
+    final double? cLng = (coords?['longitude'] as num?)?.toDouble() ??
+        (data['customerLng'] as num?)?.toDouble() ??
+        (data['lng'] as num?)?.toDouble();
+
+    final courierCoords = data['courierCoordinates'] as Map<String, dynamic>?;
+    final double? courLat = (courierCoords?['latitude'] as num?)?.toDouble() ??
+        (data['courierLat'] as num?)?.toDouble();
+    final double? courLng = (courierCoords?['longitude'] as num?)?.toDouble() ??
+        (data['courierLng'] as num?)?.toDouble();
+
+    final storeCoords = data['storeCoordinates'] as Map<String, dynamic>?;
+    final double? sLat = (storeCoords?['latitude'] as num?)?.toDouble() ??
+        (data['storeLat'] as num?)?.toDouble();
+    final double? sLng = (storeCoords?['longitude'] as num?)?.toDouble() ??
+        (data['storeLng'] as num?)?.toDouble();
+
     return OrderModel(
       id: doc.id,
-      orderNumber: data['orderNumber'] as String? ?? 'CAP-${doc.id.substring(0, 6).toUpperCase()}',
+      orderNumber: data['orderNumber'] as String? ?? 'CAP-${doc.id.substring(0, doc.id.length > 6 ? 6 : doc.id.length).toUpperCase()}',
       profileId: data['profileId'] as String? ?? '',
       customerName: data['profileName'] as String? ?? 'موظف حكومي',
       customerPhone: data['phone'] as String? ?? '',
@@ -284,6 +381,12 @@ class OrderModel {
       readyAt: parseDateNullable(data['readyAt']),
       deliveredAt: parseDateNullable(data['deliveredAt']),
       estimatedDelivery: data['estimatedDelivery'] as String? ?? '15-25 دقيقة',
+      customerLat: cLat,
+      customerLng: cLng,
+      storeLat: sLat,
+      storeLng: sLng,
+      courierLat: courLat,
+      courierLng: courLng,
     );
   }
 
@@ -293,6 +396,12 @@ class OrderModel {
     String? courierName,
     String? courierPhone,
     Map<String, String>? kitchenStatus,
+    double? customerLat,
+    double? customerLng,
+    double? storeLat,
+    double? storeLng,
+    double? courierLat,
+    double? courierLng,
   }) {
     return OrderModel(
       id: id,
@@ -325,6 +434,13 @@ class OrderModel {
       readyAt: readyAt,
       deliveredAt: deliveredAt,
       estimatedDelivery: estimatedDelivery,
+      customerLat: customerLat ?? this.customerLat,
+      customerLng: customerLng ?? this.customerLng,
+      storeLat: storeLat ?? this.storeLat,
+      storeLng: storeLng ?? this.storeLng,
+      courierLat: courierLat ?? this.courierLat,
+      courierLng: courierLng ?? this.courierLng,
     );
   }
 }
+
