@@ -12,10 +12,14 @@ import { CouponManager } from "./CouponManager";
 import type { AdminTabType } from "./AdminDashboard";
 import { type AdminStaff } from "./AdminSetupPanel";
 import { CatalogManager } from "./CatalogManager";
-import { LayoutDashboard, ChefHat, ClipboardList, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog, PanelRightClose, PanelRightOpen, Store as StoreIcon, Package, Tag, TicketPercent, Handshake, Briefcase, PanelsTopLeft } from "lucide-react";
+import { CouriersLiveMap } from "./CouriersLiveMap";
+import { FinancialReports } from "./FinancialReports";
+import { LayoutDashboard, ChefHat, ClipboardList, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog, PanelRightClose, PanelRightOpen, Store as StoreIcon, Package, Tag, TicketPercent, Handshake, Briefcase, PanelsTopLeft, Bike, Banknote } from "lucide-react";
 
 const sections = [
   { id: "operations", group: "التشغيل اليومي", label: "مركز العمليات", hint: "ملخص اليوم ومؤشرات التشغيل", icon: LayoutDashboard },
+  { id: "couriers-map", label: "خريطة المناديب الحية", hint: "تتبع مواقع المناديب والطلبات النشطة", icon: Bike },
+  { id: "finance", label: "التقارير المالية والمتاجر", hint: "الإيرادات والعمولات وتسوية الشركاء", icon: Banknote },
   { id: "orders", label: "الطلبات", hint: "المتابعة وتعيين المندوب", icon: ClipboardList },
   { id: "kitchen", label: "متابعة التحضير", hint: "جاهزية المطاعم والسوبر ماركت", icon: ChefHat },
   { id: "stores", group: "المتاجر والمنتجات", label: "المتاجر", hint: "البيانات والتوافر والتوصيل", icon: StoreIcon },
@@ -100,6 +104,8 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
     <main className="admin-content" id="admin-content" tabIndex={-1}>
       <nav className="admin-breadcrumb breadcrumb" aria-label="مسار الصفحة"><button onClick={() => navigate("operations")}>لوحة الإدارة</button><ChevronLeft size={13} /><strong>{current.label}</strong><span className="admin-cairo-date">{new Intl.DateTimeFormat("ar-EG", { timeZone: "Africa/Cairo", weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span></nav>
     {tab === "operations" && <OperationsDashboard orders={orders} stores={stores} couriers={couriers} connected={connected} onNavigate={navigate} />}
+    {tab === "couriers-map" && <CouriersLiveMap orders={orders} stores={stores} couriers={couriers} connected={connected} />}
+    {tab === "finance" && <FinancialReports orders={orders} stores={stores} />}
     {tab === "kitchen" && <PreparationMonitor orders={orders} stores={stores} connected={connected} />}
     {["stores", "products", "offers"].includes(tab) && <CatalogManager key={tab} mode={tab as "stores" | "products" | "offers"} stores={stores} products={products} orders={orders} searchRequest={catalogRequest?.kind === tab ? catalogRequest : undefined} />}
     {tab === "visitors" && <VisitorStats />}

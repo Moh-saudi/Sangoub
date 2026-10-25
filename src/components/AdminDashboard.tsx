@@ -1,5 +1,6 @@
 import { adminOrderStatus } from "../utils/adminPresentation";
 import { OrderMap } from "./OrderMap.tsx";
+import { updateOrderRecord } from "../lib/firebase.ts";
 import React, { useState, useEffect, useRef } from "react";
 import {
   Bike,
@@ -287,13 +288,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             .map((i) => `${i.quantity}× ${i.product.name}`)
                             .join("، ")}
                         </div>
-                        <div className="text-[10px] text-slate-400">
-                          طريقة الدفع:{" "}
-                          {order.paymentMethod === "instapay"
-                            ? "إنستا باي"
-                            : order.paymentMethod === "geidea"
-                              ? "بطاقة جيديا"
-                              : "نقداً بالدور"}
+                        <div className="pt-2 flex flex-wrap items-center justify-between gap-1.5 border-t border-slate-100 text-[11px]">
+                          <span className="text-slate-500 font-medium">
+                            طريقة السداد:{" "}
+                            <strong className="text-slate-800">
+                              {order.paymentMethod === "instapay"
+                                ? "إنستا باي (InstaPay)"
+                                : order.paymentMethod === "geidea"
+                                  ? "بطاقة بنكية (جيديا)"
+                                  : "كاش عند الاستلام"}
+                            </strong>
+                          </span>
+
+                          {order.paymentStatus === "paid" ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                              ✓ مدفوع إلكترونياً
+                            </span>
+                          ) : order.paymentMethod === "instapay" ? (
+                            <button
+                              disabled={pendingOrders.includes(order.id)}
+                              onClick={() => {
+                                const refNo = prompt("أدخل الرقم المرجعي لتحويل إنستاباي أو اضغط موافق لتأكيد الاستلام:");
+                                if (refNo !== null) {
+                                  void runOrderAction(order.id, async () => {
+                                    await updateOrderRecord(order.id, {
+                                      paymentStatus: "paid",
+                                      paymentConfirmedAt: new Date().toISOString(),
+                                      paymentReference: refNo || "تحويل إنستاباي معتمد",
+                                    });
+                                  });
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs transition-colors"
+                            >
+                              ⚡ تأكيد تحويل InstaPay
+                            </button>
+                          ) : (
+                            <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full text-[10px] font-bold border border-amber-200">
+                              قيد التحصيل
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

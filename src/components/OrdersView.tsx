@@ -399,15 +399,22 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         ))}
 
                         <div className="pt-2 border-t border-slate-200 text-xs space-y-1 text-slate-600">
-                          <div className="flex justify-between">
+                          <div className="flex justify-between items-center">
                             <span>طريقة الدفع:</span>
-                            <span className="font-bold text-slate-900">
-                              {order.paymentMethod === "instapay"
-                                ? "إنستا باي (InstaPay)"
-                                : order.paymentMethod === "geidea"
-                                  ? "بطاقة بنكية (Geidea)"
-                                  : "نقداً لمندوب الدور"}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-900">
+                                {order.paymentMethod === "instapay"
+                                  ? "إنستا باي (InstaPay)"
+                                  : order.paymentMethod === "geidea"
+                                    ? "بطاقة بنكية (Geidea)"
+                                    : "نقداً لمندوب الدور"}
+                              </span>
+                              {order.paymentStatus === "paid" && (
+                                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
+                                  ✓ تم السداد
+                                </span>
+                              )}
+                            </div>
                           </div>
                           {order.discount > 0 && (
                             <div className="flex justify-between text-emerald-700 font-semibold">
