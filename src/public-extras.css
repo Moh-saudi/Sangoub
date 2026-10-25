@@ -603,7 +603,7 @@ button.mascot-support { padding: 0; border: 0; background: transparent; font: in
 .breakfast-primary:hover { background: #873009; color: #fff; }
 .breakfast-error { font-size: 12px; padding: 8px; border-radius: 8px; color: #8e2424; background: #fff0ed; margin-bottom: 8px; flex-shrink: 0; }
 
-/* One welcome invitation per browsing session; the CTA opens breakfast directly. */
+/* A two-second welcome invitation with direct breakfast and supermarket routes. */
 .mascot-actions.is-invite { inset: 0; margin: auto; width: min(480px, calc(100vw - 28px)); max-width: calc(100vw - 28px); height: fit-content; max-height: calc(100dvh - 28px - env(safe-area-inset-bottom)); padding: 0 0 18px; border-radius: 26px; background: #fffdf9; overflow-y: auto; box-shadow: 0 24px 80px #10213f40; }
 .mascot-actions.is-invite::backdrop { background: #10213f85; backdrop-filter: blur(3px); }
 .sangoub-invite-art { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 26px 24px 18px; background: radial-gradient(ellipse at center, #ffe0b0 0%, #fff1df 55%, #fffdf9 90%); }
@@ -643,3 +643,6 @@ button.mascot-support { padding: 0; border: 0; background: transparent; font: in
 .supermarket-flow .breakfast-categories strong { font-size: 14px; }
 .supermarket-flow .breakfast-tabs { flex-wrap: wrap; }
 .supermarket-flow .breakfast-tabs > button { flex: 1 1 calc(50% - 8px); }
+
+.sangoub-invite-actions .sangoub-invite-supermarket { background: #eef5f1; color: #184e3f; border: 1px solid #b6d1c2; }
+.sangoub-invite-actions .sangoub-invite-supermarket:hover { background: #dcece2; color: #184e3f; }

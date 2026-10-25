@@ -4,6 +4,7 @@ import { BRAND } from '../brand';
 import { trackSiteEvent } from '../utils/siteAnalytics';
 import { BreakfastOrder } from './BreakfastOrder';
 
+const INVITATION_DELAY_MS = 2000;
 const INVITATION_KEY = 'capital-sangoub-breakfast-invitation-v1';
 let invitationSeenOnPage = false;
 function invitationSeen() { try { return invitationSeenOnPage || sessionStorage.getItem(INVITATION_KEY) === '1'; } catch { return invitationSeenOnPage; } }
@@ -44,7 +45,7 @@ export function MascotSupport({ autoInvite = false }: { autoInvite?: boolean }) 
       markInvitationSeen();
       if (editing || document.querySelector('dialog[open],.site-mobile-menu[open]')) return;
       setView('invite'); setOpen(true);
-    }, 2000);
+    }, INVITATION_DELAY_MS);
     const engaged = (event: Event) => {
       if (event.target instanceof Element && event.target.closest('a,button,input,textarea,select,summary,[contenteditable=true]')) {
         markInvitationSeen(); window.clearTimeout(timer);
@@ -81,8 +82,8 @@ export function MascotSupport({ autoInvite = false }: { autoInvite?: boolean }) 
         if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) setOpen(false);
       }}>
       {view === 'invite' && <div className="sangoub-invite-art" aria-hidden="true"><div className="sangoub-invite-character"><img src={BRAND.logoLarge} width="512" height="512" alt="" decoding="async" /></div><span>سنجوب وصل!</span></div>}
-      <header><div><h2 id={`${id}-title`}>{view === 'supermarket' ? 'طلب سوبر ماركت' : view === 'breakfast' ? 'طلب فطار' : view === 'invite' ? 'اطلب فطارك مع سنجوب' : 'نساعدك إزاي؟'}</h2><p id={`${id}-description`}>{(view === 'breakfast' || view === 'supermarket') ? 'جهز طلبك وراجعه قبل واتساب' : view === 'invite' ? 'ساندوتشات أو وجبات؟ اختار اللي تحبه وحدد العدد، وهنكمل معاك على واتساب.' : 'اختار الخدمة المناسبة ليك'}</p></div><button type="button" className="mascot-actions-close" aria-label="إغلاق قائمة السنجاب" onClick={() => setOpen(false)}><X size={20} /></button></header>
-      {view === 'invite' && <div className="sangoub-invite-actions"><button type="button" className="breakfast-primary" onClick={() => { trackSiteEvent('mascot_open'); trackSiteEvent('breakfast'); setView('breakfast'); }}><Coffee size={19} />اطلب فطارك</button><button type="button" className="sangoub-invite-later" onClick={() => setOpen(false)}>هطلب بعدين</button><p>تقدر تطلب في أي وقت من زر سنجوب أسفل الصفحة.</p></div>}
+      <header><div><h2 id={`${id}-title`}>{view === 'supermarket' ? 'طلب سوبر ماركت' : view === 'breakfast' ? 'طلب فطار' : view === 'invite' ? 'فطارك وطلباتك مع سنجوب' : 'نساعدك إزاي؟'}</h2><p id={`${id}-description`}>{(view === 'breakfast' || view === 'supermarket') ? 'جهز طلبك وراجعه قبل واتساب' : view === 'invite' ? 'فطارك أو احتياجات مكتبك؟ اختار الأصناف وحدد العدد، وهنكمل معاك على واتساب.' : 'اختار الخدمة المناسبة ليك'}</p></div><button type="button" className="mascot-actions-close" aria-label="إغلاق قائمة السنجاب" onClick={() => setOpen(false)}><X size={20} /></button></header>
+      {view === 'invite' && <div className="sangoub-invite-actions"><button type="button" className="breakfast-primary" onClick={() => { trackSiteEvent('mascot_open'); trackSiteEvent('breakfast'); setView('breakfast'); }}><Coffee size={19} />اطلب فطارك</button><button type="button" className="breakfast-primary sangoub-invite-supermarket" onClick={() => { trackSiteEvent('mascot_open'); trackSiteEvent('supermarket'); setView('supermarket'); }}><ShoppingBag size={19} />اطلب من السوبرماركت</button><button type="button" className="sangoub-invite-later" onClick={() => setOpen(false)}>هطلب بعدين</button><p>تقدر تطلب في أي وقت من زر سنجوب أسفل الصفحة.</p></div>}
       <div hidden={view !== 'services'}>
         <div className="mascot-action-list">{actions.map(({ kind, title, detail, Icon, message }) => {
           const content = <><span className="mascot-action-icon" aria-hidden="true"><Icon size={22} /></span><span><strong>{title}</strong><small>{detail}</small></span><ArrowUpLeft size={17} aria-hidden="true" /></>;
