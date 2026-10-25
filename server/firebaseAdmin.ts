@@ -6,6 +6,7 @@ import {
 } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { getMessaging } from "firebase-admin/messaging";
 // Server defaults are public identifiers, not credentials. Avoid JSON module
 // loading differences in serverless runtimes.
 const config = { projectId: "capital-talabat", firestoreDatabaseId: "(default)" };
@@ -38,5 +39,6 @@ export function adminServices() {
       app,
       process.env.FIREBASE_DATABASE_ID || config.firestoreDatabaseId,
     ),
+    messaging: getMessaging(app),
   };
 }

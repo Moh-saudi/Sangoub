@@ -9,6 +9,7 @@ import geminiHandler from "./api/gemini/[action].ts";
 import catalogImagesHandler from "./api/catalog-images.ts";
 import orderDeliveryHandler from "./api/order-delivery.ts";
 import geideaCallbackHandler from "./api/geidea/callback.ts";
+import notificationsHandler from "./api/notifications.ts";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -46,6 +47,9 @@ async function startServer() {
   app.post("/api/geidea/callback", geideaCallbackHandler);
   app.get("/api/geidea/callback", geideaCallbackHandler);
   app.options("/api/geidea/callback", geideaCallbackHandler);
+  app.post("/api/notifications", notificationsHandler);
+  app.get("/api/notifications", notificationsHandler);
+  app.options("/api/notifications", notificationsHandler);
 
   app.post("/api/gemini/:action", geminiHandler);
   app.options("/api/gemini/:action", geminiHandler);

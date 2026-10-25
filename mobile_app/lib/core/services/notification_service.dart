@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../screens/client/order_tracking_screen.dart';
+import '../../screens/client/offers_screen.dart';
 
 /// معالج الإشعارات في الخلفية عند غلق التطبيق (Top-level function مطلوب من FCM)
 @pragma('vm:entry-point')
@@ -85,8 +86,15 @@ class NotificationService {
         await androidPlatform.createNotificationChannel(_orderChannel);
       }
 
-      // 5. تسجيل معالج الرسائل في الخلفية
+      // 5. تسجيل معالج الرسائل في الخلفية والاشتراك في مواضيع البث الجماعي
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+      try {
+        await _fcm.subscribeToTopic('all_users');
+        await _fcm.subscribeToTopic('clients');
+      } catch (topicErr) {
+        debugPrint('FCM topic subscription note: $topicErr');
+      }
 
       // 6. الاستماع للإشعارات أثناء تشغيل التطبيق في المقدمة (Foreground)
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -95,7 +103,10 @@ class NotificationService {
         final android = message.notification?.android;
 
         if (notification != null) {
-          final orderId = message.data['orderId']?.toString() ?? '';
+          final screen = message.data['screen']?.toString() ?? '';
+          final targetId = message.data['orderId']?.toString() ?? message.data['targetId']?.toString() ?? '';
+          final combinedPayload = '$screen|$targetId';
+
           _localNotifications.show(
             notification.hashCode,
             notification.title,
@@ -116,28 +127,22 @@ class NotificationService {
                 presentSound: true,
               ),
             ),
-            payload: orderId,
+            payload: combinedPayload,
           );
         }
       });
 
       // 7. الاستماع للنقر على الإشعار وفتح التطبيق من الخلفية
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        final orderId = message.data['orderId']?.toString();
-        if (orderId != null && orderId.isNotEmpty) {
-          _navigateToOrder(orderId);
-        }
+        _handleRemoteMessageNavigation(message);
       });
 
       // 8. فحص ما إذا تم تشغيل التطبيق بالضغط على إشعار من حالة الإغلاق التام
       final initialMessage = await _fcm.getInitialMessage();
       if (initialMessage != null) {
-        final orderId = initialMessage.data['orderId']?.toString();
-        if (orderId != null && orderId.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _navigateToOrder(orderId);
-          });
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _handleRemoteMessageNavigation(initialMessage);
+        });
       }
 
       _isInitialized = true;
@@ -211,19 +216,51 @@ class NotificationService {
     }
   }
 
+  void _handleRemoteMessageNavigation(RemoteMessage message) {
+    final screen = message.data['screen']?.toString() ?? '';
+    final targetId = message.data['orderId']?.toString() ?? message.data['targetId']?.toString() ?? '';
+    _navigateToTarget(screen: screen, targetId: targetId);
+  }
+
   void _handleNotificationTap(String? payload) {
     if (payload != null && payload.isNotEmpty) {
-      _navigateToOrder(payload);
+      if (payload.contains('|')) {
+        final parts = payload.split('|');
+        final screen = parts[0];
+        final targetId = parts.length > 1 ? parts[1] : '';
+        _navigateToTarget(screen: screen, targetId: targetId);
+      } else {
+        _navigateToTarget(screen: '', targetId: payload);
+      }
+    }
+  }
+
+  void _navigateToTarget({required String screen, required String targetId}) {
+    if (_navigatorKey?.currentState == null) return;
+    final nav = _navigatorKey!.currentState!;
+
+    if (screen == 'offers') {
+      nav.push(
+        MaterialPageRoute(
+          builder: (_) => const OffersScreen(),
+        ),
+      );
+      return;
+    }
+
+    if (targetId.isNotEmpty || screen == 'orders') {
+      final orderId = targetId.isNotEmpty ? targetId : '';
+      if (orderId.isNotEmpty) {
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => OrderTrackingScreen(orderId: orderId),
+          ),
+        );
+      }
     }
   }
 
   void _navigateToOrder(String orderId) {
-    if (_navigatorKey?.currentState != null) {
-      _navigatorKey!.currentState!.push(
-        MaterialPageRoute(
-          builder: (_) => OrderTrackingScreen(orderId: orderId),
-        ),
-      );
-    }
+    _navigateToTarget(screen: 'orders', targetId: orderId);
   }
 }

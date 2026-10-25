@@ -14,7 +14,8 @@ import { type AdminStaff } from "./AdminSetupPanel";
 import { CatalogManager } from "./CatalogManager";
 import { CouriersLiveMap } from "./CouriersLiveMap";
 import { FinancialReports } from "./FinancialReports";
-import { LayoutDashboard, ChefHat, ClipboardList, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog, PanelRightClose, PanelRightOpen, Store as StoreIcon, Package, Tag, TicketPercent, Handshake, Briefcase, PanelsTopLeft, Bike, Banknote } from "lucide-react";
+import { NotificationCenter } from "./NotificationCenter";
+import { LayoutDashboard, ChefHat, ClipboardList, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog, PanelRightClose, PanelRightOpen, Store as StoreIcon, Package, Tag, TicketPercent, Handshake, Briefcase, PanelsTopLeft, Bike, Banknote, Bell } from "lucide-react";
 
 const sections = [
   { id: "operations", group: "التشغيل اليومي", label: "مركز العمليات", hint: "ملخص اليوم ومؤشرات التشغيل", icon: LayoutDashboard },
@@ -24,7 +25,8 @@ const sections = [
   { id: "kitchen", label: "متابعة التحضير", hint: "جاهزية المطاعم والسوبر ماركت", icon: ChefHat },
   { id: "stores", group: "المتاجر والمنتجات", label: "المتاجر", hint: "البيانات والتوافر والتوصيل", icon: StoreIcon },
   { id: "products", label: "المنتجات", hint: "المنيو والأسعار والصور", icon: Package },
-  { id: "offers", group: "التسويق", label: "عروض المنتجات", hint: "المنتجات المخفّضة على الموقع", icon: Tag },
+  { id: "notifications", group: "التسويق", label: "مركز الإشعارات الموحد", hint: "إرسال وتتبع إشعارات الموبايل والويب", icon: Bell },
+  { id: "offers", label: "عروض المنتجات", hint: "المنتجات المخفّضة على الموقع", icon: Tag },
   { id: "visitors", label: "عدد الزوار", hint: "إجمالي زوار الموقع وزوار اليوم", icon: LayoutDashboard },
   { id: "content", label: "واجهة التطبيق والحملات", hint: "الأقسام والسلايدر والتشغيل", icon: PanelsTopLeft },
   { id: "coupons", label: "أكواد الخصم", hint: "قسائم خصم الطلبات", icon: TicketPercent },
@@ -109,6 +111,7 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
     {tab === "kitchen" && <PreparationMonitor orders={orders} stores={stores} connected={connected} />}
     {["stores", "products", "offers"].includes(tab) && <CatalogManager key={tab} mode={tab as "stores" | "products" | "offers"} stores={stores} products={products} orders={orders} searchRequest={catalogRequest?.kind === tab ? catalogRequest : undefined} />}
     {tab === "visitors" && <VisitorStats />}
+    {tab === "notifications" && <NotificationCenter stores={stores} />}
     {tab === "content" && <AppContentManager stores={stores} products={products} />}
     {tab === "coupons" && <CouponManager coupons={coupons} />}
     {["orders", "partners", "jobs"].includes(tab) && (isValidElement(children) ? cloneElement(children as ReactElement<{ initialAdminTab: AdminTabType; orderSearchRequest?: {term:string;key:number} }>, { initialAdminTab: tab as AdminTabType, orderSearchRequest: tab === "orders" ? orderRequest : undefined }) : children)}
