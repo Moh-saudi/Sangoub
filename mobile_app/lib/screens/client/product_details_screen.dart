@@ -66,6 +66,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     for (int i = 0; i < _quantity; i++) {
       cart.addItem(
         id: '${widget.product.id}_${DateTime.now().microsecondsSinceEpoch}_$i',
+        productId: widget.product.id,
+        storeId: widget.product.storeId.isNotEmpty ? widget.product.storeId : 'capital-central-kitchen',
         name: fullName,
         price: _calculatedUnitPrice,
       );

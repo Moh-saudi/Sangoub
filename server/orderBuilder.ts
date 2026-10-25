@@ -34,7 +34,9 @@ export function buildOrder(
   if (!allowedPaymentMethods.includes(paymentMethod))
     throw new Error("طريقة الدفع المختارة غير صالحة.");
   const items: CartItem[] = input.items.map((item: any, index: number) => {
-    const product = products.get(item?.product?.id);
+    const rawId = item?.product?.id;
+    const cleanId = typeof rawId === "string" && rawId.includes("_") ? rawId.split("_")[0] : rawId;
+    const product = products.get(cleanId) || products.get(rawId);
     const isOut = product?.inStock === false;
     if (
       !product ||
@@ -54,17 +56,14 @@ export function buildOrder(
     if (typeof selectedOptions !== "object" || Array.isArray(selectedOptions))
       throw new Error("خيارات الصنف غير صالحة.");
     let extraPrice = 0;
-    for (const key of Object.keys(selectedOptions))
-      if (!product.optionGroups?.some((g) => g.title === key))
-        throw new Error("خيار غير معروف.");
     for (const group of product.optionGroups || []) {
       const selected = selectedOptions[group.title];
       if (group.required && !selected) throw new Error(`اختر ${group.title}`);
       if (selected) {
         const option = group.options.find((o) => o.name === selected);
-        if (!option || !Number.isFinite(option.price) || option.price < 0)
-          throw new Error("خيار صنف غير صالح.");
-        extraPrice += option.price;
+        if (option && Number.isFinite(option.price) && option.price >= 0) {
+          extraPrice += option.price;
+        }
       }
     }
     return {

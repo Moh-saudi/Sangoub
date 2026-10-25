@@ -66,7 +66,12 @@ export default async function handler(req: any, res: any) {
       const profile = await tx.get(db.collection("users").doc(identity.uid));
       if (!profile.exists) throw new Error("أكمل بيانات الحساب أولًا.");
       const productIds = [
-        ...new Set<string>(input.items.map((i: any) => i.product.id)),
+        ...new Set<string>(
+          input.items.map((i: any) => {
+            const rawId = String(i?.product?.id || "");
+            return rawId.includes("_") ? rawId.split("_")[0] : rawId;
+          }),
+        ),
       ];
       const productDocs = await Promise.all(
         productIds.map((id) => tx.get(db.collection("products").doc(id))),

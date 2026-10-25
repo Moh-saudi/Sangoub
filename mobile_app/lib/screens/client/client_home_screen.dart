@@ -1392,6 +1392,8 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                           onPressed: () {
                             cart.addItem(
                               id: meal.id,
+                              productId: meal.id,
+                              storeId: meal.storeId.isNotEmpty ? meal.storeId : 'capital-central-kitchen',
                               name: meal.name,
                               price: meal.price,
                             );
@@ -1718,6 +1720,8 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                                         for (int q = 0; q < item.quantity; q++) {
                                           cart.addItem(
                                             id: item.productId,
+                                            productId: item.productId,
+                                            storeId: item.storeId,
                                             name: item.name,
                                             price: item.price,
                                           );

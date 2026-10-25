@@ -63,15 +63,22 @@ class CartProvider with ChangeNotifier {
 
   void addItem({
     required String id,
+    String? productId,
     required String name,
     required double price,
     String storeId = 'capital-central-kitchen',
   }) {
+    final cleanProductId = (productId != null && productId.isNotEmpty)
+        ? productId
+        : id.contains('_') && (id.startsWith('prod') || id.startsWith('p_') || id.startsWith('item'))
+            ? id.split('_')[0]
+            : id;
+
     if (_items.containsKey(id)) {
       final existing = _items[id]!;
       _items[id] = OrderItem(
         id: id,
-        productId: existing.productId.isNotEmpty ? existing.productId : id,
+        productId: cleanProductId,
         storeId: existing.storeId.isNotEmpty ? existing.storeId : storeId,
         name: existing.name,
         price: existing.price,
@@ -83,7 +90,7 @@ class CartProvider with ChangeNotifier {
     } else {
       _items[id] = OrderItem(
         id: id,
-        productId: id,
+        productId: cleanProductId,
         storeId: storeId,
         name: name,
         price: price,
@@ -241,8 +248,13 @@ class CartProvider with ChangeNotifier {
   /// تحويل السلة إلى صيغة items المطلوبة لـ POST /api/orders
   List<Map<String, dynamic>> toApiItems() {
     return _items.values.map((item) {
+      String cleanId = item.productId.trim();
+      if (cleanId.contains('_') && (cleanId.startsWith('prod') || cleanId.startsWith('p_') || cleanId.startsWith('item'))) {
+        cleanId = cleanId.split('_')[0];
+      }
+
       return {
-        'product': {'id': item.productId},
+        'product': {'id': cleanId},
         'quantity': item.quantity,
         'selectedOptions': item.selectedOptions,
         if (item.notes != null && item.notes!.isNotEmpty) 'notes': item.notes,
