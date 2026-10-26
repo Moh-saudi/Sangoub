@@ -43,9 +43,15 @@ export const SUPERMARKET_MENU = [
   ] },
 ] as const;
 export type RequestMenu = readonly { readonly id: string; readonly name: string; readonly items: readonly { readonly id: string; readonly name: string }[] }[];
+export function requestMenu(kind: 'breakfast' | 'supermarket') { return kind === 'supermarket' ? SUPERMARKET_MENU : BREAKFAST_MENU; }
+export function normalizeRequestPhone(value: string) {
+ const phone = value.replace(/[٠-٩]/g, digit => String(digit.charCodeAt(0)-0x660)).replace(/[۰-۹]/g, digit => String(digit.charCodeAt(0)-0x6f0)).replace(/[\s()-]/g, '').replace(/^(\+20|0020|20)(1)/, '0$2');
+ if (!/^01[0125]\d{8}$/.test(phone)) throw new Error('اكتب رقم موبايل مصري صحيحًا.');
+ return phone;
+}
 export type BreakfastCategory = typeof BREAKFAST_MENU[number]['id'];
 export type BreakfastPayment = 'cash' | 'instapay';
-export type BreakfastDraft = { quantities: Record<string, number>; name: string; address: string; office: string; notes: string; payment: BreakfastPayment | '' };
+export type BreakfastDraft = { quantities: Record<string, number>; phone?: string; name: string; address: string; office: string; notes: string; payment: BreakfastPayment | '' };
 export const MAX_ITEM_QUANTITY = 99;
 export const MAX_BREAKFAST_QUANTITY = 200;
 export function breakfastLines(quantities: Record<string, number>, menu: RequestMenu = BREAKFAST_MENU) {
@@ -72,7 +78,7 @@ export function buildBreakfastMessage(draft: BreakfastDraft, menu: RequestMenu =
   return [`مرحبًا، أريد طلب ${orderName} من سنجوب.`, '', ...menu.flatMap(category => {
     const items = lines.filter(item => item.category === category.name);
     return items.length ? [category.name + ':', ...items.map(item => `• ${item.name} × ${item.quantity}`), ''] : [];
-  }), `إجمالي الكمية: ${total}`, `الاسم: ${draft.name.trim()}`, `الوزارة / العنوان: ${draft.address.trim()}`,
+  }), `إجمالي الكمية: ${total}`, `الاسم: ${draft.name.trim()}`, ...(draft.phone ? [`رقم التواصل: ${normalizeRequestPhone(draft.phone)}`] : []), `الوزارة / العنوان: ${draft.address.trim()}`,
   ...(draft.office.trim() ? [`الدور / المكتب: ${draft.office.trim()}`] : []), `طريقة الدفع المطلوبة: ${breakfastPaymentLabel(draft.payment as BreakfastPayment)}`,
   ...(draft.notes.trim() ? [`ملاحظات: ${draft.notes.trim()}`] : []), '', 'برجاء تأكيد التوفر والأسعار والإجمالي والتوصيل قبل اعتماد الطلب.'].join('\n');
 }

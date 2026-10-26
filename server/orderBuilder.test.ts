@@ -107,3 +107,10 @@ test("electronic payment selection does not mark an order paid", () => {
   assert.equal(order.paymentMethod, "geidea");
   assert.equal(order.paymentStatus, "pending");
 });
+test('real product IDs containing underscores take priority over legacy cart suffixes',()=>{
+ const p={...product,id:'real_product'};
+ const products=new Map([[p.id,p],['real',{...product,id:'real',price:999}]]);
+ const input={...payload(),items:[{...payload().items[0],product:{id:p.id}}]};
+ assert.equal(buildOrder(input,'real-uid',products,new Map([[store.id,store]])).items[0].product.id,p.id);
+ assert.equal(buildOrder({...input,items:[{...input.items[0],product:{id:p.id+'_cart'}}]},'real-uid',new Map([[p.id,p]]),new Map([[store.id,store]])).items[0]?.product.id,p.id);
+});

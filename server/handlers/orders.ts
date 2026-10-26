@@ -1,3 +1,4 @@
+import { productCandidateIds } from '../productIdentity.ts';
 import { auditInTransaction, attachAuditContext } from "../audit.ts";
 import { FieldValue } from "firebase-admin/firestore";
 import { randomInt } from "node:crypto";
@@ -67,15 +68,13 @@ export default async function handler(req: any, res: any) {
       if (!profile.exists) throw new Error("أكمل بيانات الحساب أولًا.");
       const productIds = [
         ...new Set<string>(
-          input.items.map((i: any) => {
-            const rawId = String(i?.product?.id || "");
-            return rawId.includes("_") ? rawId.split("_")[0] : rawId;
-          }),
+          input.items.map((i: any) => i.product.id),
         ),
       ];
-      const productDocs = await Promise.all(
-        productIds.map((id) => tx.get(db.collection("products").doc(id))),
-      );
+      const productDocs = await tx.getAll(...productIds.map(id => db.collection("products").doc(id)));
+      // Read exact IDs once; legacy suffix lookups are only needed for missing products.
+      const fallbackIds=[...new Set(productDocs.filter(doc=>!doc.exists).flatMap(doc=>productCandidateIds(doc.id).slice(1)))].filter(id=>!productIds.includes(id));
+      if(fallbackIds.length) productDocs.push(...await tx.getAll(...fallbackIds.map(id=>db.collection('products').doc(id))));
       const products = new Map(
         productDocs
           .filter((d) => d.exists)
@@ -84,9 +83,7 @@ export default async function handler(req: any, res: any) {
       const storeIds = [
         ...new Set<string>(Array.from(products.values()).map((p) => p.storeId)),
       ];
-      const storeDocs = await Promise.all(
-        storeIds.map((id) => tx.get(db.collection("stores").doc(id))),
-      );
+      const storeDocs = storeIds.length ? await tx.getAll(...storeIds.map(id => db.collection("stores").doc(id))) : [];
       const stores = new Map(
         storeDocs
           .filter((d) => d.exists)

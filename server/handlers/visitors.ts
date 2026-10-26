@@ -1,3 +1,4 @@
+import { requireSameOriginJson } from '../publicRequest.ts';
 import { visitorEvents, visitorSources } from '../../src/types/siteAnalytics.ts';
 import { createHash } from 'node:crypto';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -21,12 +22,7 @@ export default async function handler(req: any, res: any) {
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   // Browser-only, same-origin JSON endpoint; no public counter reads or CORS access.
-  const origin = req.headers.origin;
-  const host = req.headers.host;
-  let sameOrigin = false;
-  try { const url = new URL(origin); sameOrigin = ['http:', 'https:'].includes(url.protocol) && url.host === host; } catch { /* Reject missing or malformed origins. */ }
-  if (!sameOrigin || req.headers['sec-fetch-site'] === 'cross-site') throw new AdminError(403, 'مصدر الطلب غير مسموح.');
-  if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) throw new AdminError(415, 'استخدم JSON.');
+  requireSameOriginJson(req);
   const input = req.body;
   if (!input || Object.keys(input).some(key => !['visitorId', 'source', 'event'].includes(key)) || typeof input.visitorId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.visitorId)) throw new AdminError(400, 'معرّف الزيارة غير صالح.');
   if (input.source !== undefined && !visitorSources.includes(input.source) || input.event !== undefined && !visitorEvents.includes(input.event)) throw new AdminError(400, 'نوع الإحصائية غير صالح.');

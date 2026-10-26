@@ -6,6 +6,7 @@ import { useEffect, useState, useRef, cloneElement, isValidElement, type ReactEl
 import type { Order, Store, Product, Coupon } from "../types";
 import { OperationsDashboard, type OperationsCourier } from "./OperationsDashboard";
 import { PreparationMonitor } from "./PreparationMonitor";
+import { SangoubRequests } from "./SangoubRequests";
 import { VisitorStats } from "./VisitorStats";
 import { AppContentManager } from "./AppContentManager";
 import { CouponManager } from "./CouponManager";
@@ -21,6 +22,7 @@ const sections = [
   { id: "operations", group: "التشغيل اليومي", label: "مركز العمليات", hint: "ملخص اليوم ومؤشرات التشغيل", icon: LayoutDashboard },
   { id: "couriers-map", label: "خريطة المناديب الحية", hint: "تتبع مواقع المناديب والطلبات النشطة", icon: Bike },
   { id: "finance", label: "التقارير المالية والمتاجر", hint: "الإيرادات والعمولات وتسوية الشركاء", icon: Banknote },
+  { id: "sangoub", label: "طلبات سنجوب", hint: "فطار وسوبرماركت الموقع", icon: ClipboardList },
   { id: "orders", label: "الطلبات", hint: "المتابعة وتعيين المندوب", icon: ClipboardList },
   { id: "kitchen", label: "متابعة التحضير", hint: "جاهزية المطاعم والسوبر ماركت", icon: ChefHat },
   { id: "stores", group: "المتاجر والمنتجات", label: "المتاجر", hint: "البيانات والتوافر والتوصيل", icon: StoreIcon },
@@ -110,6 +112,7 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
     {tab === "finance" && <FinancialReports orders={orders} stores={stores} />}
     {tab === "kitchen" && <PreparationMonitor orders={orders} stores={stores} connected={connected} />}
     {["stores", "products", "offers"].includes(tab) && <CatalogManager key={tab} mode={tab as "stores" | "products" | "offers"} stores={stores} products={products} orders={orders} searchRequest={catalogRequest?.kind === tab ? catalogRequest : undefined} />}
+    {tab === "sangoub" && <SangoubRequests />}
     {tab === "visitors" && <VisitorStats />}
     {tab === "notifications" && <NotificationCenter stores={stores} />}
     {tab === "content" && <AppContentManager stores={stores} products={products} />}

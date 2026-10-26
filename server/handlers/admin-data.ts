@@ -1,3 +1,4 @@
+import { adminSangoubRequests } from '../sangoubRequests.ts';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { requireAdmin, AdminError, adminError, validId } from '../adminRequest.ts';
 import { auditInTransaction, auditSafe, auditRecord } from '../audit.ts';
@@ -30,6 +31,7 @@ export default async function handler(req:any,res:any){
   let context: Awaited<ReturnType<typeof requireAdmin>>|undefined;
   try{
     const {db,auth,actor}=context=await requireAdmin(req);const input=req.body||{};
+    if(['sangoub-list','sangoub-update'].includes(input.action)) return res.status(200).json(await adminSangoubRequests(input,context));
     if(input.action==='session'){
       if(!['open','logout'].includes(input.event))bad();
       await db.collection('auditLogs').add(auditRecord(actor,'admin.workspace.'+input.event,'admins',actor.uid,null,{event:input.event}));

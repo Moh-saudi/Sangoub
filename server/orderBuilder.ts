@@ -1,3 +1,4 @@
+import { productCandidateIds } from './productIdentity.ts';
 import type {
   Order,
   Product,
@@ -35,8 +36,7 @@ export function buildOrder(
     throw new Error("طريقة الدفع المختارة غير صالحة.");
   const items: CartItem[] = input.items.map((item: any, index: number) => {
     const rawId = item?.product?.id;
-    const cleanId = typeof rawId === "string" && rawId.includes("_") ? rawId.split("_")[0] : rawId;
-    const product = products.get(cleanId) || products.get(rawId);
+    const product = productCandidateIds(rawId).map(id => products.get(id)).find(Boolean);
     const isOut = product?.inStock === false;
     if (
       !product ||
@@ -52,18 +52,20 @@ export function buildOrder(
       item.quantity > 50
     )
       throw new Error("كمية الصنف غير صالحة.");
-    const selectedOptions = item.selectedOptions || {};
+    const selectedOptions = item.selectedOptions ?? {};
     if (typeof selectedOptions !== "object" || Array.isArray(selectedOptions))
       throw new Error("خيارات الصنف غير صالحة.");
+    const groups = product.optionGroups || [];
+    if (Object.keys(selectedOptions).some(key => !groups.some(group => group.title === key))) throw new Error("خيارات الصنف غير صالحة.");
     let extraPrice = 0;
-    for (const group of product.optionGroups || []) {
+    for (const group of groups) {
       const selected = selectedOptions[group.title];
       if (group.required && !selected) throw new Error(`اختر ${group.title}`);
+      if (selected !== undefined && (typeof selected !== "string" || !selected)) throw new Error("خيارات الصنف غير صالحة.");
       if (selected) {
         const option = group.options.find((o) => o.name === selected);
-        if (option && Number.isFinite(option.price) && option.price >= 0) {
-          extraPrice += option.price;
-        }
+        if (!option || !Number.isFinite(option.price) || option.price < 0) throw new Error("اختيار الصنف غير متاح.");
+        extraPrice += option.price;
       }
     }
     return {
@@ -75,7 +77,9 @@ export function buildOrder(
       notes: typeof item.notes === "string" ? item.notes.slice(0, 500) : "",
     };
   });
-  const storeIds = [...new Set(items.map((item) => item.product.storeId))];
+  const storeTotals = new Map<string, number>();
+  for (const item of items) storeTotals.set(item.product.storeId, (storeTotals.get(item.product.storeId) || 0) + (item.product.price + item.extraPrice) * item.quantity);
+  const storeIds = [...storeTotals.keys()];
   let deliveryFee = 0;
   for (const id of storeIds) {
     const store = stores.get(id);
@@ -86,12 +90,7 @@ export function buildOrder(
       store.deliveryFee < 0
     )
       throw new Error("أحد المتاجر لا يستقبل طلبات الآن.");
-    const total = items
-      .filter((i) => i.product.storeId === id)
-      .reduce(
-        (sum, i) => sum + (i.product.price + i.extraPrice) * i.quantity,
-        0,
-      );
+    const total = storeTotals.get(id)!;
     if (total < store.minOrder)
       throw new Error(
         `الحد الأدنى للطلب من ${store.name}: ${store.minOrder} جنيه`,
