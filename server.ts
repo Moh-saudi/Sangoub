@@ -136,8 +136,6 @@ export class ErrorOverlay extends HTMLElement {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: false,
-        watch: null,
       },
       appType: "spa",
     });

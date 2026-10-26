@@ -27,8 +27,8 @@ export default defineConfig(() => {
         includeManifestIcons: false,
         manifest: {
           id: '/',
-          name: 'سنجوب',
-          short_name: 'سنجوب',
+          name: 'سنجوب | Sangoub',
+          short_name: 'سنجوب Sangoub',
           description:
             'سنجوب لخدمة موظفي الحي الحكومي.',
           theme_color: '#10213f',
@@ -55,6 +55,7 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           // Only Vite's hashed chunks are immutable; public/assets images are not.
           dontCacheBustURLsMatching: /^assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff,woff2}'],

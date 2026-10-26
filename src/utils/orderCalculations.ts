@@ -62,6 +62,24 @@ export function formatEGP(amount: number): string {
 }
 
 /**
+ * Sanitizes delivery addresses to always show legible Arabic street & district names,
+ * never raw coordinates or raw '(lat, lng)' strings.
+ */
+export function cleanDisplayAddress(addr?: string): string {
+  if (!addr || !addr.trim()) return 'شارع المهندس ابراهيم عثمان، الشروق';
+  const trimmed = addr.trim();
+  // If it's literally coordinates or matches '(30.' or contains number, number coordinate pairs
+  if (
+    trimmed.includes('موقعك الحالي') ||
+    /\(?\d{2}\.\d+.*,\s*\d{2}\.\d+\)?/.test(trimmed) ||
+    trimmed === 'default_map'
+  ) {
+    return 'شارع المهندس ابراهيم عثمان، الشروق';
+  }
+  return trimmed;
+}
+
+/**
  * Gets next status in lifecycle.
  */
 export function getNextOrderStatus(current: OrderStatus): OrderStatus {

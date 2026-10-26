@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "powershell": "$body = [Console]::In.ReadToEnd(); try { Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:4895/hook/task-drift?agent=copilot&cwd=d%3A%5CSaudi%2017-10-2023%5CPrivit%5CPayS%5CMesk%5C%D8%B7%D9%84%D8%A8%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D8%B5%D9%85%D8%A9%5Ccapital-talabat' -Method POST -Headers @{ 'Content-Type' = 'application/json' } -Body $body | Out-Null } catch { }",
+        "timeoutSec": 8
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "powershell": "$body = [Console]::In.ReadToEnd(); try { Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:4895/hook/task-drift?agent=copilot&cwd=d%3A%5CSaudi%2017-10-2023%5CPrivit%5CPayS%5CMesk%5C%D8%B7%D9%84%D8%A8%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D8%B5%D9%85%D8%A9%5Ccapital-talabat' -Method POST -Headers @{ 'Content-Type' = 'application/json' } -Body $body | Out-Null } catch { }",
+        "timeoutSec": 8
+      }
+    ]
+  }
+}

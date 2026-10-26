@@ -1,0 +1,55 @@
+/* ============================================================
+   TALABAT CAPITAL — Modern E-Commerce Design System
+   Mobile-First · RTL Arabic · Cairo Font · Ultra-Lightweight
+   ============================================================ */
+
+:root {
+  --talabat-orange: #FF5A00;
+  --talabat-orange-dark: #E04E00;
+  --talabat-orange-light: #FFF2EC;
+  --talabat-bg: #F7F7F8;
+  --talabat-text: #1F2937;
+  --talabat-muted: #6B7280;
+  --talabat-border: #E5E7EB;
+}
+
+/* Base resets for storefront */
+.sangoub-store {
+  font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+  background-color: var(--talabat-bg);
+  color: var(--talabat-text);
+  min-height: 100vh;
+}
+
+/* Hide scrollbars cleanly for horizontal carousels */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Smooth transitions */
+.talabat-card {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.talabat-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Fade in animation for bottom cart bar */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.25s ease-out forwards;
+}

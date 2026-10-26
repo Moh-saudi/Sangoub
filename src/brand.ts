@@ -1,9 +1,25 @@
-/** Sangoub identity adapted from the owner-supplied mascot; versioned paths refresh web caches. */
 export const BRAND = {
   nameAr: 'سنجوب',
   nameEn: 'Sangoub',
-  logo: '/brand/sangoub-logo-256x256.png',
-  logoSmall: '/brand/sangoub-logo-128x128.png',
-  logoLarge: '/brand/sangoub-logo-512x512.png',
+  logo: '/assets/sangoub/sangoub-favicon.png',
+  logoSmall: '/assets/sangoub/sangoub-favicon.png',
+  logoLarge: '/assets/sangoub/sangoub-favicon-master-1024.png',
+  iconMaster: '/assets/sangoub/sangoub-icon-master-1024.png',
+  favicon: '/favicon.ico',
   supportUrl: 'https://wa.me/201017799580',
+  colors: {
+    orange: '#FF5900',
+    navy: '#2D3142',
+    white: '#FFFFFF',
+    neutralBg: '#F7F8FA',
+    border: '#E7E9EE',
+    textSecondary: '#6B7280',
+  },
+  mascot: {
+    delivery: '/assets/sangoub/mascot-delivery.png',
+    wink: '/assets/sangoub/mascot-wink.png',
+    banner: '/assets/sangoub/mascot-banner.png',
+    icon: '/assets/sangoub/mascot-icon.png',
+  },
+  serviceAreas: [],
 } as const;
