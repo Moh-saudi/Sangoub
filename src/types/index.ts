@@ -195,6 +195,8 @@ export interface Order {
   total: number;
   paymentMethod: PaymentMethod;
   paymentStatus: "pending" | "paid" | "cash_on_delivery";
+  paymentConfirmedAt?: string;
+  paymentReference?: string;
   orderStatus: OrderStatus;
   courierId?: string;
   courierName?: string;

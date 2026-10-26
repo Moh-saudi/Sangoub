@@ -23,7 +23,7 @@ export const MobileReleaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
         className="bg-white text-slate-900 max-w-md w-full rounded-3xl p-6 space-y-4"
       >
         <div className="flex justify-between">
-          <h2 className="font-bold">طلبات العاصمة على جهازك</h2>
+          <h2 className="font-bold">سنجوب على جهازك</h2>
           <button aria-label="إغلاق" onClick={onClose}>
             <X />
           </button>

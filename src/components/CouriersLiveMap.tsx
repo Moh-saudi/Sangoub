@@ -129,7 +129,7 @@ export function CouriersLiveMap({
       // OpenStreetMap Tile Layer
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
-        attribution: "© OpenStreetMap contributors | طلبات العاصمة",
+        attribution: "© OpenStreetMap contributors | سنجوب",
       }).addTo(map);
 
       const markersGroup = L.layerGroup().addTo(map);
@@ -180,7 +180,7 @@ export function CouriersLiveMap({
     activeOrders.forEach((order) => {
       const isSelected = selectedOrderId === order.id;
       const customerCoords = getOrderCustomerCoords(order);
-      const storeCoords = getStoreCoords(order.items?.[0]?.storeName);
+      const storeCoords = getStoreCoords(order.items?.[0]?.product?.storeName);
 
       // Courier coords from live GPS tracking or order
       const trackingRecord = liveTracking[order.id];
@@ -241,7 +241,7 @@ export function CouriersLiveMap({
               🍽️
             </div>
             <span class="mt-1 px-1.5 py-0.5 rounded bg-orange-100 text-orange-900 text-[9px] font-bold shadow whitespace-nowrap">
-              ${order.items?.[0]?.storeName || "المتجر"}
+              ${order.items?.[0]?.product?.storeName || "المتجر"}
             </span>
           </div>
         `,
@@ -251,7 +251,7 @@ export function CouriersLiveMap({
       const storeMarker = L.marker(storeCoords, { icon: storeIcon });
       storeMarker.bindPopup(`
         <div style="font-family: Cairo, sans-serif; direction: rtl; text-align: right;">
-          <strong style="color: #ea580c;">🏪 ${order.items?.[0]?.storeName || "متجر التحضير"}</strong>
+          <strong style="color: #ea580c;">🏪 ${order.items?.[0]?.product?.storeName || "متجر التحضير"}</strong>
           <p style="font-size: 11px; margin: 4px 0 0; color: #64748b;">تجهيز طلب #${order.orderNumber}</p>
         </div>
       `);

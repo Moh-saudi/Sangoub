@@ -67,7 +67,7 @@ export const MobileSimulatorFrame: React.FC<MobileSimulatorFrameProps> = ({
           </div>
           <div>
             <div className="font-bold flex items-center gap-1.5">
-              <span>محاكي تطبيق طلبات العاصمة</span>
+              <span>محاكي تطبيق سنجوب</span>
               <span className="px-1.5 py-0.5 rounded bg-orange-500/30 text-orange-300 text-[10px] font-mono">
                 LIVE
               </span>

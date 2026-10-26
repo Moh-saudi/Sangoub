@@ -13,7 +13,7 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import type { AdminStaff } from "./components/AdminSetupPanel";
 import type { Profile, Store, Product, Order, Coupon, PartnerApplication, JobApplication, ApplicationStatus } from "./types";
 
-const logo = "/brand/capital-talabat-mascot-logo-128x128.png";
+const logo = "/brand/sangoub-logo-128x128.png";
 function message(error: unknown): string {
   const code = (error as { code?: string })?.code || "";
   if (/invalid-credential|wrong-password|user-not-found/.test(code)) return "راجع البريد وكلمة المرور.";
@@ -122,7 +122,7 @@ export default function AdminApp() {
   return <div className="admin-app min-h-screen bg-slate-50 text-slate-900" dir="rtl">
     <a className="skip-link" href="#admin-content">انتقل إلى محتوى الإدارة</a>
     <header className="admin-global-header border-b border-slate-200 bg-white"><div className="px-5 py-3 flex flex-wrap gap-4 items-center justify-between">
-      <div className="flex items-center gap-3"><img src={logo} alt="طلبات العاصمة" className="w-14 h-14 rounded-2xl object-contain" /><div><p className="font-black text-lg">طلبات العاصمة</p><p className="text-xs text-slate-500">لوحة الإدارة · الحي الحكومي</p></div></div>
+      <div className="flex items-center gap-3"><img src={logo} alt="سنجوب" className="w-14 h-14 rounded-2xl object-contain" /><div><p className="font-black text-lg">سنجوب</p><p className="text-xs text-slate-500">لوحة الإدارة · الحي الحكومي</p></div></div>
       <div id="admin-header-search" className="admin-header-search-slot" />
       <div className="flex flex-wrap gap-3 items-center text-xs"><span className="inline-flex gap-2 items-center text-orange-700 bg-orange-50 px-3 py-2 rounded-full"><ShieldCheck size={15} />بوابة الإدارة فقط</span><a href="/" className="text-slate-600 underline">الموقع الرئيسي</a>{identity && <><span className="max-w-56 truncate" dir="ltr">{identity.email || identity.phoneNumber}</span><button disabled={busy} onClick={() => action(async () => { try { if(access === "admin") await adminApi("data", {action:"session",event:"logout"}); } finally { await signOutFromFirebase(); } })} className="border border-slate-200 rounded-xl px-3 py-2 flex gap-2 items-center"><LogOut size={14} />تسجيل الخروج</button></>}</div>
     </div></header>
@@ -136,7 +136,7 @@ export default function AdminApp() {
           onApprovePartnerAsStore={approveStore} onUpdateJobStatus={(id, status) => updateApplication("jobApplications", id, status)} />
       </AdminWorkspace>
     </> : <main id="admin-content" tabIndex={-1} className="max-w-5xl mx-auto px-4 py-12 sm:py-20 grid lg:grid-cols-2 gap-8 items-center">
-      <section><p className="text-orange-600 font-bold text-sm mb-4">CAPITAL TALABAT · ADMIN</p><h1 className="text-3xl sm:text-4xl font-black leading-relaxed">إدارة التشغيل،<br />من مكان واحد.</h1><p className="text-slate-600 leading-8 mt-5">الطلبات، المتاجر، المنتجات، وفريق التوصيل.</p><p className="text-sm text-slate-500 mt-4">حسابات الموظف والشيف والمندوب تعمل من تطبيق الموبايل. هذه البوابة مخصصة للإدارة.</p></section>
+      <section><p className="text-orange-600 font-bold text-sm mb-4">Sangoub · ADMIN</p><h1 className="text-3xl sm:text-4xl font-black leading-relaxed">إدارة التشغيل،<br />من مكان واحد.</h1><p className="text-slate-600 leading-8 mt-5">الطلبات، المتاجر، المنتجات، وفريق التوصيل.</p><p className="text-sm text-slate-500 mt-4">حسابات الموظف والشيف والمندوب تعمل من تطبيق الموبايل. هذه البوابة مخصصة للإدارة.</p></section>
       <section className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-5" aria-label="دخول الإدارة">
         {access === "checking" ? <div role="status" className="py-8 text-center space-y-3"><Loader2 className="animate-spin mx-auto text-orange-600" /><p>جارٍ التحقق من جلسة الإدارة والاتصال…</p></div> : access === "login" ? <>
           <h2 className="text-xl font-black">تسجيل دخول الإدارة</h2><p className="text-sm text-slate-500">استخدم الحساب الذي مُنح صلاحية الإدارة.</p>

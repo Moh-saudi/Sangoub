@@ -46,7 +46,7 @@ const SLIDES = [
     eyebrow: "للمطاعم والكافيهات والمتاجر",
     title: "كبر شغلك،",
     highlight: "وقرّب لعملائك.",
-    description: "اعرض منتجاتك لموظفي الحي الحكومي مع طلبات العاصمة.",
+    description: "اعرض منتجاتك لموظفي الحي الحكومي مع سنجوب.",
     action: "انضم كشريك",
     partner: true,
   },
@@ -103,7 +103,7 @@ export function HeroShowcase({
     <section
       className="hero-showcase photographic-showcase"
       data-theme={slide.theme}
-      aria-label="مميزات طلبات العاصمة والشراكة"
+      aria-label="مميزات سنجوب والشراكة"
       aria-roledescription="عرض شرائح"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

@@ -631,7 +631,7 @@ export function NotificationCenter({ stores = [] }: NotificationCenterProps) {
                     >
                       ع
                     </div>
-                    <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#f8fafc" }}>طلبات العاصمة</span>
+                    <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#f8fafc" }}>سنجوب</span>
                     <span style={{ fontSize: "0.7rem", color: "#94a3b8" }}>• الآن</span>
                   </div>
                   <Bell size={14} color="#F59E0B" />

@@ -4,7 +4,7 @@ export const OFFICIAL_PAYMENT_LOGOS = {
   instapay: '/assets/aistudio/GKV136_InstaPay-logobase.net_c6183093.png',
   visa: '/assets/aistudio/visa--logo_fb3e8f25.png',
   wallets: '/assets/aistudio/edc631a6afd2f28eebdbc9a18670f58d_73d67fc0.jpg',
-  appIcon: '/brand/capital-talabat-mascot-logo-256x256.png',
+  appIcon: '/brand/sangoub-logo-256x256.png',
 };
 
 interface PaymentBadgeProps {

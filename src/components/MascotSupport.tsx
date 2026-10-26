@@ -12,11 +12,11 @@ function markInvitationSeen() { invitationSeenOnPage = true; try { sessionStorag
 
 const actions = [
   { kind: 'support', title: 'التواصل مع الدعم', detail: 'اسألنا أو تابع طلبك', Icon: MessageCircle,
-    message: 'مرحبًا، أحتاج مساعدة من دعم طلبات العاصمة.' },
+    message: 'مرحبًا، أحتاج مساعدة من دعم سنجوب.' },
   { kind: 'breakfast', title: 'طلب أوردر فطار', detail: 'اختار الأصناف وحدد العدد', Icon: Coffee,
-    message: 'مرحبًا، أريد طلب فطار من طلبات العاصمة.\nالأصناف والكميات:\nالوزارة / العنوان:\nالدور ورقم المكتب:' },
+    message: 'مرحبًا، أريد طلب فطار من سنجوب.\nالأصناف والكميات:\nالوزارة / العنوان:\nالدور ورقم المكتب:' },
   { kind: 'supermarket', title: 'طلب أوردر سوبر ماركت', detail: 'شاي وقهوة وسناكس ومياه للمكتب', Icon: ShoppingBag,
-    message: 'مرحبًا، أريد طلب سوبر ماركت من طلبات العاصمة.\nالمنتجات والكميات:\nالوزارة / العنوان:\nالدور ورقم المكتب:' },
+    message: 'مرحبًا، أريد طلب سوبر ماركت من سنجوب.\nالمنتجات والكميات:\nالوزارة / العنوان:\nالدور ورقم المكتب:' },
 ];
 
 function whatsappLink(message: string) {

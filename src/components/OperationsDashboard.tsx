@@ -1,6 +1,6 @@
 import { adminOrderStatus } from "../utils/adminPresentation";
 import { useState } from "react";
-import { Activity, ArrowLeft, Bike, Building2, CheckCheck, Package, Search, Store as StoreIcon, Users, ChefHat, ChevronLeft, ChevronDown, MapPin, ClipboardList } from "lucide-react";
+import { Banknote, Activity, ArrowLeft, Bike, Building2, CheckCheck, Package, Search, Store as StoreIcon, Users, ChefHat, ChevronLeft, ChevronDown, MapPin, ClipboardList } from "lucide-react";
 import type { Order, Store } from "../types";
 import { MINISTRIES_LIST } from "../data/seedData";
 import { cairoDay, dailyOperations } from "../utils/orderIntegration";

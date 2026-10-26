@@ -88,7 +88,7 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
     {
       id: 'welcome-1',
       role: 'model',
-      text: `مرحباً بك يا ${user.fullName} في مساعد طلبات الحي الحكومي الذكي! يمكنني مساعدتك في ترشيح الوجبات، تنظيم طلبات الاجتماعات بمقر ${user.ministry || 'الوزارة'}، أو الإجابة عن أي استفسار صوتياً أو كتابياً.`,
+      text: `مرحباً بك يا ${user.fullName} في مساعد سنجوب الذكي! يمكنني مساعدتك في ترشيح الوجبات، تنظيم طلبات الاجتماعات بمقر ${user.ministry || 'الوزارة'}، أو الإجابة عن أي استفسار صوتياً أو كتابياً.`,
       timestamp: 'الآن',
       modelUsed: 'gemini-3.8-flash',
     },

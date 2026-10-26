@@ -7,7 +7,7 @@ https://github.com/StartBootstrap/startbootstrap-business-casual
 - coffee.jpg: dist/assets/img/products-01.jpg
 - breakfast.jpg: dist/assets/img/products-02.jpg
 
-These photographs illustrate the service concept; they do not document Capital Talabat's actual restaurants or deliveries.
+These photographs illustrate the service concept; they do not document Sangoub's actual restaurants or deliveries.
 
 - office.jpg: https://github.com/StartBootstrap/startbootstrap-landing-page/blob/master/dist/assets/img/bg-showcase-3.jpg
 
@@ -23,7 +23,7 @@ The source page explicitly identifies the footage as the Government District. Th
 - government-district-skyline.jpg: frame at 00:56 — aerial panorama of ministry buildings with the mosque in the background.
 - government-district-night.jpg: frame at 01:24 — government complex lit at night.
 
-Initial frames were exported at 1600×900 with ffmpeg. The owner supplied updated crops in commit e745d7c: gardens 1600×841, ministries 1600×836, skyline 1600×812, and night 1600×819. The web hero uses these four updated files; phone layouts preserve their full intrinsic aspect ratios above the copy. They illustrate the service area; they are not photographs of Capital Talabat's employees or completed deliveries. The older breakfast and coffee photos remain illustrative food images in the menu overview, not claims about particular local restaurants.
+Initial frames were exported at 1600×900 with ffmpeg. The owner supplied updated crops in commit e745d7c: gardens 1600×841, ministries 1600×836, skyline 1600×812, and night 1600×819. The web hero uses these four updated files; phone layouts preserve their full intrinsic aspect ratios above the copy. They illustrate the service area; they are not photographs of Sangoub's employees or completed deliveries. The older breakfast and coffee photos remain illustrative food images in the menu overview, not claims about particular local restaurants.
 
 Google Play badge: vendored SVG from https://github.com/steverichey/google-play-badge-svg/blob/master/img/en_get.svg. Google Play and the Google Play logo are trademarks of Google LLC. The badge opens the app information prompt until the official release URL is supplied.
 WhatsApp mark: https://github.com/simple-icons/simple-icons/blob/develop/icons/whatsapp.svg (Simple Icons, CC0). Brand mark identifies the support link.

@@ -70,8 +70,8 @@ export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({ isOpen, onFini
         {/* White Squircle Card housing the Brand Logo */}
         <div className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-[32px] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.08)] flex items-center justify-center p-4 border border-white/90">
           <img
-            src="/brand/capital-talabat-mascot-logo-256x256.png"
-            alt="شعار طلبات الحي الحكومي بالعاصمة الإدارية"
+            src="/brand/sangoub-logo-256x256.png"
+            alt="شعار سنجوب"
             className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-contain drop-shadow-xs"
           />
         </div>
@@ -79,7 +79,7 @@ export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({ isOpen, onFini
 
       {/* Main Title */}
       <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight text-center mb-5">
-        طلبات الحي الحكومي بالعاصمة
+        سنجوب
       </h1>
 
       {/* Cascading 3-Line Status Hierarchy (matching the reference design) */}

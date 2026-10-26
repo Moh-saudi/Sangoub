@@ -16,7 +16,7 @@ export function PublicFooter() {
     { name: 'تيك توك', Icon: TikTokIcon, href: socialUrl(import.meta.env.VITE_SOCIAL_TIKTOK_URL) },
   ];
   return <footer className="site-footer" id="contact">
-    <div className="footer-brand"><img className="official-logo" src={BRAND.logoSmall} alt="طلبات العاصمة" width="80" height="80" loading="lazy" /><div><strong>طلبات العاصمة</strong><p>خدمة موظفي الحي الحكومي · العاصمة الإدارية</p></div></div>
+    <div className="footer-brand"><img className="official-logo" src={BRAND.logoSmall} alt="سنجوب" width="80" height="80" loading="lazy" /><div><strong>سنجوب</strong><p>خدمة موظفي الحي الحكومي · العاصمة الإدارية</p></div></div>
     <div className="footer-social"><strong>تواصل معانا</strong><div className="footer-social-icons">
       <a className="social-icon" href={BRAND.supportUrl} target="_blank" rel="noopener noreferrer" aria-label="واتساب"><MessageCircle size={20} /></a>
       {social.map(({ name, Icon, href }) => href

@@ -1,6 +1,6 @@
 /**
  * ==============================================================================
- * نظام طلبات العاصمة (Talabat Al-Asima) - وحدة التكامل الموحدة
+ * نظام سنجوب (Sangoub) - وحدة التكامل الموحدة
  * ==============================================================================
  * الوظائف:
  * 1. بوابة جيديا (Geidea): إنشاء روابط الدفع الإلكتروني وتأكيد العمليات
@@ -45,7 +45,7 @@ export const ASIMA_CONFIG = {
       process.env.CHATAMAN_API_KEY ||
       "",
     baseUrl: process.env.CHATAMAN_BASE_URL || "https://chataman.com",
-    senderName: process.env.CHATAMAN_SENDER_NAME || "طلبات العاصمة",
+    senderName: process.env.CHATAMAN_SENDER_NAME || "سنجوب",
     defaultCountryCode: process.env.CHATAMAN_DEFAULT_COUNTRY_CODE || "20",
     templates: {
       otp: "otp_el7lmplatform",
@@ -307,7 +307,7 @@ export class ChatAmanGateway {
   }
 
   /**
-   * 🛒 رسالة نموذج تأكيد الطلب المخصصة لنظام "طلبات العاصمة"
+   * 🛒 رسالة نموذج تأكيد الطلب المخصصة لنظام "سنجوب"
    */
   public static async sendOrderConfirmation(order: {
     phone: string;
@@ -336,7 +336,7 @@ export class ChatAmanGateway {
   }
 
   /**
-   * 🔐 إرسال رمز التحقق OTP لتسجيل دخول عميل "طلبات العاصمة"
+   * 🔐 إرسال رمز التحقق OTP لتسجيل دخول عميل "سنجوب"
    */
   public static async sendOTP(phone: string, code: string) {
     return this.sendTemplate({

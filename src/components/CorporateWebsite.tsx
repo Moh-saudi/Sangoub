@@ -77,7 +77,7 @@ const AVAILABLE_JOBS = [
     location: "العاصمة الإدارية الجديدة / القاهرة الجديدة",
     salary: "راتب أساسي + عمولات تعاقد مجزية",
     description:
-      "ضم المطاعم والكافيهات والسوبر ماركت الجديدة لمنصة طلبات العاصمة وتحديث قوائم الطعام والعروض اليومية لموظفي الوزارات.",
+      "ضم المطاعم والكافيهات والسوبر ماركت الجديدة لمنصة سنجوب وتحديث قوائم الطعام والعروض اليومية لموظفي الوزارات.",
   },
   {
     id: "job-role-4",
@@ -212,7 +212,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
         residenceArea: residenceArea.trim(),
         summary:
           applicantSummary.trim() ||
-          "متقدم للعمل ضمن فريق طلبات الحي الحكومي بالعاصمة الإدارية الجديدة.",
+          "متقدم للعمل ضمن فريق سنجوب.",
       });
     } catch (error) {
       setJobFormError(
@@ -243,19 +243,19 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
         <button
           className="site-brand"
           onClick={() => navigateToSection("home")}
-          aria-label="طلبات العاصمة — الرئيسية"
+          aria-label="سنجوب — الرئيسية"
         >
           <img
             className="official-logo"
-            src="/brand/capital-talabat-mascot-logo-256x256.png"
-            alt="شعار طلبات العاصمة الرسمي"
+            src="/brand/sangoub-logo-256x256.png"
+            alt="شعار سنجوب الرسمي"
             width="80"
             height="80"
           />
           <span>
-            <span className="brand-accent">طلبات</span> العاصمة
+            <span className="brand-accent">سنجوب</span>
             <small lang="en" dir="ltr">
-              Capital Talabat
+              Sangoub
             </small>
           </span>
         </button>
@@ -405,7 +405,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
                 بوابة الشركاء التجاريين · مربوطة مباشرة بلوحة تحكم الإدارة
               </span>
               <h1 className="text-2xl sm:text-3xl font-extrabold">
-                انضم إلينا كشريك في منصة طلبات الحي الحكومي
+                انضم إلينا كشريك في منصة سنجوب
               </h1>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
                 سجّل بيانات مطعمك أو الكافيه أو السوبر ماركت الخاص بك ليتم
@@ -862,8 +862,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
                 <span>تنفيذ شركة ميسك للتكنولوجيا</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-                الشروط والأحكام لمنصة وتطبيق طلبات الحي الحكومي بالعاصمة
-                الإدارية
+                الشروط والأحكام لمنصة وتطبيق سنجوب
               </h1>
               <p className="text-xs text-slate-500">
                 آخر تحديث: أكتوبر 2026 · البريد الرسمي: info@el7lm.com · واتساب:
@@ -878,7 +877,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
                 </h2>
                 <p>
                   منصة وتطبيق{" "}
-                  <strong>طلبات الحي الحكومي بالعاصمة الإدارية</strong> هي منصة
+                  <strong>سنجوب</strong> هي منصة
                   إلكترونية وتطبيق هاتف محمول من تنفيذ وتطوير{" "}
                   <strong>شركة ميسك للتكنولوجيا (Mesk Technology)</strong>، تهدف
                   إلى ربط موظفي الـ 34 وزارة وهيئة حكومية بالحي الحكومي بالعاصمة
@@ -1050,15 +1049,15 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
         <div className="footer-brand">
           <img
             className="official-logo"
-            src="/brand/capital-talabat-mascot-logo-256x256.png"
-            alt="شعار طلبات العاصمة الرسمي"
+            src="/brand/sangoub-logo-256x256.png"
+            alt="شعار سنجوب الرسمي"
             width="80"
             height="80"
             loading="lazy"
           />
           <div>
             <strong>
-              <span>طلبات</span> العاصمة
+              <span>سنجوب</span>
             </strong>
             <p>بريك يستاهل، من غير ما تسيب مكتبك.</p>
           </div>
@@ -1078,7 +1077,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
           </a>
         </nav>
         <small>
-          © {new Date().getFullYear()} طلبات العاصمة · ميسك للتكنولوجيا
+          © {new Date().getFullYear()} سنجوب · ميسك للتكنولوجيا
         </small>
       </footer>
 

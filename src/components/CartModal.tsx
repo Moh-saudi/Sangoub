@@ -278,7 +278,7 @@ export const CartModal: React.FC<CartModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                سلة طلبات الحي الحكومي
+                سلة سنجوب
               </h3>
               <p className="text-xs text-slate-500">
                 {items.length} {items.length === 1 ? "صنف" : "أصناف"} مخصصة

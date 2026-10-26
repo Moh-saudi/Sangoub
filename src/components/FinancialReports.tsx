@@ -104,7 +104,7 @@ export function FinancialReports({
 
   // 3. Store-level settlement calculation
   const storeSettlements = useMemo<StoreSettlement[]>(() => {
-    return stores.map((store) => {
+    return stores.map<StoreSettlement>((store) => {
       let storeOrdersCount = 0;
       let storeGross = 0;
 
@@ -250,7 +250,7 @@ export function FinancialReports({
           <strong className="text-2xl font-black text-purple-900 block font-mono">
             {formatEGP(platformCommissionTotal)}
           </strong>
-          <p className="text-[11px] text-purple-600 m-0">صافي عائد طلبات العاصمة</p>
+          <p className="text-[11px] text-purple-600 m-0">صافي عائد سنجوب</p>
         </div>
 
         {/* Metric 4: Due to Stores */}

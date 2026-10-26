@@ -76,7 +76,7 @@ try{
  await page.setViewportSize({width:1440,height:1000});
  await accessible(page,'public homepage');
  const support=page.getByRole('button',{name:'افتح قائمة السنجاب',exact:true});assert.equal(await support.getAttribute('aria-haspopup'),'dialog');
- assert.equal(await support.locator('img').getAttribute('src'),'/brand/capital-talabat-mascot-logo-256x256.png');
+ assert.equal(await support.locator('img').getAttribute('src'),'/brand/sangoub-logo-256x256.png');
  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await support.locator('.mascot-support-portrait').evaluate(el=>getComputedStyle(el).animationName),'none','mascot respects reduced motion');
  for(const width of [320,390,600,768,1440]){
   await page.setViewportSize({width,height:844});const box=await support.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width&&box.height>=44,'support is a visible touch target');
@@ -166,7 +166,7 @@ try{
  let managed=page.getByRole('row').filter({hasText:'web-managed@example.com'});await managed.waitFor();await managed.getByRole('button',{name:'الصلاحيات',exact:true}).click();await userDialog.getByLabel('دور المستخدم',{exact:true}).selectOption('courier');await userDialog.getByLabel('سبب تعديل المستخدم',{exact:true}).fill('اختبار تغيير صلاحية المستخدم');await userDialog.getByRole('button',{name:'تأكيد العملية',exact:true}).click();await userDialog.waitFor({state:'hidden'});await managed.getByText('مندوب توصيل',{exact:true}).waitFor();
  await managed.locator('select').selectOption('disable');await userDialog.getByLabel('سبب تعديل المستخدم',{exact:true}).fill('اختبار تعطيل المستخدم من الواجهة');await userDialog.getByRole('button',{name:'تأكيد العملية',exact:true}).click();await userDialog.waitFor({state:'hidden'});await managed.getByText('معطل',{exact:true}).waitFor();
  await page.getByRole('navigation',{name:'أقسام إدارة التشغيل'}).getByRole('button',{name:'سجل التدقيق',exact:true}).click();await page.getByText('user.create',{exact:true}).waitFor();await page.getByText('user.disable',{exact:true}).waitFor();
- const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'تصدير كل النتائج',exact:true}).click();const download=await downloadPromise;assert.match(download.suggestedFilename(),/capital-talabat-audit/);
+ const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'تصدير كل النتائج',exact:true}).click();const download=await downloadPromise;assert.match(download.suggestedFilename(),/sangoub-audit/);
  await page.getByRole('navigation',{name:'أقسام إدارة التشغيل'}).getByRole('button',{name:'مركز العمليات',exact:true}).click();await page.getByRole('heading',{name:'الحي الحكومي، في شاشة واحدة.',exact:true}).waitFor();
  // Isolated emulator records exercise the real operations table and filters.
  const now=new Date().toISOString();

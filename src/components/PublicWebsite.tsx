@@ -51,7 +51,7 @@ export function PublicWebsite() {
     <a className="skip-link" href="#main-content">انتقل إلى المحتوى</a>
     <DeploymentVersion publicSite />
     <header className="site-header">
-      <a href="/" className="site-brand" aria-label="طلبات العاصمة — الرئيسية"><img className="official-logo" src={logo} alt="شعار طلبات العاصمة الرسمي" width="80" height="80" /><span><span className="brand-accent">طلبات</span> العاصمة<small lang="en" dir="ltr">Capital Talabat</small></span></a>
+      <a href="/" className="site-brand" aria-label="سنجوب — الرئيسية"><img className="official-logo" src={logo} alt="شعار سنجوب الرسمي" width="80" height="80" /><span><span className="brand-accent">سنجوب</span><small lang="en" dir="ltr">Sangoub</small></span></a>
       <nav className="site-nav" aria-label="القائمة الرئيسية">{links()}</nav>
       <button className="site-button site-button-dark google-play-button" aria-label="تطبيق الموبايل" onClick={openApp}><img src="/images/google-play-badge.svg" alt="Google Play" width="135" height="40" /><Smartphone className="mobile-app-icon" size={21} /></button>
       <details ref={menu} className="site-mobile-menu"><summary aria-label="قائمة الموقع"><Menu className="site-menu-open" size={22} /><X className="site-menu-close" size={22} /></summary><nav aria-label="القائمة الرئيسية" onClick={() => menu.current?.removeAttribute('open')}>{links()}</nav></details>
@@ -75,8 +75,8 @@ export function PublicWebsite() {
         { icon: Building2, title: "حدّد مكتبك", text: "اسم الوزارة والدور ورقم المكتب؛ العنوان يفرق." },
         { icon: Bike, title: "تابع التوصيل", text: "حالة طلبك من التجهيز حتى الاستلام." },
       ].map(({ icon: Icon, title, text }, index) => <article key={title} className="rounded-3xl bg-white border border-slate-200 p-7"><div className="flex justify-between text-orange-600 mb-5"><Icon size={28} /><span className="font-bold">0{index + 1}</span></div><h3 className="font-black text-xl">{title}</h3><p className="text-slate-600 mt-3 leading-7">{text}</p></article>)}</div></section>
-      <a href="/careers" className="careers-entry"><span role="img" aria-label="سكوتر توصيل">🛵</span><div><small>فرصتك مع طلبات العاصمة</small><h2>انضم لفريقنا</h2><p>التوصيل · المطبخ · التشغيل</p></div><ArrowLeft size={21}/></a>
-      <section id="partners" className="public-partners max-w-6xl mx-auto px-6 pb-16"><div className="bg-slate-900 text-white rounded-3xl p-8 md:p-12 flex flex-wrap items-center justify-between gap-8"><div><span className="text-orange-400 font-bold text-sm">للمطاعم والكافيهات والمتاجر</span><h2 className="text-3xl font-black mt-4">مطعمك بالعاصمة؟ قرّب لعملائك.</h2><p className="mt-4 text-slate-300">تواصل مع فريقنا لعرض منتجاتك على طلبات العاصمة.</p></div><a className="site-button site-button-orange btn btn-primary" href={`${whatsapp}?text=${encodeURIComponent("مرحبًا، أريد الانضمام كشريك إلى طلبات العاصمة")}`} target="_blank" rel="noopener noreferrer">انضم كشريك <ArrowLeft size={18} /></a></div></section>
+      <a href="/careers" className="careers-entry"><span role="img" aria-label="سكوتر توصيل">🛵</span><div><small>فرصتك مع سنجوب</small><h2>انضم لفريقنا</h2><p>التوصيل · المطبخ · التشغيل</p></div><ArrowLeft size={21}/></a>
+      <section id="partners" className="public-partners max-w-6xl mx-auto px-6 pb-16"><div className="bg-slate-900 text-white rounded-3xl p-8 md:p-12 flex flex-wrap items-center justify-between gap-8"><div><span className="text-orange-400 font-bold text-sm">للمطاعم والكافيهات والمتاجر</span><h2 className="text-3xl font-black mt-4">مطعمك بالعاصمة؟ قرّب لعملائك.</h2><p className="mt-4 text-slate-300">تواصل مع فريقنا لعرض منتجاتك على سنجوب.</p></div><a className="site-button site-button-orange btn btn-primary" href={`${whatsapp}?text=${encodeURIComponent("مرحبًا، أريد الانضمام كشريك إلى سنجوب")}`} target="_blank" rel="noopener noreferrer">انضم كشريك <ArrowLeft size={18} /></a></div></section>
       </>}
     </main>
     <PublicFooter />

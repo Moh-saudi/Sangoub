@@ -53,11 +53,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <div
             onClick={() => setActiveTab("home")}
             className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl overflow-hidden shadow-xs shrink-0 cursor-pointer border border-orange-200 hover:scale-105 transition-transform bg-white"
-            title="الصفحة الرئيسية - طلبات العاصمة"
+            title="الصفحة الرئيسية - سنجوب"
           >
             <img
-              src="/brand/capital-talabat-mascot-logo-256x256.png"
-              alt="شعار طلبات العاصمة"
+              src="/brand/sangoub-logo-256x256.png"
+              alt="شعار سنجوب"
               className="w-full h-full object-cover"
             />
           </div>
@@ -65,7 +65,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] sm:text-xs font-black text-slate-900 tracking-tight whitespace-nowrap">
-                طلبات العاصمة الإدارية
+                سنجوب
               </span>
               <span className="text-[9px] sm:text-[10px] text-orange-800 bg-orange-50 px-1.5 py-0.2 rounded border border-orange-200/60 font-bold hidden xs:inline-block">
                 34 وزارة
@@ -95,7 +95,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <button
               onClick={onOpenMobileRelease}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
-              title="تثبيت تطبيق طلبات العاصمة"
+              title="تثبيت تطبيق سنجوب"
             >
               <Rocket className="w-3.5 h-3.5" />
               <span className="hidden md:inline">

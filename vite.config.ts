@@ -27,10 +27,10 @@ export default defineConfig(() => {
         includeManifestIcons: false,
         manifest: {
           id: '/',
-          name: 'طلبات العاصمة',
-          short_name: 'طلبات العاصمة',
+          name: 'سنجوب',
+          short_name: 'سنجوب',
           description:
-            'طلبات العاصمة لخدمة موظفي الحي الحكومي.',
+            'سنجوب لخدمة موظفي الحي الحكومي.',
           theme_color: '#10213f',
           background_color: '#f8fafc',
           display: 'standalone',
@@ -41,13 +41,13 @@ export default defineConfig(() => {
           scope: '/',
           icons: [
             {
-              src: '/brand/capital-talabat-mascot-logo-256x256.png',
+              src: '/brand/sangoub-logo-256x256.png',
               sizes: '256x256',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/brand/capital-talabat-mascot-logo-512x512.png',
+              src: '/brand/sangoub-logo-512x512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any',

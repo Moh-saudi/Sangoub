@@ -69,7 +69,7 @@ export function buildBreakfastMessage(draft: BreakfastDraft, menu: RequestMenu =
   if (draft.address.trim().length < 3 || draft.address.trim().length > 240) throw new Error('اكتب الوزارة أو عنوان التوصيل بوضوح.');
   if (draft.office.length > 120 || draft.notes.length > 300) throw new Error('اختصر تفاصيل المكتب أو الملاحظات.');
   if (!['cash', 'instapay'].includes(draft.payment)) throw new Error('اختر الدفع كاش أو إنستا باي.');
-  return [`مرحبًا، أريد طلب ${orderName} من طلبات العاصمة.`, '', ...menu.flatMap(category => {
+  return [`مرحبًا، أريد طلب ${orderName} من سنجوب.`, '', ...menu.flatMap(category => {
     const items = lines.filter(item => item.category === category.name);
     return items.length ? [category.name + ':', ...items.map(item => `• ${item.name} × ${item.quantity}`), ''] : [];
   }), `إجمالي الكمية: ${total}`, `الاسم: ${draft.name.trim()}`, `الوزارة / العنوان: ${draft.address.trim()}`,
