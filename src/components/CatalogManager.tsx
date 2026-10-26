@@ -111,6 +111,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
         }, [{ field: "imageUrl", file }]);
       } else {
         if (editor.id && !selectedStore) throw new Error("المتجر لم يعد موجودًا.");
+        const taxRate=Number(data.get("taxRate")||0);const taxRegistrationNumber=String(data.get("taxRegistrationNumber")||'').trim();if(!Number.isFinite(taxRate)||taxRate<0||taxRate>100||(taxRate>0&&!taxRegistrationNumber))throw new Error('راجع نسبة الضريبة ورقم التسجيل الضريبي.');
         const minOrder = Number(data.get("minOrder")); const deliveryFee = Number(data.get("deliveryFee"));
         if (!Number.isFinite(minOrder) || minOrder < 0 || minOrder > 100000 || !Number.isFinite(deliveryFee) || deliveryFee < 0 || deliveryFee > 1000) throw new Error("راجع الحد الأدنى ورسوم التوصيل.");
         const name = String(data.get("name") || "").trim();
@@ -124,7 +125,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
           name, nameEn: String(data.get("nameEn") || name).trim(), locationInDistrict: address,
           type: String(data.get("type")), category: String(data.get("category")), status: String(data.get("status")),
           deliveryTime: String(data.get("deliveryTime") || "لم يحدد بعد"), minOrder, deliveryFee,
-          imageUrl, bannerUrl: imageUrl, logoUrl,
+          imageUrl, bannerUrl: imageUrl, logoUrl, taxRate,taxRegistrationNumber,pricesIncludeTax:data.get('pricesIncludeTax')==='on',
         }, [{ field: "bannerUrl", file: data.get("coverFile") as File | null }, { field: "logoUrl", file: data.get("logoFile") as File | null }]);
       }
     }, editor.id ? "تم حفظ التعديلات." : "تمت الإضافة إلى الكتالوج.");
@@ -182,6 +183,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
           <Field label="اسم المتجر"><input name="name" aria-label="اسم المتجر" defaultValue={selectedStore?.name} required maxLength={120} className={input} /></Field><Field label="الاسم بالإنجليزية — اختياري"><input name="nameEn" defaultValue={selectedStore?.nameEn} className={input} /></Field><Field label="عنوان المتجر"><textarea name="address" aria-label="عنوان المتجر" defaultValue={selectedStore?.locationInDistrict} required maxLength={500} className={input} /></Field>
           <Field label="نوع النشاط"><input name="type" aria-label="نوع النشاط" defaultValue={selectedStore?.type} required className={input} /></Field><Field label="التصنيف"><select name="category" defaultValue={selectedStore?.category} className={input}>{storeCategories.map(([id,label]) => <option key={id} value={id}>{label}</option>)}</select></Field><Field label="حالة المتجر"><select name="status" defaultValue={selectedStore?.status || "closed"} className={input}><option value="closed">مغلق</option><option value="open">مفتوح</option><option value="busy">مشغول</option></select></Field>
           <div className="grid sm:grid-cols-2 gap-3"><Field label="الحد الأدنى للطلب"><input name="minOrder" type="number" min="0" max="100000" step="0.01" defaultValue={selectedStore?.minOrder ?? 0} required className={input} /></Field><Field label="رسوم التوصيل"><input name="deliveryFee" type="number" min="0" max="1000" step="0.01" defaultValue={selectedStore?.deliveryFee ?? 0} required className={input} /></Field></div>
+          <Field label="نسبة الضريبة % — حسب تسجيل المتجر"><input name="taxRate" type="number" min="0" max="100" step="0.01" defaultValue={selectedStore?.taxRate||0} className={input}/></Field><Field label="رقم التسجيل الضريبي"><input name="taxRegistrationNumber" maxLength={60} defaultValue={selectedStore?.taxRegistrationNumber||''} className={input}/></Field><label className="flex gap-2 text-sm"><input name="pricesIncludeTax" type="checkbox" defaultChecked={selectedStore?.pricesIncludeTax!==false}/>أسعار المنتجات تشمل الضريبة</label><p className="text-xs text-slate-500">أدخل النسبة الفعلية المسجلة للتاجر فقط. النسبة الافتراضية صفر؛ تُحفظ بيانات الضريبة في الطلب والفاتورة وقت التأكيد.</p>
           <Field label="مدة التجهيز المتوقعة — اختياري"><input name="deliveryTime" defaultValue={selectedStore?.deliveryTime} className={input} /></Field>
           <ImageFileField name="coverFile" label="رفع صورة المتجر" disabled={busy} /><Field label="أو رابط صورة المتجر"><input name="imageUrl" type="url" pattern="https://.*" defaultValue={selectedStore?.imageUrl || selectedStore?.bannerUrl} className={input} /></Field><ImageFileField name="logoFile" label="رفع شعار المتجر" disabled={busy} /><Field label="أو رابط الشعار"><input name="logoUrl" type="url" pattern="https://.*" defaultValue={selectedStore?.logoUrl} className={input} /></Field>
         </>}

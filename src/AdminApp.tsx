@@ -106,7 +106,7 @@ export default function AdminApp() {
     const courier = staff.find((person) => person.id === courierId && person.role === "courier");
     if (!courier || !orders.some((order) => order.id === orderId && ["ready", "with_courier"].includes(order.orderStatus))) throw new Error("راجع حالة الطلب والمندوب المختار.");
     const order = orders.find(item => item.id === orderId)!;
-    await updateOrderRecord(orderId, { courierId, courierName: courier.name, courierPhone: courier.phone, ...(order.fulfillmentVersion === 2 ? {} : { orderStatus: "with_courier" as const }) });
+    await updateOrderRecord(orderId, { courierId, courierName: courier.name, courierPhone: courier.phone });
   }
   const updateApplication = (collection: string, id: string, status: ApplicationStatus) => {
     void action(() => saveRecord(collection, id, { status }), "تم تحديث الطلب.");

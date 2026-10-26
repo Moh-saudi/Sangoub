@@ -65,8 +65,8 @@ try{
   }
  }
  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:/^عرض الميزة 1:/}).click();await page.waitForFunction(()=>{const img=document.querySelector('.showcase-images img');return img?.complete&&img.naturalWidth>0;});await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:join(tmpdir(),'capital-public-mobile.png'),fullPage:false});
- await page.getByRole('button',{name:/فطار يظبط يومك/}).click();const appPrompt=page.getByRole('dialog',{name:'نكمل على التطبيق؟',exact:true});await appPrompt.waitFor();
- await appPrompt.getByText('فطار يظبط يومك',{exact:true}).waitFor();await appPrompt.getByText('رابط التحميل الرسمي سيتاح قريبًا.',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).click();const appPrompt=page.getByRole('dialog',{name:'نكمل على التطبيق؟',exact:true});await appPrompt.waitFor();
+await appPrompt.getByText('رابط التحميل الرسمي سيتاح قريبًا.',{exact:true}).waitFor();
  for(const [width,height] of [[320,568],[390,650],[667,375]]){
   await page.setViewportSize({width,height});const box=await appPrompt.boundingBox();assert.ok(box.x>=0&&box.y>=0&&box.x+box.width<=width&&box.y+box.height<=height,'app dialog fits small and landscape viewports');
   await appPrompt.getByRole('link',{name:'استفسر عن التطبيق',exact:true}).scrollIntoViewIfNeeded();assert.equal(await appPrompt.getByRole('link',{name:'استفسر عن التطبيق',exact:true}).isVisible(),true);
@@ -239,8 +239,8 @@ try{
 
  await visitor.setViewportSize({width:390,height:844});assert.equal(await visitor.getByRole('button',{name:'المتاجر التالية',exact:true}).isVisible(),true,'mobile stores have carousel controls');assert.equal(await visitor.locator('.public-store-list').evaluate(el=>el.scrollWidth>el.clientWidth),true,'mobile stores form one swipeable row');await visitor.getByRole('button',{name:'المتاجر التالية',exact:true}).click();await visitor.waitForFunction(()=>Math.abs(document.querySelector('.public-store-list').scrollLeft)>20);await visitor.getByRole('button',{name:'المتاجر السابقة',exact:true}).click();await visitor.waitForFunction(()=>Math.abs(document.querySelector('.public-store-list').scrollLeft)<3);
  await visitor.getByRole('button',{name:'المنتجات التالية',exact:true}).click();await visitor.waitForFunction(()=>Math.abs(document.querySelector('.public-product-grid').scrollLeft)>20);await visitor.getByRole('button',{name:'المنتجات السابقة',exact:true}).click();await visitor.waitForFunction(()=>Math.abs(document.querySelector('.public-product-grid').scrollLeft)<3);
- await visitor.getByRole('button',{name:/اختبار بوابة الإدارة.*مفتوح الآن/}).click();const visitorPrompt=visitor.getByRole('dialog',{name:'نكمل على التطبيق؟',exact:true});await visitorPrompt.getByText('اختبار بوابة الإدارة',{exact:true}).waitFor();await visitorPrompt.getByRole('button',{name:'أكمل تصفح الموقع',exact:true}).click();
- await visitor.getByRole('button',{name:/صنف اختبار 02/}).click();await visitorPrompt.getByText('صنف اختبار 02',{exact:true}).waitFor();await visitorPrompt.getByRole('button',{name:'إغلاق',exact:true}).click();
+ await visitor.getByRole('button',{name:/اختبار بوابة الإدارة.*مفتوح الآن/}).click();await visitor.getByRole('heading',{name:'اختبار بوابة الإدارة',exact:true}).waitFor();await visitor.getByRole('link',{name:'سنجوب — الرئيسية',exact:true}).click();
+ await visitor.getByRole('button',{name:/صنف اختبار 02/}).click();await visitor.getByRole('dialog',{name:'صنف اختبار 02',exact:true}).waitFor();await visitor.keyboard.press('Escape');await visitor.getByRole('link',{name:'سنجوب — الرئيسية',exact:true}).click();
  assert.equal(await visitor.getByRole('button',{name:/صنف اختبار 01/}).count(),0,'unavailable products do not appear in the public catalog');assert.equal(await visitor.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'real public catalog mobile overflow');await visitor.screenshot({path:join(tmpdir(),'capital-public-catalog.png'),fullPage:true});const catalogSnapshot=await services.db.collection('products').get();const oneItem=services.db.batch();for(const doc of catalogSnapshot.docs)oneItem.update(doc.ref,{inStock:doc.id==='catalog-layout-2'});await oneItem.commit();
  await visitor.waitForFunction(()=>document.querySelector('.public-product-grid.is-single'));const single=await visitor.locator('.public-product-card').boundingBox(),singleGrid=await visitor.locator('.public-product-grid').boundingBox();assert.equal(await visitor.locator('.public-product-card').count(),1);assert.ok(Math.abs(single.width-singleGrid.width)<1,'a lone product fills the row');assert.ok(single.height<180,'a lone product uses a compact horizontal card');
  const restoreStock=services.db.batch();for(const doc of catalogSnapshot.docs)restoreStock.update(doc.ref,{inStock:doc.data().inStock});await restoreStock.commit();
@@ -272,8 +272,8 @@ try{
  await offersVisitor.getByRole('heading',{name:'لا توجد عروض مطابقة',exact:true}).waitFor();
  await offersVisitor.getByRole('button',{name:'عرض كل العروض',exact:true}).click();
  await offersVisitor.getByRole('button',{name:/صنف اختبار 02/}).click();
- await offersVisitor.getByRole('dialog',{name:'نكمل على التطبيق؟',exact:true}).getByText('صنف اختبار 02',{exact:true}).waitFor();
- await offersVisitor.keyboard.press('Escape');
+ await offersVisitor.getByRole('dialog',{name:'صنف اختبار 02',exact:true}).waitFor();
+ await offersVisitor.keyboard.press('Escape');await offersVisitor.goto('http://127.0.0.1:3105/offers');await offersVisitor.getByRole('heading',{name:'صنف اختبار 02',exact:true}).waitFor();
  await accessible(offersVisitor,'public offers');await offersVisitor.evaluate(()=>window.scrollTo(0,0));
  await offersVisitor.screenshot({path:join(tmpdir(),'capital-offers-desktop.png'),fullPage:true});
  await services.db.doc('products/catalog-layout-2').update({inStock:false});

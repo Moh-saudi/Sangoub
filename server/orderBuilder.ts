@@ -1,3 +1,4 @@
+import {orderTaxSnapshots} from './orderTax.ts';
 import { productCandidateIds } from './productIdentity.ts';
 import type {
   Order,
@@ -122,7 +123,8 @@ export function buildOrder(
   const tip = input.tip ?? 0;
   if (!Number.isFinite(tip) || tip < 0 || tip > 1000)
     throw new Error("الإكرامية غير صالحة.");
-  const total = round(subtotal + deliveryFee - discount + tip);
+  const taxes=orderTaxSnapshots(items,stores,discount);
+  const total = round(subtotal + deliveryFee - discount + tip + taxes.additionalTax);
   if (total > 100000) throw new Error("قيمة الطلب تتجاوز الحد المسموح.");
   const phone = text("phone", 30);
   if (!/^(\+20|0)1[0125]\d{8}$/.test(phone))
@@ -138,7 +140,7 @@ export function buildOrder(
     throw new Error("إحداثيات غير صالحة.");
   return {
     id: input.id,
-    orderNumber: `CAP-${input.id.slice(-8).toUpperCase()}`,
+    orderNumber: `SNG-${input.id.slice(-12).toUpperCase()}`,
     profileId: uid,
     profileName: text("profileName", 120),
     phone,
@@ -151,6 +153,7 @@ export function buildOrder(
     itemsSummary: items.map((item) => `${item.product.name} (×${item.quantity})`).join("، "),
     restaurantName: storeIds.map((id) => stores.get(id)!.name).join("، "),
     subtotal,
+    ...taxes,
     deliveryFee: round(deliveryFee),
     discount: round(discount),
     tip: round(tip),

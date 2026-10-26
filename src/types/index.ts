@@ -68,6 +68,9 @@ export type StoreCategory =
   | "desserts";
 
 export interface Store {
+  taxRate?: number;
+  taxRegistrationNumber?: string;
+  pricesIncludeTax?: boolean;
   id: string;
   name: string;
   nameEn: string;
@@ -164,7 +167,13 @@ export interface CourierChecklist {
   completedAt?: string; // وقت إغلاق وتأكيد الطلب
 }
 
+export interface StoreOrderSnapshot { id:string;name:string;logoUrl:string;taxRate:number;taxRegistrationNumber:string;pricesIncludeTax:boolean;subtotal:number;discount:number;deliveryFee:number;taxTotal:number;includedTax:number;additionalTax:number;total:number; }
+
 export interface Order {
+  storeSnapshots?: StoreOrderSnapshot[];
+  taxTotal?: number;
+  includedTax?: number;
+  additionalTax?: number;
   fulfillmentVersion?: 2;
   pickedUpStoreIds?: string[];
   departedAt?: string;

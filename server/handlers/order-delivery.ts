@@ -55,8 +55,10 @@ export default async function handler(req: any, res: any) {
         });
         return { status: 400, body: { error: "رمز الاستلام غير صحيح." } };
       }
-      if (order.fulfillmentVersion===2 && order.paymentMethod!=="cash" ? (!paymentReady(order)||collectedAmount!==0) : (order.paymentMethod !== "cash" || !Number.isFinite(collectedAmount) || Math.abs(collectedAmount - order.total) > 0.01))
-        return { status: 400, body: { error: "أكّد تحصيل قيمة الطلب النقدية كاملة." } };
+      if(order.paymentMethod==='cash'){
+        if(!Number.isFinite(collectedAmount)||Math.abs(collectedAmount-order.total)>0.01)return {status:400,body:{error:'أكّد تحصيل قيمة الطلب النقدية كاملة.'}};
+      }else if(!paymentReady(order)||collectedAmount!==0)return {status:400,body:{error:'يلزم تأكيد الدفع الإلكتروني دون تحصيل نقدي إضافي.'}};
+
       tx.update(orderRef, { orderStatus: "delivered", deliveredAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), paymentStatus: "paid",
         courierChecklist: { ...order.courierChecklist, collectedPayment: true, collectedAmount, arrivedAtCustomerOffice: true },
       });

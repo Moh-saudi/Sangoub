@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  formatEGP,
   calculateCartSubtotal,
   applyCouponDiscount,
   calculateOrderTotal,
@@ -150,3 +151,4 @@ test('updateCourierMilestone updates checklist and advances to delivered when co
   assert.equal(step5.orderStatus, 'delivered');
   assert.equal(step5.paymentStatus, 'paid');
 });
+test('currency formatting preserves cents charged by the payment gateway',()=>{assert.equal(formatEGP(1234.56),'1,234.56 ج.م');});

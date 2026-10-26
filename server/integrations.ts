@@ -70,6 +70,8 @@ export interface CreateOrderPaymentOptions {
 }
 
 export class GeideaGateway {
+  public static isConfigured() { const c=ASIMA_CONFIG.geidea.environment==='test'?ASIMA_CONFIG.geidea.test:ASIMA_CONFIG.geidea.live;return Boolean(c.apiPassword&&c.merchantPublicKey); }
+
   /**
    * حساب توقيع HMAC-SHA256 وفقاً لمتطلبات Geidea الرسمية
    */
@@ -110,7 +112,7 @@ export class GeideaGateway {
       const creds = isTest ? ASIMA_CONFIG.geidea.test : ASIMA_CONFIG.geidea.live;
       if (!creds.apiPassword) throw new Error("GEIDEA_NOT_CONFIGURED");
       const currency = options.currency.toUpperCase();
-      const referenceId = `ASIMA_${options.orderId.replace(/[^a-zA-Z0-9]/g, "")}`.slice(0, 30);
+      const referenceId = `SNG_${crypto.createHash("sha256").update(options.orderId).digest("hex").slice(0,24)}`;
       const timestamp = this.formatTimestamp();
 
       const signature = this.generateSignature(
@@ -157,6 +159,7 @@ export class GeideaGateway {
             Accept: "application/json",
           },
           body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(20000),
         },
       );
 
@@ -176,6 +179,7 @@ export class GeideaGateway {
 
       return {
         success: true,
+        referenceId,
         sessionId: data.session?.id || data.sessionId,
         orderId: data.order?.orderId || data.orderId,
         redirectUrl: data.session?.redirectUrl || data.redirectUrl,
@@ -194,21 +198,15 @@ export class GeideaGateway {
   /**
    * فحص بيانات الـ Callback من جيديا للتأكد من دفع العميل بنجاح
    */
-  public static verifyCallback(payload: Record<string, any>) {
-    const status = String(
-      payload.status || payload.responseMessage || "",
-    ).toUpperCase();
-    const code = String(payload.responseCode || payload.code || "");
-    const isPaid = code === "000" || status === "SUCCESS" || status === "PAID";
-
-    return {
-      isPaid,
-      orderId: payload.orderId || payload.order?.orderId,
-      referenceId: payload.merchantReferenceId,
-      amount: Number(payload.amount || payload.order?.amount || 0),
-      currency: payload.currency || "EGP",
-      raw: payload,
-    };
+  public static async verifyOrderPayment(providerId:string, expected:{referenceId:string;amount:number;currency:string}) {
+    if(!/^[a-zA-Z0-9-]{1,100}$/.test(providerId))throw new Error('GEIDEA_INVALID_ORDER');
+    const c=ASIMA_CONFIG.geidea.environment==='test'?ASIMA_CONFIG.geidea.test:ASIMA_CONFIG.geidea.live;
+    if(!this.isConfigured())throw new Error('GEIDEA_NOT_CONFIGURED');
+    const response=await fetch(`${c.baseUrl}/pgw/api/v2/direct/order/${encodeURIComponent(providerId)}`,{headers:{Authorization:'Basic '+Buffer.from(`${c.merchantPublicKey}:${c.apiPassword}`).toString('base64'),Accept:'application/json'},signal:AbortSignal.timeout(15000)});
+    const data=await response.json();const order=data.order;
+    if(!response.ok||!order||!['SUCCESS','PAID'].includes(String(order.status).toUpperCase())||order.orderId!==providerId||order.merchantReferenceId!==expected.referenceId||String(order.currency).toUpperCase()!==expected.currency||!Number.isFinite(Number(order.amount))||Math.round(Number(order.amount)*100)!==Math.round(expected.amount*100))throw new Error('GEIDEA_PAYMENT_NOT_VERIFIED');
+    const method=typeof order.paymentMethod==='string'?order.paymentMethod:typeof order.paymentMethod?.type==='string'?order.paymentMethod.type:'';
+    return {providerId,amount:expected.amount,currency:expected.currency,referenceId:expected.referenceId,method:method.slice(0,80)};
   }
 }
 

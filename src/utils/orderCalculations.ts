@@ -56,7 +56,7 @@ export function calculateOrderTotal(
  */
 export function formatEGP(amount: number): string {
   const formatted = new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(amount);
   return `${formatted} ج.م`;
 }

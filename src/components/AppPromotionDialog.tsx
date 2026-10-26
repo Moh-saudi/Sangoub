@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
 import { BRAND } from '../brand';
-export type AppSelection = { title: string; kind: 'product' | 'store' | 'category' };
+export type AppSelection = { id?:string; storeId?:string; title: string; kind: 'product' | 'store' | 'category' };
 export function AppPromotionDialog({ open, selection, appUrl, onClose }: {
   open: boolean; selection?: AppSelection; appUrl: string | null; onClose: () => void;
 }) {

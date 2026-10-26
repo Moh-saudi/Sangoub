@@ -388,7 +388,7 @@
 }
 
 /* Phone navigation and catalog use their own layout, with no horizontal page rails. */
-@media (max-width: 1000px) {
+@media (max-width: 1200px) {
   .site-header { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px; gap: 8px; padding: 10px 14px; }
   .site-header > .site-nav { display: none; }
   .site-brand { font-size: 17px; gap: 8px; min-width: 0; white-space: normal; line-height: 1.5; }

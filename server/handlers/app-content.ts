@@ -1,3 +1,4 @@
+import {GeideaGateway} from '../integrations.ts';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminServices } from '../firebaseAdmin.ts';
 import { requireAdmin, adminError, AdminError, validId } from '../adminRequest.ts';
@@ -14,6 +15,7 @@ export default async function handler(req: any, res: any) {
  else if (mobileCors(req, res)) return;
  try {
   if (req.method === 'GET') {
+   if(req.query?.view==='checkout') {res.setHeader('Cache-Control','no-store');return res.status(200).json({geideaAvailable:GeideaGateway.isConfigured(),currency:'EGP'});}
    const { db } = adminServices();
    const config = readHome((await db.doc('appConfig/customerHome').get()).data()?.config);
    const slides: any[] = [];

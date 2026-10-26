@@ -8,7 +8,7 @@ import { mobileCors } from '../mobileCors.ts';
 
 const fields:Record<string,string[]>={
   products:['id','storeId','storeName','name','description','price','originalPrice','category','imageType','imageUrl','imageKey','inStock','archived','badge','isPopular','options'],
-  stores:['id','name','nameEn','locationInDistrict','type','category','status','deliveryTime','minOrder','deliveryFee','imageUrl','bannerUrl','logoUrl','logoKey','bannerKey','imageKey','logo','banner','rating','ratingCount'],
+  stores:['taxRate','taxRegistrationNumber','pricesIncludeTax','id','name','nameEn','locationInDistrict','type','category','status','deliveryTime','minOrder','deliveryFee','imageUrl','bannerUrl','logoUrl','logoKey','bannerKey','imageKey','logo','banner','rating','ratingCount'],
   coupons:['code','discountType','value','minOrder','title','description'],staff:['role','name','phone','storeId'],partnerApplications:['status'],jobApplications:['status'],
   orders:['orderStatus','courierId','courierName','courierPhone'],
 };
@@ -20,6 +20,7 @@ function validate(type:string,id:string,d:any){
   if(type==='products'&&d.originalPrice!==undefined&&(!num(d.originalPrice,100000)||d.originalPrice<d.price))bad('السعر قبل الخصم غير صالح.');
   if(type==='products'&&d.archived===true&&d.inStock!==false)bad('المنتج المؤرشف لا يمكن إتاحته.');
   if(type==='stores'&&(!str(d.name,120,true)||!num(d.minOrder,100000)||!num(d.deliveryFee,1000)||!['open','closed','busy'].includes(d.status)))bad('راجع بيانات المتجر ورسومه.');
+  if(type==='stores'&&((d.taxRate!==undefined&&!num(d.taxRate,100))||(d.pricesIncludeTax!==undefined&&typeof d.pricesIncludeTax!=='boolean')||(d.taxRegistrationNumber!==undefined&&!str(d.taxRegistrationNumber,60))||(d.taxRate>0&&!str(d.taxRegistrationNumber,60,true))))bad('راجع نسبة الضريبة ورقم تسجيل المتجر.');
   if(type==='staff'&&(!['restaurant','courier'].includes(d.role)||!str(d.name,120,true)||!str(d.phone,30)))bad('راجع دور الموظف وبياناته.');
   if(type==='coupons'&&(d.code!==id||!['fixed','percent'].includes(d.discountType)||!num(d.value,d.discountType==='percent'?100:10000)||!num(d.minOrder,100000)))bad('راجع قيمة الخصم والحد الأدنى.');
   if(['partnerApplications','jobApplications'].includes(type)&&!['pending','contacted','approved','rejected'].includes(d.status))bad();
@@ -72,15 +73,21 @@ export default async function handler(req:any,res:any){
         tx.create(db.doc('stores/'+store.id),{...store,updatedAt:FieldValue.serverTimestamp()});after={...before,status:'approved'};
         auditInTransaction(db,tx,actor,'stores.create','stores',store.id,null,store);
       }else if(input.action==='kitchen'){
-        if(!before)bad();if(before?.fulfillmentVersion===2)throw new AdminError(409,'التحضير من حساب المتجر في التطبيق.');validId(input.storeId);if(!['preparing','ready'].includes(input.next))bad();after={...before,...nextKitchenUpdate(normalizeOrder({...before,id}),input.storeId,input.next)};
+        if(!before)bad();if(!paymentReady(before))throw new AdminError(409,'يلزم تأكيد الدفع قبل التحضير.');if(before?.fulfillmentVersion===2)throw new AdminError(409,'التحضير من حساب المتجر في التطبيق.');validId(input.storeId);if(!['preparing','ready'].includes(input.next))bad();after={...before,...nextKitchenUpdate(normalizeOrder({...before,id}),input.storeId,input.next)};
       }else if(type==='orders'){
+        if(before?.paymentMethod==='geidea'&&before.paymentStatus!=='paid'&&['preparing','ready','with_courier','delivered'].includes(patch.orderStatus))throw new AdminError(409,'يلزم تأكيد الدفع الإلكتروني قبل تجهيز الطلب أو تسليمه.');
         if(!before||['delivered','cancelled'].includes(before.orderStatus))throw new AdminError(409,'الطلب مغلق أو غير موجود.');
         let resolvedCourier:any;
-        if(after.orderStatus==='with_courier'||(before.fulfillmentVersion===2&&'courierId'in patch)){
+        if(after.orderStatus==='with_courier'||'courierId'in patch){
           validId(after.courierId);const courier=await tx.get(db.doc('staff/'+after.courierId));let account;
           try{account=await auth.getUser(after.courierId);}catch{bad('حساب المندوب غير موجود.');}
           if(courier.data()?.role!=='courier'||account!.disabled)bad('المندوب غير متاح.');
           resolvedCourier=courier.data();
+        }
+        if(before.paymentMethod!=='cash'&&paymentReady(before)&&patch.orderStatus==='cancelled')throw new AdminError(409,'الطلب مدفوع؛ راجع إجراءات الاسترداد قبل الإلغاء.');
+        if(before.fulfillmentVersion!==2){
+          if('courierId'in patch){if(before.orderStatus!=='ready'||!paymentReady(before))throw new AdminError(409,'تعيين المندوب متاح بعد الجاهزية وتأكيد الدفع.');after.orderStatus='ready';}
+          else if(before.orderStatus==='ready'&&patch.orderStatus==='with_courier')throw new AdminError(409,'يؤكد المندوب الاستلام من حسابه قبل الانتقال للتوصيل.');
         }
         if(before.fulfillmentVersion===2){
           const tickets=await Promise.all((before.storeIds||[]).map((storeId:string)=>tx.get(ticketRef(db,id,storeId))));
@@ -100,7 +107,7 @@ export default async function handler(req:any,res:any){
         }
         const allowed:Record<string,string[]>={received:['received','preparing','cancelled'],preparing:['preparing','ready','cancelled'],ready:['ready','with_courier','cancelled'],with_courier:['with_courier','cancelled']};
         if(!allowed[before.orderStatus]?.includes(after.orderStatus))bad('انتقال حالة الطلب غير مسموح.');
-        if(after.orderStatus==='with_courier'||(before.fulfillmentVersion===2&&'courierId'in patch)){
+        if(after.orderStatus==='with_courier'||'courierId'in patch){
           after.courierName=resolvedCourier.name;after.courierPhone=resolvedCourier.phone;
           if(before.fulfillmentVersion===2)tx.set(assignmentRef(db,after.courierId,id),{orderId:id,active:true,assignedAt:FieldValue.serverTimestamp()});
         }else if('courierId'in patch)bad('تعيين المندوب متاح للطلبات الجاهزة فقط.');

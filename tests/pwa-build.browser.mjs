@@ -63,7 +63,7 @@ try {
   await page.waitForFunction(()=>document.getAnimations().some(animation=>{const target=animation.effect?.target;return target instanceof Element&&target.closest('.public-how')&&animation.playState==='running';}));
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.waitForFunction(()=>document.getAnimations().filter(animation=>animation.effect?.target?.closest?.('.capital-site')).every(animation=>animation.playState!=='running'));
-  await page.getByRole('button',{name:/فطار يظبط يومك/}).click();
+  await page.getByRole('button',{name:'تطبيق الموبايل',exact:true}).click();
   await page.getByRole('dialog',{name:'نكمل على التطبيق؟',exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog').evaluate(element=>getComputedStyle(element).animationName),'none','reduced motion disables modal animations');
   await page.keyboard.press('Escape');await page.getByRole('dialog').waitFor({state:'hidden'});

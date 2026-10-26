@@ -1,3 +1,5 @@
+import {useShop} from '../shop/ShopContext';
+import {goShop} from '../shop/navigation';
 import { useVisitorCounter } from "../utils/useVisitorCounter";
 import CareersPage from "./CareersPage";
 import "../site-motion.css";
@@ -6,6 +8,7 @@ import { DeploymentVersion } from "./DeploymentVersion";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Bike, Building2, Coffee, MapPin, Menu, ShoppingBag, Smartphone, Tag, X } from "lucide-react";
 import { AppPromotionDialog, type AppSelection } from "./AppPromotionDialog";
+const ShopFront = lazy(()=>import('../shop/ShopFront'));
 const PublicOffers = lazy(() => import("./PublicOffers"));
 const PublicCatalog = lazy(() => import("./PublicCatalog"));
 import { HeroShowcase } from "./HeroShowcase";
@@ -22,6 +25,11 @@ const appUrl = (() => {
 
 export function PublicWebsite() {
   useVisitorCounter();
+  const shop=useShop();
+  const [path,setPath]=useState(location.pathname+location.search);
+  useEffect(()=>{const sync=()=>setPath(location.pathname+location.search);window.addEventListener('popstate',sync);return()=>window.removeEventListener('popstate',sync);},[]);
+  const shopping=/^\/(stores(?:\/[^/]+)?|cart|checkout(?:\/success)?|my-orders)\/?$/.test(location.pathname);
+  useEffect(()=>{document.title=shopping?'التسوق والطلبات | سنجوب':location.pathname.startsWith('/offers')?'عروض المنتجات | سنجوب':location.pathname.startsWith('/careers')?'الوظائف | سنجوب':'سنجوب | طلبك لحد مكتبك بالحي الحكومي';},[path]);
   const offers = /^\/offers\/?$/.test(window.location.pathname);
   const careers = /^\/careers\/?$/.test(window.location.pathname);
   const site = useRef<HTMLDivElement>(null);
@@ -44,10 +52,10 @@ export function PublicWebsite() {
   const [showApp, setShowApp] = useState(false);
   const [selection, setSelection] = useState<AppSelection | undefined>();
   const openApp = () => { setSelection(undefined); setShowApp(true); };
-  const selectItem = (item: AppSelection) => { setSelection(item); setShowApp(true); };
+  const selectItem = (item: AppSelection) => {if(item.kind==='store'&&item.id){goShop('/stores/'+encodeURIComponent(item.id));return;}if(item.kind==='product'&&item.id&&item.storeId){goShop('/stores/'+encodeURIComponent(item.storeId)+'?product='+encodeURIComponent(item.id));return;}goShop('/stores');};
   const openPartners = () => document.getElementById("partners")?.scrollIntoView({ behavior: "smooth" });
-  const links = () => <><a href="/offers" aria-current={offers ? "page" : undefined}>العروض</a><a href="/#how-it-works">كيف تعمل؟</a><a href="/#partners">للمطاعم والمتاجر</a><a href="/careers">الوظائف</a><a href="#contact">تواصل معنا</a></>;
-  return <div ref={site} data-careers={careers} className="capital-site min-h-screen text-slate-900" dir="rtl">
+  const links = () => <><a href="/stores">المتاجر</a><a href="/cart">السلة ({shop.count})</a><a href="/offers" aria-current={offers ? "page" : undefined}>العروض</a><a href="/#how-it-works">كيف تعمل؟</a><a href="/#partners">للمطاعم والمتاجر</a><a href="/careers">الوظائف</a><a href="#contact">تواصل معنا</a></>;
+  return <div ref={site} data-careers={careers} className="capital-site min-h-screen text-slate-900" dir="rtl" onClick={event=>{const anchor=(event.target as Element).closest?.('a');if(!anchor||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||anchor.target||anchor.hasAttribute('download'))return;const url=new URL(anchor.href,location.href);if(url.origin!==location.origin||!/^\/(?:stores(?:\/[^/]+)?|cart|checkout(?:\/success)?|my-orders|offers|careers)?\/?$/.test(url.pathname))return;if(url.hash&&url.pathname===location.pathname)return;event.preventDefault();goShop(url.pathname+url.search+url.hash);}}>
     <a className="skip-link" href="#main-content">انتقل إلى المحتوى</a>
     <DeploymentVersion publicSite />
     <header className="site-header">
@@ -57,8 +65,8 @@ export function PublicWebsite() {
       <details ref={menu} className="site-mobile-menu"><summary aria-label="قائمة الموقع"><Menu className="site-menu-open" size={22} /><X className="site-menu-close" size={22} /></summary><nav aria-label="القائمة الرئيسية" onClick={() => menu.current?.removeAttribute('open')}>{links()}</nav></details>
     </header>
     <main id="main-content" tabIndex={-1} className="landing-main">
-      {careers ? <CareersPage /> : offers ? <Suspense fallback={<p className="offers-state" role="status">جارٍ تحميل صفحة العروض…</p>}><PublicOffers onSelect={selectItem} /></Suspense> : <>
-      <HeroShowcase onOpenApp={openApp} onOpenPartners={openPartners} />
+      {shopping ? <Suspense fallback={<p role="status" className="p-8">جارٍ تحميل المتجر…</p>}><ShopFront key={path}/></Suspense> : careers ? <CareersPage /> : offers ? <Suspense fallback={<p className="offers-state" role="status">جارٍ تحميل صفحة العروض…</p>}><PublicOffers onSelect={selectItem} /></Suspense> : <>
+      <HeroShowcase onOpenApp={()=>goShop('/stores')} onOpenPartners={openPartners} />
       <div className="service-strip" role="region" aria-label="نطاق الخدمة" tabIndex={0}><span><MapPin /> الحي الحكومي</span><span><ShoppingBag /> مطاعم ومتاجر</span><span><Building2 /> لحد مكتبك</span></div>
       <Suspense fallback={null}><PublicCatalog onSelect={selectItem} /></Suspense>
       <a href="/offers" className="offers-entry"><Tag size={28}/><div><small>من متاجر العاصمة</small><h2>شوف عروض المنتجات</h2><p>المنتجات المخفّضة المتاحة في مكان واحد.</p></div><ArrowLeft size={22}/></a>
@@ -80,8 +88,8 @@ export function PublicWebsite() {
       </>}
     </main>
     <PublicFooter />
-    {!showApp && <MascotSupport autoInvite={!offers && !careers} />}
-    {!showApp && !careers && <div className="mobile-order-bar"><button onClick={openApp}>اطلب من التطبيق <ArrowLeft size={17} /></button></div>}
+    {!showApp && !location.pathname.startsWith('/checkout') && <MascotSupport autoInvite={!offers && !careers && !shopping} />}
+    {!showApp && !careers && !location.pathname.startsWith('/checkout') && location.pathname!=='/cart' && <div className="mobile-order-bar"><button onClick={openApp}>اطلب من التطبيق <ArrowLeft size={17} /></button></div>}
     <AppPromotionDialog open={showApp} selection={selection} appUrl={appUrl} onClose={() => setShowApp(false)} />
   </div>;
 }

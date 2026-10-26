@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import {ShopProvider} from "./shop/ShopContext";
 import { PublicWebsite } from "./components/PublicWebsite";
 
 const AdminApp = lazy(() => import("./AdminApp"));
@@ -11,5 +12,5 @@ document.title = adminRoute
 export default function App() {
   return adminRoute
     ? <Suspense fallback={<p role="status" className="p-12 text-center" dir="rtl">جارٍ تحميل بوابة الإدارة…</p>}><AdminApp /></Suspense>
-    : <PublicWebsite />;
+    : <ShopProvider><PublicWebsite /></ShopProvider>;
 }
