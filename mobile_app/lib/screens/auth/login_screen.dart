@@ -145,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       hint = 'يرجى مراجعة كلمة المرور والمحاولة مرة أخرى.';
     } else if (lower.contains('email-already-in-use')) {
       title = 'البريد مسجل مسبقاً';
-      friendlyMessage = 'هذا البريد الإلكتروني مسجل بالفعل في منظومة طلبات العاصمة.';
+      friendlyMessage = 'هذا البريد الإلكتروني مسجل بالفعل في منظومة سنجوب.';
       hint = 'يمكنك التوجه لتبويب "تسجيل الدخول" واستخدام كلمة المرور الخاصة بك.';
     } else if (lower.contains('weak-password')) {
       title = 'كلمة مرور ضعيفة';
@@ -426,7 +426,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'أدخل بريدك الإلكتروني المسجل في منظومة طلبات العاصمة، وسنرسل لك رابطاً مباشراً لتعيين كلمة مرور جديدة.',
+                        'أدخل بريدك الإلكتروني المسجل في منظومة سنجوب، وسنرسل لك رابطاً مباشراً لتعيين كلمة مرور جديدة.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.cairo(
                           fontSize: 12.5,
@@ -678,7 +678,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   const SizedBox(height: 14),
                   Center(
                     child: Text(
-                      'طلبات العاصمة',
+                      'سنجوب',
                       style: GoogleFonts.cairo(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
@@ -1002,7 +1002,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'شروط وأحكام منصة طلبات العاصمة',
+                  'شروط وأحكام منصة سنجوب',
                   style: GoogleFonts.cairo(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -1024,7 +1024,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   _buildTermsItem(
                     title: '1. نطاق الخدمة والتوصيل',
                     content:
-                        'خدمة "طلبات العاصمة" مخصصة لتلبية احتياجات العاملين والزوار والمقيمين بكافة أرجاء العاصمة الإدارية الجديدة (الحي الحكومي، حي المال والأعمال CBD، الأحياء السكنية R3 و R5 و R7 و R8، الكمبوندات، والداون تاون) بالإضافة لنطاق التوسع والمدن المجاورة كمدينة الشروق ومدينة بدر ومدينتي والمستقبل سيتي.',
+                        'خدمة "سنجوب" مخصصة لتلبية احتياجات العاملين والزوار والمقيمين بكافة أرجاء العاصمة الإدارية الجديدة (الحي الحكومي، حي المال والأعمال CBD، الأحياء السكنية R3 و R5 و R7 و R8، الكمبوندات، والداون تاون) بالإضافة لنطاق التوسع والمدن المجاورة كمدينة الشروق ومدينة بدر ومدينتي والمستقبل سيتي.',
                   ),
                   _buildTermsItem(
                     title: '2. دقة بيانات التوصيل والتواصل',
@@ -1044,7 +1044,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   _buildTermsItem(
                     title: '5. إجراءات الأمن والسلامة في المقرات الحكومية',
                     content:
-                        'يلتزم مناديب طلبات العاصمة بكافة اللوائح والتعليمات الأمنية للمباني الحكومية والمجمعات السكنية، ويتم تسليم الطلب إما في بهو الاستقبال المعتمد أو مباشرة إلى المكتب والدور وفق تصريح الجهة.',
+                        'يلتزم مناديب سنجوب بكافة اللوائح والتعليمات الأمنية للمباني الحكومية والمجمعات السكنية، ويتم تسليم الطلب إما في بهو الاستقبال المعتمد أو مباشرة إلى المكتب والدور وفق تصريح الجهة.',
                   ),
                   _buildTermsItem(
                     title: '6. خصوصية وسرية البيانات',
@@ -1328,7 +1328,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               ),
                             ),
                           ),
-                          const TextSpan(text: ' لمنظومة طلبات العاصمة'),
+                          const TextSpan(text: ' لمنظومة سنجوب'),
                         ],
                       ),
                     ),

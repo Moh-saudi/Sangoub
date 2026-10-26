@@ -757,7 +757,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
             const SizedBox(height: 6),
             _buildCheckboxRow(
               value: _subscribeNewsletter,
-              label: 'الاشتراك في النشرة الإخبارية لطلبات العاصمة',
+              label: 'الاشتراك في النشرة الإخبارية لمنصة سنجوب',
               onChanged: _isEditing ? (val) => setState(() => _subscribeNewsletter = val ?? false) : null,
             ),
             const SizedBox(height: 20),

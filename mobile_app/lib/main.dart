@@ -44,7 +44,7 @@ class CapitalTalabatApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: appNavigatorKey,
-      title: 'طلبات العاصمة - Capital Talabat',
+      title: 'سنجوب - Sangoub',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       // Arabic RTL localization settings

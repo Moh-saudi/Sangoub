@@ -5,7 +5,7 @@ class CloudflareR2Service {
   factory CloudflareR2Service() => _instance;
   CloudflareR2Service._internal();
 
-  // إعدادات الـ Bucket المعتمدة لمشروع طلبات العاصمة
+  // إعدادات الـ Bucket المعتمدة لمشروع سنجوب
   static const String bucketName = 'capitaltalabat';
   static const String accountId = '14521cdfec73fa908fbf7e760fae362a';
   static const String s3Endpoint =

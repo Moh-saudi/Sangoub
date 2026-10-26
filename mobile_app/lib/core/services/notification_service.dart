@@ -26,7 +26,7 @@ class NotificationService {
   /// قناة إشعارات أندرويد ذات الأولوية القصوى والصوت
   static const AndroidNotificationChannel _orderChannel = AndroidNotificationChannel(
     'capital_orders_channel',
-    'إشعارات طلبات العاصمة',
+    'إشعارات سنجوب',
     description: 'تنبيهات فورية بمراحل الطلب، تحضير الشيف، وحركة المندوب',
     importance: Importance.max,
     playSound: true,
