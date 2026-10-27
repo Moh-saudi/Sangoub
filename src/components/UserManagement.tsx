@@ -4,7 +4,7 @@ import {
   Plus, Search, RefreshCw, Users, X, ShieldCheck, ChevronLeft, ChevronRight,
   Copy, Check, MapPin, Bike, Navigation, AlertCircle, FileCheck, Stethoscope,
   Shield, Car, ExternalLink, Store as StoreIcon, UserCheck, PhoneCall, Building2,
-  Calendar, Award
+  Calendar, Award, Eye, Edit3, Power, Trash2
 } from 'lucide-react';
 import { adminApi } from '../lib/adminApi';
 import type { Store, UserRole } from '../types';
@@ -81,15 +81,17 @@ export function UserManagement({ stores }: { stores: Store[] }) {
   const [notice, setNotice] = useState('');
   const [copiedUid, setCopiedUid] = useState<string | null>(null);
 
-  // Form & View State
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  // Pop-up Modal State
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AccountRecord | null>(null);
   const [viewingUser, setViewingUser] = useState<AccountRecord | null>(null);
   const [deleteConfirmationUser, setDeleteConfirmationUser] = useState<AccountRecord | null>(null);
   const [resetLink, setResetLink] = useState('');
 
-  // Active form field state
+  // Form State
   const [formRole, setFormRole] = useState<UserRole>('courier');
+  const [formFullName, setFormFullName] = useState('');
+  const [selectedStoreId, setSelectedStoreId] = useState('');
   const [formVehicleType, setFormVehicleType] = useState('motorcycle');
   const [formLatitude, setFormLatitude] = useState('');
   const [formLongitude, setFormLongitude] = useState('');
@@ -137,7 +139,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
     };
   }, [page, search, revision]);
 
-  // Open Form for Create or Edit
+  // Open Form Modal for Create
   function openCreateForm() {
     setError('');
     setNotice('');
@@ -145,12 +147,15 @@ export function UserManagement({ stores }: { stores: Store[] }) {
     setResetLink('');
     setEditingUser(null);
     setFormRole('courier');
+    setFormFullName('');
+    setSelectedStoreId(stores[0]?.id || '');
     setFormVehicleType('motorcycle');
     setFormLatitude('30.013056');
     setFormLongitude('31.705278');
-    setIsFormOpen(true);
+    setIsFormModalOpen(true);
   }
 
+  // Open Form Modal for Edit
   function openEditForm(user: AccountRecord) {
     setError('');
     setNotice('');
@@ -158,18 +163,35 @@ export function UserManagement({ stores }: { stores: Store[] }) {
     setResetLink('');
     setEditingUser(user);
     setFormRole(user.role);
+    setFormFullName(user.fullName || '');
+    setSelectedStoreId(user.storeId || stores[0]?.id || '');
     setFormVehicleType(user.vehicleType || 'motorcycle');
     setFormLatitude(user.coordinates?.latitude ? String(user.coordinates.latitude) : '');
     setFormLongitude(user.coordinates?.longitude ? String(user.coordinates.longitude) : '');
-    setIsFormOpen(true);
+    setIsFormModalOpen(true);
   }
 
-  function closeForm() {
-    setIsFormOpen(false);
+  function closeFormModal() {
+    setIsFormModalOpen(false);
     setEditingUser(null);
     setResetLink('');
     setError('');
     setGpsError('');
+  }
+
+  // Handle Store Selection Change for Merchants
+  function handleStoreChange(storeId: string) {
+    setSelectedStoreId(storeId);
+    const store = stores.find((s) => s.id === storeId);
+    if (store) {
+      if (!formFullName || formFullName === 'مطعم' || formFullName.trim() === '') {
+        setFormFullName(store.name);
+      }
+      if (store.coordinates) {
+        setFormLatitude(String(store.coordinates.latitude));
+        setFormLongitude(String(store.coordinates.longitude));
+      }
+    }
   }
 
   // High Precision GPS Geolocation Handler
@@ -209,9 +231,11 @@ export function UserManagement({ stores }: { stores: Store[] }) {
     const action = editingUser ? 'update' : 'create';
     const payload: Record<string, any> = {
       ...data,
+      fullName: formFullName || data.fullName,
       action,
       uid: editingUser?.uid,
       role: formRole,
+      storeId: formRole === 'restaurant' ? selectedStoreId : (data.storeId || ''),
       vehicleType: formRole === 'courier' ? formVehicleType : undefined,
       hasThermalBox: data.hasThermalBox === 'on' || data.hasThermalBox === 'true',
       hasThermalBackpack: data.hasThermalBackpack === 'on' || data.hasThermalBackpack === 'true',
@@ -225,7 +249,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
         setResetLink(result.resetLink);
         setNotice('تم قيد الحساب بنجاح، ونسخ رابط تعيين كلمة المرور متاح الآن.');
       } else {
-        setIsFormOpen(false);
+        setIsFormModalOpen(false);
         setEditingUser(null);
         setNotice(editingUser ? 'تم تحديث بيانات القيد بنجاح.' : 'تم إضافة وقيد السجل الجديد بنجاح.');
       }
@@ -247,6 +271,9 @@ export function UserManagement({ stores }: { stores: Store[] }) {
       await adminApi('users', { action, uid: user.uid, reason });
       setNotice(`تم ${user.disabled ? 'تفعيل' : 'تعطيل'} حساب (${user.fullName || user.email}) بنجاح.`);
       setRevision((v) => v + 1);
+      if (viewingUser && viewingUser.uid === user.uid) {
+        setViewingUser({ ...viewingUser, disabled: !viewingUser.disabled });
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -260,6 +287,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
     try {
       await adminApi('users', { action: 'delete', uid: user.uid, confirmation: user.uid, reason: 'حذف معتمد من واجهة إدارة السجلات' });
       setDeleteConfirmationUser(null);
+      if (viewingUser?.uid === user.uid) setViewingUser(null);
       setNotice(`تم حذف حساب (${user.fullName || user.uid}) نهائياً من المنظومة.`);
       setRevision((v) => v + 1);
     } catch (e) {
@@ -302,7 +330,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
 
   return (
     <section className="space-y-4 max-w-7xl mx-auto" aria-label="إدارة وسجل الحسابات" dir="rtl">
-      {/* 1. Header & Breadcrumbs (Image 3 & 4 Style) */}
+      {/* 1. Header & Breadcrumbs (Image 3 Style) */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -324,27 +352,16 @@ export function UserManagement({ stores }: { stores: Store[] }) {
             </p>
           </div>
 
-          {/* Action Button: Toggle Create Form */}
+          {/* Action Button: Opens the New Pop-up Form */}
           <div className="shrink-0 flex items-center gap-2">
-            {!isFormOpen ? (
-              <button
-                type="button"
-                onClick={openCreateForm}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
-              >
-                <Plus size={16} />
-                <span>إضافة قيد معتمد جديد</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={closeForm}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer border border-slate-300"
-              >
-                <X size={16} />
-                <span>إلغاء الإضافة</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
+            >
+              <Plus size={16} />
+              <span>إضافة قيد معتمد جديد</span>
+            </button>
           </div>
         </div>
 
@@ -362,7 +379,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
         )}
 
         {/* Global Error Notice */}
-        {error && !isFormOpen && (
+        {error && !isFormModalOpen && (
           <div className="mt-4 p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-medium flex items-center gap-2">
             <AlertCircle size={16} className="text-rose-600 shrink-0" />
             <span>{error}</span>
@@ -370,539 +387,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
         )}
       </div>
 
-      {/* 2. Structured Inline Form (Image 4 Style - When isFormOpen is true) */}
-      {isFormOpen && (
-        <div className="bg-white rounded-2xl border border-teal-200 shadow-sm p-5 animate-fadeIn">
-          <div className="border-b border-slate-100 pb-3 mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-black text-slate-800 flex items-center gap-2">
-                <FileCheck size={18} className="text-teal-700" />
-                <span>{editingUser ? `تعديل بيانات القيد المعتمد: ${editingUser.fullName || editingUser.email}` : 'إضافة قيد معتمد جديد (مندوب / تاجر / عميل)'}</span>
-              </h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                تظهر هذه البيانات للمنظومة لضمان أعلى معايير السلامة والأمان وسرعة التوصيل وحساب المسافات الجغرافية الدقيقة.
-              </p>
-            </div>
-            <button type="button" onClick={closeForm} className="text-slate-400 hover:text-slate-600">
-              <X size={18} />
-            </button>
-          </div>
-
-          {error && (
-            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs flex items-center gap-2">
-              <AlertCircle size={15} />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Section A: Basic Account Credentials */}
-            <div>
-              <h3 className="text-xs font-bold text-slate-700 mb-2.5 flex items-center gap-1.5">
-                <UserCheck size={14} className="text-teal-700" />
-                <span>1. البيانات الأساسية ونوع الحساب</span>
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                <div>
-                  <label className="block text-slate-600 font-bold mb-1">اسم الحساب / الاسم بالكامل *</label>
-                  <input
-                    name="fullName"
-                    required
-                    maxLength={120}
-                    defaultValue={editingUser?.fullName}
-                    placeholder="مثال: أحمد محمود علي أو مطعم البرنس"
-                    className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600 bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 font-bold mb-1">نوع وتصنيف الحساب *</label>
-                  <select
-                    name="role"
-                    value={formRole}
-                    onChange={(e) => setFormRole(e.target.value as UserRole)}
-                    className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600 bg-white"
-                  >
-                    <option value="courier">كابتن / مندوب توصيل معتمد</option>
-                    <option value="restaurant">تاجر / مطبخ تحضير شريك</option>
-                    <option value="employee">عميل (موظف بالحي الحكومي)</option>
-                    <option value="admin">مدير المنظومة (صلاحيات كاملة)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 font-bold mb-1">البريد الإلكتروني المعتمد *</label>
-                  <input
-                    name="email"
-                    type="email"
-                    required
-                    maxLength={160}
-                    dir="ltr"
-                    defaultValue={editingUser?.email}
-                    placeholder="courier@sangoub.com"
-                    className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600 bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 font-bold mb-1">رقم الهاتف الأساسي (واتساب) *</label>
-                  <input
-                    name="phone"
-                    required
-                    maxLength={30}
-                    defaultValue={editingUser?.phone}
-                    placeholder="01012345678"
-                    className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600 bg-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Section B: Courier Full KYC Profile (When role is courier) */}
-            {formRole === 'courier' && (
-              <div className="bg-amber-50/50 border border-amber-200/80 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
-                  <h3 className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                    <Bike size={15} className="text-amber-700" />
-                    <span>2. ملف التحقق والاعتماد الجنائي والطبي للمندوب (KYC كامل)</span>
-                  </h3>
-                  <span className="text-[10px] bg-amber-200/70 text-amber-900 px-2 py-0.5 rounded-md font-bold">
-                    معايير السلامة والأمان
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">اسم الشهرة (المتداول)</label>
-                    <input
-                      name="nickname"
-                      maxLength={80}
-                      defaultValue={editingUser?.nickname}
-                      placeholder="مثال: كابتن النسر / أبو يوسف"
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">الرقم القومي (14 رقم بالكامل) *</label>
-                    <input
-                      name="nationalId"
-                      required
-                      maxLength={14}
-                      pattern="[0-9]{14}"
-                      defaultValue={editingUser?.nationalId}
-                      placeholder="29801011234567"
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white tracking-widest font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">هاتف الطوارئ (قريب / مرجع) *</label>
-                    <input
-                      name="emergencyPhone"
-                      required
-                      maxLength={30}
-                      defaultValue={editingUser?.emergencyPhone}
-                      placeholder="01298765432"
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">حالة الاعتماد التشغيلي</label>
-                    <select
-                      name="courierStatus"
-                      defaultValue={editingUser?.courierStatus || 'active'}
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
-                    >
-                      <option value="active">نشط ومتاح لاستقبال الطلبات</option>
-                      <option value="pending">قيد الفحص والتوثيق الأمني</option>
-                      <option value="suspended">موقوف مؤقتاً</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">العنوان الحالي الفعلي *</label>
-                    <input
-                      name="currentAddress"
-                      required
-                      maxLength={200}
-                      defaultValue={editingUser?.currentAddress}
-                      placeholder="الشارع والمنطقة الحالية"
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">العنوان المسجل ببطاقة الرقم القومي *</label>
-                    <input
-                      name="idCardAddress"
-                      required
-                      maxLength={200}
-                      defaultValue={editingUser?.idCardAddress}
-                      placeholder="العنوان المدون بالبطاقة"
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">وسيلة التوصيل المعتمدة *</label>
-                    <select
-                      name="vehicleType"
-                      value={formVehicleType}
-                      onChange={(e) => setFormVehicleType(e.target.value)}
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
-                    >
-                      <option value="motorcycle">دراجة نارية (موتسيكل)</option>
-                      <option value="bicycle">دراجة هوائية (عجلة)</option>
-                      <option value="car">سيارة نقل / ملاكي</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">الماركة والموديل وسنة الصنع</label>
-                    <input
-                      name="vehicleModel"
-                      maxLength={60}
-                      defaultValue={editingUser?.vehicleModel}
-                      placeholder="مثال: دايون 4 موديل 2024 / بجاج"
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">رقم لوحة المركبة (أرقام وحروف)</label>
-                    <input
-                      name="vehiclePlate"
-                      maxLength={30}
-                      defaultValue={editingUser?.vehiclePlate}
-                      placeholder="مثال: س ع ق 1 9 4"
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">رقم رخصة القيادة</label>
-                    <input
-                      name="drivingLicenseNumber"
-                      maxLength={60}
-                      defaultValue={editingUser?.drivingLicenseNumber}
-                      placeholder="رقم الرخصة المسجل بالمرور"
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">تاريخ انتهاء رخصة القيادة</label>
-                    <input
-                      name="licenseExpiryDate"
-                      type="date"
-                      defaultValue={editingUser?.licenseExpiryDate}
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">فحص تحليل المخدرات *</label>
-                    <select
-                      name="drugTestStatus"
-                      defaultValue={editingUser?.drugTestStatus || 'passed'}
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    >
-                      <option value="passed">معتمد وسلبي (خالٍ من المواد المخدرة) ✓</option>
-                      <option value="pending">قيد إجراء الفحص المعملي ⏳</option>
-                      <option value="failed">غير لائق / إيجابي ✕</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">تاريخ إجراء فحص المخدرات</label>
-                    <input
-                      name="drugTestDate"
-                      type="date"
-                      defaultValue={editingUser?.drugTestDate}
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">شهادة الفيش الجنائي (صحيفة الحالة) *</label>
-                    <select
-                      name="criminalRecordStatus"
-                      defaultValue={editingUser?.criminalRecordStatus || 'passed'}
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    >
-                      <option value="passed">سليم وخالٍ من السوابق والأحكام ✓</option>
-                      <option value="pending">قيد استخراج الصحيفة ⏳</option>
-                      <option value="failed">توجد سوابق / غير مقبول ✕</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">تاريخ استخراج الفيش الجنائي</label>
-                    <input
-                      name="criminalRecordDate"
-                      type="date"
-                      defaultValue={editingUser?.criminalRecordDate}
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Equipment Checkboxes */}
-                <div className="pt-2 border-t border-amber-200/50 flex flex-wrap items-center gap-6 text-xs text-slate-800">
-                  <label className="flex items-center gap-2 cursor-pointer font-bold">
-                    <input
-                      type="checkbox"
-                      name="hasThermalBox"
-                      defaultChecked={editingUser?.hasThermalBox ?? true}
-                      className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
-                    />
-                    <span>هل الموتسيكل مجهز بصندوق عازل حراري لحفظ سخونة وجودة الأطعمة؟</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer font-bold">
-                    <input
-                      type="checkbox"
-                      name="hasThermalBackpack"
-                      defaultChecked={editingUser?.hasThermalBackpack ?? false}
-                      className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
-                    />
-                    <span>هل العجلة / الدراجة مجهزة بشنطة ظهر حرارية عازلة؟</span>
-                  </label>
-                </div>
-              </div>
-            )}
-
-            {/* Section C: Merchant & High-Precision Location (When role is restaurant) */}
-            {formRole === 'restaurant' && (
-              <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
-                  <h3 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                    <MapPin size={15} className="text-emerald-700" />
-                    <span>2. بيانات المتجر والموقع الجغرافي الدقيق (GPS High-Precision)</span>
-                  </h3>
-                  <span className="text-[10px] bg-emerald-200/70 text-emerald-900 px-2 py-0.5 rounded-md font-bold">
-                    دقة 6 أرقام عشرية لحساب المسافات
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">المتجر التابع له الحساب *</label>
-                    <select
-                      name="storeId"
-                      required
-                      defaultValue={editingUser?.storeId || ''}
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
-                    >
-                      <option value="" disabled>اختر المتجر أو الفرع</option>
-                      {stores.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name} ({s.locationInDistrict || s.type})</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">المهمة التشغيلية بالمتجر</label>
-                    <select
-                      name="duty"
-                      defaultValue={editingUser?.duty || 'manager'}
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    >
-                      <option value="manager">مسؤول ومدير المتجر</option>
-                      <option value="preparer">شيف / مسؤول جمع وتحضير الطلبات</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">نصف قطر التغطية (كم)</label>
-                    <input
-                      name="coverageRadiusKm"
-                      type="number"
-                      step="0.5"
-                      min="1"
-                      max="50"
-                      defaultValue={editingUser?.coverageRadiusKm || 8}
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">طريقة التوصيل الموصى بها</label>
-                    <select
-                      name="preferredDeliveryMethod"
-                      defaultValue={editingUser?.preferredDeliveryMethod || 'auto'}
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    >
-                      <option value="auto">تلقائي حسب المسافة المحسوبة للعميل</option>
-                      <option value="bicycle">دراجة هوائية (للمسافات &lt; 2 كم)</option>
-                      <option value="motorcycle">دراجة نارية بصندوق عازل (2-8 كم)</option>
-                      <option value="car">سيارة نقل للطلبات الكبيرة (&gt; 8 كم)</option>
-                    </select>
-                  </div>
-
-                  {/* High Precision GPS Coordinates */}
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">خط العرض (Latitude) بدقة 6 خانات *</label>
-                    <input
-                      name="latitude"
-                      value={formLatitude}
-                      onChange={(e) => setFormLatitude(e.target.value)}
-                      placeholder="30.013056"
-                      required
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-mono dir-ltr"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">خط الطول (Longitude) بدقة 6 خانات *</label>
-                    <input
-                      name="longitude"
-                      value={formLongitude}
-                      onChange={(e) => setFormLongitude(e.target.value)}
-                      placeholder="31.705278"
-                      required
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-mono dir-ltr"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2 flex items-end gap-2">
-                    <button
-                      type="button"
-                      onClick={handleDetectGps}
-                      disabled={gpsDetecting}
-                      className="h-9 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <MapPin size={15} />
-                      <span>{gpsDetecting ? 'جارٍ قراءة GPS بدقة عالية...' : '📍 جلب اللوكيشن الفعلي عبر GPS الآن'}</span>
-                    </button>
-
-                    {formLatitude && formLongitude && (
-                      <a
-                        href={`https://maps.google.com/?q=${formLatitude},${formLongitude}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="h-9 px-3 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors"
-                      >
-                        <ExternalLink size={14} />
-                        <span>معاينة على الخريطة</span>
-                      </a>
-                    )}
-                  </div>
-                </div>
-
-                {gpsError && (
-                  <p className="text-xs text-rose-600 bg-rose-50 p-2 rounded-md font-medium">{gpsError}</p>
-                )}
-
-                {/* Smart Dispatching Algorithm Note */}
-                <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200 text-[11px] text-emerald-900 flex items-start gap-2">
-                  <Navigation size={15} className="text-emerald-700 shrink-0 mt-0.5" />
-                  <p>
-                    <strong>خوارزمية الإسناد الذكي:</strong> يتم احتساب المسافة الدقيقة بصيغة Haversine بين المتجر والمندوب والعميل لحظياً. للمسافات الأقل من 2 كم ترشح الدراجات الهوائية، ومن 2 إلى 8 كم ترشح الموتسيكلات المزودة بصندوق حراري عازل للحفاظ على معايير سخونة الوجبات.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Section D: Government Employee (When role is employee) */}
-            {formRole === 'employee' && (
-              <div className="bg-purple-50/50 border border-purple-200/80 rounded-xl p-4 space-y-3">
-                <h3 className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
-                  <Building2 size={15} className="text-purple-700" />
-                  <span>2. بيانات موظف الوزارة ومقر العمل</span>
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">الوزارة أو الهيئة الحكومية</label>
-                    <input
-                      name="ministry"
-                      maxLength={120}
-                      defaultValue={editingUser?.ministry}
-                      placeholder="مثال: وزارة الاتصالات وتكنولوجيا المعلومات"
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">رقم الدور بالمبنى</label>
-                    <input
-                      name="floorNumber"
-                      maxLength={60}
-                      defaultValue={editingUser?.floorNumber}
-                      placeholder="مثال: الدور الرابع"
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">رقم المكتب</label>
-                    <input
-                      name="roomNumber"
-                      maxLength={80}
-                      defaultValue={editingUser?.roomNumber}
-                      placeholder="مثال: مكتب 402"
-                      className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Section E: Audit Reason & Notes */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-              <label className="block text-slate-700 font-bold text-xs mb-1">
-                سبب العملية وملاحظات التدقيق الأمني *
-              </label>
-              <textarea
-                name="reason"
-                required
-                minLength={5}
-                maxLength={500}
-                rows={2}
-                placeholder="اكتب سبب قيد أو تعديل الحساب (مثال: قيد كابتن جديد مستوفٍ لشروط الفيش والمخدرات والصندوق الحراري)"
-                className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:border-teal-600"
-              />
-            </div>
-
-            {/* Form Action Buttons */}
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-2">
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="px-5 py-2.5 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-bold text-xs rounded-lg shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <Check size={16} />
-                  <span>{busy ? 'جارٍ حفظ وقيد السجل...' : 'حفظ وقيد السجل المعتمَد'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={closeForm}
-                  disabled={busy}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors cursor-pointer"
-                >
-                  إلغاء الأمر
-                </button>
-              </div>
-
-              {resetLink && (
-                <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 text-xs text-emerald-800">
-                  <span>تم إنشاء رابط كلمة المرور:</span>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(resetLink, 'reset-link')}
-                    className="font-bold underline text-emerald-900 hover:text-emerald-950"
-                  >
-                    {copiedUid === 'reset-link' ? 'نُسخ الرابط ✓' : 'نسخ الرابط لصاحب الحساب'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* 3. KPI Summary Row (Image 3 Style: 5 Distinct Cards) */}
+      {/* 2. KPI Summary Row (Image 3 Style: 5 Distinct Cards) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {/* Card 1: Total Users */}
         <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
@@ -960,7 +445,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
         </div>
       </div>
 
-      {/* 4. Search & Filter Bar (Image 3 Style) */}
+      {/* 3. Search & Filter Bar (Image 3 Style) */}
       <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col md:flex-row items-center justify-between gap-3 shadow-2xs">
         <form
           onSubmit={(e) => {
@@ -1040,19 +525,19 @@ export function UserManagement({ stores }: { stores: Store[] }) {
         </div>
       </div>
 
-      {/* 5. Main Enterprise Data Table (Image 3 Style) */}
+      {/* 4. Main Enterprise Data Table (Image 3 Style with Eye Preview Approach) */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-right border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold text-[11px]">
                 <th className="py-3 px-3.5 text-center w-10">#</th>
-                <th className="py-3 px-3.5">اسم الحساب / الشهرة</th>
+                <th className="py-3 px-3.5">اسم الحساب / الشهرة (انقر للمعاينة)</th>
                 <th className="py-3 px-3.5">النوع والتصنيف</th>
                 <th className="py-3 px-3.5">التوثيق الجنائي والفحص الطبي</th>
                 <th className="py-3 px-3.5">الوسيلة والتجهيزات / اللوكيشن</th>
                 <th className="py-3 px-3.5 text-center">الحالة</th>
-                <th className="py-3 px-3.5 text-center w-48">التحكم والإجراءات</th>
+                <th className="py-3 px-3.5 text-center w-52">التحكم والإجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1068,15 +553,17 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                       {page * 50 + index + 1}
                     </td>
 
-                    {/* Account Name & Nickname */}
+                    {/* Account Name & Nickname - Clicking opens the Full Profile Modal */}
                     <td className="py-3 px-3.5">
                       <div className="font-bold text-slate-800 flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => setViewingUser(user)}
-                          className="hover:text-teal-700 hover:underline cursor-pointer text-right"
+                          title="انقر لفتح واستعراض كامل بيانات الحساب"
+                          className="hover:text-teal-700 hover:underline cursor-pointer text-right flex items-center gap-1.5 group"
                         >
-                          {user.fullName || 'بدون اسم محدد'}
+                          <Eye size={13} className="text-teal-600 opacity-70 group-hover:opacity-100 shrink-0" />
+                          <span>{user.fullName || 'بدون اسم محدد'}</span>
                         </button>
                         {user.nickname && (
                           <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded font-normal">
@@ -1235,22 +722,35 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                       )}
                     </td>
 
-                    {/* Action Buttons (Image 3 Style: Outline تعديل, Text إيقاف, Red حذف) */}
+                    {/* Action Buttons: Prominent Eye Button + Edit + Status Toggle + Delete */}
                     <td className="py-3 px-3.5 text-center">
-                      <div className="inline-flex items-center gap-1.5 justify-center">
+                      <div className="inline-flex items-center gap-1 justify-center">
+                        {/* Eye Button for Full Profile Inspection (النهج المعتمد) */}
+                        <button
+                          type="button"
+                          onClick={() => setViewingUser(user)}
+                          title="معاينة الملف والبيانات الكاملة"
+                          className="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-[11px] font-bold rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                          <Eye size={13} />
+                          <span>معاينة</span>
+                        </button>
+
+                        {/* Edit Button */}
                         <button
                           type="button"
                           onClick={() => openEditForm(user)}
-                          className="px-2.5 py-1 border border-slate-300 hover:bg-slate-50 text-slate-700 text-[11px] font-bold rounded-md transition-colors cursor-pointer"
+                          className="px-2 py-1 border border-slate-300 hover:bg-slate-50 text-slate-700 text-[11px] font-bold rounded-md transition-colors cursor-pointer"
                         >
                           تعديل
                         </button>
 
+                        {/* Toggle Status */}
                         <button
                           type="button"
                           disabled={user.uid === auth.currentUser?.uid || busy}
                           onClick={() => handleToggleStatus(user)}
-                          className={`px-2 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${
+                          className={`px-1.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${
                             user.disabled
                               ? 'text-emerald-700 hover:bg-emerald-50'
                               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
@@ -1259,11 +759,12 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                           {user.disabled ? 'تفعيل' : 'إيقاف'}
                         </button>
 
+                        {/* Delete */}
                         <button
                           type="button"
                           disabled={user.uid === auth.currentUser?.uid || busy}
                           onClick={() => setDeleteConfirmationUser(user)}
-                          className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-[11px] font-bold rounded-md transition-colors cursor-pointer"
+                          className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold rounded-md transition-colors cursor-pointer"
                         >
                           حذف
                         </button>
@@ -1314,116 +815,767 @@ export function UserManagement({ stores }: { stores: Store[] }) {
         </div>
       </div>
 
-      {/* 6. Modal for Viewing Full Record Details */}
-      {viewingUser && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 p-5 shadow-2xl animate-fadeIn space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      {/* 5. POP-UP MODAL: Structured Multi-Section Form (Image 4 & User Request) */}
+      {isFormModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-4xl w-full border border-slate-200 shadow-2xl flex flex-col max-h-[92vh] animate-fadeIn">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/60 rounded-t-2xl">
               <div>
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <ShieldCheck size={18} className="text-teal-700" />
-                  <span>الملف التعريفي والتوثيقي الكامل: {viewingUser.fullName || viewingUser.email}</span>
-                </h3>
-                <p className="text-xs text-slate-400 font-mono mt-0.5">UID: {viewingUser.uid}</p>
+                <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <FileCheck size={18} className="text-teal-700" />
+                  <span>
+                    {editingUser
+                      ? `تعديل بيانات القيد المعتمد: ${editingUser.fullName || editingUser.email}`
+                      : 'إضافة قيد معتمد جديد (مندوب / تاجر / عميل)'}
+                  </span>
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  تظهر هذه البيانات للمنظومة لضمان أعلى معايير السلامة والأمان وسرعة التوصيل وحساب المسافات الجغرافية الدقيقة.
+                </p>
               </div>
-              <button type="button" onClick={() => setViewingUser(null)} className="text-slate-400 hover:text-slate-600">
+              <button
+                type="button"
+                onClick={closeFormModal}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+              >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span className="text-slate-400 font-bold block mb-0.5">الاسم والشهرة</span>
-                <span className="font-black text-slate-800">{viewingUser.fullName || '—'} {viewingUser.nickname ? `(شهرة: ${viewingUser.nickname})` : ''}</span>
+            {/* Modal Body (Scrollable) */}
+            <div className="p-5 overflow-y-auto space-y-4 text-xs">
+              {error && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg flex items-center gap-2 font-bold">
+                  <AlertCircle size={15} />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <form id="user-mgmt-form" onSubmit={handleSubmit} className="space-y-4">
+                {/* Section A: Basic Account Credentials */}
+                <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-3">
+                  <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <UserCheck size={15} className="text-teal-700" />
+                    <span>1. البيانات الأساسية ونوع الحساب</span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">اسم الحساب / الاسم بالكامل *</label>
+                      <input
+                        name="fullName"
+                        required
+                        maxLength={120}
+                        value={formFullName}
+                        onChange={(e) => setFormFullName(e.target.value)}
+                        placeholder="مثال: أحمد محمود علي أو مطعم البرنس"
+                        className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-teal-600 bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">نوع وتصنيف الحساب *</label>
+                      <select
+                        name="role"
+                        value={formRole}
+                        onChange={(e) => setFormRole(e.target.value as UserRole)}
+                        className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-teal-600 bg-white font-bold"
+                      >
+                        <option value="courier">كابتن / مندوب توصيل معتمد</option>
+                        <option value="restaurant">تاجر / مطبخ تحضير شريك</option>
+                        <option value="employee">عميل (موظف بالحي الحكومي)</option>
+                        <option value="admin">مدير المنظومة (صلاحيات كاملة)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">البريد الإلكتروني المعتمد *</label>
+                      <input
+                        name="email"
+                        type="email"
+                        required
+                        maxLength={160}
+                        dir="ltr"
+                        defaultValue={editingUser?.email}
+                        placeholder="user@sangoub.com"
+                        className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-teal-600 bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">رقم الهاتف الأساسي (واتساب) *</label>
+                      <input
+                        name="phone"
+                        required
+                        maxLength={30}
+                        defaultValue={editingUser?.phone}
+                        placeholder="01012345678"
+                        className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-teal-600 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* PROMINENT STORE SELECTOR: Shown right in Section 1 when role is Merchant / Restaurant */}
+                  {formRole === 'restaurant' && (
+                    <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-emerald-50/70 p-2.5 rounded-lg border border-emerald-200">
+                      <div>
+                        <label className="block text-emerald-950 font-bold mb-1 flex items-center gap-1">
+                          <StoreIcon size={14} className="text-emerald-700" />
+                          <span>اختيار المتجر / التاجر التابع له الحساب *</span>
+                        </label>
+                        <select
+                          name="storeId"
+                          required
+                          value={selectedStoreId}
+                          onChange={(e) => handleStoreChange(e.target.value)}
+                          className="w-full h-9 px-3 border border-emerald-300 rounded-lg text-xs bg-white font-bold text-slate-800 focus:outline-none focus:border-emerald-600"
+                        >
+                          <option value="" disabled>-- اختر المتجر أو التاجر المعتمد --</option>
+                          {stores.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} ({s.locationInDistrict || s.type})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-emerald-950 font-bold mb-1">المهمة التشغيلية بالمتجر</label>
+                        <select
+                          name="duty"
+                          defaultValue={editingUser?.duty || 'manager'}
+                          className="w-full h-9 px-3 border border-emerald-300 rounded-lg text-xs bg-white font-medium"
+                        >
+                          <option value="manager">مسؤول ومدير المتجر</option>
+                          <option value="preparer">شيف / مسؤول جمع وتحضير الطلبات</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Section B: Courier Full KYC Profile (When role is courier) */}
+                {formRole === 'courier' && (
+                  <div className="bg-amber-50/50 border border-amber-200/80 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
+                      <h3 className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                        <Bike size={15} className="text-amber-700" />
+                        <span>2. ملف التحقق والاعتماد الجنائي والطبي للمندوب (KYC كامل)</span>
+                      </h3>
+                      <span className="text-[10px] bg-amber-200/70 text-amber-900 px-2 py-0.5 rounded-md font-bold">
+                        معايير السلامة والأمان
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">اسم الشهرة (المتداول)</label>
+                        <input
+                          name="nickname"
+                          maxLength={80}
+                          defaultValue={editingUser?.nickname}
+                          placeholder="مثال: كابتن النسر / أبو يوسف"
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">الرقم القومي (14 رقم بالكامل) *</label>
+                        <input
+                          name="nationalId"
+                          required
+                          maxLength={14}
+                          pattern="[0-9]{14}"
+                          defaultValue={editingUser?.nationalId}
+                          placeholder="29801011234567"
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white tracking-widest font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">هاتف الطوارئ (قريب / مرجع) *</label>
+                        <input
+                          name="emergencyPhone"
+                          required
+                          maxLength={30}
+                          defaultValue={editingUser?.emergencyPhone}
+                          placeholder="01298765432"
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">حالة الاعتماد التشغيلي</label>
+                        <select
+                          name="courierStatus"
+                          defaultValue={editingUser?.courierStatus || 'active'}
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
+                        >
+                          <option value="active">نشط ومتاح لاستقبال الطلبات</option>
+                          <option value="pending">قيد الفحص والتوثيق الأمني</option>
+                          <option value="suspended">موقوف مؤقتاً</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">العنوان الحالي الفعلي *</label>
+                        <input
+                          name="currentAddress"
+                          required
+                          maxLength={200}
+                          defaultValue={editingUser?.currentAddress}
+                          placeholder="الشارع والمنطقة الحالية"
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">العنوان المسجل بالبطاقة *</label>
+                        <input
+                          name="idCardAddress"
+                          required
+                          maxLength={200}
+                          defaultValue={editingUser?.idCardAddress}
+                          placeholder="العنوان المدون ببطاقة الرقم القومي"
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">وسيلة التوصيل المعتمدة *</label>
+                        <select
+                          name="vehicleType"
+                          value={formVehicleType}
+                          onChange={(e) => setFormVehicleType(e.target.value)}
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
+                        >
+                          <option value="motorcycle">دراجة نارية (موتسيكل)</option>
+                          <option value="bicycle">دراجة هوائية (عجلة)</option>
+                          <option value="car">سيارة نقل / ملاكي</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">الماركة والموديل وسنة الصنع</label>
+                        <input
+                          name="vehicleModel"
+                          maxLength={60}
+                          defaultValue={editingUser?.vehicleModel}
+                          placeholder="مثال: دايون 4 موديل 2024 / بجاج"
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">رقم لوحة المركبة (أرقام وحروف)</label>
+                        <input
+                          name="vehiclePlate"
+                          maxLength={30}
+                          defaultValue={editingUser?.vehiclePlate}
+                          placeholder="مثال: س ع ق 1 9 4"
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">رقم رخصة القيادة</label>
+                        <input
+                          name="drivingLicenseNumber"
+                          maxLength={60}
+                          defaultValue={editingUser?.drivingLicenseNumber}
+                          placeholder="رقم الرخصة المسجل بالمرور"
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">تاريخ انتهاء رخصة القيادة</label>
+                        <input
+                          name="licenseExpiryDate"
+                          type="date"
+                          defaultValue={editingUser?.licenseExpiryDate}
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">فحص تحليل المخدرات *</label>
+                        <select
+                          name="drugTestStatus"
+                          defaultValue={editingUser?.drugTestStatus || 'passed'}
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        >
+                          <option value="passed">معتمد وسلبي (خالٍ من المواد المخدرة) ✓</option>
+                          <option value="pending">قيد إجراء الفحص المعملي ⏳</option>
+                          <option value="failed">غير لائق / إيجابي ✕</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">تاريخ إجراء فحص المخدرات</label>
+                        <input
+                          name="drugTestDate"
+                          type="date"
+                          defaultValue={editingUser?.drugTestDate}
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">شهادة الفيش الجنائي (صحيفة الحالة) *</label>
+                        <select
+                          name="criminalRecordStatus"
+                          defaultValue={editingUser?.criminalRecordStatus || 'passed'}
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        >
+                          <option value="passed">سليم وخالٍ من السوابق والأحكام ✓</option>
+                          <option value="pending">قيد استخراج الصحيفة ⏳</option>
+                          <option value="failed">توجد سوابق / غير مقبول ✕</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">تاريخ استخراج الفيش الجنائي</label>
+                        <input
+                          name="criminalRecordDate"
+                          type="date"
+                          defaultValue={editingUser?.criminalRecordDate}
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Equipment Checkboxes */}
+                    <div className="pt-2 border-t border-amber-200/50 flex flex-wrap items-center gap-6 text-slate-800">
+                      <label className="flex items-center gap-2 cursor-pointer font-bold">
+                        <input
+                          type="checkbox"
+                          name="hasThermalBox"
+                          defaultChecked={editingUser?.hasThermalBox ?? true}
+                          className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+                        />
+                        <span>هل الموتسيكل مجهز بصندوق عازل حراري لحفظ سخونة وجودة الأطعمة؟</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer font-bold">
+                        <input
+                          type="checkbox"
+                          name="hasThermalBackpack"
+                          defaultChecked={editingUser?.hasThermalBackpack ?? false}
+                          className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+                        />
+                        <span>هل العجلة / الدراجة مجهزة بشنطة ظهر حرارية عازلة؟</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Section C: Merchant & High-Precision Location (When role is restaurant) */}
+                {formRole === 'restaurant' && (
+                  <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
+                      <h3 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                        <MapPin size={15} className="text-emerald-700" />
+                        <span>2. بيانات الموقع الجغرافي الدقيق للتاجر (GPS High-Precision)</span>
+                      </h3>
+                      <span className="text-[10px] bg-emerald-200/70 text-emerald-900 px-2 py-0.5 rounded-md font-bold">
+                        دقة 6 أرقام عشرية لحساب المسافات
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">نصف قطر التغطية (كم)</label>
+                        <input
+                          name="coverageRadiusKm"
+                          type="number"
+                          step="0.5"
+                          min="1"
+                          max="50"
+                          defaultValue={editingUser?.coverageRadiusKm || 8}
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">طريقة التوصيل الموصى بها</label>
+                        <select
+                          name="preferredDeliveryMethod"
+                          defaultValue={editingUser?.preferredDeliveryMethod || 'auto'}
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        >
+                          <option value="auto">تلقائي حسب المسافة المحسوبة للعميل</option>
+                          <option value="bicycle">دراجة هوائية (للمسافات &lt; 2 كم)</option>
+                          <option value="motorcycle">دراجة نارية بصندوق عازل (2-8 كم)</option>
+                          <option value="car">سيارة نقل للطلبات الكبيرة (&gt; 8 كم)</option>
+                        </select>
+                      </div>
+
+                      {/* High Precision GPS Coordinates */}
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">خط العرض (Latitude) بدقة 6 خانات *</label>
+                        <input
+                          name="latitude"
+                          value={formLatitude}
+                          onChange={(e) => setFormLatitude(e.target.value)}
+                          placeholder="30.013056"
+                          required
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-mono dir-ltr"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">خط الطول (Longitude) بدقة 6 خانات *</label>
+                        <input
+                          name="longitude"
+                          value={formLongitude}
+                          onChange={(e) => setFormLongitude(e.target.value)}
+                          placeholder="31.705278"
+                          required
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-mono dir-ltr"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-4 flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleDetectGps}
+                          disabled={gpsDetecting}
+                          className="h-9 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <MapPin size={15} />
+                          <span>{gpsDetecting ? 'جارٍ قراءة GPS بدقة عالية...' : '📍 جلب اللوكيشن الفعلي عبر GPS الآن'}</span>
+                        </button>
+
+                        {formLatitude && formLongitude && (
+                          <a
+                            href={`https://maps.google.com/?q=${formLatitude},${formLongitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="h-9 px-3 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors"
+                          >
+                            <ExternalLink size={14} />
+                            <span>معاينة على الخريطة</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {gpsError && (
+                      <p className="text-xs text-rose-600 bg-rose-50 p-2 rounded-md font-medium">{gpsError}</p>
+                    )}
+
+                    {/* Smart Dispatching Algorithm Note */}
+                    <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200 text-[11px] text-emerald-900 flex items-start gap-2">
+                      <Navigation size={15} className="text-emerald-700 shrink-0 mt-0.5" />
+                      <p>
+                        <strong>خوارزمية الإسناد الذكي:</strong> يتم احتساب المسافة الدقيقة بصيغة Haversine بين المتجر والمندوب والعميل لحظياً. للمسافات الأقل من 2 كم ترشح الدراجات الهوائية، ومن 2 إلى 8 كم ترشح الموتسيكلات المزودة بصندوق حراري عازل للحفاظ على معايير سخونة الوجبات.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Section D: Government Employee (When role is employee) */}
+                {formRole === 'employee' && (
+                  <div className="bg-purple-50/50 border border-purple-200/80 rounded-xl p-4 space-y-3">
+                    <h3 className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                      <Building2 size={15} className="text-purple-700" />
+                      <span>2. بيانات موظف الوزارة ومقر العمل</span>
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">الوزارة أو الهيئة الحكومية</label>
+                        <input
+                          name="ministry"
+                          maxLength={120}
+                          defaultValue={editingUser?.ministry}
+                          placeholder="مثال: وزارة الاتصالات وتكنولوجيا المعلومات"
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">رقم الدور بالمبنى</label>
+                        <input
+                          name="floorNumber"
+                          maxLength={60}
+                          defaultValue={editingUser?.floorNumber}
+                          placeholder="مثال: الدور الرابع"
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">رقم المكتب</label>
+                        <input
+                          name="roomNumber"
+                          maxLength={80}
+                          defaultValue={editingUser?.roomNumber}
+                          placeholder="مثال: مكتب 402"
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Section E: Audit Reason & Notes */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                  <label className="block text-slate-700 font-bold text-xs mb-1">
+                    سبب العملية وملاحظات التدقيق الأمني *
+                  </label>
+                  <textarea
+                    name="reason"
+                    required
+                    minLength={5}
+                    maxLength={500}
+                    rows={2}
+                    placeholder="اكتب سبب قيد أو تعديل الحساب (مثال: قيد كابتن جديد مستوفٍ لشروط الفيش والمخدرات والصندوق الحراري)"
+                    className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:border-teal-600"
+                  />
+                </div>
+              </form>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-200/80 bg-slate-50/70 rounded-b-2xl flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  form="user-mgmt-form"
+                  disabled={busy}
+                  className="px-5 py-2.5 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-bold text-xs rounded-lg shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <Check size={16} />
+                  <span>{busy ? 'جارٍ حفظ وقيد السجل...' : 'حفظ وقيد السجل المعتمَد'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={closeFormModal}
+                  disabled={busy}
+                  className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                >
+                  إلغاء الأمر
+                </button>
               </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span className="text-slate-400 font-bold block mb-0.5">الدور والتصنيف</span>
-                <span className="font-black text-slate-800">{roleNames[viewingUser.role] || viewingUser.role}</span>
+              {resetLink && (
+                <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 text-xs text-emerald-800">
+                  <span>تم إنشاء رابط كلمة المرور:</span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(resetLink, 'reset-link')}
+                    className="font-bold underline text-emerald-900 hover:text-emerald-950 cursor-pointer"
+                  >
+                    {copiedUid === 'reset-link' ? 'نُسخ الرابط ✓' : 'نسخ الرابط لصاحب الحساب'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. POP-UP MODAL: Full Comprehensive Profile Inspection (نهج بطاقة المعاينة الشاملة - زر العين) */}
+      {viewingUser && (
+        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full border border-slate-200 shadow-2xl flex flex-col max-h-[92vh] animate-fadeIn">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/70 rounded-t-2xl">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <ShieldCheck size={18} className="text-teal-700" />
+                    <span>ملف السجل المعتمد الكامل: {viewingUser.fullName || viewingUser.email}</span>
+                  </h3>
+                  {!viewingUser.disabled ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      نشط ومتاح للقيد ✓
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                      معطل
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400 font-mono mt-0.5">UID: {viewingUser.uid}</p>
               </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span className="text-slate-400 font-bold block mb-0.5">الهاتف وهاتف الطوارئ</span>
-                <span className="font-bold text-slate-800">هاتف: {viewingUser.phone || '—'} · طوارئ: {viewingUser.emergencyPhone || '—'}</span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setViewingUser(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span className="text-slate-400 font-bold block mb-0.5">الرقم القومي</span>
-                <span className="font-mono font-bold text-slate-800 tracking-wider">{viewingUser.nationalId || '—'}</span>
-              </div>
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-4 text-xs">
+              {/* Section 1: Personal & Identity */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-1.5">
+                  <UserCheck size={14} className="text-teal-700" />
+                  <span>البيانات الشخصية والهوية</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 font-bold block mb-0.5 text-[10px]">الاسم الكامل والشهرة</span>
+                    <span className="font-black text-slate-800">
+                      {viewingUser.fullName || '—'} {viewingUser.nickname ? `(شهرة: ${viewingUser.nickname})` : ''}
+                    </span>
+                  </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span className="text-slate-400 font-bold block mb-0.5">العنوان الحالي</span>
-                <span className="font-medium text-slate-800">{viewingUser.currentAddress || '—'}</span>
-              </div>
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 font-bold block mb-0.5 text-[10px]">الدور والتصنيف</span>
+                    <span className="font-black text-slate-800">{roleNames[viewingUser.role] || viewingUser.role}</span>
+                  </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span className="text-slate-400 font-bold block mb-0.5">العنوان بالبطاقة</span>
-                <span className="font-medium text-slate-800">{viewingUser.idCardAddress || '—'}</span>
-              </div>
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 font-bold block mb-0.5 text-[10px]">الرقم القومي (14 رقماً)</span>
+                    <span className="font-mono font-bold text-slate-800 tracking-wider">
+                      {viewingUser.nationalId || '—'}
+                    </span>
+                  </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span className="text-slate-400 font-bold block mb-0.5">المركبة وتجهيزاتها</span>
-                <span className="font-bold text-slate-800">
-                  {vehicleNames[viewingUser.vehicleType || ''] || viewingUser.vehicleType || '—'}
-                  {viewingUser.vehicleModel ? ` (${viewingUser.vehicleModel})` : ''}
-                  {viewingUser.vehiclePlate ? ` - لوحة [${viewingUser.vehiclePlate}]` : ''}
-                </span>
-                <div className="text-[11px] text-teal-700 mt-1">
-                  {viewingUser.hasThermalBox ? 'مزود بصندوق حراري عازل ✓' : ''}
-                  {viewingUser.hasThermalBackpack ? 'مزود بشنطة ظهر حرارية ✓' : ''}
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 font-bold block mb-0.5 text-[10px]">أرقام التواصل</span>
+                    <span className="font-bold text-slate-800">
+                      هاتف: {viewingUser.phone || '—'} · طوارئ: {viewingUser.emergencyPhone || '—'}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 font-bold block mb-0.5 text-[10px]">العنوان الحالي الفعلي</span>
+                    <span className="font-medium text-slate-800">{viewingUser.currentAddress || '—'}</span>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 font-bold block mb-0.5 text-[10px]">العنوان المسجل بالبطاقة</span>
+                    <span className="font-medium text-slate-800">{viewingUser.idCardAddress || '—'}</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span className="text-slate-400 font-bold block mb-0.5">رخصة القيادة وتاريخ انتهائها</span>
-                <span className="font-bold text-slate-800">
-                  رقم: {viewingUser.drivingLicenseNumber || '—'} · انتهاء: {viewingUser.licenseExpiryDate || '—'}
-                </span>
-              </div>
+              {/* Section 2: Safety & Clearances (KYC) */}
+              {viewingUser.role === 'courier' && (
+                <div>
+                  <h4 className="text-xs font-bold text-amber-900 mb-2 flex items-center gap-1.5">
+                    <Shield size={14} className="text-amber-700" />
+                    <span>التوثيق والسلامة والفحص الطبي والجنائي</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="bg-amber-50/60 p-2.5 rounded-lg border border-amber-200">
+                      <span className="text-amber-800 font-bold block mb-0.5 text-[10px]">تحليل المخدرات</span>
+                      <span className="font-bold text-slate-800">
+                        {viewingUser.drugTestStatus === 'passed' ? 'سلبي معتمد (سليم وخالٍ من المخدرات) ✓' : viewingUser.drugTestStatus === 'failed' ? 'إيجابي ✕' : 'قيد الفحص'}
+                        {viewingUser.drugTestDate ? ` — تاريخ: ${viewingUser.drugTestDate}` : ''}
+                      </span>
+                    </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span className="text-slate-400 font-bold block mb-0.5">فحص المخدرات</span>
-                <span className="font-bold text-slate-800">
-                  {viewingUser.drugTestStatus === 'passed' ? 'سلبي معتمد ✓' : viewingUser.drugTestStatus === 'failed' ? 'إيجابي ✕' : 'قيد الفحص'}
-                  {viewingUser.drugTestDate ? ` (تاريخ: ${viewingUser.drugTestDate})` : ''}
-                </span>
-              </div>
+                    <div className="bg-amber-50/60 p-2.5 rounded-lg border border-amber-200">
+                      <span className="text-amber-800 font-bold block mb-0.5 text-[10px]">صحيفة الحالة الجنائية (الفيش)</span>
+                      <span className="font-bold text-slate-800">
+                        {viewingUser.criminalRecordStatus === 'passed' ? 'سليم وخالٍ من السوابق والأحكام ✓' : 'غير متوفر / قيد الاستخراج'}
+                        {viewingUser.criminalRecordDate ? ` — تاريخ: ${viewingUser.criminalRecordDate}` : ''}
+                      </span>
+                    </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span className="text-slate-400 font-bold block mb-0.5">صحيفة الحالة الجنائية (الفيش)</span>
-                <span className="font-bold text-slate-800">
-                  {viewingUser.criminalRecordStatus === 'passed' ? 'سليم وخالٍ من السوابق ✓' : 'غير متوفر / قيد الاستخراج'}
-                  {viewingUser.criminalRecordDate ? ` (تاريخ: ${viewingUser.criminalRecordDate})` : ''}
-                </span>
-              </div>
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                      <span className="text-slate-400 font-bold block mb-0.5 text-[10px]">رخصة القيادة وتاريخ انتهائها</span>
+                      <span className="font-bold text-slate-800">
+                        رقم: {viewingUser.drivingLicenseNumber || '—'} · انتهاء: {viewingUser.licenseExpiryDate || '—'}
+                      </span>
+                    </div>
 
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                      <span className="text-slate-400 font-bold block mb-0.5 text-[10px]">المركبة وتجهيزات الحفظ الحراري</span>
+                      <span className="font-bold text-slate-800 block">
+                        {vehicleNames[viewingUser.vehicleType || ''] || viewingUser.vehicleType || '—'}
+                        {viewingUser.vehicleModel ? ` (${viewingUser.vehicleModel})` : ''}
+                        {viewingUser.vehiclePlate ? ` - لوحة [${viewingUser.vehiclePlate}]` : ''}
+                      </span>
+                      <div className="flex items-center gap-3 text-[11px] text-teal-800 font-bold mt-1">
+                        {viewingUser.hasThermalBox && <span>صندوق حراري عازل ✓</span>}
+                        {viewingUser.hasThermalBackpack && <span>شنطة ظهر حرارية ✓</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Section 3: Merchant & GPS Location */}
               {viewingUser.coordinates && (
-                <div className="sm:col-span-2 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
-                  <span className="text-emerald-800 font-bold block mb-0.5">الإحداثيات الجغرافية الدقيقة (GPS)</span>
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-emerald-900 font-bold">
-                      Lat: {viewingUser.coordinates.latitude} · Lng: {viewingUser.coordinates.longitude}
+                <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 space-y-1.5">
+                  <h4 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                    <MapPin size={14} className="text-emerald-700" />
+                    <span>الموقع الجغرافي الدقيق (GPS High-Precision)</span>
+                  </h4>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="font-mono text-emerald-900 font-bold text-xs">
+                      خط العرض: {viewingUser.coordinates.latitude} · خط الطول: {viewingUser.coordinates.longitude}
                     </span>
                     <a
                       href={`https://maps.google.com/?q=${viewingUser.coordinates.latitude},${viewingUser.coordinates.longitude}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs font-bold text-emerald-700 underline flex items-center gap-1"
+                      className="px-3 py-1 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 rounded-md font-bold text-xs flex items-center gap-1 transition-colors self-start"
                     >
                       <ExternalLink size={12} />
-                      <span>فتح خرائط جوجل</span>
+                      <span>فتح خرائط جوجل مباشرة</span>
                     </a>
                   </div>
+                  <p className="text-[11px] text-emerald-800">
+                    نطاق التغطية: {viewingUser.coverageRadiusKm || 8} كم · طريقة التوصيل الموصى بها: {viewingUser.preferredDeliveryMethod === 'bicycle' ? 'دراجة هوائية' : viewingUser.preferredDeliveryMethod === 'motorcycle' ? 'دراجة نارية بصندوق عازل' : 'تلقائي حسب المسافة'}
+                  </p>
                 </div>
               )}
+
+              {/* Section 4: System & Metadata */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1 text-[11px] text-slate-500">
+                <div className="flex items-center justify-between">
+                  <span>البريد الإلكتروني: <strong className="text-slate-700" dir="ltr">{viewingUser.email}</strong> ({viewingUser.emailVerified ? 'موثق ✓' : 'غير موثق'})</span>
+                  <span>الرصيد المالي المسجل: <strong className="text-slate-800 font-mono">{formatEGP(viewingUser.walletBalance)}</strong></span>
+                </div>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span>تاريخ الإنشاء: {new Date(viewingUser.createdAt).toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' })}</span>
+                  <span>آخر تسجيل دخول: {viewingUser.lastSignInAt ? new Date(viewingUser.lastSignInAt).toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' }) : 'لم يسجل الدخول بعد'}</span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            {/* Modal Footer with Actions */}
+            <div className="p-4 border-t border-slate-200/80 bg-slate-50/70 rounded-b-2xl flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const u = viewingUser;
+                    setViewingUser(null);
+                    openEditForm(u);
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Edit3 size={14} />
+                  <span>تعديل هذا السجل</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleStatus(viewingUser)}
+                  className={`px-3 py-2 border rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                    viewingUser.disabled
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+                      : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {viewingUser.disabled ? 'تفعيل الحساب' : 'إيقاف الحساب مؤقتاً'}
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setViewingUser(null)}
-                className="px-5 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-900 cursor-pointer"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer"
               >
                 إغلاق
               </button>
@@ -1434,7 +1586,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
 
       {/* 7. Modal for Delete Confirmation */}
       {deleteConfirmationUser && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 p-5 shadow-2xl animate-fadeIn space-y-4">
             <div className="flex items-center gap-2 text-rose-600">
               <AlertCircle size={22} />
