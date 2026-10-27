@@ -1,13 +1,28 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, BellOff, ChefHat, Clock, CheckCircle2, Bike, FileText, Send } from "lucide-react";
+import { Bell, BellOff, ChefHat, Clock, CheckCircle2, Bike, Send, AlertCircle, Sparkles, Filter } from "lucide-react";
 import type { Order, Store } from "../types";
 import { kitchenStage } from "../utils/orderIntegration";
 
 type Stage = "received" | "preparing" | "ready";
-const stages: { id: Stage; title: string; color: string }[] = [
-  { id: "received", title: "طلبات جديدة بانتظار القبول", color: "border-orange-300 bg-orange-50" },
-  { id: "preparing", title: "مقبول وجاري التحضير بالمطبخ", color: "border-blue-300 bg-blue-50" },
-  { id: "ready", title: "تم التجهيز والتسليم للمندوب", color: "border-emerald-300 bg-emerald-50" },
+const stages: { id: Stage; title: string; color: string; badgeColor: string }[] = [
+  {
+    id: "received",
+    title: "طلبات جديدة بانتظار القبول",
+    color: "bg-white/80 border-amber-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)]",
+    badgeColor: "bg-amber-500/10 text-amber-700 border-amber-500/20",
+  },
+  {
+    id: "preparing",
+    title: "مقبول وجاري التحضير بالمطبخ",
+    color: "bg-white/80 border-blue-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)]",
+    badgeColor: "bg-blue-500/10 text-blue-700 border-blue-500/20",
+  },
+  {
+    id: "ready",
+    title: "تم التجهيز والتسليم للمندوب",
+    color: "bg-white/80 border-emerald-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)]",
+    badgeColor: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
+  },
 ];
 
 export function KitchenDisplay({
@@ -106,32 +121,48 @@ export function KitchenDisplay({
 
   return (
     <section dir="rtl" className="space-y-5" aria-label="شاشة المطبخ وتذاكر الطلبات">
-      <div className="admin-module-header bg-slate-900 rounded-3xl p-5 text-white flex flex-wrap justify-between gap-4 items-center">
+      {/* Apple / Google Minimalist Top Bar */}
+      <div className="bg-white/80 backdrop-blur-xl border border-slate-200/80 rounded-[28px] p-5 shadow-xs flex flex-wrap justify-between gap-4 items-center">
         <div>
-          <p className="text-orange-300 text-xs mb-2">تذاكر المطبخ وإسناد المناديب · KITCHEN TICKETS</p>
-          <h2 className="text-2xl font-black flex items-center gap-2">
-            <ChefHat /> تذاكر طلبات العملاء الفورية
+          <span className="text-orange-600 font-mono text-[10px] font-bold uppercase tracking-widest bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-100">
+            KITCHEN DISPATCH · محطة التجهيز
+          </span>
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2 mt-1.5 tracking-tight">
+            <ChefHat className="text-orange-600" /> تذاكر طلبات العملاء الفورية
           </h2>
-          <p className="text-sm mt-2 text-slate-300">
-            استقبل التذكرة، اكتب ملاحظات التحضير، اختر «مقبول وجاري التحضير»، ثم «تم التسليم للمندوب».
+          <p className="text-xs text-slate-500 mt-0.5">
+            استقبل التذكرة، اكتب ملاحظات الشيف، اضغط «مقبول وجاري التحضير»، ثم «تم التسليم للمندوب».
           </p>
         </div>
+
         <div className="flex items-center gap-3">
-          <span className={`text-xs font-bold ${connected ? "text-emerald-300" : "text-amber-300"}`}>
-            {connected ? "● متصل باستقبال الطلبات الحية" : "الاتصال غير مؤكد — تحقق من الشبكة"}
+          <span
+            className={`text-xs font-bold px-3 py-1 rounded-full border ${
+              connected
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-amber-50 text-amber-700 border-amber-200"
+            }`}
+          >
+            {connected ? "● متصل بالبث الحي" : "الاتصال غير مؤكد"}
           </span>
+
           <button
             onClick={toggleSound}
             aria-pressed={sound}
-            className="flex gap-2 items-center border border-slate-600 rounded-xl px-3 py-2 text-sm hover:bg-slate-800 transition"
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
+              sound
+                ? "bg-slate-900 text-white"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
           >
-            {sound ? <Bell size={16} /> : <BellOff size={16} />}
-            {sound ? "إيقاف جرس الطلبات" : "تفعيل جرس الطلبات"}
+            {sound ? <Bell size={14} className="text-amber-400" /> : <BellOff size={14} />}
+            <span>{sound ? "جرس الطلبات مفعّل" : "تفعيل التنبيه الصوتي"}</span>
           </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      {/* Filter Selectors (Apple Clean Inset Pill Selects) */}
+      <div className="flex flex-wrap gap-2.5">
         {!fixedStoreId && (
           <select
             aria-label="مطبخ المتجر"
@@ -140,7 +171,7 @@ export function KitchenDisplay({
               setSelection(e.target.value);
               setMinistry("");
             }}
-            className="p-3 border rounded-xl bg-white max-w-full text-xs font-bold"
+            className="px-4 py-2 text-xs font-bold border border-slate-200 rounded-2xl bg-white text-slate-800 shadow-xs focus:ring-2 focus:ring-orange-500/20"
           >
             {!stores.length && <option value="">لا توجد متاجر مسجلة</option>}
             {stores.map((store) => (
@@ -150,103 +181,137 @@ export function KitchenDisplay({
             ))}
           </select>
         )}
+
         <select
           aria-label="تصفية المطبخ بالوزارة"
           value={ministry}
           onChange={(e) => setMinistry(e.target.value)}
-          className="p-3 border rounded-xl bg-white max-w-full text-xs font-bold"
+          className="px-4 py-2 text-xs font-bold border border-slate-200 rounded-2xl bg-white text-slate-800 shadow-xs focus:ring-2 focus:ring-orange-500/20"
         >
-          <option value="">كل الوزارات والجهات الحكومية</option>
+          <option value="">جميع الوزارات والجهات الحكومية</option>
           {[...new Set(tickets.map((order) => order.ministry))].sort().map((name) => (
             <option key={name}>{name}</option>
           ))}
         </select>
       </div>
 
-      {error && <p role="alert" className="rounded-xl bg-red-50 text-red-700 p-3 text-xs">{error}</p>}
-      {!storeId && <p className="p-6 border rounded-xl bg-white text-sm">أضف متجرًا حقيقيًا من إدارة الكتالوج لبدء التشغيل.</p>}
+      {error && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2">
+          <AlertCircle size={15} className="text-rose-600" />
+          <span>{error}</span>
+        </div>
+      )}
 
-      <div className="grid lg:grid-cols-3 gap-4 items-start">
+      {/* Kanban / Stage Columns (Apple Clean Card Containers) */}
+      <div className="grid lg:grid-cols-3 gap-5 items-start">
         {stages.map((stage) => {
           const list = tickets
             .filter((order) => kitchenStage(order, storeId) === stage.id && (!ministry || order.ministry === ministry))
             .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
           return (
-            <div key={stage.id} className={`border rounded-2xl p-3.5 ${stage.color}`}>
-              <h3 className="font-black text-sm flex justify-between p-2 mb-3 text-slate-800">
-                {stage.title}
-                <span className="bg-white/80 px-2.5 py-0.5 rounded-full border text-xs">{list.length}</span>
-              </h3>
+            <div
+              key={stage.id}
+              className={`rounded-[28px] p-4 border backdrop-blur-md ${stage.color}`}
+            >
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 px-1">
+                <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                  <span>{stage.title}</span>
+                </h3>
+                <span className={`px-2.5 py-0.5 rounded-full border text-xs font-black ${stage.badgeColor}`}>
+                  {list.length}
+                </span>
+              </div>
+
               <div className="space-y-3.5">
                 {list.map((order) => {
                   const items = order.items.filter((item) => item.product.storeId === storeId);
-                  const minutes = order.createdAt ? Math.max(0, Math.floor((now - Date.parse(order.createdAt)) / 60000)) : null;
+                  const minutes = order.createdAt
+                    ? Math.max(0, Math.floor((now - Date.parse(order.createdAt)) / 60000))
+                    : null;
 
                   return (
-                    <article key={order.id} className="bg-white rounded-2xl p-4 shadow-sm space-y-3 border border-slate-200">
+                    <article
+                      key={order.id}
+                      className="bg-white rounded-[24px] p-4.5 shadow-[0_2px_12px_rgb(0,0,0,0.04)] border border-slate-200/90 space-y-3 hover:border-slate-300 transition-all"
+                    >
+                      {/* Ticket Header */}
                       <div className="flex justify-between items-center gap-2">
-                        <strong className="text-orange-700 font-mono text-base font-black" dir="ltr">
+                        <strong className="text-orange-600 font-mono text-base font-black tracking-tight" dir="ltr">
                           {order.orderNumber}
                         </strong>
-                        <span className="text-xs text-slate-500 flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded-md">
-                          <Clock size={13} />
+                        <span className="text-[11px] text-slate-500 font-bold flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-full">
+                          <Clock size={12} className="text-slate-400" />
                           {minutes === null ? "الآن" : `${minutes} دقيقة`}
                         </span>
                       </div>
 
-                      <div className="text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                      {/* Customer Office Destination */}
+                      <div className="text-xs bg-slate-50/90 p-3 rounded-2xl border border-slate-100">
                         <p className="font-black text-slate-900">{order.ministry}</p>
                         <p className="text-slate-500 mt-0.5">
-                          {order.floorNumber} · {order.roomNumber} {order.profileName ? `(العميل: ${order.profileName})` : ""}
+                          {order.floorNumber} • {order.roomNumber}{" "}
+                          {order.profileName ? `(العميل: ${order.profileName})` : ""}
                         </p>
                       </div>
 
-                      <ul className="border-y py-2.5 space-y-2">
+                      {/* Items List */}
+                      <ul className="border-y border-slate-100 py-3 space-y-2">
                         {items.map((item, index) => (
                           <li key={item.id || index} className="text-xs">
-                            <strong className="text-orange-700">{item.quantity} × </strong>
+                            <strong className="text-orange-600 font-bold">{item.quantity} × </strong>
                             <span className="font-bold text-slate-800">{item.product.name}</span>
                             {Object.keys(item.selectedOptions || {}).length > 0 && (
-                              <p className="text-[11px] text-slate-500">{Object.values(item.selectedOptions).join("، ")}</p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">
+                                {Object.values(item.selectedOptions).join("، ")}
+                              </p>
                             )}
-                            {item.notes && <p className="text-[11px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded mt-0.5">{item.notes}</p>}
+                            {item.notes && (
+                              <p className="text-[11px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md mt-1 font-medium">
+                                {item.notes}
+                              </p>
+                            )}
                           </li>
                         ))}
                         {!items.length && (
-                          <li className="text-xs text-slate-600">{order.itemsSummary || order.legacySummary || "تفاصيل الأصناف غير متاحة"}</li>
+                          <li className="text-xs text-slate-500">
+                            {order.itemsSummary || order.legacySummary || "تفاصيل الأصناف غير متاحة"}
+                          </li>
                         )}
                       </ul>
 
+                      {/* Customer Note */}
                       {order.notes && (
-                        <p className="text-xs bg-amber-50 p-2 rounded-lg text-amber-900 font-medium">
-                          <strong>ملاحظة العميل:</strong> {order.notes}
-                        </p>
+                        <div className="text-xs bg-amber-50/80 border border-amber-200/50 p-2.5 rounded-xl text-amber-900 font-medium">
+                          <strong className="block text-[10px] text-amber-700 uppercase font-bold mb-0.5">
+                            ملاحظة العميل الخاصة:
+                          </strong>
+                          {order.notes}
+                        </div>
                       )}
 
-                      {/* كتابة ملاحظة من التاجر على التذكرة */}
-                      <div className="pt-1">
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="text"
-                            placeholder="اكتب ملاحظة على التذكرة (اختياري)..."
-                            value={ticketNotes[order.id] || ""}
-                            onChange={(e) => setTicketNotes({ ...ticketNotes, [order.id]: e.target.value })}
-                            className="w-full text-xs p-2 border border-slate-200 rounded-xl bg-slate-50 text-slate-800"
-                          />
-                        </div>
+                      {/* Kitchen Note Field */}
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="اكتب ملاحظة على التذكرة (اختياري)..."
+                          value={ticketNotes[order.id] || ""}
+                          onChange={(e) => setTicketNotes({ ...ticketNotes, [order.id]: e.target.value })}
+                          className="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                        />
                       </div>
 
+                      {/* Action Buttons (Apple Tactile Pill Buttons) */}
                       {readOnly ? (
-                        <p className="text-xs text-slate-500">التحديث من حساب المتجر في التطبيق.</p>
+                        <p className="text-xs text-slate-400 text-center py-1">التحديث من حساب المتجر في التطبيق.</p>
                       ) : stage.id !== "ready" ? (
                         <button
                           disabled={!connected || pending.includes(order.id)}
                           onClick={() => advance(order, stage.id === "received" ? "preparing" : "ready")}
-                          className={`w-full py-3 rounded-xl text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md transition disabled:opacity-40 ${
+                          className={`w-full py-3 rounded-2xl text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] disabled:opacity-40 ${
                             stage.id === "received"
-                              ? "bg-blue-600 hover:bg-blue-700"
-                              : "bg-emerald-600 hover:bg-emerald-700"
+                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/20"
+                              : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-500/20"
                           }`}
                         >
                           {pending.includes(order.id) ? (
@@ -262,17 +327,24 @@ export function KitchenDisplay({
                           )}
                         </button>
                       ) : (
-                        <div className="bg-emerald-50 border border-emerald-200 p-2 rounded-xl text-center">
-                          <p className="text-emerald-800 text-xs font-black flex items-center justify-center gap-1">
-                            <CheckCircle2 size={14} /> تم تسليم الطلب للمندوب بنجاح
+                        <div className="bg-emerald-50 border border-emerald-200/80 p-2.5 rounded-2xl text-center">
+                          <p className="text-emerald-800 text-xs font-black flex items-center justify-center gap-1.5">
+                            <CheckCircle2 size={15} /> تم تسليم الطلب للمندوب بنجاح
                           </p>
-                          <p className="text-[10px] text-emerald-600 mt-0.5">الطلب الآن في عهدة المندوب ويظهر للعميل في التتبع</p>
+                          <p className="text-[10px] text-emerald-600 mt-0.5">
+                            الطلب في عهدة المندوب ويظهر للعميل في شاشة التتبع
+                          </p>
                         </div>
                       )}
                     </article>
                   );
                 })}
-                {!list.length && <p className="text-center text-xs text-slate-500 py-8">لا توجد تذاكر في هذه المرحلة</p>}
+
+                {!list.length && (
+                  <div className="text-center py-12 text-slate-400 text-xs font-bold">
+                    لا توجد تذاكر في هذه المرحلة
+                  </div>
+                )}
               </div>
             </div>
           );

@@ -7,7 +7,6 @@ import {
   Clock,
   CheckCircle2,
   Phone,
-  Flame,
   Plus,
   Edit2,
   DollarSign,
@@ -15,8 +14,6 @@ import {
   Package,
   Bike,
   Sparkles,
-  ToggleLeft,
-  ToggleRight,
   AlertCircle,
   BookOpen,
   Navigation,
@@ -27,7 +24,14 @@ import {
   Check,
   MapPin,
   ShieldCheck,
-  Percent,
+  Search,
+  Filter,
+  ArrowUpRight,
+  SlidersHorizontal,
+  ChevronRight,
+  Layers,
+  Coins,
+  SendHorizontal,
 } from "lucide-react";
 import type { Order, Product, Profile, Store, CourierRadarProfile } from "../types/index.ts";
 import {
@@ -76,7 +80,6 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   onAddProduct,
   onToggleStoreStatus,
 }) => {
-  // Determine current active store
   const userStore = stores.find((s) => s.id === currentProfile.storeId) || stores[0];
 
   const [activeTab, setActiveTab] = useState<"kitchen" | "menu" | "accounting" | "radar">("kitchen");
@@ -94,24 +97,38 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   >("فطور");
   const [newItemImage, setNewItemImage] = useState("");
 
+  // Product filter and search
+  const [productSearch, setProductSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+
   // Inline price editing
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState<number>(0);
   const [priceSuccessId, setPriceSuccessId] = useState<string | null>(null);
 
   // Filter orders for this store
-  const storeOrders = orders.filter((o) =>
-    o.storeIds?.includes(userStore?.id || "") ||
-    o.items?.some((i) => i.product.storeId === userStore?.id)
+  const storeOrders = orders.filter(
+    (o) =>
+      o.storeIds?.includes(userStore?.id || "") ||
+      o.items?.some((i) => i.product.storeId === userStore?.id)
   );
 
   const activeKitchenOrders = storeOrders.filter(
     (o) => o.orderStatus === "received" || o.orderStatus === "preparing"
   );
 
-  const readyForPickupOrders = storeOrders.filter((o) => o.orderStatus === "ready");
-
   const storeProducts = products.filter((p) => p.storeId === userStore?.id && !p.archived);
+
+  const filteredProducts = useMemo(() => {
+    return storeProducts.filter((p) => {
+      const matchCat = selectedCategory === "all" || p.category === selectedCategory;
+      const matchQuery =
+        !productSearch.trim() ||
+        p.name.toLowerCase().includes(productSearch.toLowerCase().trim()) ||
+        p.description?.toLowerCase().includes(productSearch.toLowerCase().trim());
+      return matchCat && matchQuery;
+    });
+  }, [storeProducts, selectedCategory, productSearch]);
 
   // Accounting and Financial Computations
   const accountingSummary = useMemo(() => {
@@ -134,7 +151,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
         id: "c-101",
         name: "كابتن سيف الدين الشريف",
         phone: "01091234567",
-        rating: 4.95,
+        rating: 4.96,
         avgDeliveryMinutes: 9, // الأسرع
         status: "available" as const,
         coordinates: { latitude: 30.0145, longitude: 31.7352 },
@@ -150,21 +167,21 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
       },
       {
         id: "c-103",
+        name: "كابتن عمر الورداني",
+        phone: "01555667788",
+        rating: 4.92,
+        avgDeliveryMinutes: 11,
+        status: "available" as const,
+        coordinates: { latitude: 30.0120, longitude: 31.7330 },
+      },
+      {
+        id: "c-104",
         name: "كابتن محمود رجب",
         phone: "01234567890",
         rating: 4.82,
         avgDeliveryMinutes: 18,
         status: "busy" as const,
         coordinates: { latitude: 30.0210, longitude: 31.7410 },
-      },
-      {
-        id: "c-104",
-        name: "كابتن عمر الورداني",
-        phone: "01555667788",
-        rating: 4.90,
-        avgDeliveryMinutes: 12,
-        status: "available" as const,
-        coordinates: { latitude: 30.0120, longitude: 31.7330 },
       },
     ];
   }, [couriers]);
@@ -179,7 +196,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
       onUpdateProductPrice(productId, tempPrice);
       setPriceSuccessId(productId);
       setEditingPriceId(null);
-      setTimeout(() => setPriceSuccessId(null), 2000);
+      setTimeout(() => setPriceSuccessId(null), 2500);
     }
   };
 
@@ -189,7 +206,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
     if (!newItemName.trim()) return;
 
     if (!newItemImage.startsWith("https://") || !newItemDesc.trim() || newItemPrice <= 0) {
-      setMenuError("أدخل وصفًا وسعرًا ورابط صورة HTTPS حقيقيًا للصنف.");
+      setMenuError("يرجى إدخال اسم ووصف وسعر صحيح مع رابط صورة HTTPS.");
       return;
     }
     const newProd: Product = {
@@ -226,165 +243,278 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 
   if (!userStore) {
     return (
-      <p className="p-8 text-center text-sm font-bold text-slate-700" dir="rtl">
-        لم يُربط حسابك بمتجر تشغيل. اطلب من المدير تعيين المتجر الصحيح.
-      </p>
+      <div className="min-h-[50vh] flex items-center justify-center p-8 text-center" dir="rtl">
+        <div className="bg-white/80 backdrop-blur-xl border border-slate-200/80 p-8 rounded-3xl shadow-sm max-w-md">
+          <StoreIcon className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-slate-800">لم يُربط حسابك بمتجر تشغيل</h3>
+          <p className="text-xs text-slate-500 mt-1">اطلب من الإدارة ربط حسابك بالمتجر لبدء استقبال الطلبات وإدارة المبيعات.</p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-4 space-y-5" dir="rtl">
-      {menuError && (
-        <p role="alert" className="p-3 rounded-xl text-red-700 bg-red-50 text-xs font-bold">
-          {menuError}
-        </p>
-      )}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 font-['Cairo',-apple-system,BlinkMacSystemFont,sans-serif]" dir="rtl">
+      {/* ════════════════════════════════════════════════════════════════════════
+          APPLE & GOOGLE HERO HEADER WITH BLURRED SQUIRCLE SURFACES
+          ════════════════════════════════════════════════════════════════════════ */}
+      <header className="relative bg-white/90 backdrop-blur-2xl rounded-[32px] p-6 sm:p-7 border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
+        {/* Subtle Ambient Glow */}
+        <div className="absolute -top-24 -left-24 w-72 h-72 bg-gradient-to-br from-orange-400/10 via-amber-300/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-gradient-to-tl from-blue-400/10 via-indigo-300/10 to-transparent rounded-full blur-3xl pointer-events-none" />
 
-      {/* Store Banner & Quick Stats */}
-      <div className="bg-gradient-to-r from-amber-700 via-orange-800 to-amber-950 text-white rounded-3xl p-5 shadow-lg border border-amber-600/40 relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-          <div className="flex items-center gap-3.5">
-            <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-3xl shadow-inner shrink-0">
-              {userStore.logo || "🥘"}
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+          {/* Brand Info & Identity */}
+          <div className="flex items-center gap-4">
+            <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-[24px] bg-gradient-to-br from-slate-50 to-slate-100/90 border border-slate-200/90 p-1.5 shadow-[0_4px_16px_rgb(0,0,0,0.06)] flex items-center justify-center shrink-0">
+              <span className="text-3xl sm:text-4xl filter drop-shadow-sm select-none">{userStore.logo || "🥘"}</span>
             </div>
+
             <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[11px] font-bold border border-amber-400/30">
-                  لوحة تحكم التاجر وشيف المطعم
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-3 py-1 rounded-full bg-slate-900 text-white text-[11px] font-bold tracking-tight shadow-xs">
+                  بوابة الشريك والتاجر
                 </span>
+
                 <button
                   onClick={() => onToggleStoreStatus(userStore.id)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-bold transition-colors"
+                  className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                    userStore.status === "open"
+                      ? "bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20"
+                      : "bg-rose-500/10 text-rose-700 border border-rose-500/30 hover:bg-rose-500/20"
+                  }`}
                 >
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      userStore.status === "open" ? "bg-emerald-400 animate-pulse" : "bg-red-400"
-                    }`}
-                  />
-                  <span>{userStore.status === "open" ? "المطبخ يستقبل طلبات" : "المطبخ مشغول مؤقتاً"}</span>
+                  <span className="relative flex h-2 w-2">
+                    {userStore.status === "open" && (
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    )}
+                    <span
+                      className={`relative inline-flex rounded-full h-2 w-2 ${
+                        userStore.status === "open" ? "bg-emerald-500" : "bg-rose-500"
+                      }`}
+                    />
+                  </span>
+                  <span>{userStore.status === "open" ? "المتجر يستقبل طلبات حية" : "المتجر مغلق مؤقتاً"}</span>
                 </button>
               </div>
-              <h2 className="text-xl font-black text-white mt-1">{userStore.name}</h2>
-              <p className="text-xs text-amber-100/90 mt-0.5">
-                {userStore.locationInDistrict} • مسؤول الفرع: {currentProfile.fullName}
+
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1.5">
+                {userStore.name}
+              </h1>
+              <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                <MapPin size={13} className="text-slate-400" />
+                <span>{userStore.locationInDistrict}</span>
+                <span className="text-slate-300">•</span>
+                <span>المشرف: {currentProfile.fullName}</span>
               </p>
             </div>
           </div>
 
-          {/* تبويبات لوحة التحكم */}
-          <div className="flex flex-wrap items-center gap-1.5 bg-black/30 p-1.5 rounded-2xl border border-white/10 text-xs font-bold">
+          {/* Apple-Style Segmented Capsule Control */}
+          <nav
+            aria-label="أقسام لوحة التحكم"
+            className="bg-slate-100/90 backdrop-blur-xl p-1.5 rounded-[22px] border border-slate-200/70 inline-flex flex-wrap items-center gap-1 shadow-inner self-start md:self-center"
+          >
             <button
               onClick={() => setActiveTab("kitchen")}
-              className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
-                activeTab === "kitchen" ? "bg-amber-500 text-white shadow-md" : "text-white/80 hover:text-white"
+              className={`px-4 py-2.5 rounded-[16px] text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === "kitchen"
+                  ? "bg-white text-slate-950 shadow-[0_2px_8px_rgb(0,0,0,0.08)] scale-[1.02]"
+                  : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
               }`}
             >
-              <ChefHat size={14} />
-              <span>تذاكر الطلبات ({activeKitchenOrders.length})</span>
+              <ChefHat size={15} className={activeTab === "kitchen" ? "text-orange-600" : "text-slate-400"} />
+              <span>تذاكر المطبخ</span>
+              {activeKitchenOrders.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-orange-600 text-white">
+                  {activeKitchenOrders.length}
+                </span>
+              )}
             </button>
+
             <button
               onClick={() => setActiveTab("menu")}
-              className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
-                activeTab === "menu" ? "bg-amber-500 text-white shadow-md" : "text-white/80 hover:text-white"
+              className={`px-4 py-2.5 rounded-[16px] text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === "menu"
+                  ? "bg-white text-slate-950 shadow-[0_2px_8px_rgb(0,0,0,0.08)] scale-[1.02]"
+                  : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
               }`}
             >
-              <Package size={14} />
-              <span>المنتجات والأسعار ({storeProducts.length})</span>
+              <Package size={15} className={activeTab === "menu" ? "text-indigo-600" : "text-slate-400"} />
+              <span>المنتجات والأسعار</span>
             </button>
+
             <button
               onClick={() => setActiveTab("accounting")}
-              className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
-                activeTab === "accounting" ? "bg-amber-500 text-white shadow-md" : "text-white/80 hover:text-white"
+              className={`px-4 py-2.5 rounded-[16px] text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === "accounting"
+                  ? "bg-white text-slate-950 shadow-[0_2px_8px_rgb(0,0,0,0.08)] scale-[1.02]"
+                  : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
               }`}
             >
-              <BookOpen size={14} />
+              <BookOpen size={15} className={activeTab === "accounting" ? "text-emerald-600" : "text-slate-400"} />
               <span>الحسابات والقيود</span>
             </button>
+
             <button
               onClick={() => setActiveTab("radar")}
-              className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
-                activeTab === "radar" ? "bg-amber-500 text-white shadow-md" : "text-white/80 hover:text-white"
+              className={`px-4 py-2.5 rounded-[16px] text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === "radar"
+                  ? "bg-white text-slate-950 shadow-[0_2px_8px_rgb(0,0,0,0.08)] scale-[1.02]"
+                  : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
               }`}
             >
-              <Navigation size={14} />
+              <Navigation size={15} className={activeTab === "radar" ? "text-purple-600" : "text-slate-400"} />
               <span>رادار المناديب</span>
             </button>
-          </div>
+          </nav>
         </div>
 
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-white/10">
-          <div className="bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-            <span className="text-[11px] text-amber-200 block">إجمالي مبيعات المتجر</span>
-            <span className="text-xl font-black text-white">{formatEGP(accountingSummary.grossSales)}</span>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-            <span className="text-[11px] text-amber-200 block">طلبات قيد التحضير</span>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-xl font-black text-amber-300">{activeKitchenOrders.length}</span>
-              <span className="text-[11px] text-amber-200">طلب</span>
+        {/* Google Material 3 Tonal Metric Badges */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mt-6 pt-5 border-t border-slate-100">
+          <div className="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-100 flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <DollarSign size={20} />
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 block leading-none">إجمالي المبيعات</span>
+              <span className="text-lg font-black text-slate-900 font-mono mt-1 block">
+                {formatEGP(accountingSummary.grossSales)}
+              </span>
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-            <span className="text-[11px] text-amber-200 block">صافي أرباح التاجر</span>
-            <span className="text-xl font-black text-emerald-300 font-mono">{formatEGP(accountingSummary.netPayout)}</span>
+          <div className="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-100 flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+              <ChefHat size={20} />
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 block leading-none">طلبات قيد التجهيز</span>
+              <div className="flex items-baseline gap-1 mt-1">
+                <span className="text-lg font-black text-orange-600">{activeKitchenOrders.length}</span>
+                <span className="text-[11px] text-slate-400 font-bold">تذكرة حالية</span>
+              </div>
+            </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-            <span className="text-[11px] text-amber-200 block">تقييم المتجر</span>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-xl font-black text-amber-300">★ {userStore.rating}</span>
-              <span className="text-[11px] text-amber-200">({userStore.ratingCount} تقييم)</span>
+          <div className="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-100 flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <Wallet size={20} />
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 block leading-none">صافي أرباح التاجر</span>
+              <span className="text-lg font-black text-emerald-600 font-mono mt-1 block">
+                {formatEGP(accountingSummary.netPayout)}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-100 flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+              <Award size={20} />
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 block leading-none">تقييم الخدمة</span>
+              <div className="flex items-baseline gap-1 mt-1">
+                <span className="text-lg font-black text-slate-900">★ {userStore.rating}</span>
+                <span className="text-[11px] text-slate-400">({userStore.ratingCount} تقييم)</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </header>
+
+      {/* Error Banner */}
+      {menuError && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-2xl flex items-center gap-2 text-xs font-bold animate-in fade-in duration-200">
+          <AlertCircle size={16} className="shrink-0 text-rose-600" />
+          <span>{menuError}</span>
+        </div>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════════════
           1. تبويب تذاكر المطبخ واستقبال الطلبات
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "kitchen" && (
-        <KitchenDisplay
-          orders={orders}
-          stores={stores}
-          fixedStoreId={userStore.id}
-          connected={connected}
-          onChange={onKitchenChange}
-        />
+        <section aria-label="شاشة تذاكر المطبخ الحية">
+          <KitchenDisplay
+            orders={orders}
+            stores={stores}
+            fixedStoreId={userStore.id}
+            connected={connected}
+            onChange={onKitchenChange}
+          />
+        </section>
       )}
 
       {/* ════════════════════════════════════════════════════════════════════════
-          2. تبويب إدارة أصناف المنيو وتحديث الأسعار
+          2. تبويب إدارة أصناف المنيو وتحديث الأسعار (APPLE TABLE + MATERIAL YOU)
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "menu" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
+        <section className="space-y-5" aria-label="إدارة أصناف المنيو وتحديث الأسعار">
+          {/* Header Controls */}
+          <div className="bg-white/80 backdrop-blur-xl p-5 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-black text-slate-900">أصناف وقائمة أسعار {userStore.name}</h3>
-              <p className="text-xs text-slate-500">
-                يمكنك تحديث سعر بيع أي صنف فورياً، وتفعيل أو إيقاف توفر المنتج بالمطبخ
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">أصناف وقائمة أسعار {userStore.name}</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                تحديث فوري لأسعار البيع، تفعيل أو إيقاف توفر المنتجات بالمطبخ فوراً لموظفي العاصمة.
               </p>
             </div>
+
             <button
               onClick={() => setIsAddingItem(true)}
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors"
+              className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
             >
-              <Plus className="w-4 h-4" />
+              <Plus size={16} />
               <span>إضافة صنف جديد</span>
             </button>
           </div>
 
-          {/* إضافة صنف جديد */}
-          {isAddingItem && (
-            <form onSubmit={handleCreateProduct} className="bg-amber-50/70 border border-amber-300 rounded-3xl p-5 space-y-3">
-              <h4 className="text-sm font-black text-amber-950 flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-amber-600" />
-                إضافة وجبة أو صنف جديد للقائمة
-              </h4>
+          {/* Search & Category Filter Pills */}
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div className="relative w-full sm:w-80">
+              <Search size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="ابحث عن وجبة أو صنف..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                className="w-full pl-3 pr-10 py-2.5 text-xs bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+              />
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div className="flex flex-wrap gap-1.5 self-start sm:self-auto text-xs font-bold">
+              {["all", "فطور", "سندوتشات", "مشروبات", "وجبات خفيفة"].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3.5 py-1.5 rounded-xl transition-all ${
+                    selectedCategory === cat
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {cat === "all" ? "جميع الأصناف" : cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* New Item Modal / Card Form */}
+          {isAddingItem && (
+            <form
+              onSubmit={handleCreateProduct}
+              className="bg-white/95 backdrop-blur-2xl border-2 border-orange-500/30 rounded-3xl p-6 shadow-xl space-y-4 animate-in slide-in-from-top-4 duration-200"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <Sparkles className="text-orange-500" size={16} />
+                  إضافة صنف جديد لمنيو {userStore.name}
+                </h4>
+                <span className="text-[10px] text-slate-400 font-bold">سيظهر الصنف فورياً في تطبيق العملاء</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">اسم الصنف:</label>
                   <input
@@ -392,8 +522,8 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                     required
                     value={newItemName}
                     onChange={(e) => setNewItemName(e.target.value)}
-                    placeholder="مثال: سندوتش شاورما مخصوص"
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white text-slate-900"
+                    placeholder="مثال: سندوتش بيض بالبسطرمة"
+                    className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-900 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
                   />
                 </div>
 
@@ -406,19 +536,19 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                     value={newItemPrice || ""}
                     onChange={(e) => setNewItemPrice(Number(e.target.value))}
                     placeholder="سعر البيع"
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white text-slate-900"
+                    className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-900 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">سعر التكلفة (ج.م):</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">التكلفة (ج.م):</label>
                   <input
                     type="number"
                     min={0}
                     value={newItemCost || ""}
                     onChange={(e) => setNewItemCost(Number(e.target.value))}
                     placeholder="التكلفة الداخلية"
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white text-slate-900"
+                    className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-900 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
                   />
                 </div>
 
@@ -427,7 +557,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                   <select
                     value={newItemCategory}
                     onChange={(e) => setNewItemCategory(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white text-slate-900"
+                    className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-900 focus:bg-white"
                   >
                     <option value="فطور">فطور</option>
                     <option value="سندوتشات">سندوتشات</option>
@@ -443,50 +573,50 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                   type="text"
                   value={newItemDesc}
                   onChange={(e) => setNewItemDesc(e.target.value)}
-                  placeholder="مكونات الوجبة وطريقة التحضير..."
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white text-slate-900"
+                  placeholder="مكونات الوجبة وطريقة التحضير بدقة..."
+                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-900 focus:bg-white"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">رابط صورة الوجبة (HTTPS Photo):</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">رابط صورة الوجبة (HTTPS Image Link):</label>
                 <input
                   type="url"
                   value={newItemImage}
                   onChange={(e) => setNewItemImage(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white text-slate-900 font-mono"
+                  placeholder="https://images.unsplash.com/photo-..."
+                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-900 font-mono focus:bg-white"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsAddingItem(false)}
-                  className="px-4 py-2 bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
                 >
                   إلغاء
                 </button>
                 <button
                   disabled={menuBusy}
                   type="submit"
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl shadow-xs"
+                  className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-black rounded-xl shadow-md transition active:scale-95 disabled:opacity-50"
                 >
-                  حفظ ونشر بالمنيو
+                  {menuBusy ? "جارٍ الحفظ والرفع..." : "حفظ ونشر بالمنيو"}
                 </button>
               </div>
             </form>
           )}
 
-          {/* شبكة المنتجات وتعديل الأسعار */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
-            {storeProducts.map((prod) => (
+          {/* Product Items Cards (Apple Minimalist Grid) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredProducts.map((prod) => (
               <div
                 key={prod.id}
-                className="bg-white rounded-2xl border border-slate-200 p-3.5 space-y-3 shadow-xs flex flex-col justify-between"
+                className="bg-white rounded-3xl border border-slate-200/80 p-4 shadow-[0_4px_16px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgb(0,0,0,0.07)] transition-all flex flex-col justify-between"
               >
-                <div className="flex items-start gap-3">
-                  <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-slate-100 bg-slate-50">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 border border-slate-100 bg-slate-50">
                     <SmartImage
                       src={prod.imageUrl}
                       alt={prod.name}
@@ -495,39 +625,43 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h5 className="text-xs font-black text-slate-900 truncate">{prod.name}</h5>
-                    <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded">
-                      {prod.category}
-                    </span>
-                    <p className="text-[11px] text-slate-500 line-clamp-2 mt-1">{prod.description}</p>
+                    <div className="flex items-center justify-between gap-1">
+                      <h4 className="text-sm font-black text-slate-900 truncate">{prod.name}</h4>
+                      <span className="text-[10px] text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded-md shrink-0">
+                        {prod.category}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                      {prod.description || "لا يوجد وصف مدخل لهذا الصنف"}
+                    </p>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 space-y-2">
-                  {/* تعديل السعر المباشر */}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500 font-bold">سعر البيع:</span>
+                <div className="pt-3 mt-3 border-t border-slate-100 space-y-2.5">
+                  {/* Inline Price Editing with Apple Stepper / Tag Style */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400 font-bold">سعر البيع الحالي:</span>
                     {editingPriceId === prod.id ? (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 animate-in zoom-in-95 duration-150">
                         <input
                           type="number"
                           min={1}
                           value={tempPrice}
                           onChange={(e) => setTempPrice(Number(e.target.value))}
-                          className="w-20 px-2 py-1 text-xs font-black border-2 border-amber-500 rounded-lg text-slate-900 bg-white"
+                          className="w-20 px-2 py-1 text-xs font-black border-2 border-orange-500 rounded-xl text-slate-900 bg-white focus:outline-none"
                           autoFocus
                         />
                         <button
                           onClick={() => handleSavePrice(prod.id)}
-                          className="p-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
-                          title="حفظ السعر الجديد"
+                          className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition"
+                          title="حفظ السعر"
                         >
                           <Check size={14} />
                         </button>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-slate-900 text-sm">
+                        <span className="font-mono font-black text-slate-900 text-base">
                           {formatEGP(prod.price)}
                         </span>
                         <button
@@ -535,8 +669,8 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                             setEditingPriceId(prod.id);
                             setTempPrice(prod.price);
                           }}
-                          className="text-slate-400 hover:text-amber-700 p-1"
-                          title="تعديل السعر"
+                          className="w-7 h-7 rounded-lg bg-slate-50 hover:bg-orange-50 text-slate-400 hover:text-orange-600 flex items-center justify-center transition"
+                          title="تعديل السعر المباشر"
                         >
                           <Edit2 size={13} />
                         </button>
@@ -545,156 +679,190 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                   </div>
 
                   {priceSuccessId === prod.id && (
-                    <p className="text-[10px] text-emerald-600 font-bold text-center">✓ تم حفظ وتحديث السعر الجديد</p>
+                    <p className="text-[10px] text-emerald-600 font-bold text-center bg-emerald-50 py-1 rounded-lg animate-in fade-in">
+                      ✓ تم حفظ السعر الجديد وتحديثه في الكتالوج
+                    </p>
                   )}
 
-                  {/* تبديل حالة التوفر */}
+                  {/* Stock Availability Toggle (iOS Switch Style) */}
                   <button
                     onClick={() => onUpdateProductStock(prod.id, !prod.inStock)}
-                    className={`w-full py-1.5 rounded-xl text-xs font-black transition-colors ${
+                    className={`w-full py-2 px-3 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
                       prod.inStock
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                        : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
+                        ? "bg-emerald-500/10 text-emerald-800 border border-emerald-500/20 hover:bg-emerald-500/20"
+                        : "bg-rose-500/10 text-rose-800 border border-rose-500/20 hover:bg-rose-500/20"
                     }`}
                   >
-                    {prod.inStock ? "الصنف متاح للطلب بالمطبخ ✓" : "الصنف غير متوفر حالياً ✕"}
+                    <span
+                      className={`w-2 h-2 rounded-full ${prod.inStock ? "bg-emerald-600" : "bg-rose-600"}`}
+                    />
+                    <span>{prod.inStock ? "الصنف متاح للطلب بالمطبخ" : "الصنف غير متوفر حالياً"}</span>
                   </button>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* ════════════════════════════════════════════════════════════════════════
-          3. تبويب الحسابات والقيود المحاسبية وأنواع التحصيل وأكثر الأصناف مبيعاً
+          3. تبويب الحسابات والقيود والتحصيل (APPLE WALLET + GOOGLE FINANCE)
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "accounting" && (
-        <div className="space-y-6">
-          {/* كروت التحصيل والمالية */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-slate-500">إجمالي المبيعات المسلمة</span>
-                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-                  <DollarSign size={18} />
+        <section className="space-y-6" aria-label="الحسابات والقيود المحاسبية">
+          {/* Apple Card Style Titanium Master Balance Card */}
+          <div className="relative bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white rounded-[32px] p-6 sm:p-8 shadow-2xl border border-slate-800 overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-emerald-500/10 via-teal-400/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <span className="text-xs uppercase font-bold tracking-widest text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                  محفظة ومستحقات المتجر
+                </span>
+                <p className="text-xs text-slate-400 mt-3">الصافي الجاهز للتحويل لحساب التاجر البنكي</p>
+                <h3 className="text-3xl sm:text-4xl font-black text-white font-mono mt-1 tracking-tight">
+                  {formatEGP(accountingSummary.netPayout)}
+                </h3>
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  بعد خصم عمولة المنصة (10%) وحساب الضرائب المقررة
+                </span>
+              </div>
+
+              {/* Sub-metrics */}
+              <div className="grid grid-cols-2 gap-3 bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+                <div>
+                  <span className="text-[11px] text-slate-400 block font-bold">إجمالي المبيعات</span>
+                  <span className="text-base font-black font-mono text-white mt-0.5 block">
+                    {formatEGP(accountingSummary.grossSales)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block font-bold">عمولة المنصة</span>
+                  <span className="text-base font-black font-mono text-rose-300 mt-0.5 block">
+                    - {formatEGP(accountingSummary.platformCommission)}
+                  </span>
                 </div>
               </div>
-              <h4 className="text-xl font-black text-slate-900 font-mono">{formatEGP(accountingSummary.grossSales)}</h4>
-              <span className="text-[10px] text-slate-400">{accountingSummary.ordersCount} طلب مكتمل ومسلم</span>
+            </div>
+          </div>
+
+          {/* Payment Collection Channels (Google Material 3 Tonal Cards) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-400 block">تحصيل كاش (عهدة المناديب)</span>
+                <h4 className="text-xl font-black text-amber-600 font-mono mt-1">
+                  {formatEGP(accountingSummary.byPaymentMethod.cash)}
+                </h4>
+                <span className="text-[10px] text-slate-400">مبالغ نقدية محصلة يدوياً</span>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Coins size={22} />
+              </div>
             </div>
 
-            <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-slate-500">تحصيل كاش (عهدة المناديب)</span>
-                <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
-                  <DollarSign size={18} />
-                </div>
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-400 block">تحصيل شبكة وبطاقات (Geidea)</span>
+                <h4 className="text-xl font-black text-purple-600 font-mono mt-1">
+                  {formatEGP(accountingSummary.byPaymentMethod.geidea)}
+                </h4>
+                <span className="text-[10px] text-slate-400">مدفوعات إلكترونية مباشرة</span>
               </div>
-              <h4 className="text-xl font-black text-amber-600 font-mono">
-                {formatEGP(accountingSummary.byPaymentMethod.cash)}
-              </h4>
-              <span className="text-[10px] text-slate-400">مبالغ مسددة نقداً مع الكابتن</span>
+              <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                <CreditCard size={22} />
+              </div>
             </div>
 
-            <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-slate-500">تحصيل إلكتروني (بطاقات / إنستاباي)</span>
-                <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
-                  <CreditCard size={18} />
-                </div>
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-400 block">تحصيل إنستاباي ومحفظة</span>
+                <h4 className="text-xl font-black text-blue-600 font-mono mt-1">
+                  {formatEGP(accountingSummary.byPaymentMethod.instapay)}
+                </h4>
+                <span className="text-[10px] text-slate-400">تحويلات بنكية ومحافظ رقمية</span>
               </div>
-              <h4 className="text-xl font-black text-purple-600 font-mono">
-                {formatEGP(accountingSummary.byPaymentMethod.geidea + accountingSummary.byPaymentMethod.instapay)}
-              </h4>
-              <span className="text-[10px] text-slate-400">Geidea + InstaPay</span>
-            </div>
-
-            <div className="bg-gradient-to-br from-emerald-800 to-teal-950 text-white p-4 rounded-3xl shadow-md border border-emerald-700/50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-emerald-300">صافي المستحق للتاجر</span>
-                <div className="p-2 bg-white/10 rounded-xl">
-                  <Wallet size={18} className="text-emerald-300" />
-                </div>
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <Wallet size={22} />
               </div>
-              <h4 className="text-xl font-black text-white font-mono">{formatEGP(accountingSummary.netPayout)}</h4>
-              <span className="text-[10px] text-emerald-300/80">بعد خصم عمولة المنصة 10%</span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* جدول أكثر الأصناف مبيعاً */}
-            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
+            {/* Top Selling Items (Apple Health Style Progress Bar) */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
                   <Award className="text-amber-500" size={18} />
                   أكثر الأصناف مبيعاً
                 </h4>
-                <span className="text-[11px] text-slate-400 font-bold">حسب الحجم</span>
+                <span className="text-[11px] text-slate-400 font-bold">إجمالي الحجم</span>
               </div>
 
               {topSellingItems.length === 0 ? (
-                <p className="text-center text-xs text-slate-400 py-8">لا توجد مبيعات مكتملة بعد لحساب الأصناف الأكثر طلباً</p>
+                <p className="text-center text-xs text-slate-400 py-10">لا توجد مبيعات مكتملة بعد لتوليد الإحصائية</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {topSellingItems.map((item, idx) => (
-                    <div key={item.productId} className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 border border-slate-100">
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-800 font-black text-xs flex items-center justify-center">
-                          {idx + 1}
+                    <div key={item.productId} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-black text-slate-800">
+                          {idx + 1}. {item.name}
                         </span>
-                        <div>
-                          <p className="text-xs font-black text-slate-900 leading-tight">{item.name}</p>
-                          <span className="text-[10px] text-slate-400 font-bold">
-                            {item.soldQuantity} طلب • {item.percentageShare}% من الإيراد
-                          </span>
-                        </div>
+                        <span className="font-mono font-bold text-slate-900">{formatEGP(item.totalRevenue)}</span>
                       </div>
-                      <span className="font-mono font-bold text-xs text-emerald-700">
-                        {formatEGP(item.totalRevenue)}
-                      </span>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.max(8, item.percentageShare)}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-400 font-bold">
+                        <span>{item.soldQuantity} طلب تم تسليمه</span>
+                        <span>{item.percentageShare}% من المبيعات</span>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* دفتر القيود المحاسبية المزدوجة */}
-            <div className="lg:col-span-2 bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
+            {/* Double-Entry Accounting Ledger (Google Workspace / Stripe Clean Design) */}
+            <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
                   <BookOpen className="text-indigo-600" size={18} />
                   دفتر القيود المحاسبية اليومية (Double-Entry Ledger)
                 </h4>
-                <span className="text-[11px] bg-slate-100 text-slate-600 font-bold px-2.5 py-0.5 rounded-full">
-                  قيود مبيعات آلية
+                <span className="text-[11px] bg-indigo-50 text-indigo-700 font-bold px-2.5 py-0.5 rounded-full">
+                  ترحيل آلي معتمد
                 </span>
               </div>
 
               {journalEntries.length === 0 ? (
-                <p className="text-center text-xs text-slate-400 py-8">تُسجل القيود المحاسبية تلقائياً فور تأكيد تسليم كل طلب</p>
+                <p className="text-center text-xs text-slate-400 py-10">تُسجل القيود اليومية آلياً فور تسليم أي طلب</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-right text-xs">
                     <thead>
-                      <tr className="bg-slate-100 text-slate-700 font-black">
-                        <th className="p-2.5 rounded-r-xl">رقم القيد</th>
-                        <th className="p-2.5">الطلب</th>
-                        <th className="p-2.5">مدين (من حـ/)</th>
-                        <th className="p-2.5">دائن (إلى حـ/)</th>
-                        <th className="p-2.5">المبلغ</th>
-                        <th className="p-2.5 rounded-l-xl">البيان وطريقة التحصيل</th>
+                      <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                        <th className="p-3">رقم القيد</th>
+                        <th className="p-3">الطلب</th>
+                        <th className="p-3">مدين (من حـ/)</th>
+                        <th className="p-3">دائن (إلى حـ/)</th>
+                        <th className="p-3">المبلغ</th>
+                        <th className="p-3">البيان</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {journalEntries.slice(0, 10).map((entry) => (
-                        <tr key={entry.id} className="hover:bg-slate-50 transition">
-                          <td className="p-2.5 font-mono font-bold text-indigo-700">{entry.id}</td>
-                          <td className="p-2.5 font-mono text-slate-600">{entry.orderNumber}</td>
-                          <td className="p-2.5 text-emerald-700 font-medium">{entry.debitAccount}</td>
-                          <td className="p-2.5 text-rose-700 font-medium">{entry.creditAccount}</td>
-                          <td className="p-2.5 font-mono font-black text-slate-900">{formatEGP(entry.amount)}</td>
-                          <td className="p-2.5 text-slate-500 text-[11px]">{entry.statement}</td>
+                      {journalEntries.slice(0, 8).map((entry) => (
+                        <tr key={entry.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3 font-mono font-bold text-indigo-600">{entry.id}</td>
+                          <td className="p-3 font-mono text-slate-700 font-semibold">{entry.orderNumber}</td>
+                          <td className="p-3 text-emerald-700 font-bold">{entry.debitAccount}</td>
+                          <td className="p-3 text-rose-700 font-bold">{entry.creditAccount}</td>
+                          <td className="p-3 font-mono font-black text-slate-900">{formatEGP(entry.amount)}</td>
+                          <td className="p-3 text-slate-500 text-[11px]">{entry.statement}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -703,59 +871,73 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
               )}
             </div>
           </div>
-        </div>
+        </section>
       )}
 
       {/* ════════════════════════════════════════════════════════════════════════
-          4. تبويب رادار المناديب الأقرب والمندوب الأسرع طبقاً للخريطة
+          4. تبويب رادار المناديب الأقرب والأسرع (APPLE FIND MY + RADAR PULSE)
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "radar" && (
-        <div className="bg-slate-900 text-white rounded-3xl p-6 shadow-xl border border-slate-800 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <section
+          className="bg-slate-950 text-white rounded-[32px] p-6 sm:p-8 shadow-2xl border border-slate-800 space-y-6 relative overflow-hidden"
+          aria-label="رادار المناديب الأقرب والأسرع"
+        >
+          {/* Subtle Radar Ring Waves in background */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-slate-800/40 rounded-full pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] border border-slate-800/60 rounded-full pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] border border-emerald-500/10 rounded-full pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-5">
             <div>
-              <span className="text-[10px] bg-orange-500/20 text-orange-400 font-bold px-2.5 py-0.5 rounded-full border border-orange-500/30">
-                خوارزمية المسافة والسرعة التلقائية
-              </span>
-              <h3 className="text-xl font-black text-white mt-1.5 flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                </span>
+                <span className="text-[11px] bg-emerald-500/10 text-emerald-400 font-bold px-3 py-1 rounded-full border border-emerald-500/20">
+                  نظام التتبع والرادار الميداني الحي
+                </span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-white mt-2 flex items-center gap-2 tracking-tight">
                 <Navigation size={22} className="text-orange-500 animate-pulse" />
                 رادار مناديب التوصيل المحيطين بالمتجر
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                يتم حساب المسافة بالكيلومتر من موقع {userStore.name} وتحديد المندوب الأسرع في التوصيل
+              <p className="text-xs text-slate-400 mt-1">
+                فرز دقيق للمناديب حسب المسافة الحقيقية بالكيلومتر من موقع المتجر مع تمييز الكابتن الأسرع
               </p>
             </div>
 
-            <div className="flex items-center gap-2 bg-slate-800/80 p-2 rounded-2xl border border-slate-700 text-xs">
+            <div className="flex items-center gap-2 bg-slate-900/90 px-3.5 py-2 rounded-2xl border border-slate-800 text-xs">
               <MapPin size={14} className="text-rose-400" />
-              <span>موقع المتجر: {userStore.locationInDistrict}</span>
+              <span>موقع الفرع: {userStore.locationInDistrict}</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-4">
             {rankedCouriers.map((courier) => (
               <div
                 key={courier.id}
-                className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                className={`p-5 rounded-3xl border transition-all flex flex-col justify-between ${
                   courier.isFastest
-                    ? "bg-slate-800/90 border-amber-500/80 ring-2 ring-amber-500/20 shadow-lg"
-                    : "bg-slate-800/40 border-slate-700/80 hover:bg-slate-800"
+                    ? "bg-slate-900/90 border-amber-500/60 ring-2 ring-amber-500/20 shadow-xl"
+                    : "bg-slate-900/40 border-slate-800 hover:bg-slate-900/80"
                 }`}
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-700 flex items-center justify-center text-lg font-black border border-slate-600">
-                      <Bike size={20} className="text-orange-400" />
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-13 h-13 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                      <Bike size={22} className="text-orange-400" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h5 className="font-black text-sm text-white">{courier.name}</h5>
+                        <h5 className="font-black text-sm text-white tracking-tight">{courier.name}</h5>
                         {courier.isFastest && (
-                          <span className="bg-amber-400/20 text-amber-300 text-[10px] px-2 py-0.5 rounded-full font-black border border-amber-400/30 flex items-center gap-1">
-                            <Zap size={11} /> المندوب الأسرع
+                          <span className="bg-amber-400/20 text-amber-300 text-[10px] px-2.5 py-0.5 rounded-full font-black border border-amber-400/40 flex items-center gap-1 shadow-xs">
+                            <Zap size={10} className="fill-amber-300" /> المندوب الأسرع
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-1.5 font-medium">
                         <span className="flex items-center gap-1 text-emerald-400 font-bold">
                           <MapPin size={12} /> يبعد {courier.distanceKm} كم
                         </span>
@@ -765,25 +947,25 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                   </div>
 
                   <div className="text-left">
-                    <span className="text-sm font-mono font-black text-amber-300 block">
-                      ~ {courier.avgDeliveryMinutes} دقيقة
+                    <span className="text-base font-mono font-black text-amber-300 block">
+                      ~ {courier.avgDeliveryMinutes} د
                     </span>
-                    <span className="text-[10px] text-slate-500">متوسط الوصول</span>
+                    <span className="text-[10px] text-slate-500 font-bold">زمن الوصول</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-700/60">
+                <div className="flex items-center gap-2 mt-5 pt-3.5 border-t border-slate-800/80">
                   <a
                     href={`tel:${courier.phone}`}
-                    className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                    className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
                   >
-                    <Phone size={13} /> اتصال بالكابتن ({courier.phone})
+                    <Phone size={13} /> اتصال ({courier.phone})
                   </a>
                   <button
                     onClick={() => {
-                      alert(`تم إرسال إشعار للطلب للمندوب ${courier.name}`);
+                      alert(`تم إرسال إشعار فوري لاستدعاء الكابتن ${courier.name} للفرع`);
                     }}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1 transition"
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition active:scale-95 shadow-md"
                   >
                     <ShieldCheck size={14} /> استدعاء للفرع
                   </button>
@@ -791,7 +973,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
