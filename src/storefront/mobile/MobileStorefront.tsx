@@ -148,7 +148,9 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     setSearchQuery,
     navigate,
     currentPath,
-    user
+    user,
+    banners,
+    handleBannerClick
   } = useStore();
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -181,62 +183,38 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     }
   }, [currentPath]);
 
-  // Slider State & Touch Gestures
+  // Dynamic Mobile Slider State (Synced with Admin App Content / Campaigns)
   const [currentSlide, setCurrentSlide] = useState(0);
   const touchStartX = useRef<number | null>(null);
 
-  const slides = [
-    {
-      id: 1,
-      tag: 'أسرع توصيل طلبات',
-      title: 'سنجوب يوصلك لحد باب بيتك أو مكتبك 🐿️',
-      desc: `خدمة التوصيل السريع لمقاضيك داخل ${LAUNCH_CONFIG.serviceAreaLabel}.`,
-      btnText: 'اطلب الآن',
-      badgeColor: '#FF5900',
-      bgGradient: 'linear-gradient(135deg, #131921 0%, #1F2937 100%)',
-      mascotImg: '/assets/sangoub/mascot-cheerful.png',
-    },
-    {
-      id: 2,
-      tag: 'مقاضي طازجة يومياً',
-      title: 'سنجوب بقالة ومقاضي البيت لحد بابك 🛒',
-      desc: 'ألبان ومياه وسناكس ومستلزماتك اليومية بجودة عالية.',
-      btnText: 'تسوق البقالة',
-      badgeColor: '#E65100',
-      bgGradient: 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 100%)',
-      mascotImg: '/assets/sangoub/mascot-delivery.png',
-    },
-    {
-      id: 3,
-      tag: 'بقالة ومقاضي البيت',
-      title: 'سنجوب بقالة ومقاضي البيت السريعة 🛒',
-      desc: 'مشروبات ومقرمشات ومستلزمات البيت لحد بابك.',
-      btnText: 'تسوق البقالة',
-      badgeColor: '#059669',
-      bgGradient: 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)',
-      mascotImg: '/assets/sangoub/mascot-trio.png',
-    },
-  ];
+  const activeSlides = banners && banners.length > 0 ? banners : [];
 
-  // Auto-slide
   useEffect(() => {
+    if (currentSlide >= activeSlides.length) {
+      setCurrentSlide(0);
+    }
+  }, [activeSlides.length, currentSlide]);
+
+  // Auto-slide every 4.5 seconds
+  useEffect(() => {
+    if (activeSlides.length <= 1) return;
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
+      setCurrentSlide((prev) => (prev + 1) % activeSlides.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, [slides.length]);
+  }, [activeSlides.length]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
+    if (touchStartX.current === null || activeSlides.length <= 1) return;
     const diff = touchStartX.current - e.changedTouches[0].clientX;
     if (diff > 40) {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
+      setCurrentSlide((prev) => (prev + 1) % activeSlides.length);
     } else if (diff < -40) {
-      setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+      setCurrentSlide((prev) => (prev - 1 + activeSlides.length) % activeSlides.length);
     }
     touchStartX.current = null;
   };
@@ -361,77 +339,149 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
       <main className="px-3.5 pt-2 space-y-3">
 
         {/* 2. DEDICATED MOBILE HERO SLIDER (Compact 120px Height) */}
-        <div
-          className="relative rounded-2xl overflow-hidden shadow-xs bg-[#131921] w-full"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          <div className="relative w-full h-[120px]">
-            {slides.map((slide, index) => {
-              const isActive = currentSlide === index;
-              return (
-                <div
-                  key={slide.id}
-                  onClick={() => setSelectedCategory(slide.id === 2 ? 'فطور ومخبوزات' : slide.id === 3 ? 'سوبرماركت' : null)}
-                  className={`absolute inset-0 transition-opacity duration-300 ease-in-out cursor-pointer ${
-                    isActive ? 'opacity-100 pointer-events-auto z-10' : 'opacity-0 pointer-events-none z-0'
-                  }`}
-                  style={{ background: slide.bgGradient }}
-                >
-                  <div className="relative z-10 w-full h-full px-3 py-2 flex items-center justify-between gap-2">
-                    
-                    {/* Text */}
-                    <div className="flex-1 max-w-[65%] flex flex-col justify-center space-y-1">
-                      <span
-                        className="inline-flex items-center gap-1 text-[8.5px] font-black px-2 py-0.2 rounded-full text-white w-fit shadow-2xs"
-                        style={{ backgroundColor: slide.badgeColor }}
-                      >
-                        <Sparkles size={8} />
-                        <span>{slide.tag}</span>
-                      </span>
+        {activeSlides.length > 0 && (
+          <div
+            className="relative rounded-2xl overflow-hidden shadow-xs bg-[#131921] w-full"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            aria-label="سلايدر العروض الترويجية"
+          >
+            <div className="relative w-full h-[120px]">
+              {activeSlides.map((slide, index) => {
+                const isActive = currentSlide === index;
+                const hasImage = Boolean(slide.imageUrl || (slide.image && slide.image.startsWith('http')));
+                const bannerImgUrl = slide.imageUrl || slide.image;
 
-                      <h2 className="text-[11.5px] font-black text-white leading-tight line-clamp-2">
-                        {slide.title}
-                      </h2>
+                return (
+                  <div
+                    key={slide.id || index}
+                    onClick={() => {
+                      handleBannerClick(slide, {
+                        onSelectProduct: (p) => setSelectedProductForModal(p),
+                        onSelectOffers: () => {
+                          setActiveFilter('offers');
+                          const grid = document.getElementById('mobile-products-grid');
+                          if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+                        },
+                        onSelectCategory: (cat) => {
+                          setSelectedCategory(cat);
+                          const grid = document.getElementById('mobile-products-grid');
+                          if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+                        },
+                      });
+                    }}
+                    className={`absolute inset-0 transition-opacity duration-300 ease-in-out cursor-pointer ${
+                      isActive ? 'opacity-100 pointer-events-auto z-10' : 'opacity-0 pointer-events-none z-0'
+                    }`}
+                    style={{ background: slide.bgGradient || 'linear-gradient(135deg, #131921 0%, #1F2937 100%)' }}
+                  >
+                    {hasImage ? (
+                      /* Real Image Banner Layout with Scrim for Text Legibility */
+                      <div className="relative w-full h-full overflow-hidden">
+                        <img
+                          src={bannerImgUrl}
+                          alt={slide.title || 'عرض سنجوب'}
+                          className="absolute inset-0 w-full h-full object-cover object-center"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                        {/* Scrim */}
+                        <div className="absolute inset-0 bg-gradient-to-l from-[#0F172A]/90 via-[#0F172A]/55 to-transparent/10 z-10 p-3 flex flex-col justify-center max-w-[70%]">
+                          {slide.tag && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.2 rounded-full text-white w-fit mb-1 shadow-2xs"
+                              style={{ backgroundColor: slide.badgeColor || '#FF5900' }}
+                            >
+                              <Sparkles size={8} />
+                              <span>{slide.tag}</span>
+                            </span>
+                          )}
 
-                      <div className="pt-0.5">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#FF5900] text-white text-[9.5px] font-black shadow-xs">
-                          <span>{slide.btnText}</span>
-                          <ArrowLeft size={9} />
-                        </span>
+                          <h2 className="text-[11.5px] font-black text-white leading-tight line-clamp-2 drop-shadow-sm">
+                            {slide.title}
+                          </h2>
+
+                          {(slide.subtitle || slide.desc) && (
+                            <p className="text-[9px] text-gray-200 line-clamp-1 mt-0.5 font-medium">
+                              {slide.subtitle || slide.desc}
+                            </p>
+                          )}
+
+                          <div className="pt-1">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#FF5900] text-white text-[9px] font-black shadow-xs">
+                              <span>{slide.btnText || 'اطلب الآن'}</span>
+                              <ArrowLeft size={9} />
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      /* Mascot + Gradient Layout */
+                      <div className="relative z-10 w-full h-full px-3 py-2 flex items-center justify-between gap-2">
+                        {/* Text */}
+                        <div className="flex-1 max-w-[65%] flex flex-col justify-center space-y-1">
+                          {slide.tag && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[8.5px] font-black px-2 py-0.2 rounded-full text-white w-fit shadow-2xs"
+                              style={{ backgroundColor: slide.badgeColor || '#FF5900' }}
+                            >
+                              <Sparkles size={8} />
+                              <span>{slide.tag}</span>
+                            </span>
+                          )}
 
-                    {/* Mascot Illustration */}
-                    <div className="w-[32%] h-full flex items-center justify-center shrink-0">
-                      <img
-                        src={slide.mascotImg}
-                        alt="سنجوب Sangoub"
-                        className="max-h-[102px] w-auto object-contain drop-shadow-md"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = '/assets/sangoub/sangoub-favicon.png';
-                        }}
-                      />
-                    </div>
+                          <h2 className="text-[11.5px] font-black text-white leading-tight line-clamp-2">
+                            {slide.title}
+                          </h2>
 
+                          {(slide.subtitle || slide.desc) && (
+                            <p className="text-[9px] text-gray-300 line-clamp-1">
+                              {slide.subtitle || slide.desc}
+                            </p>
+                          )}
+
+                          <div className="pt-0.5">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#FF5900] text-white text-[9.5px] font-black shadow-xs">
+                              <span>{slide.btnText || 'اطلب الآن'}</span>
+                              <ArrowLeft size={9} />
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Mascot Illustration */}
+                        <div className="w-[32%] h-full flex items-center justify-center shrink-0">
+                          <img
+                            src={slide.mascotImg || '/assets/sangoub/mascot-cheerful.png'}
+                            alt="سنجوب Sangoub"
+                            className="max-h-[102px] w-auto object-contain drop-shadow-md"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = '/assets/sangoub/sangoub-favicon.png';
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
 
-          {/* Dots */}
-          <div className="absolute bottom-1.5 inset-x-0 flex items-center justify-center gap-1 z-20 pointer-events-none">
-            {slides.map((_, i) => (
-              <span
-                key={i}
-                className={`h-1 rounded-full transition-all duration-300 ${
-                  currentSlide === i ? 'w-3.5 bg-[#FF5900]' : 'w-1 bg-white/40'
-                }`}
-              />
-            ))}
+            {/* Dots */}
+            {activeSlides.length > 1 && (
+              <div className="absolute bottom-1.5 inset-x-0 flex items-center justify-center gap-1 z-20 pointer-events-none">
+                {activeSlides.map((_, i) => (
+                  <span
+                    key={i}
+                    className={`h-1 rounded-full transition-all duration-300 ${
+                      currentSlide === i ? 'w-3.5 bg-[#FF5900]' : 'w-1 bg-white/40'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {/* 3. SANGOUB CATEGORIES HORIZONTAL SLIDER (Ultra-Compact 11x11 Squircles) */}
         <section aria-labelledby="mobile-categories-heading">

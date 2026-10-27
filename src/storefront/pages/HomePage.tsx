@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { ProductCard } from '../components/ProductCard';
 import { HeroSlider } from '../components/HeroSlider';
@@ -182,6 +182,24 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     return list;
   }, [products, selectedCategory, activeFilter]);
 
+  // URL query params listener (e.g. ?product=id or ?filter=offers from slider / notifications)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const prodId = params.get('product');
+      if (prodId && products.length > 0) {
+        const found = products.find(p => p.id === prodId);
+        if (found) setSelectedProductForModal(found);
+      }
+      const filter = params.get('filter');
+      if (filter === 'offers') {
+        setActiveFilter('offers');
+      }
+    } catch {
+      // Ignore
+    }
+  }, [products]);
+
   const handleCopyCoupon = () => {
     applyCoupon('SANGOUB10');
     setCouponCopied(true);
@@ -196,7 +214,20 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
 
         {/* 1. HERO SLIDER */}
         <section className="mb-6">
-          <HeroSlider onOpenAreaModal={onOpenAreaModal} />
+          <HeroSlider
+            onOpenAreaModal={onOpenAreaModal}
+            onSelectProduct={(p) => setSelectedProductForModal(p)}
+            onSelectCategory={(cat) => {
+              setSelectedCategory(cat);
+              const grid = document.getElementById('products-grid');
+              if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+            }}
+            onSelectOffers={() => {
+              setActiveFilter('offers');
+              const grid = document.getElementById('products-grid');
+              if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
         </section>
 
         {/* 3. TALABAT CORE CATEGORIES (4 Cols on Mobile, 8 Cols on Desktop) */}

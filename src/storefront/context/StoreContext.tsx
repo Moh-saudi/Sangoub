@@ -8,6 +8,8 @@ import { watchCollection, auth, db, signOutFromFirebase } from '../../lib/fireba
 import { onAuthStateChanged } from 'firebase/auth';
 import { limit, where, doc, getDoc } from 'firebase/firestore';
 
+import { StoreBanner, DEFAULT_SANGOUB_BANNERS } from '../types/banner';
+
 export interface ServiceArea {
   id: string;
   name: string;
@@ -31,6 +33,19 @@ export interface StoreContextType {
   isLoadingCatalog: boolean;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+
+  // Dynamic Banners (App Content / Campaigns from Admin)
+  banners: StoreBanner[];
+  isLoadingBanners: boolean;
+  refreshBanners: () => Promise<void>;
+  handleBannerClick: (
+    banner: StoreBanner,
+    callbacks?: {
+      onSelectProduct?: (product: Product) => void;
+      onSelectCategory?: (category: string) => void;
+      onSelectOffers?: () => void;
+    }
+  ) => void;
 
   // Service Area
   serviceArea: ServiceArea;
@@ -186,6 +201,149 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     return Array.from(set);
   }, [products]);
+
+  // 3.5 Dynamic Banners (Synced with Admin App Content / Campaigns)
+  const [banners, setBanners] = useState<StoreBanner[]>(DEFAULT_SANGOUB_BANNERS);
+  const [isLoadingBanners, setIsLoadingBanners] = useState(false);
+
+  const refreshBanners = async () => {
+    setIsLoadingBanners(true);
+    try {
+      // 1. Try public server endpoint /api/app-content (official app content & campaign manager)
+      const res = await fetch('/api/app-content', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.slides) && data.slides.length > 0) {
+          const mapped: StoreBanner[] = data.slides.map((s: any, idx: number) => ({
+            id: s.id || `campaign-${idx}`,
+            title: s.title || '',
+            subtitle: s.subtitle || '',
+            desc: s.subtitle || '',
+            imageUrl: s.imageUrl || '',
+            image: s.imageUrl || '',
+            tag: s.targetType === 'offers' ? 'أقوى العروض 🎁' : s.targetType === 'product' ? 'خصم وتوفير 🏷️' : s.targetType === 'store' ? 'متجر مميز 🏪' : 'عرض خاص',
+            btnText: s.targetType === 'offers' ? 'تصفح العروض' : s.targetType === 'product' ? 'اطلب الآن' : 'عرض المزيد',
+            targetType: s.targetType || 'offers',
+            targetId: s.targetId || '',
+            targetPath: s.targetType === 'offers' ? '/offers' : s.targetType === 'product' ? `/product/${s.targetId}` : s.targetType === 'store' ? `/store/${s.targetId}` : '',
+            badgeColor: idx % 3 === 0 ? '#FF5900' : idx % 3 === 1 ? '#059669' : '#2563EB',
+            bgGradient: idx % 3 === 0 
+              ? 'linear-gradient(135deg, #131921 0%, #1F2937 100%)' 
+              : idx % 3 === 1 
+              ? 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)' 
+              : 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 100%)',
+            mascotImg: idx % 2 === 0 ? '/assets/sangoub/mascot-cheerful.png' : '/assets/sangoub/mascot-delivery.png'
+          }));
+          setBanners(mapped);
+          setIsLoadingBanners(false);
+          return;
+        }
+      }
+
+      // 2. Fallback check for mobile app_config/home_sections if rules allow
+      try {
+        const cfgDoc = await getDoc(doc(db, 'app_config', 'home_sections'));
+        if (cfgDoc.exists()) {
+          const cfgData = cfgDoc.data();
+          if (cfgData?.offersBanners && Array.isArray(cfgData.offersBanners) && cfgData.offersBanners.length > 0) {
+            const mappedMobile: StoreBanner[] = cfgData.offersBanners.map((b: any, idx: number) => ({
+              id: b.id || `mobile-banner-${idx}`,
+              title: b.title || '',
+              subtitle: b.subtitle || '',
+              desc: b.subtitle || '',
+              imageUrl: b.imageUrl || (b.image && b.image.startsWith('http') ? b.image : ''),
+              image: b.image || '',
+              tag: b.tag || 'عرض حصري',
+              btnText: b.btnText || 'اطلب الآن',
+              targetType: b.targetType || 'offers',
+              targetId: b.targetId || '',
+              targetPath: b.targetPath || (b.targetType === 'offers' ? '/offers' : ''),
+              badgeColor: '#FF5900',
+              bgGradient: 'linear-gradient(135deg, #131921 0%, #1F2937 100%)',
+              mascotImg: '/assets/sangoub/mascot-cheerful.png'
+            }));
+            setBanners(mappedMobile);
+            setIsLoadingBanners(false);
+            return;
+          }
+        }
+      } catch {
+        // Ignore firestore permission check error if rules block direct read
+      }
+
+      // 3. Fallback to default Sangoub soft launch banners
+      setBanners(DEFAULT_SANGOUB_BANNERS);
+    } catch (err) {
+      console.warn('Could not load dynamic banners, using defaults:', err);
+      setBanners(DEFAULT_SANGOUB_BANNERS);
+    } finally {
+      setIsLoadingBanners(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshBanners();
+    // Refresh when user returns to tab
+    const onFocus = () => {
+      refreshBanners();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
+  const handleBannerClick = (
+    banner: StoreBanner,
+    callbacks?: {
+      onSelectProduct?: (product: Product) => void;
+      onSelectCategory?: (category: string) => void;
+      onSelectOffers?: () => void;
+    }
+  ) => {
+    if (banner.targetType === 'offers') {
+      if (callbacks?.onSelectOffers) {
+        callbacks.onSelectOffers();
+      } else {
+        navigate('/offers');
+      }
+      const grid = document.getElementById('products-grid') || document.getElementById('mobile-products-grid');
+      if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    if (banner.targetType === 'product' && banner.targetId) {
+      const product = products.find(p => p.id === banner.targetId);
+      if (product && callbacks?.onSelectProduct) {
+        callbacks.onSelectProduct(product);
+        return;
+      }
+      navigate(`/?product=${encodeURIComponent(banner.targetId)}`);
+      return;
+    }
+
+    if (banner.targetType === 'store' && banner.targetId) {
+      const store = stores.find(s => s.id === banner.targetId);
+      if (store && callbacks?.onSelectCategory) {
+        callbacks.onSelectCategory(store.type || store.name);
+        const grid = document.getElementById('products-grid') || document.getElementById('mobile-products-grid');
+        if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+      navigate(`/stores/${encodeURIComponent(banner.targetId)}`);
+      return;
+    }
+
+    if (banner.targetType === 'category' && banner.targetId && callbacks?.onSelectCategory) {
+      callbacks.onSelectCategory(banner.targetId);
+      const grid = document.getElementById('products-grid') || document.getElementById('mobile-products-grid');
+      if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    if (banner.targetPath) {
+      navigate(banner.targetPath);
+      return;
+    }
+  };
 
   // 4. Cart State
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -422,6 +580,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isLoadingCatalog,
         searchQuery,
         setSearchQuery,
+        banners,
+        isLoadingBanners,
+        refreshBanners,
+        handleBannerClick,
         serviceArea,
         setServiceArea,
         availableAreas,
