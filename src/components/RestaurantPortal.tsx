@@ -254,55 +254,44 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 font-['Cairo',-apple-system,BlinkMacSystemFont,sans-serif]" dir="rtl">
-      {/* ════════════════════════════════════════════════════════════════════════
-          APPLE & GOOGLE HERO HEADER WITH BLURRED SQUIRCLE SURFACES
-          ════════════════════════════════════════════════════════════════════════ */}
-      <header className="relative bg-white/90 backdrop-blur-2xl rounded-[32px] p-6 sm:p-7 border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
-        {/* Subtle Ambient Glow */}
-        <div className="absolute -top-24 -left-24 w-72 h-72 bg-gradient-to-br from-orange-400/10 via-amber-300/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-gradient-to-tl from-blue-400/10 via-indigo-300/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+    <div className="max-w-7xl mx-auto space-y-4 text-xs font-['Cairo',-apple-system,BlinkMacSystemFont,sans-serif]" dir="rtl">
+      {/* Compact Enterprise Header matching Image 3 & 4 style */}
+      <header className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Brand Info & Identity */}
-          <div className="flex items-center gap-4">
-            <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-[24px] bg-gradient-to-br from-slate-50 to-slate-100/90 border border-slate-200/90 p-1.5 shadow-[0_4px_16px_rgb(0,0,0,0.06)] flex items-center justify-center shrink-0">
-              <span className="text-3xl sm:text-4xl filter drop-shadow-sm select-none">{userStore.logo || "🥘"}</span>
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0">
+              <span className="text-2xl select-none">{userStore.logo || "🥘"}</span>
             </div>
 
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="px-3 py-1 rounded-full bg-slate-900 text-white text-[11px] font-bold tracking-tight shadow-xs">
+                <span className="px-2 py-0.5 rounded-md bg-slate-900 text-white text-[10px] font-bold">
                   بوابة الشريك والتاجر
                 </span>
 
                 <button
                   onClick={() => onToggleStoreStatus(userStore.id)}
-                  className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
                     userStore.status === "open"
-                      ? "bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20"
-                      : "bg-rose-500/10 text-rose-700 border border-rose-500/30 hover:bg-rose-500/20"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                      : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
                   }`}
                 >
-                  <span className="relative flex h-2 w-2">
-                    {userStore.status === "open" && (
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    )}
-                    <span
-                      className={`relative inline-flex rounded-full h-2 w-2 ${
-                        userStore.status === "open" ? "bg-emerald-500" : "bg-rose-500"
-                      }`}
-                    />
-                  </span>
-                  <span>{userStore.status === "open" ? "المتجر يستقبل طلبات حية" : "المتجر مغلق مؤقتاً"}</span>
+                  <span
+                    className={`inline-block rounded-full w-2 h-2 ${
+                      userStore.status === "open" ? "bg-emerald-500" : "bg-rose-500"
+                    }`}
+                  />
+                  <span>{userStore.status === "open" ? "يستقبل طلبات حية" : "مغلق مؤقتاً"}</span>
                 </button>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1.5">
+              <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight mt-1">
                 {userStore.name}
               </h1>
-              <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                <MapPin size={13} className="text-slate-400" />
+              <p className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                <MapPin size={12} className="text-slate-400" />
                 <span>{userStore.locationInDistrict}</span>
                 <span className="text-slate-300">•</span>
                 <span>المشرف: {currentProfile.fullName}</span>
@@ -310,23 +299,23 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             </div>
           </div>
 
-          {/* Apple-Style Segmented Capsule Control */}
+          {/* Clean Segmented Navigation Tabs */}
           <nav
             aria-label="أقسام لوحة التحكم"
-            className="bg-slate-100/90 backdrop-blur-xl p-1.5 rounded-[22px] border border-slate-200/70 inline-flex flex-wrap items-center gap-1 shadow-inner self-start md:self-center"
+            className="bg-slate-100 p-1 rounded-xl border border-slate-200 inline-flex flex-wrap items-center gap-1 self-start md:self-center"
           >
             <button
               onClick={() => setActiveTab("kitchen")}
-              className={`px-4 py-2.5 rounded-[16px] text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === "kitchen"
-                  ? "bg-white text-slate-950 shadow-[0_2px_8px_rgb(0,0,0,0.08)] scale-[1.02]"
+                  ? "bg-white text-slate-950 shadow-xs"
                   : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
               }`}
             >
-              <ChefHat size={15} className={activeTab === "kitchen" ? "text-orange-600" : "text-slate-400"} />
+              <ChefHat size={14} className={activeTab === "kitchen" ? "text-orange-600" : "text-slate-400"} />
               <span>تذاكر المطبخ</span>
               {activeKitchenOrders.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-orange-600 text-white">
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-orange-600 text-white">
                   {activeKitchenOrders.length}
                 </span>
               )}
@@ -334,91 +323,91 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 
             <button
               onClick={() => setActiveTab("menu")}
-              className={`px-4 py-2.5 rounded-[16px] text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === "menu"
-                  ? "bg-white text-slate-950 shadow-[0_2px_8px_rgb(0,0,0,0.08)] scale-[1.02]"
+                  ? "bg-white text-slate-950 shadow-xs"
                   : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
               }`}
             >
-              <Package size={15} className={activeTab === "menu" ? "text-indigo-600" : "text-slate-400"} />
+              <Package size={14} className={activeTab === "menu" ? "text-indigo-600" : "text-slate-400"} />
               <span>المنتجات والأسعار</span>
             </button>
 
             <button
               onClick={() => setActiveTab("accounting")}
-              className={`px-4 py-2.5 rounded-[16px] text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === "accounting"
-                  ? "bg-white text-slate-950 shadow-[0_2px_8px_rgb(0,0,0,0.08)] scale-[1.02]"
+                  ? "bg-white text-slate-950 shadow-xs"
                   : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
               }`}
             >
-              <BookOpen size={15} className={activeTab === "accounting" ? "text-emerald-600" : "text-slate-400"} />
+              <BookOpen size={14} className={activeTab === "accounting" ? "text-emerald-600" : "text-slate-400"} />
               <span>الحسابات والقيود</span>
             </button>
 
             <button
               onClick={() => setActiveTab("radar")}
-              className={`px-4 py-2.5 rounded-[16px] text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === "radar"
-                  ? "bg-white text-slate-950 shadow-[0_2px_8px_rgb(0,0,0,0.08)] scale-[1.02]"
+                  ? "bg-white text-slate-950 shadow-xs"
                   : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
               }`}
             >
-              <Navigation size={15} className={activeTab === "radar" ? "text-purple-600" : "text-slate-400"} />
+              <Navigation size={14} className={activeTab === "radar" ? "text-purple-600" : "text-slate-400"} />
               <span>رادار المناديب</span>
             </button>
           </nav>
         </div>
 
-        {/* Google Material 3 Tonal Metric Badges */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mt-6 pt-5 border-t border-slate-100">
-          <div className="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-100 flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-              <DollarSign size={20} />
-            </div>
+        {/* Compact KPI Metric Cards (Image 3 Style: 4 Cards) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100">
+          <div className="bg-slate-50/70 rounded-xl p-3 border border-slate-200/80 flex items-center justify-between">
             <div>
-              <span className="text-[11px] font-bold text-slate-400 block leading-none">إجمالي المبيعات</span>
-              <span className="text-lg font-black text-slate-900 font-mono mt-1 block">
+              <span className="text-[11px] font-bold text-slate-500 block">إجمالي المبيعات</span>
+              <span className="text-base font-black text-slate-900 font-mono mt-0.5 block">
                 {formatEGP(accountingSummary.grossSales)}
               </span>
             </div>
+            <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <DollarSign size={18} />
+            </div>
           </div>
 
-          <div className="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-100 flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
-              <ChefHat size={20} />
-            </div>
+          <div className="bg-slate-50/70 rounded-xl p-3 border border-slate-200/80 flex items-center justify-between">
             <div>
-              <span className="text-[11px] font-bold text-slate-400 block leading-none">طلبات قيد التجهيز</span>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-lg font-black text-orange-600">{activeKitchenOrders.length}</span>
-                <span className="text-[11px] text-slate-400 font-bold">تذكرة حالية</span>
+              <span className="text-[11px] font-bold text-slate-500 block">طلبات قيد التجهيز</span>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className="text-base font-black text-orange-600">{activeKitchenOrders.length}</span>
+                <span className="text-[10px] text-slate-400 font-bold">تذكرة حالية</span>
               </div>
             </div>
+            <div className="w-9 h-9 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+              <ChefHat size={18} />
+            </div>
           </div>
 
-          <div className="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-100 flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-              <Wallet size={20} />
-            </div>
+          <div className="bg-slate-50/70 rounded-xl p-3 border border-slate-200/80 flex items-center justify-between">
             <div>
-              <span className="text-[11px] font-bold text-slate-400 block leading-none">صافي أرباح التاجر</span>
-              <span className="text-lg font-black text-emerald-600 font-mono mt-1 block">
+              <span className="text-[11px] font-bold text-slate-500 block">صافي أرباح التاجر</span>
+              <span className="text-base font-black text-emerald-700 font-mono mt-0.5 block">
                 {formatEGP(accountingSummary.netPayout)}
               </span>
             </div>
+            <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <Wallet size={18} />
+            </div>
           </div>
 
-          <div className="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-100 flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-              <Award size={20} />
-            </div>
+          <div className="bg-slate-50/70 rounded-xl p-3 border border-slate-200/80 flex items-center justify-between">
             <div>
-              <span className="text-[11px] font-bold text-slate-400 block leading-none">تقييم الخدمة</span>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-lg font-black text-slate-900">★ {userStore.rating}</span>
-                <span className="text-[11px] text-slate-400">({userStore.ratingCount} تقييم)</span>
+              <span className="text-[11px] font-bold text-slate-500 block">تقييم الخدمة</span>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className="text-base font-black text-slate-900">★ {userStore.rating}</span>
+                <span className="text-[10px] text-slate-400">({userStore.ratingCount} تقييم)</span>
               </div>
+            </div>
+            <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+              <Award size={18} />
             </div>
           </div>
         </div>
@@ -978,3 +967,4 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
     </div>
   );
 };
+

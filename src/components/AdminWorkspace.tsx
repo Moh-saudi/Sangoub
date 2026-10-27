@@ -32,7 +32,7 @@ const sections = [
   { id: "visitors", label: "عدد الزوار", hint: "إجمالي زوار الموقع وزوار اليوم", icon: LayoutDashboard },
   { id: "content", label: "واجهة التطبيق والحملات", hint: "الأقسام والسلايدر والتشغيل", icon: PanelsTopLeft },
   { id: "coupons", label: "أكواد الخصم", hint: "قسائم خصم الطلبات", icon: TicketPercent },
-  { id: "users", group: "الحسابات والشراكات", label: "المستخدمون", hint: "العملاء والمناديب وفريق المتاجر", icon: UserRoundCog },
+  { id: "users", group: "الحسابات والتشغيل", label: "سجل المناديب والتجار والمستخدمين", hint: "الاعتماد والفحص الطبي والجنائي ولوكيشن GPS", icon: UserRoundCog },
   { id: "partners", label: "طلبات الشراكة", hint: "انضمام المتاجر والتعاقد", icon: Handshake },
   { id: "jobs", label: "طلبات التوظيف", hint: "المتقدمون والمقابلات", icon: Briefcase },
   { id: "audit", group: "الرقابة", label: "سجل التدقيق", hint: "التغييرات والمنفّذون", icon: ScrollText },
