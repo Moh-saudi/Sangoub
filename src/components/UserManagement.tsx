@@ -420,8 +420,8 @@ export function UserManagement({ stores }: { stores: Store[] }) {
 
   return (
     <section className="space-y-4 max-w-7xl mx-auto" aria-label="إدارة وسجل الحسابات" dir="rtl">
-      {/* 1. Header & Breadcrumbs (Image 3 Style: Compact & Concise) */}
-      <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs">
+      {/* 1. Header & Breadcrumbs (Image 3 Egyptian Cabinet Style: Compact & Crisp) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             {/* Breadcrumb */}
@@ -430,14 +430,14 @@ export function UserManagement({ stores }: { stores: Store[] }) {
               <span>&gt;</span>
               <span>إدارة المنظومة</span>
               <span>&gt;</span>
-              <span className="text-teal-700 font-bold">سجل المناديب والتجار</span>
+              <span className="text-teal-700 font-bold">سجل جهات التحضير والمناديب والتجار</span>
             </div>
 
             {/* Title & Subtitle */}
             <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-              سجل المناديب والتجار
+              سجل وإدارة جهات التحضير والمناديب والتجار
             </h1>
-            <p className="text-[11px] text-slate-500 mt-0.5">
+            <p className="text-[11.5px] text-slate-500 mt-0.5">
               إدارة وتصنيف المناديب والمتاجر، ومتابعة الفحص الطبي والجنائي وإحداثيات الموقع بدقة.
             </p>
           </div>
@@ -447,17 +447,17 @@ export function UserManagement({ stores }: { stores: Store[] }) {
             <button
               type="button"
               onClick={openCreateForm}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
             >
               <Plus size={15} />
-              <span>إضافة قيد جديد</span>
+              <span>+ إضافة قيد معتمد جديد</span>
             </button>
           </div>
         </div>
 
-        {/* Success / Alert Banner */}
+        {/* Success / Alert Banner (Exact Image 3 Style) */}
         {notice && (
-          <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200/80 text-emerald-800 rounded-lg text-xs font-medium flex items-center justify-between animate-fadeIn">
+          <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200/90 text-emerald-800 rounded-lg text-xs font-medium flex items-center justify-between animate-fadeIn">
             <div className="flex items-center gap-2">
               <Check size={15} className="text-emerald-600 shrink-0" />
               <span>{notice}</span>
@@ -477,60 +477,60 @@ export function UserManagement({ stores }: { stores: Store[] }) {
         )}
       </div>
 
-      {/* 2. KPI Summary Row (Compact & Concise) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+      {/* 2. KPI Summary Row (Exact Image 3 Proportions & Icons) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {/* Card 1: Total Users */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center justify-between shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
           <div>
             <p className="text-[11px] font-bold text-slate-500">إجمالي الحسابات</p>
-            <p className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">{kpiData.total}</p>
+            <p className="text-lg sm:text-xl font-black text-slate-900 mt-0.5">{kpiData.total}</p>
           </div>
-          <div className="w-8 h-8 rounded-full bg-cyan-50 text-cyan-700 flex items-center justify-center shrink-0">
-            <Building2 size={16} />
+          <div className="w-9 h-9 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+            <Building2 size={17} />
           </div>
         </div>
 
         {/* Card 2: Couriers */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center justify-between shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
           <div>
             <p className="text-[11px] font-bold text-slate-500">مناديب التوصيل</p>
-            <p className="text-base sm:text-lg font-bold text-amber-700 mt-0.5">{kpiData.couriers}</p>
+            <p className="text-lg sm:text-xl font-black text-amber-700 mt-0.5">{kpiData.couriers}</p>
           </div>
-          <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-            <Bike size={16} />
+          <div className="w-9 h-9 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <Bike size={17} />
           </div>
         </div>
 
         {/* Card 3: Merchants */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center justify-between shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
           <div>
             <p className="text-[11px] font-bold text-slate-500">المتاجر والشركاء</p>
-            <p className="text-base sm:text-lg font-bold text-emerald-700 mt-0.5">{kpiData.merchants}</p>
+            <p className="text-lg sm:text-xl font-black text-blue-700 mt-0.5">{kpiData.merchants}</p>
           </div>
-          <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <StoreIcon size={16} />
+          <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <StoreIcon size={17} />
           </div>
         </div>
 
         {/* Card 4: Employees */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center justify-between shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
           <div>
             <p className="text-[11px] font-bold text-slate-500">عملاء المنظومة</p>
-            <p className="text-base sm:text-lg font-bold text-purple-700 mt-0.5">{kpiData.employees}</p>
+            <p className="text-lg sm:text-xl font-black text-purple-700 mt-0.5">{kpiData.employees}</p>
           </div>
-          <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-            <Users size={16} />
+          <div className="w-9 h-9 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+            <Users size={17} />
           </div>
         </div>
 
         {/* Card 5: Verified & Active */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center justify-between shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
           <div>
-            <p className="text-[11px] font-bold text-slate-500">حسابات موثقة</p>
-            <p className="text-base sm:text-lg font-bold text-teal-700 mt-0.5">{kpiData.verified}</p>
+            <p className="text-[11px] font-bold text-slate-500">مفعلة ومعتمدة</p>
+            <p className="text-lg sm:text-xl font-black text-emerald-700 mt-0.5">{kpiData.verified}</p>
           </div>
-          <div className="w-8 h-8 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
-            <ShieldCheck size={16} />
+          <div className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <Check size={17} />
           </div>
         </div>
       </div>
@@ -944,15 +944,15 @@ export function UserManagement({ stores }: { stores: Store[] }) {
 
               <form id="user-mgmt-form" onSubmit={handleSubmit} className="space-y-4">
                 {/* Section A: Basic Account Credentials */}
-                <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-3">
-                  <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-4 space-y-3">
+                  <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 border-b border-slate-200/60 pb-2">
                     <UserCheck size={15} className="text-teal-700" />
                     <span>1. البيانات الأساسية ونوع الحساب</span>
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div>
-                      <label className="block text-slate-600 font-bold mb-1">اسم الحساب / الاسم بالكامل *</label>
+                      <label className="block text-slate-700 font-bold mb-1">اسم الحساب / الاسم بالكامل *</label>
                       <input
                         name="fullName"
                         required
@@ -965,7 +965,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                     </div>
 
                     <div>
-                      <label className="block text-slate-600 font-bold mb-1">نوع وتصنيف الحساب *</label>
+                      <label className="block text-slate-700 font-bold mb-1">نوع وتصنيف الحساب *</label>
                       <select
                         name="role"
                         value={formRole}
@@ -980,7 +980,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                     </div>
 
                     <div>
-                      <label className="block text-slate-600 font-bold mb-1">البريد الإلكتروني المعتمد *</label>
+                      <label className="block text-slate-700 font-bold mb-1">البريد الإلكتروني المعتمد *</label>
                       <input
                         name="email"
                         type="email"
@@ -994,7 +994,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                     </div>
 
                     <div>
-                      <label className="block text-slate-600 font-bold mb-1">رقم الهاتف الأساسي (واتساب) *</label>
+                      <label className="block text-slate-700 font-bold mb-1">رقم الهاتف الأساسي (واتساب) *</label>
                       <input
                         name="phone"
                         required
@@ -1008,7 +1008,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
 
                   {/* PROMINENT STORE SELECTOR: Shown right in Section 1 when role is Merchant / Restaurant */}
                   {formRole === 'restaurant' && (
-                    <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-emerald-50/70 p-2.5 rounded-lg border border-emerald-200">
+                    <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-emerald-50/70 p-3 rounded-lg border border-emerald-200">
                       <div>
                         <label className="block text-emerald-950 font-bold mb-1 flex items-center gap-1">
                           <StoreIcon size={14} className="text-emerald-700" />
@@ -1045,236 +1045,302 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                   )}
                 </div>
 
-                {/* Section B: Courier Full KYC Profile (When role is courier) */}
+                {/* Section B: Courier Full KYC Profile (Structured in 3 Clear Groups) */}
                 {formRole === 'courier' && (
-                  <div className="bg-amber-50/50 border border-amber-200/80 rounded-xl p-4 space-y-3">
+                  <div className="bg-amber-50/40 border border-amber-200/80 rounded-xl p-4 space-y-4">
                     <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
-                      <h3 className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                      <h3 className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
                         <Bike size={15} className="text-amber-700" />
                         <span>2. ملف التحقق والاعتماد الجنائي والطبي للمندوب (KYC كامل)</span>
                       </h3>
-                      <span className="text-[10px] bg-amber-200/70 text-amber-900 px-2 py-0.5 rounded-md font-bold">
+                      <span className="text-[10px] bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-md font-bold">
                         معايير السلامة والأمان
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">اسم الشهرة (المتداول)</label>
-                        <input
-                          name="nickname"
-                          maxLength={80}
-                          defaultValue={editingUser?.nickname}
-                          placeholder="مثال: كابتن النسر / أبو يوسف"
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        />
-                      </div>
+                    {/* Group 1: Personal & Contact */}
+                    <div className="space-y-2">
+                      <h4 className="text-[11px] font-bold text-slate-700">أ. بيانات الهوية والتواصل:</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">اسم الشهرة (المتداول)</label>
+                          <input
+                            name="nickname"
+                            maxLength={80}
+                            defaultValue={editingUser?.nickname}
+                            placeholder="مثال: كابتن النسر"
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">الرقم القومي (14 رقم بالكامل) *</label>
-                        <input
-                          name="nationalId"
-                          required
-                          maxLength={14}
-                          pattern="[0-9]{14}"
-                          defaultValue={editingUser?.nationalId}
-                          placeholder="29801011234567"
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white tracking-widest font-mono"
-                        />
-                      </div>
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">الرقم القومي (14 رقماً) *</label>
+                          <input
+                            name="nationalId"
+                            required
+                            maxLength={14}
+                            pattern="[0-9]{14}"
+                            defaultValue={editingUser?.nationalId}
+                            placeholder="29801011234567"
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white tracking-widest font-mono"
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">هاتف الطوارئ (قريب / مرجع) *</label>
-                        <input
-                          name="emergencyPhone"
-                          required
-                          maxLength={30}
-                          defaultValue={editingUser?.emergencyPhone}
-                          placeholder="01298765432"
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        />
-                      </div>
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">هاتف الطوارئ (قريب / مرجع) *</label>
+                          <input
+                            name="emergencyPhone"
+                            required
+                            maxLength={30}
+                            defaultValue={editingUser?.emergencyPhone}
+                            placeholder="01298765432"
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">حالة الاعتماد التشغيلي</label>
-                        <select
-                          name="courierStatus"
-                          defaultValue={editingUser?.courierStatus || 'active'}
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
-                        >
-                          <option value="active">نشط ومتاح لاستقبال الطلبات</option>
-                          <option value="pending">قيد الفحص والتوثيق الأمني</option>
-                          <option value="suspended">موقوف مؤقتاً</option>
-                        </select>
-                      </div>
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">حالة الاعتماد التشغيلي</label>
+                          <select
+                            name="courierStatus"
+                            defaultValue={editingUser?.courierStatus || 'active'}
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
+                          >
+                            <option value="active">نشط ومتاح لاستقبال الطلبات</option>
+                            <option value="pending">قيد الفحص والتوثيق الأمني</option>
+                            <option value="suspended">موقوف مؤقتاً</option>
+                          </select>
+                        </div>
 
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">العنوان الحالي الفعلي *</label>
-                        <input
-                          name="currentAddress"
-                          required
-                          maxLength={200}
-                          defaultValue={editingUser?.currentAddress}
-                          placeholder="الشارع والمنطقة الحالية"
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        />
-                      </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-slate-600 font-bold mb-1">العنوان الحالي الفعلي *</label>
+                          <input
+                            name="currentAddress"
+                            required
+                            maxLength={200}
+                            defaultValue={editingUser?.currentAddress}
+                            placeholder="الشارع والمنطقة السكنية الحالية"
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">العنوان المسجل بالبطاقة *</label>
-                        <input
-                          name="idCardAddress"
-                          required
-                          maxLength={200}
-                          defaultValue={editingUser?.idCardAddress}
-                          placeholder="العنوان المدون ببطاقة الرقم القومي"
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">وسيلة التوصيل المعتمدة *</label>
-                        <select
-                          name="vehicleType"
-                          value={formVehicleType}
-                          onChange={(e) => setFormVehicleType(e.target.value)}
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
-                        >
-                          <option value="motorcycle">دراجة نارية (موتسيكل)</option>
-                          <option value="bicycle">دراجة هوائية (عجلة)</option>
-                          <option value="car">سيارة نقل / ملاكي</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">الماركة والموديل وسنة الصنع</label>
-                        <input
-                          name="vehicleModel"
-                          maxLength={60}
-                          defaultValue={editingUser?.vehicleModel}
-                          placeholder="مثال: دايون 4 موديل 2024 / بجاج"
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">رقم لوحة المركبة (أرقام وحروف)</label>
-                        <input
-                          name="vehiclePlate"
-                          maxLength={30}
-                          defaultValue={editingUser?.vehiclePlate}
-                          placeholder="مثال: س ع ق 1 9 4"
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">رقم رخصة القيادة</label>
-                        <input
-                          name="drivingLicenseNumber"
-                          maxLength={60}
-                          defaultValue={editingUser?.drivingLicenseNumber}
-                          placeholder="رقم الرخصة المسجل بالمرور"
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">تاريخ انتهاء رخصة القيادة</label>
-                        <input
-                          name="licenseExpiryDate"
-                          type="date"
-                          defaultValue={editingUser?.licenseExpiryDate}
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">فحص تحليل المخدرات *</label>
-                        <select
-                          name="drugTestStatus"
-                          defaultValue={editingUser?.drugTestStatus || 'passed'}
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        >
-                          <option value="passed">معتمد وسلبي (خالٍ من المواد المخدرة) ✓</option>
-                          <option value="pending">قيد إجراء الفحص المعملي ⏳</option>
-                          <option value="failed">غير لائق / إيجابي ✕</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">تاريخ إجراء فحص المخدرات</label>
-                        <input
-                          name="drugTestDate"
-                          type="date"
-                          defaultValue={editingUser?.drugTestDate}
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">شهادة الفيش الجنائي (صحيفة الحالة) *</label>
-                        <select
-                          name="criminalRecordStatus"
-                          defaultValue={editingUser?.criminalRecordStatus || 'passed'}
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        >
-                          <option value="passed">سليم وخالٍ من السوابق والأحكام ✓</option>
-                          <option value="pending">قيد استخراج الصحيفة ⏳</option>
-                          <option value="failed">توجد سوابق / غير مقبول ✕</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">تاريخ استخراج الفيش الجنائي</label>
-                        <input
-                          name="criminalRecordDate"
-                          type="date"
-                          defaultValue={editingUser?.criminalRecordDate}
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        />
+                        <div className="sm:col-span-2">
+                          <label className="block text-slate-600 font-bold mb-1">العنوان المسجل ببطاقة الرقم القومي *</label>
+                          <input
+                            name="idCardAddress"
+                            required
+                            maxLength={200}
+                            defaultValue={editingUser?.idCardAddress}
+                            placeholder="العنوان الرسمي المدون بالبطاقة"
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    {/* Equipment Checkboxes */}
-                    <div className="pt-2 border-t border-amber-200/50 flex flex-wrap items-center gap-6 text-slate-800">
-                      <label className="flex items-center gap-2 cursor-pointer font-bold">
-                        <input
-                          type="checkbox"
-                          name="hasThermalBox"
-                          defaultChecked={editingUser?.hasThermalBox ?? true}
-                          className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
-                        />
-                        <span>هل الموتسيكل مجهز بصندوق عازل حراري لحفظ سخونة وجودة الأطعمة؟</span>
-                      </label>
+                    {/* Group 2: Vehicle & Equipment */}
+                    <div className="space-y-2 pt-2 border-t border-amber-200/60">
+                      <h4 className="text-[11px] font-bold text-slate-700">ب. المركبة ورخصة القيادة:</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">وسيلة التوصيل المعتمدة *</label>
+                          <select
+                            name="vehicleType"
+                            value={formVehicleType}
+                            onChange={(e) => setFormVehicleType(e.target.value)}
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
+                          >
+                            <option value="motorcycle">دراجة نارية (موتسيكل)</option>
+                            <option value="bicycle">دراجة هوائية (عجلة)</option>
+                            <option value="car">سيارة نقل / ملاكي</option>
+                          </select>
+                        </div>
 
-                      <label className="flex items-center gap-2 cursor-pointer font-bold">
-                        <input
-                          type="checkbox"
-                          name="hasThermalBackpack"
-                          defaultChecked={editingUser?.hasThermalBackpack ?? false}
-                          className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
-                        />
-                        <span>هل العجلة / الدراجة مجهزة بشنطة ظهر حرارية عازلة؟</span>
-                      </label>
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">الماركة والموديل وسنة الصنع</label>
+                          <input
+                            name="vehicleModel"
+                            maxLength={60}
+                            defaultValue={editingUser?.vehicleModel}
+                            placeholder="مثال: دايون 4 موديل 2024"
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">رقم لوحة المركبة</label>
+                          <input
+                            name="vehiclePlate"
+                            maxLength={30}
+                            defaultValue={editingUser?.vehiclePlate}
+                            placeholder="مثال: س ع ق 1 9 4"
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">رقم رخصة القيادة</label>
+                          <input
+                            name="drivingLicenseNumber"
+                            maxLength={60}
+                            defaultValue={editingUser?.drivingLicenseNumber}
+                            placeholder="رقم الرخصة بالمرور"
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">تاريخ انتهاء رخصة القيادة</label>
+                          <input
+                            name="licenseExpiryDate"
+                            type="date"
+                            defaultValue={editingUser?.licenseExpiryDate}
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Equipment Checkboxes */}
+                      <div className="pt-2 flex flex-wrap items-center gap-6 text-slate-800">
+                        <label className="flex items-center gap-2 cursor-pointer font-bold">
+                          <input
+                            type="checkbox"
+                            name="hasThermalBox"
+                            defaultChecked={editingUser?.hasThermalBox ?? true}
+                            className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+                          />
+                          <span>هل الموتسيكل مجهز بصندوق عازل حراري لحفظ سخونة وجودة الأطعمة؟</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer font-bold">
+                          <input
+                            type="checkbox"
+                            name="hasThermalBackpack"
+                            defaultChecked={editingUser?.hasThermalBackpack ?? false}
+                            className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+                          />
+                          <span>هل العجلة / الدراجة مجهزة بشنطة ظهر حرارية عازلة؟</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Group 3: Medical & Criminal KYC */}
+                    <div className="space-y-2 pt-2 border-t border-amber-200/60">
+                      <h4 className="text-[11px] font-bold text-slate-700">ج. الفحص الجنائي والطبي (KYC):</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">فحص تحليل المخدرات *</label>
+                          <select
+                            name="drugTestStatus"
+                            defaultValue={editingUser?.drugTestStatus || 'passed'}
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
+                          >
+                            <option value="passed">معتمد وسلبي (خالٍ من المواد المخدرة) ✓</option>
+                            <option value="pending">قيد إجراء الفحص المعملي ⏳</option>
+                            <option value="failed">غير لائق / إيجابي ✕</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">تاريخ إجراء فحص المخدرات</label>
+                          <input
+                            name="drugTestDate"
+                            type="date"
+                            defaultValue={editingUser?.drugTestDate}
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">شهادة الفيش الجنائي (صحيفة الحالة) *</label>
+                          <select
+                            name="criminalRecordStatus"
+                            defaultValue={editingUser?.criminalRecordStatus || 'passed'}
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
+                          >
+                            <option value="passed">سليم وخالٍ من السوابق والأحكام ✓</option>
+                            <option value="pending">قيد استخراج الصحيفة ⏳</option>
+                            <option value="failed">توجد سوابق / غير مقبول ✕</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-1">تاريخ استخراج الفيش الجنائي</label>
+                          <input
+                            name="criminalRecordDate"
+                            type="date"
+                            defaultValue={editingUser?.criminalRecordDate}
+                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* Section C: Merchant & High-Precision Location (When role is restaurant) */}
+                {/* Section C: Merchant & High-Precision Location (Clean & Balanced) */}
                 {formRole === 'restaurant' && (
-                  <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-4 space-y-3">
+                  <div className="bg-emerald-50/40 border border-emerald-200/80 rounded-xl p-4 space-y-3.5">
                     <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
                       <h3 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
                         <MapPin size={15} className="text-emerald-700" />
                         <span>2. بيانات الموقع الجغرافي الدقيق للتاجر (GPS High-Precision)</span>
                       </h3>
-                      <span className="text-[10px] bg-emerald-200/70 text-emerald-900 px-2 py-0.5 rounded-md font-bold">
+                      <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-md font-bold">
                         دقة 6 أرقام عشرية لحساب المسافات
                       </span>
                     </div>
 
+                    {/* GPS Actions Bar */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleDetectGps}
+                        disabled={gpsDetecting || geocoding}
+                        className="h-9 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <MapPin size={15} />
+                        <span>{gpsDetecting ? 'جارٍ قراءة GPS بدقة...' : geocoding ? 'جارٍ استخراج العنوان التفصيلي...' : '📍 جلب اللوكيشن الفعلي عبر GPS الآن'}</span>
+                      </button>
+
+                      {formLatitude && formLongitude && (
+                        <a
+                          href={`https://maps.google.com/?q=${formLatitude},${formLongitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="h-9 px-3.5 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors"
+                        >
+                          <ExternalLink size={14} />
+                          <span>معاينة على الخريطة</span>
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Coordinates & Coverage */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">خط العرض (Latitude) بدقة 6 خانات *</label>
+                        <input
+                          name="latitude"
+                          value={formLatitude}
+                          onChange={(e) => setFormLatitude(e.target.value)}
+                          placeholder="30.013056"
+                          required
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-mono dir-ltr"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">خط الطول (Longitude) بدقة 6 خانات *</label>
+                        <input
+                          name="longitude"
+                          value={formLongitude}
+                          onChange={(e) => setFormLongitude(e.target.value)}
+                          placeholder="31.705278"
+                          required
+                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-mono dir-ltr"
+                        />
+                      </div>
+
                       <div>
                         <label className="block text-slate-700 font-bold mb-1">نصف قطر التغطية (كم)</label>
                         <input
@@ -1301,106 +1367,57 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                           <option value="car">سيارة نقل للطلبات الكبيرة (&gt; 8 كم)</option>
                         </select>
                       </div>
+                    </div>
 
-                      {/* High Precision GPS Coordinates */}
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">خط العرض (Latitude) بدقة 6 خانات *</label>
+                    {/* Detailed Physical Address (Auto Geocoded) */}
+                    <div className="bg-white/95 p-3 rounded-xl border border-emerald-300/80 shadow-2xs space-y-1.5">
+                      <label className="block text-slate-800 font-bold flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <MapPin size={14} className="text-emerald-700" />
+                          <span>العنوان التفصيلي للمقر / المتجر (يُكتب تلقائياً عند جلب اللوكيشن ويُسجل بقاعدة البيانات) *</span>
+                        </span>
+                        {geocoding && (
+                          <span className="text-[10px] text-teal-700 font-bold animate-pulse flex items-center gap-1">
+                            <RefreshCw size={11} className="animate-spin" />
+                            <span>جارٍ استخراج العنوان من الخرائط...</span>
+                          </span>
+                        )}
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <input
-                          name="latitude"
-                          value={formLatitude}
-                          onChange={(e) => setFormLatitude(e.target.value)}
-                          placeholder="30.013056"
+                          name="locationAddress"
+                          value={formAddress}
+                          onChange={(e) => setFormAddress(e.target.value)}
+                          placeholder="مثال: مبنى وزارة الصحة والسكان، ميدان 4، الحي الحكومي، العاصمة الإدارية الجديدة، مصر"
                           required
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-mono dir-ltr"
+                          className="flex-1 h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:border-emerald-600 focus:outline-none"
                         />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">خط الطول (Longitude) بدقة 6 خانات *</label>
-                        <input
-                          name="longitude"
-                          value={formLongitude}
-                          onChange={(e) => setFormLongitude(e.target.value)}
-                          placeholder="31.705278"
-                          required
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-mono dir-ltr"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-4 flex items-center gap-2 pt-1">
                         <button
                           type="button"
-                          onClick={handleDetectGps}
-                          disabled={gpsDetecting || geocoding}
-                          className="h-9 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                          onClick={handleManualReverseGeocode}
+                          disabled={geocoding || !formLatitude || !formLongitude}
+                          title="إعادة استخراج العنوان من الإحداثيات الحالية"
+                          className="h-9 px-3 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40 cursor-pointer shrink-0"
                         >
-                          <MapPin size={15} />
-                          <span>{gpsDetecting ? 'جارٍ قراءة GPS بدقة عالية...' : geocoding ? 'جارٍ استخراج العنوان التفصيلي...' : '📍 جلب اللوكيشن الفعلي عبر GPS الآن'}</span>
+                          <RefreshCw size={12} className={geocoding ? 'animate-spin' : ''} />
+                          <span>استخراج من الإحداثيات</span>
                         </button>
-
-                        {formLatitude && formLongitude && (
-                          <a
-                            href={`https://maps.google.com/?q=${formLatitude},${formLongitude}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="h-9 px-3 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors"
-                          >
-                            <ExternalLink size={14} />
-                            <span>معاينة على الخريطة</span>
-                          </a>
-                        )}
                       </div>
-
-                      {/* Detailed Physical Address Input */}
-                      <div className="sm:col-span-4 bg-white/90 p-3 rounded-xl border border-emerald-300/80 shadow-2xs space-y-1.5">
-                        <label className="block text-slate-800 font-bold flex items-center justify-between text-xs">
-                          <span className="flex items-center gap-1.5">
-                            <MapPin size={14} className="text-emerald-700" />
-                            <span>العنوان التفصيلي للمقر / المتجر (يُكتب تلقائياً عند جلب اللوكيشن ويُسجل بقاعدة البيانات) *</span>
-                          </span>
-                          {geocoding && (
-                            <span className="text-[10px] text-teal-700 font-bold animate-pulse flex items-center gap-1">
-                              <RefreshCw size={11} className="animate-spin" />
-                              <span>جارٍ استخراج العنوان من الخرائط...</span>
-                            </span>
-                          )}
-                        </label>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input
-                            name="locationAddress"
-                            value={formAddress}
-                            onChange={(e) => setFormAddress(e.target.value)}
-                            placeholder="مثال: مبنى وزارة الصحة والسكان، ميدان 4، الحي الحكومي، العاصمة الإدارية الجديدة، مصر"
-                            required
-                            className="flex-1 h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:border-emerald-600 focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleManualReverseGeocode}
-                            disabled={geocoding || !formLatitude || !formLongitude}
-                            title="إعادة استخراج العنوان من الإحداثيات الحالية"
-                            className="h-9 px-3 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40 cursor-pointer shrink-0"
-                          >
-                            <RefreshCw size={12} className={geocoding ? 'animate-spin' : ''} />
-                            <span>استخراج من الإحداثيات</span>
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-slate-500 flex items-center gap-1">
-                          <Check size={12} className="text-emerald-600 shrink-0" />
-                          <span>يُسجل هذا العنوان التفصيلي في قاعدة بيانات المتجر وحساب التاجر لحساب المسافة وتوجيه المندوب والعميل بدقة.</span>
-                        </p>
-                      </div>
+                      <p className="text-[10px] text-slate-500 flex items-center gap-1">
+                        <Check size={12} className="text-emerald-600 shrink-0" />
+                        <span>يُسجل هذا العنوان التفصيلي في قاعدة بيانات المتجر وحساب التاجر لحساب المسافة وتوجيه المندوب والعميل بدقة.</span>
+                      </p>
                     </div>
 
                     {gpsError && (
                       <p className="text-xs text-rose-600 bg-rose-50 p-2 rounded-md font-medium">{gpsError}</p>
                     )}
 
-                    {/* Smart Dispatching Algorithm Note */}
-                    <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200 text-[11px] text-emerald-900 flex items-start gap-2">
-                      <Navigation size={15} className="text-emerald-700 shrink-0 mt-0.5" />
+                    {/* Concise Haversine Dispatch Note */}
+                    <div className="bg-white/80 p-2 rounded-lg border border-emerald-200 text-[11px] text-emerald-900 flex items-center gap-2">
+                      <Navigation size={14} className="text-emerald-700 shrink-0" />
                       <p>
-                        <strong>خوارزمية الإسناد الذكي:</strong> يتم احتساب المسافة الدقيقة بصيغة Haversine بين المتجر والمندوب والعميل لحظياً. للمسافات الأقل من 2 كم ترشح الدراجات الهوائية، ومن 2 إلى 8 كم ترشح الموتسيكلات المزودة بصندوق حراري عازل للحفاظ على معايير سخونة الوجبات.
+                        <strong>خوارزمية الإسناد الذكي:</strong> احتساب المسافة الدقيقة بصيغة Haversine بين المتجر والمندوب والعميل لحظياً لتحديد وسيلة التوصيل الأنسب.
                       </p>
                     </div>
                   </div>
