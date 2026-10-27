@@ -1,6 +1,7 @@
 import React from 'react';
 import { BRAND } from '../../brand';
 import { useStore } from '../context/StoreContext';
+import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import { Truck, ShieldCheck, Clock, Phone } from 'lucide-react';
 
 export const StoreFooter: React.FC = () => {
@@ -19,15 +20,15 @@ export const StoreFooter: React.FC = () => {
         <div className="flex items-center justify-around py-2.5 border-b border-white/10 text-[11px] text-[#aaa] flex-wrap gap-2">
           <div className="flex items-center gap-1.5">
             <Truck size={14} className="text-[#FF5900]" />
-            <span>توصيل سريع وموثوق لأي مكان</span>
+            <span>توصيل سريع وموثوق داخل {LAUNCH_CONFIG.serviceAreaLabel}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Clock size={14} className="text-[#FF5900]" />
-            <span>تسليم منتظم في 15-25 دقيقة</span>
+            <span>توصيل مباشر لحد بابك</span>
           </div>
           <div className="flex items-center gap-1.5">
             <ShieldCheck size={14} className="text-[#FF5900]" />
-            <span>متاجر معتمدة وأسعار مطابقة 100%</span>
+            <span>أصناف ومقاضي طازجة ومختارة بعناية</span>
           </div>
         </div>
 
@@ -68,9 +69,9 @@ export const StoreFooter: React.FC = () => {
             </a>
           </div>
 
-          {/* Copyright */}
+          {/* Copyright & Entity */}
           <div className="text-[10px] text-[#777]">
-            © {new Date().getFullYear()} سنجوب (Sangoub). جميع الحقوق محفوظة.
+            © {new Date().getFullYear()} سنجوب (Sangoub) - {LAUNCH_CONFIG.entityLine}
           </div>
 
         </div>

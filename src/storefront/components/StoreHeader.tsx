@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { BRAND } from '../../brand';
+import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import { 
   Search, 
   ShoppingBag, 
@@ -141,7 +142,7 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
                 <input
                   type="search"
                   className="w-full bg-transparent text-xs sm:text-sm text-[#111827] placeholder-[#9CA3AF] px-2 py-1 outline-none"
-                  placeholder="ابحث عن مطعم، بقالة، صيدلية، أو وجبة..."
+                  placeholder="ابحث عن صنف أو بقالة…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   aria-label="بحث في المتجر"
@@ -252,7 +253,7 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
                 </span>
               </div>
               <span className="text-[10px] text-[#6B7280] flex items-center gap-1 shrink-0">
-                <span>{serviceArea.deliveryTime}</span>
+                {LAUNCH_CONFIG.showEta && <span>{serviceArea.deliveryTime}</span>}
                 <ChevronDown size={12} />
               </span>
             </button>
@@ -263,7 +264,7 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
               <input
                 type="search"
                 className="w-full bg-transparent text-xs text-[#111827] placeholder-[#9CA3AF] px-2 py-1 outline-none"
-                placeholder="ابحث عن مطعم أو وجبة..."
+                placeholder="ابحث عن صنف أو بقالة…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="بحث"

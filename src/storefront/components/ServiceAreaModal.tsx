@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore, type ServiceArea } from '../context/StoreContext';
 import { cleanDisplayAddress } from '../../utils/orderCalculations';
+import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -249,7 +250,7 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
     const dynamicArea: ServiceArea = {
       id: `map_${Date.now()}`,
       name: finalAddress,
-      deliveryTime: '20-30 دقيقة',
+      deliveryTime: LAUNCH_CONFIG.showEta ? '20-30 دقيقة' : '',
       active: true,
       latitude: currentCoords.lat,
       longitude: currentCoords.lng,

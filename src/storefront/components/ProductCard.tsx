@@ -2,6 +2,7 @@ import React from 'react';
 import type { Product } from '../../types';
 import { useStore } from '../context/StoreContext';
 import { formatEGP } from '../../utils/orderCalculations';
+import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import { Plus, Minus, Heart, ShoppingBag, Clock, Star } from 'lucide-react';
 
 interface ProductCardProps {
@@ -119,10 +120,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }
           </h3>
 
           {/* Delivery speed / Prep pill */}
-          <div className="flex items-center gap-1.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 w-fit px-1.5 py-0.5 rounded mb-1.5">
-            <Clock size={10} />
-            <span>15-25 دقيقة</span>
-          </div>
+          {LAUNCH_CONFIG.showEta && (
+            <div className="flex items-center gap-1.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 w-fit px-1.5 py-0.5 rounded mb-1.5">
+              <Clock size={10} />
+              <span>15-25 دقيقة</span>
+            </div>
+          )}
         </div>
 
         {/* Price & Action Row */}

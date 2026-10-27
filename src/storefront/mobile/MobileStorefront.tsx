@@ -4,6 +4,7 @@ import { ProductModal } from '../components/ProductModal';
 import { CartCheckoutModal } from '../components/CartCheckoutModal';
 import { SangoubAuthModal } from '../components/SangoubAuthModal';
 import { formatEGP } from '../../utils/orderCalculations';
+import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import type { Product } from '../../types';
 import {
   MapPin,
@@ -57,7 +58,7 @@ const TALABAT_MOBILE_SERVICES = [
   {
     id: 'mart',
     name: 'سنجوب بقالة',
-    badge: '20 دقيقة ⚡',
+    badge: 'طازج',
     badgeColor: 'bg-[#059669]',
     bgColor: 'bg-[#ECFDF5]',
     textColor: 'text-[#059669]',
@@ -189,7 +190,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
       id: 1,
       tag: 'أسرع توصيل طلبات',
       title: 'سنجوب يوصلك لحد باب بيتك أو مكتبك 🐿️',
-      desc: 'خدمة التوصيل السريع لطلبك في 15-25 دقيقة أينما كنت.',
+      desc: `خدمة التوصيل السريع لمقاضيك داخل ${LAUNCH_CONFIG.serviceAreaLabel}.`,
       btnText: 'اطلب الآن',
       badgeColor: '#FF5900',
       bgGradient: 'linear-gradient(135deg, #131921 0%, #1F2937 100%)',
@@ -197,19 +198,19 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     },
     {
       id: 2,
-      tag: 'فطور الصباح الساخن',
-      title: 'قهوة وفطور طازج لبداية يوم مميز ☕',
-      desc: 'ساندوتشات ومخبوزات ومشروبات ساخنة بأعلى جودة.',
-      btnText: 'عروض الفطور',
+      tag: 'مقاضي طازجة يومياً',
+      title: 'سنجوب بقالة ومقاضي البيت لحد بابك 🛒',
+      desc: 'ألبان ومياه وسناكس ومستلزماتك اليومية بجودة عالية.',
+      btnText: 'تسوق البقالة',
       badgeColor: '#E65100',
       bgGradient: 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 100%)',
       mascotImg: '/assets/sangoub/mascot-delivery.png',
     },
     {
       id: 3,
-      tag: 'بقالة في 20د',
+      tag: 'بقالة ومقاضي البيت',
       title: 'سنجوب بقالة ومقاضي البيت السريعة 🛒',
-      desc: 'ألبان ومياه وسناكس ومستلزماتك بأسرع توصيل.',
+      desc: 'مشروبات ومقرمشات ومستلزمات البيت لحد بابك.',
       btnText: 'تسوق البقالة',
       badgeColor: '#059669',
       bgGradient: 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)',
@@ -337,7 +338,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ابحث في سنجوب عن مطعم أو وجبة..."
+            placeholder="ابحث عن صنف أو بقالة…"
             className="w-full bg-transparent text-xs text-[#111827] placeholder-[#9CA3AF] outline-none"
             aria-label="بحث في سنجوب"
           />
@@ -452,7 +453,9 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
 
           {/* Smooth Horizontal Touch Scroll of Categories (With Top Padding to prevent badge clipping) */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-3.5 pb-1 -mx-3.5 px-3.5">
-            {TALABAT_MOBILE_SERVICES.map((serv) => {
+            {TALABAT_MOBILE_SERVICES.filter((serv) =>
+              LAUNCH_CONFIG.enabledCategories.length === 0 || LAUNCH_CONFIG.enabledCategories.includes(serv.id)
+            ).map((serv) => {
               const Icon = serv.icon;
               const isSelected = selectedCategory === serv.query;
 
@@ -522,7 +525,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             <div className="flex items-center justify-between px-1 mb-2">
               <h2 id="mobile-flash-deals" className="text-xs font-black text-[#111827] flex items-center gap-1">
                 <Flame size={15} className="text-[#FF5900]" />
-                <span>عروض التوفير الحصرية 🔥</span>
+                <span>الأكثر طلباً ومقاضي اليوم ⭐</span>
               </h2>
               <button
                 type="button"
@@ -556,16 +559,20 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                             (e.currentTarget as HTMLImageElement).src = '/assets/sangoub/sangoub-favicon.png';
                           }}
                         />
-                        <span className="absolute top-1 right-1 bg-[#EF4444] text-white text-[8px] font-black px-1.5 py-0.2 rounded-md">
-                          خصم
-                        </span>
+                        {product.originalPrice && product.originalPrice > product.price && (
+                          <span className="absolute top-1 right-1 bg-[#EF4444] text-white text-[8px] font-black px-1.5 py-0.2 rounded-md">
+                            خصم
+                          </span>
+                        )}
                       </div>
                       <h3 className="text-[11px] font-black text-[#111827] line-clamp-1 mb-0.5">
                         {product.name}
                       </h3>
-                      <p className="text-[9px] text-[#6B7280] truncate mb-1">
-                        {product.storeName}
-                      </p>
+                      {!LAUNCH_CONFIG.hideMerchantNames && (
+                        <p className="text-[9px] text-[#6B7280] truncate mb-1">
+                          {product.storeName}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between pt-1 border-t border-[#F3F4F6]">
@@ -820,6 +827,11 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           )}
         </section>
 
+        {/* Soft Launch Entity Line */}
+        <div className="text-center py-4 text-[9.5px] text-[#9CA3AF] font-bold">
+          {LAUNCH_CONFIG.entityLine}
+        </div>
+
       </main>
 
       {/* ══════════════════════════════════════════════════════════════
@@ -878,7 +890,9 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
               </p>
               <p className="text-[10px] text-gray-300">
-                وقت الوصول التقديري: {activeOrder.time || '15-25 دقيقة'}
+                {LAUNCH_CONFIG.showEta
+                  ? `وقت الوصول التقديري: ${activeOrder.time || '15-25 دقيقة'}`
+                  : 'حالة الطلب: قيد التوصيل والمتابعة'}
               </p>
             </div>
           </div>

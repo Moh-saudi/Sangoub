@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { formatEGP } from '../../utils/orderCalculations';
 import { BRAND } from '../../brand';
+import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -30,8 +31,9 @@ export interface TrackableOrder {
   destination: string;
   destinationCoords?: { lat: number; lng: number };
   time: string;
-  paymentMethod: 'cash' | 'instapay' | 'card' | 'wallet';
+  paymentMethod: 'cash' | 'instapay' | 'vodafone_cash' | 'card' | 'wallet';
   instapayRef?: string;
+  receiptUrl?: string;
   notes?: string;
   items?: Array<{
     name: string;
@@ -240,7 +242,11 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-[#6B7280]">
-                وقت الوصول المتوقع: <strong className="text-[#FF5900] font-black">{order.time || '15-25 دقيقة'}</strong>
+                {LAUNCH_CONFIG.showEta ? (
+                  <>وقت الوصول المتوقع: <strong className="text-[#FF5900] font-black">{order.time || '15-25 دقيقة'}</strong></>
+                ) : (
+                  <>حالة الطلب: <strong className="text-[#FF5900] font-black">جاري التجهيز والتوصيل</strong></>
+                )}
               </p>
             </div>
           </div>

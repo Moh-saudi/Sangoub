@@ -9,6 +9,7 @@ import { SangoubAuthModal } from './components/SangoubAuthModal';
 import { OrderTrackingModal, type TrackableOrder } from './components/OrderTrackingModal';
 import { HomePage } from './pages/HomePage';
 import { MobileStorefront } from './mobile/MobileStorefront';
+import { LAUNCH_CONFIG } from '../config/launchConfig';
 
 /**
  * Hook to detect viewport width changes in real time
@@ -76,7 +77,7 @@ const StorefrontRouter: React.FC = () => {
             lat: serviceArea.latitude || 30.1258,
             lng: serviceArea.longitude || 31.6033,
           },
-          time: '15-25 دقيقة',
+          time: LAUNCH_CONFIG.showEta ? '15-25 دقيقة' : '',
           paymentMethod: 'instapay',
           notes: 'يرجى الاتصال عند الوصول',
           items: [

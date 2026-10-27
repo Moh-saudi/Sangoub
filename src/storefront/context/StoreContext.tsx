@@ -3,6 +3,7 @@ import type { Product, Store, CartItem, Coupon, Profile } from '../../types';
 import { INITIAL_PRODUCTS, INITIAL_STORES } from '../../data/seedData';
 import { BRAND } from '../../brand';
 import { calculateCartSubtotal, calculateOrderTotal, applyCouponDiscount, cleanDisplayAddress } from '../../utils/orderCalculations';
+import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import { watchCollection, auth, db, signOutFromFirebase } from '../../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { limit, where, doc, getDoc } from 'firebase/firestore';
@@ -112,8 +113,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     return {
       id: 'default_map',
-      name: 'شارع المهندس ابراهيم عثمان، الشروق',
-      deliveryTime: '20-30 دقيقة',
+      name: LAUNCH_CONFIG.serviceAreaLabel,
+      deliveryTime: LAUNCH_CONFIG.showEta ? '20-30 دقيقة' : '',
       active: true,
     };
   });
@@ -203,7 +204,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
 
   const subtotal = useMemo(() => calculateCartSubtotal(cartItems), [cartItems]);
-  const deliveryFee = cartItems.length > 0 ? 15 : 0;
+  const deliveryFee = cartItems.length > 0 ? LAUNCH_CONFIG.deliveryFee : 0;
   const couponResult = useMemo(() => applyCouponDiscount(subtotal, appliedCoupon), [subtotal, appliedCoupon]);
   const discount = couponResult.discount;
   const total = useMemo(() => calculateOrderTotal(subtotal, deliveryFee, discount, 0), [subtotal, deliveryFee, discount]);

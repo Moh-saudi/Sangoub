@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
+import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import {
   auth,
   db,
@@ -159,7 +160,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
         setServiceArea({
           id: `addr_${uid}`,
           name: profileData.ministry,
-          deliveryTime: '20-30 دقيقة',
+          deliveryTime: LAUNCH_CONFIG.showEta ? '20-30 دقيقة' : '',
           active: true,
         });
       }
@@ -200,8 +201,8 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
       return;
     }
 
-    if (!cleanPhone || cleanPhone.length < 10) {
-      setError('يرجى كتابة رقم هاتف صحيح (11 رقم للتواصل).');
+    if (!cleanPhone || !/^(\+20|0)?1[0125][0-9]{8}$/.test(cleanPhone)) {
+      setError('يرجى كتابة رقم هاتف مصري صحيح (مثال: 01012345678).');
       setBusy(false);
       return;
     }
@@ -257,7 +258,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
         setServiceArea({
           id: `addr_${uid}`,
           name: cleanAddress,
-          deliveryTime: '20-30 دقيقة',
+          deliveryTime: LAUNCH_CONFIG.showEta ? '20-30 دقيقة' : '',
           active: true,
         });
       }
@@ -287,6 +288,9 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
       const profile = await signInWithFirebaseGoogle({
         ministry: serviceArea.name,
       });
+      if (profile.fullName && /platform|el7lm|admin|system/i.test(profile.fullName)) {
+        profile.fullName = 'عميل سنجوب';
+      }
       setUser(profile);
       setSuccessNotice('تم تسجيل الدخول عبر Google بنجاح 🐿️');
       setTimeout(() => {
@@ -314,8 +318,8 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
       const cleanPhone = phone.trim();
       const cleanAddress = cleanDisplayAddress(ministryAddress.trim() || user.ministry || serviceArea.name);
 
-      if (!cleanPhone || cleanPhone === 'غير مسجل' || cleanPhone.length < 10) {
-        setError('يرجى كتابة رقم هاتف صحيح (11 رقم للتواصل وتأكيد الطلب).');
+      if (!cleanPhone || cleanPhone === 'غير مسجل' || !/^(\+20|0)?1[0125][0-9]{8}$/.test(cleanPhone)) {
+        setError('يرجى كتابة رقم هاتف مصري صحيح (مثال: 01012345678).');
         setBusy(false);
         return;
       }
@@ -344,7 +348,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
         setServiceArea({
           id: `addr_${uid}`,
           name: cleanAddress,
-          deliveryTime: '20-30 دقيقة',
+          deliveryTime: LAUNCH_CONFIG.showEta ? '20-30 دقيقة' : '',
           active: true,
         });
       }

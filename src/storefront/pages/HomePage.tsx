@@ -4,6 +4,7 @@ import { ProductCard } from '../components/ProductCard';
 import { HeroSlider } from '../components/HeroSlider';
 import { ProductModal } from '../components/ProductModal';
 import { formatEGP } from '../../utils/orderCalculations';
+import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import type { Product } from '../../types';
 import { 
   Sparkles, 
@@ -50,8 +51,8 @@ const TALABAT_MAIN_SERVICES = [
   {
     id: 'mart',
     name: 'سنجوب بقالة',
-    subtext: 'خلال 20 دقيقة',
-    badge: '20 دقيقة ⚡',
+    subtext: 'مقاضي وسوبرماركت',
+    badge: 'طازج',
     badgeColor: 'bg-[#059669]',
     bgColor: 'bg-[#ECFDF5]',
     textColor: 'text-[#059669]',
@@ -143,6 +144,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
   const [couponCopied, setCouponCopied] = useState(false);
 
+  const displayedServices = useMemo(() => {
+    return TALABAT_MAIN_SERVICES.filter((serv) =>
+      LAUNCH_CONFIG.enabledCategories.length === 0 || LAUNCH_CONFIG.enabledCategories.includes(serv.id)
+    );
+  }, []);
+
   const cartItemCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   // Flash deals & discounted products
@@ -210,8 +217,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
           </div>
 
           {/* Squircles Grid */}
-          <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3.5 w-full">
-            {TALABAT_MAIN_SERVICES.map((serv) => {
+          <div className={`grid gap-2.5 sm:gap-3.5 w-full ${
+            displayedServices.length <= 4 
+              ? 'grid-cols-2 sm:grid-cols-4 max-w-md mx-auto' 
+              : 'grid-cols-4 sm:grid-cols-4 lg:grid-cols-8'
+          }`}>
+            {displayedServices.map((serv) => {
               const Icon = serv.icon;
               const isSelected = selectedCategory === serv.categoryQuery;
 
@@ -271,11 +282,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                     سنجوب بقالة ⚡
                   </span>
                   <span className="text-[9px] bg-white text-[#FF5900] px-1.5 py-0.2 rounded-full font-black">
-                    في 20 دقيقة
+                    {LAUNCH_CONFIG.serviceAreaLabel}
                   </span>
                 </div>
                 <h3 className="text-xs sm:text-sm font-black line-clamp-1">
-                  مقاضي البيت وسوبرماركت لحد بابك
+                  سنجوب بقالة ومقاضي البيت لحد بابك
                 </h3>
               </div>
             </div>
@@ -299,7 +310,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
               <div>
                 <h2 id="deals-heading" className="text-sm sm:text-base font-black text-[#111827] flex items-center gap-1.5">
                   <Flame size={18} className="text-[#FF5900]" />
-                  <span>عروض التوفير الحصرية 🔥</span>
+                  <span>الأكثر طلباً ومقاضي اليوم ⭐</span>
                 </h2>
               </div>
               <button
@@ -320,7 +331,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
               {flashDeals.map((product) => {
                 const discountPct = product.originalPrice && product.originalPrice > product.price
                   ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
-                  : 15;
+                  : 0;
 
                 return (
                   <div
@@ -340,17 +351,21 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                             (e.currentTarget as HTMLImageElement).src = '/assets/sangoub/sangoub-favicon.png';
                           }}
                         />
-                        <span className="absolute top-1.5 right-1.5 bg-[#EF4444] text-white text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs">
-                          خصم {discountPct}%
-                        </span>
+                        {discountPct > 0 && (
+                          <span className="absolute top-1.5 right-1.5 bg-[#EF4444] text-white text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs">
+                            خصم {discountPct}%
+                          </span>
+                        )}
                       </div>
 
                       <h3 className="text-xs font-black text-[#111827] line-clamp-1 mb-0.5 group-hover:text-[#FF5900] transition-colors">
                         {product.name}
                       </h3>
-                      <p className="text-[10px] text-[#6B7280] line-clamp-1 mb-1.5">
-                        {product.storeName}
-                      </p>
+                      {!LAUNCH_CONFIG.hideMerchantNames && (
+                        <p className="text-[10px] text-[#6B7280] line-clamp-1 mb-1.5">
+                          {product.storeName}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between pt-1.5 border-t border-[#F3F4F6]">
@@ -387,8 +402,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
           </section>
         )}
 
-        {/* 6. POPULAR STORES HORIZONTAL SCROLL */}
-        {stores.length > 0 && (
+        {/* 6. POPULAR STORES HORIZONTAL SCROLL (Hidden in soft launch to protect merchant privacy) */}
+        {!LAUNCH_CONFIG.hideMerchantNames && stores.length > 0 && (
           <section aria-labelledby="stores-heading" className="mb-6">
             <div className="flex items-center justify-between px-1 mb-2.5">
               <h2 id="stores-heading" className="text-sm sm:text-base font-black text-[#111827] flex items-center gap-1.5">
@@ -460,51 +475,53 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
           </section>
         )}
 
-        {/* 7. VOUCHER & PROMO COUPON CARD */}
-        <section className="mb-6">
-          <div className="bg-gradient-to-r from-[#FFF5F0] via-white to-[#FFF5F0] border border-[#FFD4C2] rounded-2xl p-3.5 sm:p-4 shadow-xs flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#FF5900] text-white flex items-center justify-center shadow-xs shrink-0">
-                <Percent size={20} strokeWidth={2.5} />
-              </div>
-              <div className="leading-tight">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="bg-[#FF5900] text-white text-[9px] font-black px-2 py-0.2 rounded-full">
-                    خصم 10%
-                  </span>
-                  <span className="text-xs font-black text-[#111827] font-mono">
-                    SANGOUB10
-                  </span>
+        {/* 7. VOUCHER & PROMO COUPON CARD (Hidden during soft launch) */}
+        {LAUNCH_CONFIG.showCouponField && (
+          <section className="mb-6">
+            <div className="bg-gradient-to-r from-[#FFF5F0] via-white to-[#FFF5F0] border border-[#FFD4C2] rounded-2xl p-3.5 sm:p-4 shadow-xs flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#FF5900] text-white flex items-center justify-center shadow-xs shrink-0">
+                  <Percent size={20} strokeWidth={2.5} />
                 </div>
-                <p className="text-[10px] text-[#6B7280]">
-                  وفّر 10% فوراً على أول طلب لك في العاصمة
-                </p>
+                <div className="leading-tight">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="bg-[#FF5900] text-white text-[9px] font-black px-2 py-0.2 rounded-full">
+                      خصم 10%
+                    </span>
+                    <span className="text-xs font-black text-[#111827] font-mono">
+                      SANGOUB10
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[#6B7280]">
+                    وفّر 10% فوراً على أول طلب لك في العاصمة
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <button
-              type="button"
-              onClick={handleCopyCoupon}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
-                couponCopied || appliedCoupon?.code === 'SANGOUB10'
-                  ? 'bg-[#10B981] text-white'
-                  : 'bg-[#FF5900] hover:bg-[#E04E00] text-white active:scale-95'
-              }`}
-            >
-              {couponCopied || appliedCoupon?.code === 'SANGOUB10' ? (
-                <>
-                  <Check size={14} strokeWidth={3} />
-                  <span>تم التطبيق!</span>
-                </>
-              ) : (
-                <>
-                  <Copy size={13} />
-                  <span>نسخ وتطبيق</span>
-                </>
-              )}
-            </button>
-          </div>
-        </section>
+              <button
+                type="button"
+                onClick={handleCopyCoupon}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                  couponCopied || appliedCoupon?.code === 'SANGOUB10'
+                    ? 'bg-[#10B981] text-white'
+                    : 'bg-[#FF5900] hover:bg-[#E04E00] text-white active:scale-95'
+                }`}
+              >
+                {couponCopied || appliedCoupon?.code === 'SANGOUB10' ? (
+                  <>
+                    <Check size={14} strokeWidth={3} />
+                    <span>تم التطبيق!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={13} />
+                    <span>نسخ وتطبيق</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* 8. PRODUCTS CATALOG & FILTER TABS (2 Cols on Mobile!) */}
         <section id="products-catalog" aria-labelledby="products-catalog-heading" className="mb-8">
@@ -645,8 +662,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
               <div className="w-9 h-9 rounded-xl bg-[#FFF2EC] text-[#FF5900] flex items-center justify-center mb-1.5">
                 <Bike size={18} />
               </div>
-              <h4 className="text-[11px] font-black text-[#111827]">توصيل 20 دقيقة</h4>
-              <p className="text-[9px] text-[#6B7280]">مندوبون داخل كل حي</p>
+              <h4 className="text-[11px] font-black text-[#111827]">توصيل مباشر</h4>
+              <p className="text-[9px] text-[#6B7280]">خدمة سريعة في {LAUNCH_CONFIG.serviceAreaLabel}</p>
             </div>
 
             <div className="flex flex-col items-center text-center p-3 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6]">
@@ -662,18 +679,23 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                 <ShieldCheck size={18} />
               </div>
               <h4 className="text-[11px] font-black text-[#111827]">دفع آمن</h4>
-              <p className="text-[9px] text-[#6B7280]">InstaPay أو كاش</p>
+              <p className="text-[9px] text-[#6B7280]">كاش، إنستاباي، محافظ</p>
             </div>
 
             <div className="flex flex-col items-center text-center p-3 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6]">
               <div className="w-9 h-9 rounded-xl bg-[#FAF5FF] text-[#9333EA] flex items-center justify-center mb-1.5">
                 <Sparkles size={18} />
               </div>
-              <h4 className="text-[11px] font-black text-[#111827]">دعم 24/7</h4>
+              <h4 className="text-[11px] font-black text-[#111827]">دعم متواصل</h4>
               <p className="text-[9px] text-[#6B7280]">فريق خدمة مخصص</p>
             </div>
           </div>
         </section>
+
+        {/* Soft Launch Entity Line */}
+        <div className="text-center pb-6 pt-2 text-[10.5px] text-[#9CA3AF] font-bold">
+          {LAUNCH_CONFIG.entityLine}
+        </div>
 
       </div>
 

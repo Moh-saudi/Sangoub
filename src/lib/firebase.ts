@@ -40,9 +40,11 @@ export const firebaseConfig = {
     import.meta.env.VITE_FIREBASE_DATABASE_ID ||
     savedConfig.firestoreDatabaseId,
 };
+import { getStorage } from "firebase/storage";
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 if (
   import.meta.env.DEV &&
   import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true"

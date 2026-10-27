@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
+import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import { ChevronRight, ChevronLeft, Sparkles, ArrowLeft } from 'lucide-react';
 
 interface HeroSliderProps {
@@ -17,7 +18,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = () => {
       id: 1,
       tag: 'أسرع توصيل طلبات',
       title: 'سنجوب يوصلك لحد باب بيتك أو مكتبك 🐿️',
-      desc: 'خدمة التوصيل السريع لطلبك في 15-25 دقيقة أينما كنت.',
+      desc: `خدمة التوصيل السريع لمقاضيك داخل ${LAUNCH_CONFIG.serviceAreaLabel}.`,
       btnText: 'اطلب الآن',
       targetPath: '/categories',
       badgeColor: '#FF5900',
@@ -26,10 +27,10 @@ export const HeroSlider: React.FC<HeroSliderProps> = () => {
     },
     {
       id: 2,
-      tag: 'فطور الصباح الساخن',
-      title: 'قهوة وفطور طازج لبداية يوم مميز ☕',
-      desc: 'ساندوتشات ومخبوزات ومشروبات ساخنة بأعلى جودة.',
-      btnText: 'عروض الفطور',
+      tag: 'مقاضي طازجة يومياً',
+      title: 'سنجوب بقالة ومقاضي البيت لحد بابك 🛒',
+      desc: 'ألبان ومياه وسناكس ومستلزماتك اليومية بجودة عالية.',
+      btnText: 'تسوق البقالة',
       targetPath: '/categories',
       badgeColor: '#E65100',
       bgGradient: 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 100%)',
@@ -37,9 +38,9 @@ export const HeroSlider: React.FC<HeroSliderProps> = () => {
     },
     {
       id: 3,
-      tag: 'بقالة في 20د',
+      tag: 'بقالة ومقاضي البيت',
       title: 'سنجوب بقالة ومقاضي البيت السريعة 🛒',
-      desc: 'ألبان ومياه وسناكس ومستلزماتك بأسرع توصيل.',
+      desc: 'مشروبات ومقرمشات ومستلزمات البيت لحد بابك.',
       btnText: 'تسوق البقالة',
       targetPath: '/categories',
       badgeColor: '#059669',
