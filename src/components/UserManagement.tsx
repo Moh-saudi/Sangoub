@@ -45,6 +45,7 @@ export interface AccountRecord {
   nationalId?: string;
   emergencyPhone?: string;
   currentAddress?: string;
+  locationAddress?: string;
   idCardAddress?: string;
   vehicleType?: string;
   vehicleMake?: string;
@@ -95,6 +96,8 @@ export function UserManagement({ stores }: { stores: Store[] }) {
   const [formVehicleType, setFormVehicleType] = useState('motorcycle');
   const [formLatitude, setFormLatitude] = useState('');
   const [formLongitude, setFormLongitude] = useState('');
+  const [formAddress, setFormAddress] = useState('');
+  const [geocoding, setGeocoding] = useState(false);
   const [gpsDetecting, setGpsDetecting] = useState(false);
   const [gpsError, setGpsError] = useState('');
 
@@ -148,10 +151,11 @@ export function UserManagement({ stores }: { stores: Store[] }) {
     setEditingUser(null);
     setFormRole('courier');
     setFormFullName('');
+    setFormAddress('الحي الحكومي، العاصمة الإدارية الجديدة، القاهرة، مصر');
     setSelectedStoreId(stores[0]?.id || '');
     setFormVehicleType('motorcycle');
-    setFormLatitude('30.013056');
-    setFormLongitude('31.705278');
+    setFormLatitude('30.011799');
+    setFormLongitude('31.74804');
     setIsFormModalOpen(true);
   }
 
@@ -164,6 +168,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
     setEditingUser(user);
     setFormRole(user.role);
     setFormFullName(user.fullName || '');
+    setFormAddress(user.locationAddress || user.currentAddress || '');
     setSelectedStoreId(user.storeId || stores[0]?.id || '');
     setFormVehicleType(user.vehicleType || 'motorcycle');
     setFormLatitude(user.coordinates?.latitude ? String(user.coordinates.latitude) : '');
@@ -187,6 +192,9 @@ export function UserManagement({ stores }: { stores: Store[] }) {
       if (!formFullName || formFullName === 'مطعم' || formFullName.trim() === '') {
         setFormFullName(store.name);
       }
+      if (store.locationInDistrict || store.preciseAddress) {
+        setFormAddress(store.preciseAddress || store.locationInDistrict || '');
+      }
       if (store.coordinates) {
         setFormLatitude(String(store.coordinates.latitude));
         setFormLongitude(String(store.coordinates.longitude));
@@ -194,7 +202,55 @@ export function UserManagement({ stores }: { stores: Store[] }) {
     }
   }
 
-  // High Precision GPS Geolocation Handler
+  // Reverse geocoding helper to extract detailed street, district and city in Arabic
+  async function reverseGeocode(lat: number, lng: number): Promise<string> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=ar`,
+        {
+          headers: {
+            'Accept-Language': 'ar',
+            'User-Agent': 'SangoubDelivery/2.0'
+          },
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.display_name) {
+          const addr = data.address || {};
+          const parts = [
+            addr.office || addr.amenity || addr.building || addr.shop || data.name,
+            addr.road || addr.street,
+            addr.neighbourhood || addr.suburb || addr.quarter,
+            addr.city || addr.town || addr.municipality || 'العاصمة الإدارية الجديدة',
+            addr.state || addr.governorate || 'القاهرة',
+            'مصر'
+          ].filter(Boolean);
+
+          const uniqueParts: string[] = [];
+          for (const p of parts) {
+            const trimmed = String(p).trim();
+            if (trimmed && !uniqueParts.some((up) => up.includes(trimmed) || trimmed.includes(up))) {
+              uniqueParts.push(trimmed);
+            }
+          }
+          if (uniqueParts.length > 0) {
+            return uniqueParts.join('، ');
+          }
+          return String(data.display_name).trim();
+        }
+      }
+    } catch {
+      // Graceful fallback
+    }
+    return `مقر معتمد، الحي الحكومي، العاصمة الإدارية الجديدة (إحداثيات: ${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+  }
+
+  // High Precision GPS Geolocation Handler + Automatic Detailed Arabic Address Resolution
   function handleDetectGps() {
     setGpsError('');
     if (!navigator.geolocation) {
@@ -203,20 +259,52 @@ export function UserManagement({ stores }: { stores: Store[] }) {
     }
     setGpsDetecting(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const lat = Number(pos.coords.latitude.toFixed(6));
         const lng = Number(pos.coords.longitude.toFixed(6));
         setFormLatitude(String(lat));
         setFormLongitude(String(lng));
         setGpsDetecting(false);
-        setNotice(`تم التقاط إحداثيات الموقع بدقة متناهية: (${lat}, ${lng}) بنجاح.`);
+
+        // Auto-fetch detailed Arabic address from coordinates
+        setGeocoding(true);
+        try {
+          const detailedAddr = await reverseGeocode(lat, lng);
+          setFormAddress(detailedAddr);
+          setNotice(`تم التقاط الموقع وكتابة العنوان بالتفصيل: ${detailedAddr}`);
+        } catch {
+          setNotice(`تم التقاط إحداثيات الموقع: (${lat}, ${lng}) بنجاح.`);
+        } finally {
+          setGeocoding(false);
+        }
       },
       (err) => {
         setGpsDetecting(false);
-        setGpsError(`تعذر التقاط الموقع عبر GPS (${err.message}). يمكنك إدخال الإحداثيات يدوياً.`);
+        setGpsError(`تعذر التقاط الموقع عبر GPS (${err.message}). يمكنك إدخال الإحداثيات والعنوان يدوياً.`);
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
+  }
+
+  // Manual Trigger to resolve detailed address from entered coordinates
+  async function handleManualReverseGeocode() {
+    const lat = Number(formLatitude);
+    const lng = Number(formLongitude);
+    if (!lat || !lng || Number.isNaN(lat) || Number.isNaN(lng)) {
+      setGpsError('يرجى إدخال خط العرض وخط الطول بصيغة رقمية صحيحة أولاً.');
+      return;
+    }
+    setGeocoding(true);
+    setGpsError('');
+    try {
+      const detailedAddr = await reverseGeocode(lat, lng);
+      setFormAddress(detailedAddr);
+      setNotice(`تم استخراج وتحديث العنوان بالتفصيل: ${detailedAddr}`);
+    } catch {
+      setGpsError('تعذر استخراج العنوان تلقائياً، يمكنك كتابته يدوياً.');
+    } finally {
+      setGeocoding(false);
+    }
   }
 
   // Submit Handler for Create / Update
@@ -240,7 +328,9 @@ export function UserManagement({ stores }: { stores: Store[] }) {
       hasThermalBox: data.hasThermalBox === 'on' || data.hasThermalBox === 'true',
       hasThermalBackpack: data.hasThermalBackpack === 'on' || data.hasThermalBackpack === 'true',
       latitude: formLatitude || undefined,
-      longitude: formLongitude || undefined
+      longitude: formLongitude || undefined,
+      locationAddress: formAddress || undefined,
+      currentAddress: formRole === 'restaurant' ? (formAddress || undefined) : (data.currentAddress || formAddress || undefined)
     };
 
     try {
@@ -698,8 +788,8 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                               {user.coordinates.latitude.toFixed(4)}, {user.coordinates.longitude.toFixed(4)}
                             </span>
                           </a>
-                          <p className="text-[10px] text-slate-400">
-                            نطاق: {user.coverageRadiusKm || 8} كم · توصيل ذكي
+                          <p className="text-[10px] text-slate-500 max-w-[200px] truncate" title={user.locationAddress || user.currentAddress || ''}>
+                            {user.locationAddress || user.currentAddress || `نطاق: ${user.coverageRadiusKm || 8} كم · توصيل ذكي`}
                           </p>
                         </div>
                       ) : (
@@ -1241,11 +1331,11 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                         <button
                           type="button"
                           onClick={handleDetectGps}
-                          disabled={gpsDetecting}
+                          disabled={gpsDetecting || geocoding}
                           className="h-9 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <MapPin size={15} />
-                          <span>{gpsDetecting ? 'جارٍ قراءة GPS بدقة عالية...' : '📍 جلب اللوكيشن الفعلي عبر GPS الآن'}</span>
+                          <span>{gpsDetecting ? 'جارٍ قراءة GPS بدقة عالية...' : geocoding ? 'جارٍ استخراج العنوان التفصيلي...' : '📍 جلب اللوكيشن الفعلي عبر GPS الآن'}</span>
                         </button>
 
                         {formLatitude && formLongitude && (
@@ -1259,6 +1349,46 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                             <span>معاينة على الخريطة</span>
                           </a>
                         )}
+                      </div>
+
+                      {/* Detailed Physical Address Input */}
+                      <div className="sm:col-span-4 bg-white/90 p-3 rounded-xl border border-emerald-300/80 shadow-2xs space-y-1.5">
+                        <label className="block text-slate-800 font-bold flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-1.5">
+                            <MapPin size={14} className="text-emerald-700" />
+                            <span>العنوان التفصيلي للمقر / المتجر (يُكتب تلقائياً عند جلب اللوكيشن ويُسجل بقاعدة البيانات) *</span>
+                          </span>
+                          {geocoding && (
+                            <span className="text-[10px] text-teal-700 font-bold animate-pulse flex items-center gap-1">
+                              <RefreshCw size={11} className="animate-spin" />
+                              <span>جارٍ استخراج العنوان من الخرائط...</span>
+                            </span>
+                          )}
+                        </label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            name="locationAddress"
+                            value={formAddress}
+                            onChange={(e) => setFormAddress(e.target.value)}
+                            placeholder="مثال: مبنى وزارة الصحة والسكان، ميدان 4، الحي الحكومي، العاصمة الإدارية الجديدة، مصر"
+                            required
+                            className="flex-1 h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:border-emerald-600 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleManualReverseGeocode}
+                            disabled={geocoding || !formLatitude || !formLongitude}
+                            title="إعادة استخراج العنوان من الإحداثيات الحالية"
+                            className="h-9 px-3 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40 cursor-pointer shrink-0"
+                          >
+                            <RefreshCw size={12} className={geocoding ? 'animate-spin' : ''} />
+                            <span>استخراج من الإحداثيات</span>
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-500 flex items-center gap-1">
+                          <Check size={12} className="text-emerald-600 shrink-0" />
+                          <span>يُسجل هذا العنوان التفصيلي في قاعدة بيانات المتجر وحساب التاجر لحساب المسافة وتوجيه المندوب والعميل بدقة.</span>
+                        </p>
                       </div>
                     </div>
 
@@ -1505,11 +1635,21 @@ export function UserManagement({ stores }: { stores: Store[] }) {
 
               {/* Section 3: Merchant & GPS Location */}
               {viewingUser.coordinates && (
-                <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 space-y-1.5">
+                <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 space-y-2">
                   <h4 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
                     <MapPin size={14} className="text-emerald-700" />
                     <span>الموقع الجغرافي الدقيق (GPS High-Precision)</span>
                   </h4>
+
+                  {(viewingUser.locationAddress || viewingUser.currentAddress) && (
+                    <div className="bg-white/90 p-2.5 rounded-lg border border-emerald-200 text-xs text-emerald-950">
+                      <span className="font-bold text-emerald-900 block mb-0.5 text-[11px]">العنوان التفصيلي المسجل بقاعدة البيانات:</span>
+                      <span className="font-medium text-slate-800 leading-relaxed">
+                        {viewingUser.locationAddress || viewingUser.currentAddress}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <span className="font-mono text-emerald-900 font-bold text-xs">
                       خط العرض: {viewingUser.coordinates.latitude} · خط الطول: {viewingUser.coordinates.longitude}

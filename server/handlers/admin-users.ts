@@ -41,7 +41,8 @@ export default async function handler(req:any,res:any) {
           nickname:uData.nickname||'',
           nationalId:uData.nationalId||'',
           emergencyPhone:uData.emergencyPhone||'',
-          currentAddress:uData.currentAddress||'',
+          currentAddress:uData.currentAddress||uData.locationAddress||'',
+          locationAddress:uData.locationAddress||uData.currentAddress||'',
           idCardAddress:uData.idCardAddress||'',
           vehicleType:uData.vehicleType||sData.vehicleType||'',
           vehicleMake:uData.vehicleMake||'',
@@ -84,7 +85,8 @@ export default async function handler(req:any,res:any) {
         nickname:text(input.nickname||'',80),
         nationalId:text(input.nationalId||'',20),
         emergencyPhone:text(input.emergencyPhone||'',30),
-        currentAddress:text(input.currentAddress||'',200),
+        currentAddress:text(input.currentAddress||input.locationAddress||'',250),
+        locationAddress:text(input.locationAddress||input.currentAddress||'',250),
         idCardAddress:text(input.idCardAddress||'',200),
         vehicleType:text(input.vehicleType||'',40),
         vehicleMake:text(input.vehicleMake||'',60),
@@ -161,6 +163,18 @@ export default async function handler(req:any,res:any) {
           after.staff=null;
           if(requestedRole==='admin')tx.set(db.doc('admins/'+uid),{active:true,grantedBy:actor.uid,updatedAt:FieldValue.serverTimestamp()});
           if(requestedRole==='courier'||requestedRole==='restaurant'){const assignment={role:requestedRole,name:fullName||profile.data()?.fullName||target?.displayName||'',phone:profile.data()?.phone||profilePatch.phone||'',vehicleType:profilePatch.vehicleType||profile.data()?.vehicleType||'',vehiclePlate:profilePatch.vehiclePlate||profile.data()?.vehiclePlate||'',...(requestedRole==='restaurant'?{storeId:input.storeId,duty}:{}),updatedAt:FieldValue.serverTimestamp()};tx.set(db.doc('staff/'+uid),assignment);after.staff=assignment;}
+          const targetStoreId = input.storeId || before.staff?.storeId;
+          if ((input.action === 'create' || input.action === 'update' || input.action === 'role') && targetStoreId && (requestedRole === 'restaurant' || profile.data()?.role === 'restaurant' || input.role === 'restaurant')) {
+            const storeUpdates: any = { updatedAt: FieldValue.serverTimestamp() };
+            if (profilePatch.coordinates) storeUpdates.coordinates = profilePatch.coordinates;
+            if (profilePatch.locationAddress || profilePatch.currentAddress) {
+              storeUpdates.locationInDistrict = profilePatch.locationAddress || profilePatch.currentAddress;
+              storeUpdates.preciseAddress = profilePatch.locationAddress || profilePatch.currentAddress;
+            }
+            if (profilePatch.coverageRadiusKm) storeUpdates.coverageRadiusKm = profilePatch.coverageRadiusKm;
+            if (profilePatch.preferredDeliveryMethod) storeUpdates.preferredDeliveryMethod = profilePatch.preferredDeliveryMethod;
+            tx.set(db.doc('stores/' + targetStoreId), storeUpdates, { merge: true });
+          }
           tx.set(db.doc('users/'+uid),{...(!profile.exists&&input.action!=='create'?{uid,fullName:target?.displayName||'',email:target?.email||'',phone:target?.phoneNumber||'',ministry:'',floorNumber:'',roomNumber:'',walletBalance:0,createdAt:FieldValue.serverTimestamp()}:{}),role:requestedRole,updatedAt:FieldValue.serverTimestamp()},{merge:true});after.role=requestedRole;after.profile={...(after.profile||{uid,fullName:target?.displayName||'',email:target?.email||'',phone:target?.phoneNumber||'',ministry:'',floorNumber:'',roomNumber:'',walletBalance:0}),role:requestedRole};
         }
         if(input.action==='disable'||input.action==='delete'){tx.delete(db.doc('admins/'+uid));tx.delete(db.doc('staff/'+uid));after.role='employee';after.staff=null;if(after.profile)after.profile.role='employee';if(profile.exists)tx.update(db.doc('users/'+uid),{role:'employee',updatedAt:FieldValue.serverTimestamp()});}
