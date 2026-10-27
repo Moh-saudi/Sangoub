@@ -14,3 +14,5 @@ ui-debug.log*
 .cursor/
 .claude/
 .kiro/
+__pycache__/
+*.pyc
