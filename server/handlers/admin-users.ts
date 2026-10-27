@@ -19,7 +19,47 @@ export default async function handler(req:any,res:any) {
       const result=search?{users:[await (search.includes('@')?auth.getUserByEmail(search):auth.getUser(search))],pageToken:undefined}:await auth.listUsers(50,input.pageToken||undefined);
       const users=await Promise.all(result.users.map(async user=>{
         const [profile,admin,staff]=await db.getAll(db.doc('users/'+user.uid),db.doc('admins/'+user.uid),db.doc('staff/'+user.uid));
-        return {uid:user.uid,email:user.email||'',fullName:profile.data()?.fullName||user.displayName||'',phone:profile.data()?.phone||user.phoneNumber||'',role:admin.exists?'admin':staff.data()?.role||'employee',storeId:staff.data()?.storeId||'',duty:staff.data()?.duty||'manager',disabled:user.disabled,emailVerified:user.emailVerified,providers:user.providerData.map(p=>p.providerId),createdAt:user.metadata.creationTime,lastSignInAt:user.metadata.lastSignInTime||'',ministry:profile.data()?.ministry||'',floorNumber:profile.data()?.floorNumber||'',roomNumber:profile.data()?.roomNumber||'',walletBalance:profile.data()?.walletBalance||0};
+        const uData=profile.data()||{};
+        const sData=staff.data()||{};
+        return {
+          uid:user.uid,
+          email:user.email||'',
+          fullName:uData.fullName||user.displayName||'',
+          phone:uData.phone||user.phoneNumber||'',
+          role:admin.exists?'admin':sData.role||'employee',
+          storeId:sData.storeId||uData.storeId||'',
+          duty:sData.duty||'manager',
+          disabled:user.disabled,
+          emailVerified:user.emailVerified,
+          providers:user.providerData.map(p=>p.providerId),
+          createdAt:user.metadata.creationTime,
+          lastSignInAt:user.metadata.lastSignInTime||'',
+          ministry:uData.ministry||'',
+          floorNumber:uData.floorNumber||'',
+          roomNumber:uData.roomNumber||'',
+          walletBalance:uData.walletBalance||0,
+          nickname:uData.nickname||'',
+          nationalId:uData.nationalId||'',
+          emergencyPhone:uData.emergencyPhone||'',
+          currentAddress:uData.currentAddress||'',
+          idCardAddress:uData.idCardAddress||'',
+          vehicleType:uData.vehicleType||sData.vehicleType||'',
+          vehicleMake:uData.vehicleMake||'',
+          vehicleModel:uData.vehicleModel||'',
+          vehiclePlate:uData.vehiclePlate||sData.vehiclePlate||'',
+          drivingLicenseNumber:uData.drivingLicenseNumber||'',
+          licenseExpiryDate:uData.licenseExpiryDate||'',
+          drugTestStatus:uData.drugTestStatus||'pending',
+          drugTestDate:uData.drugTestDate||'',
+          criminalRecordStatus:uData.criminalRecordStatus||'pending',
+          criminalRecordDate:uData.criminalRecordDate||'',
+          hasThermalBox:Boolean(uData.hasThermalBox),
+          hasThermalBackpack:Boolean(uData.hasThermalBackpack),
+          courierStatus:uData.courierStatus||'active',
+          coordinates:uData.coordinates||null,
+          coverageRadiusKm:uData.coverageRadiusKm||5,
+          preferredDeliveryMethod:uData.preferredDeliveryMethod||'auto'
+        };
       }));
       return res.status(200).json({users,nextPageToken:result.pageToken||null});
     }
@@ -34,7 +74,41 @@ export default async function handler(req:any,res:any) {
     let fullName='',email='',profilePatch:any={};
     if(input.action==='create'||input.action==='update') {
       fullName=text(input.fullName,120,true);email=text(input.email,160,true);if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new AdminError(400,'البريد غير صالح.');
-      profilePatch={fullName,email,phone:text(input.phone||'',30),ministry:text(input.ministry||'',120),floorNumber:text(input.floorNumber||'',60),roomNumber:text(input.roomNumber||'',80)};
+      profilePatch={
+        fullName,
+        email,
+        phone:text(input.phone||'',30),
+        ministry:text(input.ministry||'',120),
+        floorNumber:text(input.floorNumber||'',60),
+        roomNumber:text(input.roomNumber||'',80),
+        nickname:text(input.nickname||'',80),
+        nationalId:text(input.nationalId||'',20),
+        emergencyPhone:text(input.emergencyPhone||'',30),
+        currentAddress:text(input.currentAddress||'',200),
+        idCardAddress:text(input.idCardAddress||'',200),
+        vehicleType:text(input.vehicleType||'',40),
+        vehicleMake:text(input.vehicleMake||'',60),
+        vehicleModel:text(input.vehicleModel||'',60),
+        vehiclePlate:text(input.vehiclePlate||'',30),
+        drivingLicenseNumber:text(input.drivingLicenseNumber||'',60),
+        licenseExpiryDate:text(input.licenseExpiryDate||'',30),
+        drugTestStatus:['passed','failed','pending'].includes(input.drugTestStatus)?input.drugTestStatus:'pending',
+        drugTestDate:text(input.drugTestDate||'',30),
+        criminalRecordStatus:['passed','failed','pending'].includes(input.criminalRecordStatus)?input.criminalRecordStatus:'pending',
+        criminalRecordDate:text(input.criminalRecordDate||'',30),
+        hasThermalBox:input.hasThermalBox===true||input.hasThermalBox==='true'||input.hasThermalBox==='on',
+        hasThermalBackpack:input.hasThermalBackpack===true||input.hasThermalBackpack==='true'||input.hasThermalBackpack==='on',
+        courierStatus:['active','pending','suspended'].includes(input.courierStatus)?input.courierStatus:'active',
+        coverageRadiusKm:Number(input.coverageRadiusKm)||5,
+        preferredDeliveryMethod:['bicycle','motorcycle','car','auto'].includes(input.preferredDeliveryMethod)?input.preferredDeliveryMethod:'auto'
+      };
+      if (input.latitude !== undefined && input.longitude !== undefined && input.latitude !== '' && input.longitude !== '') {
+        const lat = Number(input.latitude);
+        const lng = Number(input.longitude);
+        if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+          profilePatch.coordinates = { latitude: lat, longitude: lng };
+        }
+      }
     }
     if(input.action==='create')uid='ct_'+randomBytes(16).toString('hex');else validId(uid);
     if(uid===actor.uid&&['role','disable','delete','revoke'].includes(input.action))throw new AdminError(409,'لا يمكنك تغيير صلاحيتك أو تعطيل حسابك من الجلسة الحالية. استخدم مديرًا آخر.');
@@ -86,7 +160,7 @@ export default async function handler(req:any,res:any) {
           tx.delete(db.doc('admins/'+uid));tx.delete(db.doc('staff/'+uid));
           after.staff=null;
           if(requestedRole==='admin')tx.set(db.doc('admins/'+uid),{active:true,grantedBy:actor.uid,updatedAt:FieldValue.serverTimestamp()});
-          if(requestedRole==='courier'||requestedRole==='restaurant'){const assignment={role:requestedRole,name:fullName||profile.data()?.fullName||target?.displayName||'',phone:profile.data()?.phone||profilePatch.phone||'',...(requestedRole==='restaurant'?{storeId:input.storeId,duty}:{}),updatedAt:FieldValue.serverTimestamp()};tx.set(db.doc('staff/'+uid),assignment);after.staff=assignment;}
+          if(requestedRole==='courier'||requestedRole==='restaurant'){const assignment={role:requestedRole,name:fullName||profile.data()?.fullName||target?.displayName||'',phone:profile.data()?.phone||profilePatch.phone||'',vehicleType:profilePatch.vehicleType||profile.data()?.vehicleType||'',vehiclePlate:profilePatch.vehiclePlate||profile.data()?.vehiclePlate||'',...(requestedRole==='restaurant'?{storeId:input.storeId,duty}:{}),updatedAt:FieldValue.serverTimestamp()};tx.set(db.doc('staff/'+uid),assignment);after.staff=assignment;}
           tx.set(db.doc('users/'+uid),{...(!profile.exists&&input.action!=='create'?{uid,fullName:target?.displayName||'',email:target?.email||'',phone:target?.phoneNumber||'',ministry:'',floorNumber:'',roomNumber:'',walletBalance:0,createdAt:FieldValue.serverTimestamp()}:{}),role:requestedRole,updatedAt:FieldValue.serverTimestamp()},{merge:true});after.role=requestedRole;after.profile={...(after.profile||{uid,fullName:target?.displayName||'',email:target?.email||'',phone:target?.phoneNumber||'',ministry:'',floorNumber:'',roomNumber:'',walletBalance:0}),role:requestedRole};
         }
         if(input.action==='disable'||input.action==='delete'){tx.delete(db.doc('admins/'+uid));tx.delete(db.doc('staff/'+uid));after.role='employee';after.staff=null;if(after.profile)after.profile.role='employee';if(profile.exists)tx.update(db.doc('users/'+uid),{role:'employee',updatedAt:FieldValue.serverTimestamp()});}
@@ -99,7 +173,7 @@ export default async function handler(req:any,res:any) {
         if(input.action==='delete'){
           tx.set(db.doc('users/'+uid),{fullName:'حساب محذوف',email:'',phone:'',ministry:'',floorNumber:'',roomNumber:'',avatarUrl:'',coordinates:FieldValue.delete(),role:'employee',deletedAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()},{merge:true});after={deleted:true,uid,access:after.access};
         }
-        if(input.action==='update'&&before.staff){const change={name:fullName,phone:profilePatch.phone,updatedAt:FieldValue.serverTimestamp()};tx.update(db.doc('staff/'+uid),change);after.staff={...before.staff,...change};}
+        if(input.action==='update'&&before.staff){const change={name:fullName,phone:profilePatch.phone,vehicleType:profilePatch.vehicleType||before.staff.vehicleType||'',vehiclePlate:profilePatch.vehiclePlate||before.staff.vehiclePlate||'',updatedAt:FieldValue.serverTimestamp()};tx.update(db.doc('staff/'+uid),change);after.staff={...before.staff,...change};}
         tx.update(log,{status:'success',after:auditSafe(after),changedFields:auditChangedFields(before,after),completedAt:FieldValue.serverTimestamp()});tx.delete(lock);if(['create','role','disable','delete'].includes(input.action))tx.delete(db.doc('adminControl/membership'));
       });
       return res.status(200).json({ok:true,uid,...(resetLink?{resetLink}:{})});

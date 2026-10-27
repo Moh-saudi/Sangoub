@@ -35,13 +35,37 @@ export type MinistryName =
   | "الجهاز المركزي للتنظيم والإدارة";
 
 export type UserRole = "employee" | "restaurant" | "courier" | "admin";
+export type CourierVehicleType = "motorcycle" | "bicycle" | "car";
+export type VerificationStatus = "passed" | "pending" | "failed" | "not_required";
+export type CourierStatus = "active" | "pending" | "suspended";
 
 export interface Coordinates {
   latitude: number;
   longitude: number;
 }
 
-export interface Profile {
+export interface CourierProfileData {
+  nickname?: string;
+  nationalId?: string;
+  emergencyPhone?: string;
+  currentAddress?: string;
+  idCardAddress?: string;
+  vehicleType?: CourierVehicleType | string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehiclePlate?: string;
+  drivingLicenseNumber?: string;
+  licenseExpiryDate?: string;
+  drugTestStatus?: VerificationStatus;
+  drugTestDate?: string;
+  criminalRecordStatus?: VerificationStatus;
+  criminalRecordDate?: string;
+  hasThermalBox?: boolean;
+  hasThermalBackpack?: boolean;
+  courierStatus?: CourierStatus;
+}
+
+export interface Profile extends CourierProfileData {
   coordinates?: Coordinates;
   id: string;
   fullName: string;
@@ -56,6 +80,7 @@ export interface Profile {
   isGuest?: boolean;
   authProvider?: "google" | "email" | "phone" | "guest";
   storeId?: string; // For restaurant role
+  duty?: string;
   vehicleType?: string; // For courier role
   vehiclePlate?: string; // For courier role
 }
@@ -68,6 +93,7 @@ export type StoreCategory =
   | "desserts";
 
 export interface Store {
+  coordinates?: Coordinates;
   taxRate?: number;
   taxRegistrationNumber?: string;
   pricesIncludeTax?: boolean;
@@ -88,6 +114,13 @@ export interface Store {
   minOrder: number;
   deliveryFee: number;
   locationInDistrict: string; // e.g. "فود كورت الحي الحكومي - مبنى C2"
+  preciseAddress?: string;
+  commercialRegister?: string;
+  taxNumber?: string;
+  coverageRadiusKm?: number;
+  preferredDeliveryMethod?: "bicycle" | "motorcycle" | "car" | "auto";
+  ownerName?: string;
+  ownerPhone?: string;
 }
 
 export interface ProductOption {
