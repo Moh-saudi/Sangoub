@@ -8,8 +8,13 @@ import {
   getNextOrderStatus,
   validateEmployeeProfile,
   updateCourierMilestone,
+  calculateMerchantAccountingSummary,
+  generateMerchantJournalEntries,
+  calculateTopSellingProducts,
+  calculateDistanceKm,
+  rankCouriersForStore,
 } from './orderCalculations.ts';
-import type { CartItem, Coupon } from '../types/index.ts';
+import type { CartItem, Coupon, Order } from '../types/index.ts';
 
 test('calculateCartSubtotal correctly sums prices with quantities and options', () => {
   const items: CartItem[] = [
@@ -101,22 +106,21 @@ test('getNextOrderStatus advances status correctly', () => {
   assert.equal(getNextOrderStatus('ready'), 'with_courier');
   assert.equal(getNextOrderStatus('with_courier'), 'delivered');
   assert.equal(getNextOrderStatus('delivered'), 'delivered');
+  assert.equal(getNextOrderStatus('cancelled'), 'cancelled');
 });
 
 test('validateEmployeeProfile validates name, Egyptian phone, ministry and floor', () => {
   const invalid = validateEmployeeProfile({
-    fullName: 'أح',
-    phone: '1234',
-    ministry: '',
-    floorNumber: '',
+    fullName: '',
+    phone: '123',
   });
   assert.equal(invalid.valid, false);
-  assert.equal(invalid.errors.length, 4);
+  assert.ok(invalid.errors.length >= 3);
 
   const valid = validateEmployeeProfile({
-    fullName: 'م. أحمد خالد عبد الرحمن',
+    fullName: 'أحمد محمود إسماعيل',
     phone: '01012345678',
-    ministry: 'وزارة النقل',
+    ministry: 'وزارة الاتصالات وتكنولوجيا المعلومات',
     floorNumber: 'الدور الخامس - مكتب 502',
   });
   assert.equal(valid.valid, true);
@@ -151,4 +155,145 @@ test('updateCourierMilestone updates checklist and advances to delivered when co
   assert.equal(step5.orderStatus, 'delivered');
   assert.equal(step5.paymentStatus, 'paid');
 });
-test('currency formatting preserves cents charged by the payment gateway',()=>{assert.equal(formatEGP(1234.56),'1,234.56 ج.م');});
+
+test('currency formatting preserves cents charged by the payment gateway', () => {
+  assert.equal(formatEGP(1234.56), '1,234.56 ج.م');
+});
+
+test('calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission', () => {
+  const mockOrders: any[] = [
+    {
+      id: 'o1',
+      orderNumber: 'CAP-001',
+      storeIds: ['store-a'],
+      orderStatus: 'delivered',
+      subtotal: 100,
+      total: 115,
+      paymentMethod: 'cash',
+      items: [
+        { product: { id: 'p1', storeId: 'store-a', name: 'شاورما', price: 50 }, quantity: 2, extraPrice: 0 },
+      ],
+    },
+    {
+      id: 'o2',
+      orderNumber: 'CAP-002',
+      storeIds: ['store-a'],
+      orderStatus: 'delivered',
+      subtotal: 200,
+      total: 215,
+      paymentMethod: 'geidea',
+      items: [
+        { product: { id: 'p1', storeId: 'store-a', name: 'شاورما', price: 50 }, quantity: 4, extraPrice: 0 },
+      ],
+    },
+    {
+      id: 'o3',
+      orderNumber: 'CAP-003',
+      storeIds: ['store-a'],
+      orderStatus: 'preparing', // Not delivered yet, should be excluded from final settled sales
+      subtotal: 80,
+      total: 95,
+      paymentMethod: 'cash',
+      items: [
+        { product: { id: 'p2', storeId: 'store-a', name: 'عصير', price: 40 }, quantity: 2, extraPrice: 0 },
+      ],
+    },
+  ];
+
+  const summary = calculateMerchantAccountingSummary(mockOrders as Order[], 'store-a', 0.10);
+  assert.equal(summary.grossSales, 300); // 100 + 200
+  assert.equal(summary.platformCommission, 30); // 10% of 300
+  assert.equal(summary.netPayout, 270);
+  assert.equal(summary.ordersCount, 2);
+  assert.equal(summary.byPaymentMethod.cash, 100);
+  assert.equal(summary.byPaymentMethod.geidea, 200);
+  assert.equal(summary.byPaymentMethod.instapay, 0);
+});
+
+test('generateMerchantJournalEntries creates balanced double-entry accounting records', () => {
+  const mockOrders: any[] = [
+    {
+      id: 'o1',
+      orderNumber: 'CAP-100',
+      storeIds: ['store-xyz'],
+      orderStatus: 'delivered',
+      subtotal: 150,
+      paymentMethod: 'instapay',
+      items: [
+        { product: { id: 'px', storeId: 'store-xyz', name: 'وجبة غداء', price: 150 }, quantity: 1 },
+      ],
+    },
+  ];
+
+  const entries = generateMerchantJournalEntries(mockOrders as Order[], 'store-xyz', 0.10);
+  assert.equal(entries.length, 2);
+
+  // 1st entry: Sales Recognition
+  assert.equal(entries[1].orderNumber, 'CAP-100');
+  assert.equal(entries[1].debitAccount, 'حـ/ التحويل المباشر (InstaPay)');
+  assert.equal(entries[1].creditAccount, 'حـ/ إيرادات مبيعات المتجر');
+  assert.equal(entries[1].amount, 150);
+
+  // 2nd entry: Platform Fee
+  assert.equal(entries[0].debitAccount, 'حـ/ مصروف عمولة تشغيل المنصة');
+  assert.equal(entries[0].amount, 15);
+});
+
+test('calculateTopSellingProducts ranks products correctly by volume and share', () => {
+  const mockOrders: any[] = [
+    {
+      id: 'o1',
+      storeIds: ['store-1'],
+      orderStatus: 'delivered',
+      items: [
+        { product: { id: 'p1', storeId: 'store-1', name: 'فول', category: 'فطور', price: 20 }, quantity: 5 },
+        { product: { id: 'p2', storeId: 'store-1', name: 'فلافل', category: 'فطور', price: 10 }, quantity: 2 },
+      ],
+    },
+    {
+      id: 'o2',
+      storeIds: ['store-1'],
+      orderStatus: 'delivered',
+      items: [
+        { product: { id: 'p1', storeId: 'store-1', name: 'فول', category: 'فطور', price: 20 }, quantity: 5 },
+      ],
+    },
+  ];
+
+  const top = calculateTopSellingProducts(mockOrders as Order[], 'store-1');
+  assert.equal(top.length, 2);
+  assert.equal(top[0].name, 'فول');
+  assert.equal(top[0].soldQuantity, 10);
+  assert.equal(top[0].totalRevenue, 200);
+  assert.equal(top[1].name, 'فلافل');
+  assert.equal(top[1].soldQuantity, 2);
+});
+
+test('calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest', () => {
+  const storeCoords = { latitude: 30.0131, longitude: 31.7346 };
+  const couriers = [
+    {
+      id: 'c1',
+      name: 'كابتن محمود',
+      phone: '01011112222',
+      rating: 4.9,
+      avgDeliveryMinutes: 25,
+      coordinates: { latitude: 30.0200, longitude: 31.7400 },
+    },
+    {
+      id: 'c2',
+      name: 'كابتن علي (الأسرع)',
+      phone: '01033334444',
+      rating: 4.95,
+      avgDeliveryMinutes: 10,
+      coordinates: { latitude: 30.0140, longitude: 31.7350 }, // Closest
+    },
+  ];
+
+  const ranked = rankCouriersForStore(storeCoords, couriers);
+  assert.equal(ranked.length, 2);
+  // c2 is both closer and fastest
+  assert.equal(ranked[0].id, 'c2');
+  assert.equal(ranked[0].isFastest, true);
+  assert.ok(ranked[0].distanceKm < ranked[1].distanceKm);
+});

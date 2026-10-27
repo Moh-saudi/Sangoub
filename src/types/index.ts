@@ -276,3 +276,50 @@ export interface JobApplication {
   status: ApplicationStatus;
   createdAt: string;
 }
+
+export interface MerchantJournalEntry {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  date: string;
+  debitAccount: string;
+  creditAccount: string;
+  amount: number;
+  statement: string;
+  paymentMethod: PaymentMethod;
+}
+
+export interface MerchantAccountingSummary {
+  grossSales: number;
+  platformCommission: number;
+  taxAmount: number;
+  netPayout: number;
+  ordersCount: number;
+  byPaymentMethod: {
+    cash: number;
+    instapay: number;
+    geidea: number;
+  };
+}
+
+export interface TopSellingItem {
+  productId: string;
+  name: string;
+  category: string;
+  soldQuantity: number;
+  totalRevenue: number;
+  ordersCount: number;
+  percentageShare: number;
+}
+
+export interface CourierRadarProfile {
+  id: string;
+  name: string;
+  phone: string;
+  rating: number;
+  avgDeliveryMinutes: number;
+  distanceKm: number;
+  isFastest: boolean;
+  status: "available" | "busy" | "offline";
+  coordinates?: Coordinates;
+}

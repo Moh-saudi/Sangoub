@@ -1,4 +1,17 @@
-import type { CartItem, Coupon, OrderStatus, Profile, Order, CourierChecklist } from '../types/index.ts';
+import type {
+  CartItem,
+  Coupon,
+  OrderStatus,
+  Profile,
+  Order,
+  CourierChecklist,
+  PaymentMethod,
+  MerchantJournalEntry,
+  MerchantAccountingSummary,
+  TopSellingItem,
+  CourierRadarProfile,
+  Coordinates,
+} from '../types/index.ts';
 
 /**
  * Calculates cart subtotal based on item base price + option extra prices * quantity.
@@ -109,11 +122,11 @@ export function getOrderStatusLabel(status: OrderStatus): { text: string; step: 
     case 'received':
       return { text: 'تم استلام الطلب بنجاح', step: 1, colorClass: 'text-amber-600 bg-amber-50 border-amber-200' };
     case 'preparing':
-      return { text: 'جاري التجهيز بالمطعم / المتجر', step: 2, colorClass: 'text-blue-600 bg-blue-50 border-blue-200' };
+      return { text: 'مقبول وجاري التحضير بالمطعم', step: 2, colorClass: 'text-blue-600 bg-blue-50 border-blue-200' };
     case 'with_courier':
-      return { text: 'خرج مع مندوب الحي الحكومي', step: 4, colorClass: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
+      return { text: 'تم التسليم للمندوب وهو في الطريق إليك', step: 4, colorClass: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
     case 'ready':
-      return { text: 'جاهز لاستلام المندوب', step: 3, colorClass: 'text-orange-700 bg-orange-50 border-orange-200' };
+      return { text: 'جاهز للاستلام بالمطعم', step: 3, colorClass: 'text-orange-700 bg-orange-50 border-orange-200' };
     case 'delivered':
       return { text: 'تم التسليم لمكتب الوزارة بنجاح', step: 5, colorClass: 'text-teal-700 bg-teal-50 border-teal-200' };
     case 'cancelled':
@@ -194,4 +207,246 @@ export function validateEmployeeProfile(profile: Partial<Profile>): { valid: boo
     valid: errors.length === 0,
     errors,
   };
+}
+
+/**
+ * Calculates financial summary and breakdown by payment method for a merchant/store
+ */
+export function calculateMerchantAccountingSummary(
+  orders: Order[],
+  storeId: string,
+  commissionRate: number = 0.10
+): MerchantAccountingSummary {
+  const storeOrders = orders.filter((order) => {
+    const isStoreOrder = order.storeIds?.includes(storeId) ||
+      order.items?.some((i) => i.product.storeId === storeId);
+    return isStoreOrder && order.orderStatus === 'delivered';
+  });
+
+  let grossSales = 0;
+  let taxAmount = 0;
+  let cashTotal = 0;
+  let instapayTotal = 0;
+  let geideaTotal = 0;
+
+  for (const order of storeOrders) {
+    const storeSubtotal = order.items
+      .filter((i) => i.product.storeId === storeId)
+      .reduce((sum, item) => sum + (item.product.price + (item.extraPrice || 0)) * item.quantity, 0);
+
+    grossSales += storeSubtotal;
+
+    if (order.taxTotal && order.subtotal > 0) {
+      taxAmount += (storeSubtotal / order.subtotal) * order.taxTotal;
+    }
+
+    if (order.paymentMethod === 'cash') {
+      cashTotal += storeSubtotal;
+    } else if (order.paymentMethod === 'instapay') {
+      instapayTotal += storeSubtotal;
+    } else {
+      geideaTotal += storeSubtotal;
+    }
+  }
+
+  const platformCommission = Math.round(grossSales * commissionRate * 100) / 100;
+  const netPayout = Math.max(0, grossSales - platformCommission);
+
+  return {
+    grossSales,
+    platformCommission,
+    taxAmount: Math.round(taxAmount * 100) / 100,
+    netPayout,
+    ordersCount: storeOrders.length,
+    byPaymentMethod: {
+      cash: cashTotal,
+      instapay: instapayTotal,
+      geidea: geideaTotal,
+    },
+  };
+}
+
+/**
+ * Generates automated double-entry accounting journal entries for a merchant's delivered orders
+ */
+export function generateMerchantJournalEntries(
+  orders: Order[],
+  storeId: string,
+  commissionRate: number = 0.10
+): MerchantJournalEntry[] {
+  const deliveredStoreOrders = orders.filter((order) => {
+    const isStoreOrder = order.storeIds?.includes(storeId) ||
+      order.items?.some((i) => i.product.storeId === storeId);
+    return isStoreOrder && order.orderStatus === 'delivered';
+  });
+
+  const entries: MerchantJournalEntry[] = [];
+
+  for (const order of deliveredStoreOrders) {
+    const storeSubtotal = order.items
+      .filter((i) => i.product.storeId === storeId)
+      .reduce((sum, item) => sum + (item.product.price + (item.extraPrice || 0)) * item.quantity, 0);
+
+    if (storeSubtotal <= 0) continue;
+
+    const commission = Math.round(storeSubtotal * commissionRate * 100) / 100;
+
+    let debitAccount = 'حـ/ الصندوق النقدي (عهدة مندوب الحي)';
+    if (order.paymentMethod === 'geidea') {
+      debitAccount = 'حـ/ وسيط الدفع الإلكتروني (Geidea / بطاقة)';
+    } else if (order.paymentMethod === 'instapay') {
+      debitAccount = 'حـ/ التحويل المباشر (InstaPay)';
+    }
+
+    // 1. Sales Recognition Entry
+    entries.push({
+      id: `JE-${order.id}-01`,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      date: order.deliveredAt || order.createdAt || new Date().toISOString(),
+      debitAccount,
+      creditAccount: 'حـ/ إيرادات مبيعات المتجر',
+      amount: storeSubtotal,
+      statement: `إثبات مبيعات الطلب #${order.orderNumber} عبر ${order.paymentMethod === 'cash' ? 'نقدي (كاش)' : order.paymentMethod === 'geidea' ? 'بطاقة بنكية' : 'إنستاباي'}`,
+      paymentMethod: order.paymentMethod,
+    });
+
+    // 2. Platform Commission Expense Entry
+    if (commission > 0) {
+      entries.push({
+        id: `JE-${order.id}-02`,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        date: order.deliveredAt || order.createdAt || new Date().toISOString(),
+        debitAccount: 'حـ/ مصروف عمولة تشغيل المنصة',
+        creditAccount: 'حـ/ أمانات منصة طلبات العاصمة الدائنة',
+        amount: commission,
+        statement: `خصم عمولة المنصة (${Math.round(commissionRate * 100)}%) للطلب #${order.orderNumber}`,
+        paymentMethod: order.paymentMethod,
+      });
+    }
+  }
+
+  return entries.reverse(); // Newest first
+}
+
+/**
+ * Calculates best-selling items for a merchant
+ */
+export function calculateTopSellingProducts(
+  orders: Order[],
+  storeId: string,
+  limit: number = 5
+): TopSellingItem[] {
+  const deliveredStoreOrders = orders.filter((order) => {
+    const isStoreOrder = order.storeIds?.includes(storeId) ||
+      order.items?.some((i) => i.product.storeId === storeId);
+    return isStoreOrder && order.orderStatus === 'delivered';
+  });
+
+  const statsMap: Record<string, { name: string; category: string; quantity: number; revenue: number; orderIds: Set<string> }> = {};
+  let totalRevenueAll = 0;
+
+  for (const order of deliveredStoreOrders) {
+    for (const item of order.items) {
+      if (item.product.storeId !== storeId) continue;
+      const pid = item.product.id;
+      const itemPrice = item.product.price + (item.extraPrice || 0);
+      const itemTotal = itemPrice * item.quantity;
+      totalRevenueAll += itemTotal;
+
+      if (!statsMap[pid]) {
+        statsMap[pid] = {
+          name: item.product.name,
+          category: item.product.category,
+          quantity: 0,
+          revenue: 0,
+          orderIds: new Set(),
+        };
+      }
+
+      statsMap[pid].quantity += item.quantity;
+      statsMap[pid].revenue += itemTotal;
+      statsMap[pid].orderIds.add(order.id);
+    }
+  }
+
+  const itemsArray: TopSellingItem[] = Object.entries(statsMap).map(([productId, data]) => ({
+    productId,
+    name: data.name,
+    category: data.category,
+    soldQuantity: data.quantity,
+    totalRevenue: data.revenue,
+    ordersCount: data.orderIds.size,
+    percentageShare: totalRevenueAll > 0 ? Math.round((data.revenue / totalRevenueAll) * 100) : 0,
+  }));
+
+  // Sort by sold quantity descending
+  return itemsArray.sort((a, b) => b.soldQuantity - a.soldQuantity).slice(0, limit);
+}
+
+/**
+ * Calculates geographic distance in kilometers (Haversine formula)
+ */
+export function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+    Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return parseFloat((R * c).toFixed(2));
+}
+
+/**
+ * Ranks couriers by proximity to the store and highlights the fastest courier
+ */
+export function rankCouriersForStore(
+  storeCoords: Coordinates | { latitude?: number; longitude?: number },
+  couriersList: Array<{
+    id: string;
+    name: string;
+    phone: string;
+    rating?: number;
+    avgDeliveryMinutes?: number;
+    coordinates?: Coordinates;
+    status?: 'available' | 'busy' | 'offline';
+  }>
+): CourierRadarProfile[] {
+  const sLat = storeCoords?.latitude ?? 30.0131; // Default New Admin Capital
+  const sLng = storeCoords?.longitude ?? 31.7346;
+
+  const ranked: CourierRadarProfile[] = couriersList.map((c, index) => {
+    const cLat = c.coordinates?.latitude ?? (sLat + (index + 1) * 0.005);
+    const cLng = c.coordinates?.longitude ?? (sLng + (index + 1) * 0.004);
+    const distanceKm = calculateDistanceKm(sLat, sLng, cLat, cLng);
+    const avgDeliveryMinutes = c.avgDeliveryMinutes ?? (12 + index * 4);
+
+    return {
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      rating: c.rating ?? 4.9,
+      avgDeliveryMinutes,
+      distanceKm,
+      isFastest: false,
+      status: c.status ?? 'available',
+      coordinates: { latitude: cLat, longitude: cLng },
+    };
+  });
+
+  if (ranked.length > 0) {
+    const minTime = Math.min(...ranked.map((r) => r.avgDeliveryMinutes));
+    ranked.forEach((r) => {
+      if (r.avgDeliveryMinutes === minTime) {
+        r.isFastest = true;
+      }
+    });
+  }
+
+  // Sort primarily by closest distance
+  return ranked.sort((a, b) => a.distanceKm - b.distanceKm);
 }
