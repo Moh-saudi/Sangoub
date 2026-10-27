@@ -330,46 +330,46 @@ export function UserManagement({ stores }: { stores: Store[] }) {
 
   return (
     <section className="space-y-4 max-w-7xl mx-auto" aria-label="إدارة وسجل الحسابات" dir="rtl">
-      {/* 1. Header & Breadcrumbs (Image 3 Style) */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* 1. Header & Breadcrumbs (Image 3 Style: Compact & Concise) */}
+      <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             {/* Breadcrumb */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium mb-1.5">
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium mb-1">
               <span>الرئيسية</span>
               <span>&gt;</span>
               <span>إدارة المنظومة</span>
               <span>&gt;</span>
-              <span className="text-teal-700 font-bold">سجل وإدارة المناديب والتجار والكوادر التشغيلية</span>
+              <span className="text-teal-700 font-bold">سجل المناديب والتجار</span>
             </div>
 
             {/* Title & Subtitle */}
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              سجل وإدارة جهات التحضير والمناديب والتجار
+            <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+              سجل المناديب والتجار
             </h1>
-            <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
-              إدارة وتصنيف المناديب والمتاجر والعملاء، وتحديد التبعية التشغيلية والفحص الطبي والجنائي والتجهيزات الميدانية (صندوق حراري، فيش جنائي، فحص مخدرات، لوكيشن GPS) بدقة متناهية.
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              إدارة وتصنيف المناديب والمتاجر، ومتابعة الفحص الطبي والجنائي وإحداثيات الموقع بدقة.
             </p>
           </div>
 
-          {/* Action Button: Opens the New Pop-up Form */}
-          <div className="shrink-0 flex items-center gap-2">
+          {/* Action Button */}
+          <div className="shrink-0">
             <button
               type="button"
               onClick={openCreateForm}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
             >
-              <Plus size={16} />
-              <span>إضافة قيد معتمد جديد</span>
+              <Plus size={15} />
+              <span>إضافة قيد جديد</span>
             </button>
           </div>
         </div>
 
-        {/* Success / Alert Banner (Image 3 Style) */}
+        {/* Success / Alert Banner */}
         {notice && (
-          <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200/80 text-emerald-800 rounded-xl text-xs font-medium flex items-center justify-between animate-fadeIn">
+          <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200/80 text-emerald-800 rounded-lg text-xs font-medium flex items-center justify-between animate-fadeIn">
             <div className="flex items-center gap-2">
-              <Check size={16} className="text-emerald-600 shrink-0" />
+              <Check size={15} className="text-emerald-600 shrink-0" />
               <span>{notice}</span>
             </div>
             <button type="button" onClick={() => setNotice('')} className="text-emerald-600 hover:text-emerald-800 text-xs font-bold cursor-pointer">
@@ -380,67 +380,67 @@ export function UserManagement({ stores }: { stores: Store[] }) {
 
         {/* Global Error Notice */}
         {error && !isFormModalOpen && (
-          <div className="mt-4 p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-medium flex items-center gap-2">
-            <AlertCircle size={16} className="text-rose-600 shrink-0" />
+          <div className="mt-3 p-2.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs font-medium flex items-center gap-2">
+            <AlertCircle size={15} className="text-rose-600 shrink-0" />
             <span>{error}</span>
           </div>
         )}
       </div>
 
-      {/* 2. KPI Summary Row (Image 3 Style: 5 Distinct Cards) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      {/* 2. KPI Summary Row (Compact & Concise) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         {/* Card 1: Total Users */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center justify-between shadow-2xs">
           <div>
             <p className="text-[11px] font-bold text-slate-500">إجمالي الحسابات</p>
-            <p className="text-xl font-black text-slate-900 mt-0.5">{kpiData.total}</p>
+            <p className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">{kpiData.total}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-cyan-50 text-cyan-700 flex items-center justify-center shrink-0">
-            <Building2 size={20} />
+          <div className="w-8 h-8 rounded-full bg-cyan-50 text-cyan-700 flex items-center justify-center shrink-0">
+            <Building2 size={16} />
           </div>
         </div>
 
         {/* Card 2: Couriers */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center justify-between shadow-2xs">
           <div>
             <p className="text-[11px] font-bold text-slate-500">مناديب التوصيل</p>
-            <p className="text-xl font-black text-amber-700 mt-0.5">{kpiData.couriers}</p>
+            <p className="text-base sm:text-lg font-bold text-amber-700 mt-0.5">{kpiData.couriers}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-            <Bike size={20} />
+          <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <Bike size={16} />
           </div>
         </div>
 
         {/* Card 3: Merchants */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center justify-between shadow-2xs">
           <div>
-            <p className="text-[11px] font-bold text-slate-500">المتاجر والشركاء (GPS)</p>
-            <p className="text-xl font-black text-emerald-700 mt-0.5">{kpiData.merchants}</p>
+            <p className="text-[11px] font-bold text-slate-500">المتاجر والشركاء</p>
+            <p className="text-base sm:text-lg font-bold text-emerald-700 mt-0.5">{kpiData.merchants}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <StoreIcon size={20} />
+          <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <StoreIcon size={16} />
           </div>
         </div>
 
         {/* Card 4: Employees */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center justify-between shadow-2xs">
           <div>
-            <p className="text-[11px] font-bold text-slate-500">عملاء الحي الحكومي</p>
-            <p className="text-xl font-black text-purple-700 mt-0.5">{kpiData.employees}</p>
+            <p className="text-[11px] font-bold text-slate-500">عملاء المنظومة</p>
+            <p className="text-base sm:text-lg font-bold text-purple-700 mt-0.5">{kpiData.employees}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-            <Users size={20} />
+          <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+            <Users size={16} />
           </div>
         </div>
 
         {/* Card 5: Verified & Active */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center justify-between shadow-2xs">
           <div>
-            <p className="text-[11px] font-bold text-slate-500">مفعلة وموثقة بالسجل</p>
-            <p className="text-xl font-black text-teal-700 mt-0.5">{kpiData.verified}</p>
+            <p className="text-[11px] font-bold text-slate-500">حسابات موثقة</p>
+            <p className="text-base sm:text-lg font-bold text-teal-700 mt-0.5">{kpiData.verified}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
-            <ShieldCheck size={20} />
+          <div className="w-8 h-8 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+            <ShieldCheck size={16} />
           </div>
         </div>
       </div>
@@ -531,13 +531,13 @@ export function UserManagement({ stores }: { stores: Store[] }) {
           <table className="w-full text-right border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold text-[11px]">
-                <th className="py-3 px-3.5 text-center w-10">#</th>
-                <th className="py-3 px-3.5">اسم الحساب / الشهرة (انقر للمعاينة)</th>
-                <th className="py-3 px-3.5">النوع والتصنيف</th>
-                <th className="py-3 px-3.5">التوثيق الجنائي والفحص الطبي</th>
-                <th className="py-3 px-3.5">الوسيلة والتجهيزات / اللوكيشن</th>
-                <th className="py-3 px-3.5 text-center">الحالة</th>
-                <th className="py-3 px-3.5 text-center w-52">التحكم والإجراءات</th>
+                <th className="py-2.5 px-3 text-center w-10">#</th>
+                <th className="py-2.5 px-3">اسم الحساب / الشهرة</th>
+                <th className="py-2.5 px-3">النوع والتصنيف</th>
+                <th className="py-2.5 px-3">الفحص الطبي والجنائي</th>
+                <th className="py-2.5 px-3">الوسيلة / اللوكيشن</th>
+                <th className="py-2.5 px-3 text-center">الحالة</th>
+                <th className="py-2.5 px-3 text-center w-48">التحكم والإجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -820,18 +820,18 @@ export function UserManagement({ stores }: { stores: Store[] }) {
         <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-4xl w-full border border-slate-200 shadow-2xl flex flex-col max-h-[92vh] animate-fadeIn">
             {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/60 rounded-t-2xl">
+            <div className="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/60 rounded-t-2xl">
               <div>
-                <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <FileCheck size={18} className="text-teal-700" />
+                <h2 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <FileCheck size={16} className="text-teal-700" />
                   <span>
                     {editingUser
-                      ? `تعديل بيانات القيد المعتمد: ${editingUser.fullName || editingUser.email}`
-                      : 'إضافة قيد معتمد جديد (مندوب / تاجر / عميل)'}
+                      ? `تعديل القيد: ${editingUser.fullName || editingUser.email}`
+                      : 'إضافة قيد جديد'}
                   </span>
                 </h2>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  تظهر هذه البيانات للمنظومة لضمان أعلى معايير السلامة والأمان وسرعة التوصيل وحساب المسافات الجغرافية الدقيقة.
+                  أدخل بيانات الحساب والتحقق المطلوب لإضافته للمنظومة.
                 </p>
               </div>
               <button
@@ -839,7 +839,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                 onClick={closeFormModal}
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
@@ -1380,16 +1380,16 @@ export function UserManagement({ stores }: { stores: Store[] }) {
         <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-3xl w-full border border-slate-200 shadow-2xl flex flex-col max-h-[92vh] animate-fadeIn">
             {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/70 rounded-t-2xl">
+            <div className="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/70 rounded-t-2xl">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                    <ShieldCheck size={18} className="text-teal-700" />
-                    <span>ملف السجل المعتمد الكامل: {viewingUser.fullName || viewingUser.email}</span>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <ShieldCheck size={16} className="text-teal-700" />
+                    <span>بيانات الحساب: {viewingUser.fullName || viewingUser.email}</span>
                   </h3>
                   {!viewingUser.disabled ? (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      نشط ومتاح للقيد ✓
+                      نشط ومتاح ✓
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
@@ -1397,7 +1397,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-400 font-mono mt-0.5">UID: {viewingUser.uid}</p>
+                <p className="text-[10px] text-slate-400 font-mono mt-0.5">UID: {viewingUser.uid}</p>
               </div>
 
               <button
@@ -1405,7 +1405,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                 onClick={() => setViewingUser(null)}
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
