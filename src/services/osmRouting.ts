@@ -1,3 +1,4 @@
+import {requestOsm,type OsmClientOptions} from './osmClient';
 /**
  * OpenStreetMap & OSRM Routing Service for Sangoub Platform
  * Provides road-network routing, accurate ETA, caching, deviation checking, and graceful Haversine fallback.
@@ -26,7 +27,7 @@ export const OSM_CONFIG = {
   get osrmUrl(): string {
     return (
       (import.meta as any).env?.VITE_OSRM_URL ||
-      "https://router.project-osrm.org/route/v1/driving"
+      "/api/osm/route"
     );
   },
   attribution:
@@ -90,16 +91,14 @@ export function hasDeviatedFromRoute(
 ): boolean {
   if (!polyline || polyline.length === 0) return true;
 
-  let minDistance = Infinity;
-  for (let i = 0; i < polyline.length; i++) {
-    const pt: Coordinates = { latitude: polyline[i][0], longitude: polyline[i][1] };
-    const dist = haversineDistanceMeters(currentPos, pt);
-    if (dist < minDistance) {
-      minDistance = dist;
-    }
-    if (minDistance <= thresholdMeters) {
-      return false; // Within allowed corridor
-    }
+  // Measure point-to-segment distance, not just distance to sparse route vertices.
+  const scale=111320,cos=Math.cos(currentPos.latitude*Math.PI/180);
+  const projected=polyline.map(([lat,lng])=>[(lng-currentPos.longitude)*scale*cos,(lat-currentPos.latitude)*scale]);
+  let minDistance=Infinity;
+  for(let i=0;i<projected.length;i++){
+    const a=projected[i],b=projected[Math.min(i+1,projected.length-1)],dx=b[0]-a[0],dy=b[1]-a[1];
+    const t=dx*dx+dy*dy?Math.max(0,Math.min(1,-(a[0]*dx+a[1]*dy)/(dx*dx+dy*dy))):0;
+    minDistance=Math.min(minDistance,Math.hypot(a[0]+t*dx,a[1]+t*dy));
   }
 
   return minDistance > thresholdMeters;
@@ -111,7 +110,7 @@ export function hasDeviatedFromRoute(
 export async function calculateOsmRoute(
   from: Coordinates,
   to: Coordinates,
-  options: { forceRecalculate?: boolean; timeoutMs?: number } = {}
+  options: OsmClientOptions & { forceRecalculate?: boolean; timeoutMs?: number } = {}
 ): Promise<RouteResult> {
   const key = createCacheKey(from, to);
   const cached = routeCache.get(key);
@@ -124,36 +123,15 @@ export async function calculateOsmRoute(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  const baseUrl = OSM_CONFIG.osrmUrl.replace(/\/+$/, "");
-  const url = `${baseUrl}/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=full&geometries=geojson`;
-
+  const abort=()=>controller.abort();options.signal?.addEventListener('abort',abort,{once:true});
+  if(options.signal?.aborted)controller.abort();
+  let cancel:()=>void=()=>{};
+  const aborted=new Promise<never>((_,reject)=>{cancel=()=>reject(new DOMException('Aborted','AbortError'));controller.signal.addEventListener('abort',cancel,{once:true});if(controller.signal.aborted)cancel();});
   try {
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
-
-    if (!response.ok) {
-      throw new Error(`OSRM HTTP status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (!data.routes || data.routes.length === 0) {
-      throw new Error("No route returned from OSRM");
-    }
-
-    const primaryRoute = data.routes[0];
-    // GeoJSON coordinates are [longitude, latitude] -> convert to Leaflet [latitude, longitude]
-    const polyline: [number, number][] = primaryRoute.geometry.coordinates.map(
-      (coord: [number, number]) => [coord[1], coord[0]]
-    );
-
-    const result: RouteResult = {
-      distanceMeters: Math.round(primaryRoute.distance),
-      durationSeconds: Math.round(primaryRoute.duration),
-      polyline,
-      isFallback: false,
-      calculatedAt: Date.now(),
-    };
-
+    const data=await Promise.race([requestOsm('route',{from,to},{...options,signal:controller.signal}),aborted]);
+    if(!Number.isFinite(data.distanceMeters)||data.distanceMeters<0||!Number.isFinite(data.durationSeconds)||data.durationSeconds<0||!Array.isArray(data.polyline)||data.polyline.length<2||data.polyline.some((p:any)=>!Array.isArray(p)||!Number.isFinite(p[0])||!Number.isFinite(p[1])||Math.abs(p[0])>90||Math.abs(p[1])>180))throw Error('Invalid route');
+    const result:RouteResult={distanceMeters:Math.round(data.distanceMeters),durationSeconds:Math.round(data.durationSeconds),polyline:data.polyline,isFallback:false,calculatedAt:Date.now()};
+    if(routeCache.size>=100)routeCache.delete(routeCache.keys().next().value!);
     routeCache.set(key, { result, expiresAt: Date.now() + CACHE_TTL_MS });
     return result;
   } catch (error) {
@@ -162,6 +140,28 @@ export async function calculateOsmRoute(
     // Cache fallback briefly (60 seconds) to prevent hammering when offline
     routeCache.set(key, { result: fallback, expiresAt: Date.now() + 60 * 1000 });
     return fallback;
-  }
+  } finally {clearTimeout(timer);options.signal?.removeEventListener('abort',abort);controller.signal.removeEventListener('abort',cancel);}
 }
 
+
+/** One planner per journey: recalculate only on departure/destination change or >50m deviation. */
+export class RoutePlanner {
+ private route:RouteResult|null=null;private destination='';private pending:Promise<RouteResult>|null=null;private requestedAt=-Infinity;
+ constructor(private calculate:typeof calculateOsmRoute=calculateOsmRoute,private now:()=>number=Date.now){}
+ async update(from:Coordinates,to:Coordinates,options:Parameters<typeof calculateOsmRoute>[2]={}):Promise<RouteResult>{
+  const destination=`${to.latitude},${to.longitude}`;
+  if(this.pending)return this.pending;
+  const departure=!this.route||destination!==this.destination;
+  if(!departure&&(!hasDeviatedFromRoute(from,this.route!.polyline,50)||this.now()-this.requestedAt<10000))return this.route!;
+  this.destination=destination;this.requestedAt=this.now();
+  this.pending=this.calculate(from,to,{...options,forceRecalculate:true}).then(route=>(this.route=route)).finally(()=>{this.pending=null});
+  return this.pending;
+ }
+}
+export function remainingRoute(route:RouteResult,position:Coordinates){
+ let best=Infinity,bestIndex=0,bestFraction=0;const cos=Math.cos(position.latitude*Math.PI/180),scale=111320;
+ for(let i=0;i<route.polyline.length-1;i++){const a=route.polyline[i],b=route.polyline[i+1],ax=(a[1]-position.longitude)*scale*cos,ay=(a[0]-position.latitude)*scale,dx=(b[1]-a[1])*scale*cos,dy=(b[0]-a[0])*scale;const t=dx*dx+dy*dy?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/(dx*dx+dy*dy))):0;const d=Math.hypot(ax+t*dx,ay+t*dy);if(d<best){best=d;bestIndex=i;bestFraction=t}}
+ const segment=(i:number)=>haversineDistanceMeters({latitude:route.polyline[i][0],longitude:route.polyline[i][1]},{latitude:route.polyline[i+1][0],longitude:route.polyline[i+1][1]});
+ let total=0,left=0;for(let i=0;i<route.polyline.length-1;i++){const d=segment(i);total+=d;if(i>bestIndex)left+=d;else if(i===bestIndex)left+=d*(1-bestFraction)}
+ const ratio=total?Math.max(0,Math.min(1,left/total)):0;return {distanceMeters:Math.round(route.distanceMeters*ratio),durationSeconds:Math.round(route.durationSeconds*ratio)};
+}

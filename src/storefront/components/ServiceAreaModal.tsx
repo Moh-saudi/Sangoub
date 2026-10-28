@@ -1,3 +1,4 @@
+import { searchOsm } from '../../services/osmClient';
 import { OSM_CONFIG } from '../../services/osmRouting';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore, type ServiceArea } from '../context/StoreContext';
@@ -59,16 +60,9 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
     setIsResolving(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=ar`,
-        {
-          headers: {
-            'Accept-Language': 'ar',
-          },
-        }
-      );
-      if (!response.ok) throw new Error('Geocoding failed');
-      const data = await response.json();
+      const response=await searchOsm({coordinates:{latitude:lat,longitude:lng}});
+      const data=response.results?.[0];
+      if(!data)throw Error('No result');
 
       if (data && data.address) {
         const addr = data.address;
@@ -179,17 +173,12 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
     setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
-            value.trim()
-          )}&countrycodes=eg&accept-language=ar&limit=5`
-        );
-        if (!res.ok) throw new Error('Search failed');
-        const data: SearchResult[] = await res.json();
+        const response=await searchOsm({query:value.trim()});
+        const data:SearchResult[]=response.results||[];
         setSearchResults(data);
         setShowResultsDropdown(data.length > 0);
       } catch {
-        setSearchResults([]);
+        setSearchResults([]);setResolvedAddress('تعذر البحث؛ سجّل الدخول وتحقق من نطاق الخدمة أو حدد الموقع على الخريطة.');
       } finally {
         setIsSearching(false);
       }
