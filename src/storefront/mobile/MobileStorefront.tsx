@@ -893,6 +893,10 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           className="fixed bottom-16 inset-x-3.5 z-40 animate-fade-in-up"
         >
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="سلة المشتريات السريعة"
+            onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();handleOpenCart()}}}
             onClick={handleOpenCart}
             className="bg-[#FF5900] text-white p-3 rounded-2xl shadow-xl flex items-center justify-between cursor-pointer active:scale-98 transition-all"
           >

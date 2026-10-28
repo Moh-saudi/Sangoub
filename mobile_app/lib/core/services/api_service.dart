@@ -14,6 +14,33 @@ class ApiService {
     defaultValue: 'https://capital-talabat.vercel.app',
   );
 
+  Future<bool> geideaAvailable() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/app-content?view=checkout')).timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) return false;
+    return (jsonDecode(response.body) as Map<String, dynamic>)['geideaAvailable'] == true;
+  }
+
+  Future<void> registerNotificationToken(String deviceToken, String platform) async {
+    final token = await _getIdToken();
+    if (token == null) throw Exception('يرجى تسجيل الدخول.');
+    final response = await http.post(Uri.parse('$baseUrl/api/notifications'), headers: {'Content-Type':'application/json','Authorization':'Bearer $token'}, body: jsonEncode({'action':'register-token','token':deviceToken,'platform':platform}));
+    if (response.statusCode != 200) throw Exception('تعذر تسجيل جهاز الإشعارات.');
+  }
+
+  Future<void> updateOwnProfile(Map<String, dynamic> data) async {
+    final token = await _getIdToken();
+    if (token == null) throw Exception('يرجى تسجيل الدخول.');
+    final response = await http.post(Uri.parse('$baseUrl/api/orders'), headers: {'Content-Type':'application/json','Authorization':'Bearer $token'}, body: jsonEncode({'action':'profile-update','data':data}));
+    if (response.statusCode != 200) throw Exception('تعذر تحديث الملف الشخصي.');
+  }
+
+  Future<void> saveDefaultAddress(Map<String, dynamic> address) async {
+    final token = await _getIdToken();
+    if (token == null) throw Exception('يرجى تسجيل الدخول.');
+    final response = await http.post(Uri.parse('$baseUrl/api/orders'), headers: {'Content-Type':'application/json','Authorization':'Bearer $token'}, body: jsonEncode({'action':'profile-address','address':address,'makeDefault':true}));
+    if (response.statusCode != 200) throw Exception('تعذر حفظ العنوان الافتراضي.');
+  }
+
   Future<String?> _getIdToken() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;

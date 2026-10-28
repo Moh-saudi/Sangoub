@@ -1,3 +1,4 @@
+import avatarHandler from './api/user-avatar.ts';
 import express from "express";
 import visitorsHandler from "./api/visitors.ts";
 import operationsHandler from "./api/operations.ts";
@@ -38,6 +39,8 @@ async function startServer() {
   app.options("/api/admin-users", adminUsersHandler);
   app.post("/api/admin-data", adminDataHandler);
   app.options("/api/admin-data", adminDataHandler);
+  app.post("/api/user-avatar", avatarHandler);
+  app.options("/api/user-avatar", avatarHandler);
   app.post("/api/orders", ordersHandler);
   app.options("/api/orders", ordersHandler);
   app.post("/api/order-delivery", orderDeliveryHandler);

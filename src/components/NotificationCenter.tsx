@@ -1,3 +1,4 @@
+import {authenticatedApi} from '../lib/authenticatedApi';
 import { useState, useEffect } from "react";
 import { auth, db } from "../lib/firebase";
 import { apiUrl } from "../lib/apiUrl";
@@ -110,21 +111,9 @@ export function NotificationCenter({ stores = [] }: NotificationCenterProps) {
 
   // الاستماع اللحظي لسجل الإشعارات
   useEffect(() => {
-    const q = query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(40));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const items = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as NotificationItem[];
-        setHistory(items);
-      },
-      (err) => {
-        console.warn("Failed to listen to notifications history:", err);
-      }
-    );
-    return () => unsubscribe();
+    let active=true,inflight=false;
+    const load=async()=>{if(inflight)return;inflight=true;try{const data=await authenticatedApi('/api/notifications',{action:'list'});if(active)setHistory(data.notifications);}catch(e){if(active)setFeedback({success:false,message:e instanceof Error?e.message:'تعذر تحميل سجل الإشعارات.'});}finally{inflight=false;}};
+    void load();const timer=setInterval(()=>{if(!document.hidden)void load()},15000);return()=>{active=false;clearInterval(timer)};
   }, []);
 
   const handleApplyTemplate = (tmpl: (typeof TEMPLATES)[number]) => {

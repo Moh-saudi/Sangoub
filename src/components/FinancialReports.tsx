@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import {adminApi} from '../lib/adminApi';
+import React, { useState, useMemo, useEffect } from "react";
 import {
   DollarSign,
   TrendingUp,
@@ -44,7 +45,10 @@ export function FinancialReports({
   const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [settledStores, setSettledStores] = useState<Record<string, { ref: string; date: string }>>({});
+  const [ledger,setLedger]=useState<any[]>([]);const [financeError,setFinanceError]=useState('');const [saving,setSaving]=useState(false);
+  async function loadLedger(){try{const result=await adminApi('data',{action:'settlement-list'});setLedger(result.records);}catch(e){setFinanceError(e instanceof Error?e.message:'تعذر تحميل التسويات.');}}
+  useEffect(()=>{void loadLedger()},[]);
+  const settledStores=useMemo(()=>Object.fromEntries(stores.filter(store=>{const ids=orders.filter(o=>o.orderStatus==='delivered'&&o.items.some(i=>i.product.storeId===store.id)).map(o=>o.id);const paid=new Set(ledger.filter(r=>r.storeId===store.id).flatMap(r=>r.orderIds));return ids.length>0&&ids.every(id=>paid.has(id));}).map(store=>{const record=ledger.find(r=>r.storeId===store.id);return [store.id,{ref:record?.reference||'',date:record?.createdAt?new Date(record.createdAt).toLocaleDateString('ar-EG'):''}]})),[stores,orders,ledger]);
 
   // 1. Filter delivered orders based on period
   const deliveredOrders = useMemo(() => {
@@ -98,8 +102,8 @@ export function FinancialReports({
   const totalGrossRevenue = deliveredOrders.reduce((sum, o) => sum + o.total, 0);
 
   // Default platform commission: 10%
-  const DEFAULT_COMMISSION_RATE = 0.10;
-  const platformCommissionTotal = grossFoodSales * DEFAULT_COMMISSION_RATE;
+  const DEFAULT_COMMISSION_RATE = 0; // Uncontracted stores never inherit an invented 10% fee.
+  const platformCommissionTotal = deliveredOrders.reduce((sum,o)=>sum+o.items.reduce((total,i)=>total+(i.product.price+i.extraPrice)*i.quantity*((stores.find(s=>s.id===i.product.storeId)?.commissionRate||0)/100),0),0);
   const netDueToRestaurants = grossFoodSales - platformCommissionTotal;
 
   // 3. Store-level settlement calculation
@@ -120,7 +124,7 @@ export function FinancialReports({
         }
       });
 
-      const commission = storeGross * DEFAULT_COMMISSION_RATE;
+      const commission = storeGross * ((store.commissionRate||0)/100);
       const net = storeGross - commission;
       const isSettled = Boolean(settledStores[store.id]);
 
@@ -132,23 +136,21 @@ export function FinancialReports({
         grossSales: storeGross,
         platformCommission: commission,
         netPayout: net,
-        commissionRate: 10,
+        commissionRate: store.commissionRate??0,
         payoutStatus: isSettled ? "settled" : "pending",
       };
     }).filter((s) => s.deliveredOrdersCount > 0 || selectedStoreId === "all");
   }, [stores, deliveredOrders, settledStores, selectedStoreId]);
 
-  const handleSettleStore = (storeId: string, storeName: string) => {
-    const ref = prompt(`أدخل الرقم المرجعي لتحويل مستحقات متجر (${storeName}):`);
-    if (ref !== null) {
-      setSettledStores((prev) => ({
-        ...prev,
-        [storeId]: {
-          ref: ref || "تحويل بنكي / إنستاباي مباشر",
-          date: new Date().toLocaleDateString("ar-EG"),
-        },
-      }));
-    }
+  const handleSettleStore = async (storeId:string,_storeName:string) => {
+    if(saving)return;setFinanceError('');setSaving(true);
+    try{const paid=new Set(ledger.filter(r=>r.storeId===storeId).flatMap(r=>r.orderIds));const orderIds=deliveredOrders.filter(o=>!paid.has(o.id)&&o.items.some(i=>i.product.storeId===storeId)).map(o=>o.id);
+      if(!orderIds.length)throw new Error('لا توجد طلبات جديدة للتسوية في الفترة المحددة.');
+      const preview=await adminApi('data',{action:'settlement-preview',storeId,orderIds});
+      if(!confirm(`صافي التسوية ${formatEGP(preview.quote.net)}، العمولة ${formatEGP(preview.quote.commission)}. تُسجّل هذه العملية تحويلًا منفذًا خارج المنصة ولا تنفذ تحويلًا بنكيًا. هل تتابع؟`))return;
+      const reference=prompt('اكتب مرجع التحويل الفعلي:');if(!reference?.trim())return;
+      await adminApi('data',{action:'settlement-save',id:crypto.randomUUID(),storeId,orderIds,quoteHash:preview.quoteHash,reference});await loadLedger();
+    }catch(e){setFinanceError(e instanceof Error?e.message:'تعذر تسجيل التسوية.');}finally{setSaving(false);}
   };
 
   const handlePrint = () => {
@@ -157,6 +159,7 @@ export function FinancialReports({
 
   return (
     <section dir="rtl" className="financial-reports-section space-y-6" aria-label="التقارير المالية وفواتير المتاجر">
+      {financeError&&<p role="alert" className="p-3 text-red-800 bg-red-50">{financeError}</p>}<p className="p-3 text-sm text-slate-600">الأرقام تقديرية؛ المبلغ النهائي ونسبة التعاقد يراجعان من الخادم قبل تسجيل التحويل الفعلي.</p>
       {/* Top Header Bar */}
       <header className="bg-white p-5 rounded-3xl border border-slate-200 flex flex-wrap items-center justify-between gap-4 shadow-xs">
         <div>
@@ -242,7 +245,7 @@ export function FinancialReports({
         {/* Metric 3: Platform Commission */}
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">أرباح المنصة (العمولة 10%)</span>
+            <span className="text-xs font-bold text-slate-500">عمولة المنصة التقديرية حسب التعاقد</span>
             <span className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
               <TrendingUp size={17} />
             </span>
@@ -324,7 +327,7 @@ export function FinancialReports({
             </p>
           </div>
           <span className="text-xs font-bold bg-amber-50 text-amber-800 px-3 py-1 rounded-full border border-amber-200">
-            العمولة القياسية: 10%
+            العمولة حسب نسبة التعاقد المسجلة
           </span>
         </div>
 
@@ -335,7 +338,7 @@ export function FinancialReports({
                 <th className="py-3 px-4 font-bold">المتجر / الشريك</th>
                 <th className="py-3 px-4 font-bold text-center">الطلبات المسلمة</th>
                 <th className="py-3 px-4 font-bold">إجمالي المبيعات</th>
-                <th className="py-3 px-4 font-bold">عمولة المنصة (10%)</th>
+                <th className="py-3 px-4 font-bold">عمولة المنصة</th>
                 <th className="py-3 px-4 font-bold">صافي مستحق المتجر</th>
                 <th className="py-3 px-4 font-bold text-center">حالة التحويل</th>
                 <th className="py-3 px-4 font-bold text-center">الإجراء</th>
@@ -398,7 +401,7 @@ export function FinancialReports({
 
                       <td className="py-3.5 px-4 text-center">
                         <button
-                          onClick={() => handleSettleStore(settlement.storeId, settlement.storeName)}
+                          disabled={saving || Boolean(settledInfo)} onClick={() => void handleSettleStore(settlement.storeId, settlement.storeName)}
                           className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] transition-colors"
                         >
                           {settledInfo ? "تعديل المرجع" : "تسجيل التحويل"}

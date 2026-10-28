@@ -1,3 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'api_service.dart';
+
 /// خدمة التخزين السحابي Cloudflare R2 Object Storage
 /// مخصصة لرفع وتخزين واسترجاع صور الوجبات، لوجوهات المطاعم، فواتير الطلبات، والصور الشخصية
 class CloudflareR2Service {
@@ -53,11 +59,27 @@ class CloudflareR2Service {
 
   /// رفع الصورة الشخصية للمستخدم إلى Cloudflare R2
   static Future<String> uploadUserAvatar({
-    required dynamic imageBytes,
+    required Uint8List imageBytes,
     required String userId,
     String contentType = 'image/jpeg',
   }) async {
-    return getMediaUrl('avatars/$userId.jpg');
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.uid != userId) throw Exception('يرجى تسجيل الدخول.');
+    final token = await user.getIdToken();
+    final response = await http.post(
+      Uri.parse('${ApiService.baseUrl}/api/user-avatar'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      body: jsonEncode({'contentType': contentType, 'size': imageBytes.length}),
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) throw Exception('تعذر تجهيز رفع الصورة.');
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final upload = await http.put(Uri.parse(data['uploadUrl'] as String),
+      headers: {'Content-Type': contentType}, body: imageBytes,
+    ).timeout(const Duration(seconds: 45));
+    if (upload.statusCode < 200 || upload.statusCode >= 300) throw Exception('تعذر رفع الصورة.');
+    final url = data['publicUrl'] as String;
+    await ApiService().updateOwnProfile({'avatarUrl': url});
+    return url;
   }
 }
 

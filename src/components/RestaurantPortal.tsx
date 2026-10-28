@@ -61,7 +61,7 @@ interface RestaurantPortalProps {
   }>;
   onUpdateOrderStatus: (orderId: string, status: Order["orderStatus"]) => void;
   onUpdateProductStock: (productId: string, inStock: boolean) => void;
-  onUpdateProductPrice: (productId: string, newPrice: number) => void;
+  onUpdateProductPrice: (productId: string, newPrice: number) => Promise<void>;
   onAddProduct: (product: Product) => Promise<void>;
   onToggleStoreStatus: (storeId: string) => void;
 }
@@ -80,7 +80,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   onAddProduct,
   onToggleStoreStatus,
 }) => {
-  const userStore = stores.find((s) => s.id === currentProfile.storeId) || stores[0];
+  const userStore = stores.find((s) => s.id === currentProfile.storeId);
 
   const [activeTab, setActiveTab] = useState<"kitchen" | "menu" | "accounting" | "radar">("kitchen");
 
@@ -132,58 +132,20 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 
   // Accounting and Financial Computations
   const accountingSummary = useMemo(() => {
-    return calculateMerchantAccountingSummary(orders, userStore?.id || "", 0.10);
-  }, [orders, userStore?.id]);
+    return calculateMerchantAccountingSummary(orders, userStore?.id || "", (userStore?.commissionRate||0)/100);
+  }, [orders, userStore?.id, userStore?.commissionRate]);
 
   const journalEntries = useMemo(() => {
-    return generateMerchantJournalEntries(orders, userStore?.id || "", 0.10);
-  }, [orders, userStore?.id]);
+    return generateMerchantJournalEntries(orders, userStore?.id || "", (userStore?.commissionRate||0)/100);
+  }, [orders, userStore?.id, userStore?.commissionRate]);
 
   const topSellingItems = useMemo(() => {
     return calculateTopSellingProducts(orders, userStore?.id || "", 6);
-  }, [orders, userStore?.id]);
+  }, [orders, userStore?.id, userStore?.commissionRate]);
 
   // Couriers Radar computation
   const defaultCouriersList = useMemo(() => {
-    if (couriers && couriers.length > 0) return couriers;
-    return [
-      {
-        id: "c-101",
-        name: "كابتن سيف الدين الشريف",
-        phone: "01091234567",
-        rating: 4.96,
-        avgDeliveryMinutes: 9, // الأسرع
-        status: "available" as const,
-        coordinates: { latitude: 30.0145, longitude: 31.7352 },
-      },
-      {
-        id: "c-102",
-        name: "كابتن إبراهيم دسوقي",
-        phone: "01123456789",
-        rating: 4.88,
-        avgDeliveryMinutes: 14,
-        status: "available" as const,
-        coordinates: { latitude: 30.0160, longitude: 31.7380 },
-      },
-      {
-        id: "c-103",
-        name: "كابتن عمر الورداني",
-        phone: "01555667788",
-        rating: 4.92,
-        avgDeliveryMinutes: 11,
-        status: "available" as const,
-        coordinates: { latitude: 30.0120, longitude: 31.7330 },
-      },
-      {
-        id: "c-104",
-        name: "كابتن محمود رجب",
-        phone: "01234567890",
-        rating: 4.82,
-        avgDeliveryMinutes: 18,
-        status: "busy" as const,
-        coordinates: { latitude: 30.0210, longitude: 31.7410 },
-      },
-    ];
+    return couriers || [];
   }, [couriers]);
 
   const storeLocation = userStore?.coordinates || { latitude: 30.0131, longitude: 31.7346 };
@@ -191,9 +153,9 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
     return rankCouriersForStore(storeLocation, defaultCouriersList);
   }, [storeLocation, defaultCouriersList]);
 
-  const handleSavePrice = (productId: string) => {
+  const handleSavePrice = async (productId: string) => {
     if (tempPrice > 0) {
-      onUpdateProductPrice(productId, tempPrice);
+      try { await onUpdateProductPrice(productId, tempPrice); } catch (error) { setMenuError((error as Error).message); return; }
       setPriceSuccessId(productId);
       setEditingPriceId(null);
       setTimeout(() => setPriceSuccessId(null), 2500);
@@ -713,7 +675,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                   {formatEGP(accountingSummary.netPayout)}
                 </h3>
                 <span className="text-[11px] text-slate-400 mt-1 block">
-                  بعد خصم عمولة المنصة (10%) وحساب الضرائب المقررة
+                  تقدير حسب نسبة التعاقد المسجلة؛ التسوية النهائية تراجعها الإدارة
                 </span>
               </div>
 

@@ -1,3 +1,4 @@
+import {authenticatedApi} from '../../lib/authenticatedApi';
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
@@ -6,11 +7,14 @@ import {
   db,
   signInWithFirebaseGoogle,
   signOutFromFirebase,
+  syncUserProfileToFirestore,
+  isVerifiedIdentity,
 } from '../../lib/firebase';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
+  sendEmailVerification,
 } from 'firebase/auth';
 import {
   doc,
@@ -57,6 +61,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
 
   const [tab, setTab] = useState<'login' | 'register' | 'profile'>('login');
   const [busy, setBusy] = useState(false);
+  const [verificationPending, setVerificationPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
@@ -97,91 +102,19 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
   if (!isOpen) return null;
 
   // 1. Firebase Login with Email & Password
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-
-    try {
-      const cleanEmail = email.trim();
-      const userCred = await signInWithEmailAndPassword(auth, cleanEmail, password);
-      const uid = userCred.user.uid;
-
-      // Fetch user profile from Firestore "users" collection (Matching Flutter App)
-      const userDocRef = doc(db, 'users', uid);
-      const userSnap = await getDoc(userDocRef);
-
-      let profileData: Profile;
-      if (userSnap.exists()) {
-        const d = userSnap.data();
-        profileData = {
-          id: uid,
-          fullName: d.fullName || userCred.user.displayName || 'عميل سنجوب',
-          email: userCred.user.email || d.email || '',
-          phone: d.phone || userCred.user.phoneNumber || '',
-          ministry: d.ministry || '',
-          floorNumber: d.floorNumber || '',
-          roomNumber: d.roomNumber || '',
-          walletBalance: typeof d.walletBalance === 'number' ? d.walletBalance : 20,
-          role: d.role || 'employee',
-          isGuest: false,
-          authProvider: 'email',
-        };
-      } else {
-        // Create initial doc in Firestore if missing
-        profileData = {
-          id: uid,
-          fullName: userCred.user.displayName || cleanEmail.split('@')[0],
-          email: userCred.user.email || cleanEmail,
-          phone: '',
-          ministry: serviceArea.name || '',
-          floorNumber: '',
-          roomNumber: '',
-          walletBalance: 20,
-          role: 'employee',
-          isGuest: false,
-          authProvider: 'email',
-        };
-        await setDoc(userDocRef, {
-          uid,
-          fullName: profileData.fullName,
-          email: profileData.email,
-          phone: '',
-          ministry: profileData.ministry,
-          role: 'employee',
-          walletBalance: 20,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-
-      setUser(profileData);
-      if (profileData.ministry) {
-        setServiceArea({
-          id: `addr_${uid}`,
-          name: profileData.ministry,
-          deliveryTime: LAUNCH_CONFIG.showEta ? '20-30 دقيقة' : '',
-          active: true,
-        });
-      }
-
-      setSuccessNotice('تم تسجيل الدخول بنجاح! مرحباً بك 🐿️');
-      setTimeout(() => {
-        if (onSuccess) onSuccess();
-        else onClose();
-      }, 700);
-    } catch (err: any) {
-      const msgs: Record<string, string> = {
-        'auth/invalid-credential': 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
-        'auth/user-not-found': 'لا يوجد حساب بهذا البريد. يمكنك إنشاء حساب جديد.',
-        'auth/wrong-password': 'كلمة المرور غير صحيحة.',
-        'auth/invalid-email': 'صيغة البريد الإلكتروني غير صحيحة.',
-        'auth/too-many-requests': 'محاولات دخول كثيرة، يرجى الانتظار قليلاً.',
-      };
-      setError(msgs[err.code] || err.message || 'تعذر تسجيل الدخول، يرجى المحاولة ثانية.');
-    } finally {
-      setBusy(false);
-    }
+  async function finishVerifiedAccount() {
+    const current=auth.currentUser;if(!current)throw new Error('سجل الدخول أولًا.');
+    await current.reload();await current.getIdToken(true);
+    if(!isVerifiedIdentity(current))throw new Error('افتح رسالة تأكيد البريد أولًا ثم اضغط متابعة.');
+    const profile=await syncUserProfileToFirestore(current,{fullName:fullName.trim(),phone:phone.trim(),ministry:ministryAddress.trim(),floorNumber:floorNumber.trim(),roomNumber:roomNumber.trim()});
+    setUser(profile);setVerificationPending(false);onSuccess?.();
+  }
+  const handleLogin = async (e:React.FormEvent) => {
+    e.preventDefault();setBusy(true);setError(null);
+    try{const credential=await signInWithEmailAndPassword(auth,email.trim(),password);
+      if(!isVerifiedIdentity(credential.user)){setVerificationPending(true);setSuccessNotice('أكد البريد الإلكتروني قبل متابعة الطلب.');return;}
+      await finishVerifiedAccount();
+    }catch(e){setError(e instanceof Error?e.message:'تعذر الدخول.');}finally{setBusy(false);}
   };
 
   // 2. Firebase Registration with Exact Firestore Schema
@@ -220,54 +153,9 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
 
       await updateProfile(userCred.user, { displayName: cleanName });
 
-      // Save directly to Firestore collection "users" matching Flutter app schema
-      const userDocRef = doc(db, 'users', uid);
-      const newUserData = {
-        uid,
-        fullName: cleanName,
-        phone: cleanPhone,
-        email: cleanEmail,
-        ministry: cleanAddress,
-        floorNumber: floorNumber.trim(),
-        roomNumber: roomNumber.trim(),
-        role: 'employee',
-        walletBalance: 20, // Free welcome gift
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-
-      await setDoc(userDocRef, newUserData);
-
-      const profile: Profile = {
-        id: uid,
-        fullName: cleanName,
-        phone: cleanPhone,
-        email: cleanEmail,
-        ministry: cleanAddress,
-        floorNumber: floorNumber.trim(),
-        roomNumber: roomNumber.trim(),
-        walletBalance: 20,
-        role: 'employee',
-        isGuest: false,
-        authProvider: 'email',
-      };
-
-      setUser(profile);
-
-      if (cleanAddress) {
-        setServiceArea({
-          id: `addr_${uid}`,
-          name: cleanAddress,
-          deliveryTime: LAUNCH_CONFIG.showEta ? '20-30 دقيقة' : '',
-          active: true,
-        });
-      }
-
-      setSuccessNotice('تم إنشاء حسابك في سنجوب بنجاح! تمت إضافة 20 ج.م في محفظتك 🎁');
-      setTimeout(() => {
-        if (onSuccess) onSuccess();
-        else onClose();
-      }, 900);
+      await sendEmailVerification(userCred.user);
+      setVerificationPending(true);
+      setSuccessNotice('أُنشئ الحساب وأُرسلت رسالة تأكيد البريد. افتحها ثم اضغط «تم التأكيد، متابعة». لا يوجد رصيد ترحيبي أو خصم وهمي.');
     } catch (err: any) {
       const msgs: Record<string, string> = {
         'auth/email-already-in-use': 'هذا البريد مسجل بالفعل. يرجى تسجيل الدخول.',
@@ -324,15 +212,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
         return;
       }
 
-      const userDocRef = doc(db, 'users', uid);
-      await updateDoc(userDocRef, {
-        fullName: cleanName,
-        phone: cleanPhone,
-        ministry: cleanAddress,
-        floorNumber: floorNumber.trim(),
-        roomNumber: roomNumber.trim(),
-        updatedAt: serverTimestamp(),
-      });
+      await authenticatedApi('/api/orders',{action:'profile-update',data:{fullName:cleanName,phone:cleanPhone,ministry:cleanAddress,floorNumber:floorNumber.trim(),roomNumber:roomNumber.trim()}});
 
       const updatedProfile: Profile = {
         ...user,
@@ -428,6 +308,8 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
           </button>
         </div>
 
+        {verificationPending && <div className="p-4 space-y-3 border-b" role="status"><p>أكد بريدك الإلكتروني لتفعيل الحساب.</p><button type="button" disabled={busy} className="p-3 rounded-xl bg-orange-700 text-white" onClick={async()=>{setBusy(true);setError(null);try{await finishVerifiedAccount()}catch(e){setError(e instanceof Error?e.message:'تعذر التحقق.')}finally{setBusy(false)}}}>تم التأكيد، متابعة</button><button type="button" disabled={busy} className="p-3 underline" onClick={async()=>{if(!auth.currentUser)return;setBusy(true);try{await sendEmailVerification(auth.currentUser);setSuccessNotice('أعيد إرسال رسالة التأكيد.')}catch(e){setError(e instanceof Error?e.message:'تعذر الإرسال.')}finally{setBusy(false)}}}>إعادة إرسال التأكيد</button></div>}
+
         {/* Tab Switcher (Only if NOT in profile mode) */}
         {tab !== 'profile' && (
           <div className="px-4 pt-3 pb-1 bg-white shrink-0">
@@ -484,12 +366,12 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
               <div className="bg-gradient-to-r from-[#FFF2EC] to-[#FFF7ED] border border-[#FFD4C2] rounded-2xl p-3.5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-2xl bg-[#FF5900] text-white flex items-center justify-center shadow-xs">
-                    <Wallet size={22} />
+                    <User size={22} />
                   </div>
                   <div>
-                    <p className="text-[11px] text-[#6B7280] font-bold">رصيد محفظة سنجوب</p>
+                    <p className="text-[11px] text-[#6B7280] font-bold">حساب سنجوب</p>
                     <p className="text-lg font-black text-[#FF5900] leading-tight">
-                      {user.walletBalance || 0} <span className="text-xs font-bold text-[#6B7280]">ج.م</span>
+                      {user.fullName}
                     </p>
                   </div>
                 </div>
@@ -872,12 +754,6 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                     className="w-full h-11 px-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
                   />
                 </div>
-              </div>
-
-              {/* Wallet Bonus Gift Banner */}
-              <div className="p-3 bg-[#FFF2EC] border border-[#FFD4C2] rounded-2xl flex items-center gap-2.5 text-xs text-[#9A3412]">
-                <Sparkles size={18} className="text-[#FF5900] shrink-0" />
-                <span className="font-bold">تحصل على <strong className="font-black text-[#FF5900]">20 ج.م هدية ترحيبية</strong> في محفظتك فوراً عند إنشاء الحساب 🎁</span>
               </div>
 
               <button

@@ -1,6 +1,8 @@
-import { lazy, Suspense } from "react";
+import {ShopProvider} from './shop/ShopContext';
+import { lazy, Suspense, useEffect, useState } from "react";
 import StorefrontApp from "./storefront/StorefrontApp";
 
+const ShopFront = lazy(() => import('./shop/ShopFront'));
 const AdminApp = lazy(() => import("./AdminApp"));
 const MerchantApp = lazy(() => import("./MerchantApp"));
 
@@ -11,6 +13,10 @@ const merchantRoute =
   new URLSearchParams(window.location.search).get("tab") === "restaurant";
 
 export default function App() {
+  const [path,setPath]=useState(location.pathname);
+  useEffect(()=>{const change=()=>setPath(location.pathname);window.addEventListener('popstate',change);return()=>window.removeEventListener('popstate',change)},[]);
+  if(/^\/(stores(?:\/[^/]+)?|cart|checkout(?:\/success)?|my-orders)\/?$/.test(path))return <ShopProvider><Suspense fallback={<p role="status" className="p-8" dir="rtl">جارٍ تحميل التسوق…</p>}><ShopFront key={path}/></Suspense></ShopProvider>;
+
   if (merchantRoute) {
     return (
       <Suspense

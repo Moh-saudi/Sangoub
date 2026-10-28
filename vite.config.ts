@@ -58,11 +58,12 @@ export default defineConfig(() => {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           // Only Vite's hashed chunks are immutable; public/assets images are not.
           dontCacheBustURLsMatching: /^assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/,
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff,woff2}'],
+          globPatterns: ['**/*.{js,css,woff,woff2}', 'favicon.ico', 'brand/sangoub-mark-white-{32,64,128,256,512}.png'],
           // Fetch current HTML on navigation instead of pinning visitors to precached releases.
           globIgnores: ['**/index.html'],
           navigateFallback: null,
           runtimeCaching: [
+            {urlPattern:({request,url})=>request.destination==='image'&&url.origin===self.location.origin,handler:'StaleWhileRevalidate',options:{cacheName:'sangoub-images',cacheableResponse:{statuses:[200]},expiration:{maxEntries:60,maxAgeSeconds:7*24*60*60}}},
             {
               urlPattern: ({ request, url }) => request.mode === 'navigate' && url.origin === self.location.origin,
               handler: 'NetworkFirst',

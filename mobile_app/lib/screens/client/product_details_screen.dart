@@ -20,17 +20,8 @@ class ProductDetailsScreen extends StatefulWidget {
 
 class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   int _quantity = 1;
-  late ProductOption _selectedSize;
-  final Set<ProductOption> _selectedAddOns = {};
+  final Map<String, String> _selectedOptions = {};
   final TextEditingController _notesController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedSize = widget.product.sizes.isNotEmpty
-        ? widget.product.sizes.firstWhere((s) => s.isDefault, orElse: () => widget.product.sizes.first)
-        : const ProductOption(name: 'حجم عادي');
-  }
 
   @override
   void dispose() {
@@ -39,9 +30,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   double get _calculatedUnitPrice {
-    double total = widget.product.price + _selectedSize.additionalPrice;
-    for (final addon in _selectedAddOns) {
-      total += addon.additionalPrice;
+    double total = widget.product.price;
+    for (final group in widget.product.optionGroups) {
+      for (final option in group.options) {
+        if (_selectedOptions[group.title] == option.name) total += option.price;
+      }
     }
     return total;
   }
@@ -51,27 +44,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   void _addToCart() {
     final cart = Provider.of<CartProvider>(context, listen: false);
 
-    String fullName = widget.product.name;
-    if (_selectedSize.name != 'حجم عادي') {
-      fullName += ' (${_selectedSize.name})';
+    for (final group in widget.product.optionGroups) {
+      if (group.required && !_selectedOptions.containsKey(group.title)) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('اختر ${group.title} أولًا.')));
+        return;
+      }
     }
-    if (_selectedAddOns.isNotEmpty) {
-      final addonsStr = _selectedAddOns.map((a) => a.name).join(' + ');
-      fullName += ' + [$addonsStr]';
-    }
-    if (_notesController.text.trim().isNotEmpty) {
-      fullName += ' • ملاحظة: ${_notesController.text.trim()}';
-    }
-
-    for (int i = 0; i < _quantity; i++) {
-      cart.addItem(
-        id: '${widget.product.id}_${DateTime.now().microsecondsSinceEpoch}_$i',
-        productId: widget.product.id,
-        storeId: widget.product.storeId.isNotEmpty ? widget.product.storeId : 'capital-central-kitchen',
-        name: fullName,
-        price: _calculatedUnitPrice,
-      );
-    }
+    cart.addProduct(widget.product, quantity: _quantity, options: Map<String, String>.from(_selectedOptions), notes: _notesController.text.trim());
 
     Navigator.of(context).pop();
 
@@ -282,155 +261,20 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   const SizedBox(height: 16),
 
                   // ─── Option 1: Sizes ──────────────────────────────
-                  if (widget.product.sizes.isNotEmpty) ...[
-                    Row(
-                      children: [
-                        Text(
-                          'اختيار الحجم',
-                          style: GoogleFonts.cairo(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.navy,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '(اختياري)',
-                          style: GoogleFonts.cairo(fontSize: 12, color: AppColors.textMuted),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Column(
-                      children: widget.product.sizes.map((size) {
-                        final isSelected = _selectedSize.name == size.name;
-                        return InkWell(
-                          onTap: () => setState(() => _selectedSize = size),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: isSelected ? AppColors.primaryContainer.withValues(alpha: 0.3) : const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSelected ? AppColors.primary : AppColors.border,
-                                width: isSelected ? 1.5 : 1,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                                  color: isSelected ? AppColors.primary : AppColors.textMuted,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  size.name,
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 13,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                    color: isSelected ? AppColors.navy : AppColors.textPrimary,
-                                  ),
-                                ),
-                                const Spacer(),
-                                if (size.additionalPrice > 0)
-                                  Text(
-                                    '+${size.additionalPrice.toStringAsFixed(0)} ج.م',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // ─── Option 2: Add-ons ────────────────────────────
-                  if (widget.product.addOns.isNotEmpty) ...[
-                    Row(
-                      children: [
-                        Text(
-                          'إضافات ونكهات خاصة',
-                          style: GoogleFonts.cairo(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.navy,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '(يمكنك اختيار أكثر من خيار)',
-                          style: GoogleFonts.cairo(fontSize: 12, color: AppColors.textMuted),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Column(
-                      children: widget.product.addOns.map((addon) {
-                        final isSelected = _selectedAddOns.contains(addon);
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              if (isSelected) {
-                                _selectedAddOns.remove(addon);
-                              } else {
-                                _selectedAddOns.add(addon);
-                              }
-                            });
-                          },
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: isSelected ? AppColors.primaryContainer.withValues(alpha: 0.3) : const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSelected ? AppColors.primary : AppColors.border,
-                                width: isSelected ? 1.5 : 1,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  isSelected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                                  color: isSelected ? AppColors.primary : AppColors.textMuted,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  addon.name,
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 13,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                    color: isSelected ? AppColors.navy : AppColors.textPrimary,
-                                  ),
-                                ),
-                                const Spacer(),
-                                if (addon.additionalPrice > 0)
-                                  Text(
-                                    '+${addon.additionalPrice.toStringAsFixed(0)} ج.م',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
+                  for (final group in widget.product.optionGroups) ...[
+                    Text('${group.title}${group.required ? " *" : " (اختياري)"}', style: GoogleFonts.cairo(fontSize:14,fontWeight:FontWeight.bold,color:AppColors.navy)),
+                    const SizedBox(height:8),
+                    for (final option in group.options)
+                      RadioListTile<String>(
+                        title: Text(option.name, style:GoogleFonts.cairo(fontSize:13)),
+                        subtitle: option.price > 0 ? Text('+${option.price.toStringAsFixed(2)} ج.م') : null,
+                        value: option.name,
+                        groupValue: _selectedOptions[group.title],
+                        onChanged: (value) { if(value != null) setState(() => _selectedOptions[group.title] = value); },
+                      ),
+                    if (!group.required)
+                      TextButton(onPressed:()=>setState(()=>_selectedOptions.remove(group.title)),child:const Text('بدون إضافة')),
+                    const SizedBox(height:16),
                   ],
 
                   // ─── Special Instructions for Chef ────────────────
@@ -519,7 +363,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     IconButton(
                       icon: const Icon(Icons.add, size: 18),
                       color: AppColors.primary,
-                      onPressed: () => setState(() => _quantity++),
+                      onPressed: _quantity < 50 ? () => setState(() => _quantity++) : null,
                     ),
                   ],
                 ),

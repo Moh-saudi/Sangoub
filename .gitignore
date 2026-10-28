@@ -16,3 +16,7 @@ ui-debug.log*
 .kiro/
 __pycache__/
 *.pyc
+
+# Private Android signing keys
+*.keystore
+*.jks

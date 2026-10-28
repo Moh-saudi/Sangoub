@@ -1,3 +1,4 @@
+import 'api_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -109,15 +110,8 @@ class FirebaseService {
     required String floorNumber,
     required String roomNumber,
   }) async {
-    final docRef = _firestore.collection('users').doc(uid);
-    await docRef.update({
-      'fullName': fullName.trim(),
-      'phone': phone.trim(),
-      'ministry': ministry.trim(),
-      'floorNumber': floorNumber.trim(),
-      'roomNumber': roomNumber.trim(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    if (FirebaseAuth.instance.currentUser?.uid != uid) throw Exception('الحساب غير مصرح.');
+    await ApiService().updateOwnProfile({'fullName':fullName.trim(),'phone':phone.trim(),'ministry':ministry.trim(),'floorNumber':floorNumber.trim(),'roomNumber':roomNumber.trim()});
     debugPrint('✅ تم تحديث بيانات الموظف: $uid');
   }
 
@@ -126,10 +120,8 @@ class FirebaseService {
     required String uid,
     required String avatarUrl,
   }) async {
-    await _firestore.collection('users').doc(uid).update({
-      'avatarUrl': avatarUrl,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    if (FirebaseAuth.instance.currentUser?.uid != uid) throw Exception('الحساب غير مصرح.');
+    await ApiService().updateOwnProfile({'avatarUrl':avatarUrl});
     debugPrint('✅ تم تحديث صورة الملف الشخصي: $uid');
   }
 

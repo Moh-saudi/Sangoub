@@ -114,3 +114,5 @@ test('real product IDs containing underscores take priority over legacy cart suf
  assert.equal(buildOrder(input,'real-uid',products,new Map([[store.id,store]])).items[0].product.id,p.id);
  assert.equal(buildOrder({...input,items:[{...input.items[0],product:{id:p.id+'_cart'}}]},'real-uid',new Map([[p.id,p]]),new Map([[store.id,store]])).items[0]?.product.id,p.id);
 });
+
+for (const method of ['wallet','card','vodafone_cash','instapay']) test('rejects unprocessed payment method '+method,()=>{assert.throws(()=>build({...payload(),paymentMethod:method}),/طريقة الدفع/);});

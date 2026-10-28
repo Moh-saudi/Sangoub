@@ -14,7 +14,7 @@ export const ASIMA_CONFIG = {
     live: {
       merchantPublicKey:
         process.env.GEIDEA_MERCHANT_PUBLIC_KEY ||
-        "3448c010-87b1-41e7-9771-cac444268cfb",
+        "",
       apiPassword:
         process.env.GEIDEA_API_PASSWORD ||
         "",
@@ -24,7 +24,7 @@ export const ASIMA_CONFIG = {
     test: {
       merchantPublicKey:
         process.env.GEIDEA_TEST_MERCHANT_PUBLIC_KEY ||
-        "e510dca3-d113-47bf-b4b0-9b92bac661f6",
+        "",
       apiPassword:
         process.env.GEIDEA_TEST_API_PASSWORD ||
         "",

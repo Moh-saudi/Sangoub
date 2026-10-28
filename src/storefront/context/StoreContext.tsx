@@ -1,10 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import type { Product, Store, CartItem, Coupon, Profile } from '../../types';
-import { INITIAL_PRODUCTS, INITIAL_STORES } from '../../data/seedData';
 import { BRAND } from '../../brand';
 import { calculateCartSubtotal, calculateOrderTotal, applyCouponDiscount, cleanDisplayAddress } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
-import { watchCollection, auth, db, signOutFromFirebase } from '../../lib/firebase';
+import { watchCollection, auth, db, signOutFromFirebase, syncUserProfileToFirestore, isVerifiedIdentity } from '../../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { limit, where, doc, getDoc } from 'firebase/firestore';
 
@@ -31,6 +30,7 @@ export interface StoreContextType {
   stores: Store[];
   categories: string[];
   isLoadingCatalog: boolean;
+  catalogError: string;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 
@@ -142,13 +142,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // 3. Catalog Products & Stores
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [stores, setStores] = useState<Store[]>(INITIAL_STORES);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
+  const [catalogError,setCatalogError]=useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    setIsLoadingCatalog(true);
+    setIsLoadingCatalog(true);setCatalogError('');
     let stopProducts = () => {};
     let stopStores = () => {};
 
@@ -159,12 +160,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (liveProducts && liveProducts.length > 0) {
             setProducts(liveProducts.filter(p => !p.archived && p.inStock));
           } else {
-            setProducts(INITIAL_PRODUCTS);
+            setProducts([]);
           }
           setIsLoadingCatalog(false);
         },
         () => {
-          setProducts(INITIAL_PRODUCTS);
+          setProducts([]);setCatalogError('تعذر تحميل المنتجات. تحقق من الاتصال وأعد المحاولة.');
           setIsLoadingCatalog(false);
         },
         [where('inStock', '==', true), limit(60)]
@@ -176,15 +177,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (liveStores && liveStores.length > 0) {
             setStores(liveStores.filter(s => s.status === 'open'));
           } else {
-            setStores(INITIAL_STORES);
+            setStores([]);
           }
         },
-        () => setStores(INITIAL_STORES),
+        () => {setStores([]);setCatalogError('تعذر تحميل المتاجر. تحقق من الاتصال.');},
         [limit(30)]
       );
     } catch {
-      setProducts(INITIAL_PRODUCTS);
-      setStores(INITIAL_STORES);
+      setProducts([]);
+      setStores([]);
       setIsLoadingCatalog(false);
     }
 
@@ -421,22 +422,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setAppliedCoupon(null);
   };
 
-  const applyCoupon = (code: string) => {
-    const clean = code.trim().toUpperCase();
-    if (clean === 'SANGOUB10' || clean === 'WELCOME10') {
-      const coupon: Coupon = {
-        code: clean,
-        title: 'خصم 10%',
-        description: 'خصم 10% بمناسبة انطلاق سنجوب',
-        discountType: 'percent',
-        value: 10,
-        minOrder: 50,
-      };
-      setAppliedCoupon(coupon);
-      return { success: true, message: 'تم تطبيق خصم 10% بنجاح!' };
-    }
-    return { success: false, message: 'كود الخصم غير صالح أو منتهي الصلاحية' };
-  };
+  const applyCoupon = (_code:string) => ({success:false,message:'راجع كود الخصم في صفحة إتمام الطلب للتحقق منه من الخادم.'});
 
   const removeCoupon = () => {
     setAppliedCoupon(null);
@@ -468,60 +454,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const isWishlisted = (productId: string) => wishlistIds.includes(productId);
 
   // 6. User Profile
-  const [user, setUser] = useState<Profile | null>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.USER);
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-
+  const [user, setUser] = useState<Profile | null>(null);
   useEffect(() => {
-    if (user) {
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.USER);
-    }
-  }, [user]);
-
-  // Real-time Firebase Authentication Sync (Matches Flutter App)
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            const cleanMinistry = cleanDisplayAddress(data.ministry);
-            const profile: Profile = {
-              id: fbUser.uid,
-              fullName: data.fullName || fbUser.displayName || 'عميل سنجوب',
-              email: fbUser.email || data.email || '',
-              phone: data.phone || fbUser.phoneNumber || '',
-              ministry: cleanMinistry,
-              floorNumber: data.floorNumber || '',
-              roomNumber: data.roomNumber || '',
-              walletBalance: typeof data.walletBalance === 'number' ? data.walletBalance : 20,
-              role: data.role || 'employee',
-              isGuest: false,
-              authProvider: fbUser.providerData.some(p => p.providerId === 'google.com') ? 'google' : 'email',
-            };
-            setUser(profile);
-            if (cleanMinistry) {
-              setServiceAreaState(prev => ({
-                ...prev,
-                name: cleanMinistry,
-              }));
-            }
-          }
-        } catch {
-          // ignore network glitch
-        }
-      }
-    });
-    return () => unsub();
-  }, []);
+    let generation=0;
+    const unsub=onAuthStateChanged(auth, async fbUser=>{
+      const current=++generation;setUser(null);
+      if(!fbUser||!isVerifiedIdentity(fbUser))return;
+      try{const profile=await syncUserProfileToFirestore(fbUser);if(current===generation)setUser(profile);}catch{if(current===generation)setUser(null);}
+    });return()=>{generation++;unsub();};
+  },[]);
 
   const loginAsGuest = (name: string, phone: string) => {
     const profile: Profile = {
@@ -536,32 +477,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setUser(profile);
   };
 
-  const registerSangoubAccount = (name: string, phone: string, address?: string) => {
-    const cleanPhone = phone.trim();
-    const cleanName = name.trim();
-    const cleanAddress = (address || serviceArea.name || '').trim();
-
-    const profile: Profile = {
-      id: `usr-sng-${Date.now()}`,
-      fullName: cleanName,
-      phone: cleanPhone,
-      email: `${cleanPhone.replace(/\D/g, '')}@sangoub.delivery`,
-      ministry: cleanAddress,
-      walletBalance: 20, // Free welcome gift in Sangoub wallet
-      role: 'employee',
-      isGuest: false, // Fully registered account
-    };
-    setUser(profile);
-
-    if (cleanAddress) {
-      setServiceArea({
-        id: `addr_${Date.now()}`,
-        name: cleanAddress,
-        deliveryTime: '15-25 دقيقة',
-        active: true,
-      });
-      localStorage.setItem('sangoub_location_confirmed', 'true');
-    }
+  const registerSangoubAccount = (_name: string, _phone: string, _address?: string) => {
+    throw new Error('إنشاء الحساب يتطلب التسجيل بالبريد أو Google وتأكيد الهوية.');
   };
 
   const logout = () => {
@@ -578,6 +495,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         stores,
         categories,
         isLoadingCatalog,
+        catalogError,
         searchQuery,
         setSearchQuery,
         banners,

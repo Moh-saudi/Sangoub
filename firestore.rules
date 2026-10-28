@@ -20,7 +20,10 @@ service cloud.firestore {
       return verified() && (data.profileId == request.auth.uid || admin() ||
         assignedCourier(data) || (data.get('fulfillmentVersion', 1) != 2 && restaurantOrder(data)));
     }
-    function profile(data) { return data.keys().hasAll(['uid','fullName','email','phone','ministry','floorNumber','roomNumber','role','walletBalance','createdAt','updatedAt']) && data.keys().hasOnly(['uid','fullName','email','phone','ministry','floorNumber','roomNumber','role','walletBalance','createdAt','updatedAt','avatarUrl','coordinates']) && data.uid == request.auth.uid && text(data.fullName,120) && text(data.email,160) && text(data.phone,30) && text(data.ministry,120) && text(data.floorNumber,60) && text(data.roomNumber,80) && (!('coordinates' in data) || validCoordinates(data.coordinates)); }
+    // users: required identity/contact fields; role, wallet and createdAt are immutable for clients.
+    // Server-managed FCM, addresses and staff metadata may be preserved, never added/changed by self updates.
+    // merchantContracts, merchantSettlements and settlementClaims remain server-only under default deny.
+    function profile(data) { return data.keys().hasAll(['uid','fullName','email','phone','ministry','floorNumber','roomNumber','role','walletBalance','createdAt','updatedAt']) && data.uid == request.auth.uid && data.role in ['employee','restaurant','courier','admin'] && data.walletBalance is number && data.walletBalance >= 0 && data.createdAt is timestamp && data.updatedAt is timestamp && (!('avatarUrl' in data) || (text(data.avatarUrl,2048) && (data.avatarUrl == '' || data.avatarUrl.matches('https://.*')))) && text(data.fullName,120) && text(data.email,160) && text(data.phone,30) && text(data.ministry,120) && text(data.floorNumber,60) && text(data.roomNumber,80) && (!('coordinates' in data) || validCoordinates(data.coordinates)); }
     match /admins/{uid} { allow get: if verified() && (uid == request.auth.uid || admin()); allow list: if admin(); allow write: if false; }
     match /staff/{uid} {
       allow get: if verified() && (uid == request.auth.uid || admin()); allow list: if admin();
@@ -28,7 +31,7 @@ service cloud.firestore {
     }
     match /users/{uid} {
       allow get: if verified() && (uid == request.auth.uid || admin()); allow list: if admin();
-      allow create: if verified() && uid == request.auth.uid && profile(request.resource.data) && request.resource.data.email == request.auth.token.get('email','') && request.resource.data.role == 'employee' && request.resource.data.walletBalance == 0 && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow create: if verified() && uid == request.auth.uid && profile(request.resource.data) && request.resource.data.keys().hasOnly(['uid','fullName','email','phone','ministry','floorNumber','roomNumber','role','walletBalance','createdAt','updatedAt','avatarUrl','coordinates']) && request.resource.data.email == request.auth.token.get('email','') && request.resource.data.role == 'employee' && request.resource.data.walletBalance == 0 && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
       allow update: if verified() && uid == request.auth.uid && profile(request.resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName','phone','ministry','floorNumber','roomNumber','avatarUrl','coordinates','updatedAt']) && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }

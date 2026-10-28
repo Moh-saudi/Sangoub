@@ -1,3 +1,4 @@
+import {merchantActions,merchantAction} from '../merchantActions.ts';
 import { FieldValue } from 'firebase-admin/firestore';
 import { AdminError, adminError, validId } from '../adminRequest.ts';
 import { auditInTransaction, auditSafe } from '../audit.ts';
@@ -17,6 +18,7 @@ export default async function handler(req: any, res: any) {
     destination: role === 'admin' ? 'admin_web' : role === 'restaurant' ? 'store_preparation' : role === 'courier' ? 'courier_tasks' : 'customer_home',
     capabilities: ['operations_v2'], rolloutReady: rolloutReady(), requiresStoreAssignment: role === 'restaurant' && !store });
   }
+  if(merchantActions.includes(input.action))return res.status(200).json(await merchantAction(input,context));
   if(input.action==='cancel'){
    validId(input.orderId);
    await db.runTransaction(async tx=>{

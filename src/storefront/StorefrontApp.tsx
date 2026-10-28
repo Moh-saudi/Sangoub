@@ -32,7 +32,7 @@ function useIsMobile() {
 }
 
 const StorefrontRouter: React.FC = () => {
-  const { currentPath, navigate, cartItems, serviceArea } = useStore();
+  const { currentPath, navigate, cartItems, serviceArea, catalogError } = useStore();
   const [areaModalOpen, setAreaModalOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
     return !localStorage.getItem('sangoub_location_confirmed');
@@ -40,13 +40,7 @@ const StorefrontRouter: React.FC = () => {
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [trackingModalOpen, setTrackingModalOpen] = useState(false);
-  const [activeOrder, setActiveOrder] = useState<TrackableOrder | null>(() => {
-    try {
-      const saved = localStorage.getItem('sangoub_last_order');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return null;
-  });
+  const [activeOrder, setActiveOrder] = useState<TrackableOrder | null>(null);
 
   const isMobile = useIsMobile();
 
@@ -66,29 +60,7 @@ const StorefrontRouter: React.FC = () => {
     ) {
       setRegisterModalOpen(true);
     } else if (currentPath === '/track' || currentPath.startsWith('/order-tracking')) {
-      if (!activeOrder) {
-        // Sample order for demo / preview if none placed yet
-        const demoOrder: TrackableOrder = {
-          orderId: 'SNG-849201',
-          itemsCount: 3,
-          total: 185,
-          destination: serviceArea.name || 'شارع المهندس ابراهيم عثمان، الشروق',
-          destinationCoords: {
-            lat: serviceArea.latitude || 30.1258,
-            lng: serviceArea.longitude || 31.6033,
-          },
-          time: LAUNCH_CONFIG.showEta ? '15-25 دقيقة' : '',
-          paymentMethod: 'instapay',
-          notes: 'يرجى الاتصال عند الوصول',
-          items: [
-            { name: 'وجبة إفطار سنجوب المميزة', quantity: 2, price: 65 },
-            { name: 'عصير برتقال طازج', quantity: 1, price: 55 },
-          ],
-          createdAt: 'الآن',
-        };
-        setActiveOrder(demoOrder);
-      }
-      setTrackingModalOpen(true);
+      window.location.assign('/my-orders');
     }
   }, [currentPath, activeOrder, serviceArea.name, serviceArea.latitude, serviceArea.longitude]);
 
@@ -102,13 +74,14 @@ const StorefrontRouter: React.FC = () => {
 
   return (
     <div className="sangoub-store min-h-screen bg-[#F7F7F8]" dir="rtl">
+      {catalogError&&<div role="alert" className="p-3 bg-amber-50 text-amber-900 text-center">{catalogError}<button className="underline mx-2" onClick={()=>location.reload()}>إعادة المحاولة</button></div>}
       {/* 1. PURE MOBILE-FIRST EXPERIENCE (Dedicated for Mobile Screens < 768px) */}
       {isMobile ? (
         <MobileStorefront
           onOpenAreaModal={() => setAreaModalOpen(true)}
           onOpenCartModal={() => setCartModalOpen(true)}
           onOpenRegisterModal={() => setRegisterModalOpen(true)}
-          onOpenTrackingModal={() => setTrackingModalOpen(true)}
+          onOpenTrackingModal={() => window.location.assign('/my-orders')}
           activeOrder={activeOrder}
         />
       ) : (
@@ -116,7 +89,7 @@ const StorefrontRouter: React.FC = () => {
         <div className="flex flex-col min-h-screen">
           <StoreHeader
             onOpenAreaModal={() => setAreaModalOpen(true)}
-            onOpenTrackingModal={() => setTrackingModalOpen(true)}
+            onOpenTrackingModal={() => window.location.assign('/my-orders')}
             hasActiveOrder={Boolean(activeOrder)}
           />
           <main className="flex-1">

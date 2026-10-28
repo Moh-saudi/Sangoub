@@ -93,6 +93,8 @@ export type StoreCategory =
   | "desserts";
 
 export interface Store {
+  /** Enriched by authenticated APIs only; stored privately in merchantContracts. */
+  commissionRate?: number;
   coordinates?: Coordinates;
   taxRate?: number;
   taxRegistrationNumber?: string;

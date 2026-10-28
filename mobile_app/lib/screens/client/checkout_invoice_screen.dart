@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -18,13 +19,22 @@ class CheckoutInvoiceScreen extends StatefulWidget {
 }
 
 class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
-  String _selectedPaymentMethod = 'wallet';
-  final TextEditingController _couponController = TextEditingController(text: 'CAPITAL100');
-  final TextEditingController _floorController = TextEditingController(text: 'الدور الرابع');
-  final TextEditingController _officeController = TextEditingController(text: 'مكتب 402');
+  String _selectedPaymentMethod = 'cash';
+  bool _geideaAvailable = false;
+  String? _pendingOrderId;
+  String? _attemptDraft;
+  final TextEditingController _couponController = TextEditingController();
+  final TextEditingController _floorController = TextEditingController();
+  final TextEditingController _officeController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
   bool _isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ApiService().geideaAvailable().then((available) { if (mounted) setState(() => _geideaAvailable = available); }).catchError((_) {});
+  }
 
   @override
   void dispose() {
@@ -144,36 +154,40 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final orderId = 'ord-${const Uuid().v4()}';
+
       final profileName = (auth.currentUser?.name.isNotEmpty == true)
           ? auth.currentUser!.name
           : (auth.firebaseUser?.displayName?.isNotEmpty == true
               ? auth.firebaseUser!.displayName!
-              : 'موظف العاصمة');
+              : '');
 
       final phone = (auth.currentUser?.phone.isNotEmpty == true)
           ? auth.currentUser!.phone
-          : '01012345678';
+          : '';
 
       final ministry = cart.selectedMinistry.isNotEmpty
           ? cart.selectedMinistry
           : (auth.currentUser?.ministry.isNotEmpty == true
               ? auth.currentUser!.ministry
-              : 'الحي الحكومي بالعاصمة الإدارية');
+              : '');
 
       final floor = _floorController.text.trim().isNotEmpty
           ? _floorController.text.trim()
           : (auth.currentUser?.floorNumber.isNotEmpty == true
               ? auth.currentUser!.floorNumber
-              : 'الدور الرابع');
+              : '');
 
       final office = _officeController.text.trim().isNotEmpty
           ? _officeController.text.trim()
           : (auth.currentUser?.roomNumber.isNotEmpty == true
               ? auth.currentUser!.roomNumber
-              : 'مكتب 402');
+              : '');
 
       final notes = _notesController.text.trim();
+      if (profileName.trim().isEmpty || phone.trim().isEmpty || ministry.trim().isEmpty || floor.isEmpty || office.isEmpty) throw Exception('أكمل الاسم والهاتف والعنوان والدور ورقم المكتب قبل التأكيد.');
+      final draft = jsonEncode([cart.toApiItems(), _selectedPaymentMethod, profileName, phone, ministry, floor, office, notes, cart.couponCode]);
+      if (_attemptDraft != draft) { _attemptDraft = draft; _pendingOrderId = 'ord-${const Uuid().v4()}'; }
+      final orderId = _pendingOrderId!;
 
       // إنشاء الطلب رسمياً عبر الـ Backend API POST /api/orders
       final res = await ApiService().createOrder(
@@ -192,12 +206,12 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
       );
 
       final createdDocId = (res['order']?['id'] as String?) ?? orderId;
-      final redirectUrl = res['redirectUrl'] as String?;
+      final redirectUrl = (res['redirectUrl'] as String?) ?? (res['sessionId'] != null ? '${ApiService.baseUrl}/checkout/success?orderId=${Uri.encodeComponent(createdDocId)}&startPayment=1' : null);
 
       cart.clearCart();
 
       // فتح بوابة جيديا إذا كان الدفع إلكترونياً
-      if (res['requiresPaymentRedirect'] == true && redirectUrl != null && redirectUrl.isNotEmpty) {
+      if (_selectedPaymentMethod == 'geidea' && redirectUrl != null && redirectUrl.isNotEmpty) {
         try {
           final uri = Uri.parse(redirectUrl);
           if (await canLaunchUrl(uri)) {
@@ -210,6 +224,9 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
 
       if (!mounted) return;
       setState(() => _isProcessing = false);
+      if (_selectedPaymentMethod == 'geidea') {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['paymentError'] as String? ?? 'طلبك محفوظ وبانتظار تأكيد السداد. عند فتح المتصفح سجل بنفس الحساب لمتابعة الدفع.')));
+      }
 
       // الانتقال فوراً لشاشة التتبع الحي للطلب
       Navigator.of(context).pushReplacement(
@@ -468,7 +485,7 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
                         color: AppColors.navy,
                       ),
                       decoration: InputDecoration(
-                        hintText: 'أدخل كود الخصم (CAPITAL100)',
+                        hintText: 'أدخل كود الخصم',
                         hintStyle: GoogleFonts.cairo(fontSize: 12, color: AppColors.textMuted),
                         border: InputBorder.none,
                         isDense: true,
@@ -543,34 +560,14 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildPaymentOption(
-                    id: 'instapay',
-                    title: 'انستاباي (InstaPay) - الدفع اللحظي',
-                    assetIcon: 'assets/icons/payment/instapay.png',
-                    subtitle: 'تحويل بنكي فوري معتمد من البنك المركزي المصري',
-                    badge: 'فوري ⚡',
-                  ),
-                  _buildPaymentOption(
-                    id: 'vodafone_cash',
-                    title: 'فودافون كاش ومحافظ المحمول',
-                    assetIcon: 'assets/icons/payment/vodafone cach.png',
-                    subtitle: 'أورنج كاش، وي باي، إتصالات، وفودافون كاش',
-                    badge: 'محافظ ذكية 📱',
-                  ),
-                  _buildPaymentOption(
-                    id: 'geidea',
-                    title: 'بطاقة بنكية / Apple Pay (بوابة جيديا Geidea)',
-                    assetIcon: 'assets/icons/payment/visa--logo.png',
-                    subtitle: 'دفع فوري وآمن 100% عبر بوابة جيديا الرسمية (مدى / فيزا / ماستركارد / Apple Pay)',
-                    badge: 'جيديا 💳',
-                  ),
-                  _buildPaymentOption(
-                    id: 'wallet',
-                    title: 'محفظة الموظف الذكية (رصيد الحساب)',
-                    icon: Icons.account_balance_wallet_rounded,
-                    subtitle: 'خصم فوري مباشر من الرصيد الترحيبي (100 ج.م)',
-                    badge: 'رصيد متاح',
-                  ),
+                  if (_geideaAvailable)
+                    _buildPaymentOption(
+                      id: 'geidea',
+                      title: 'بطاقة أو محفظة محمول عبر جيديا',
+                      assetIcon: 'assets/icons/payment/visa--logo.png',
+                      subtitle: 'الوسائل المتاحة حسب حساب جيديا. لا يُؤكد السداد إلا من الخادم.',
+                      badge: 'جيديا',
+                    ),
                   _buildPaymentOption(
                     id: 'cash',
                     title: 'الدفع نقداً عند الاستلام بمكتبك',
@@ -578,7 +575,7 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
                     subtitle: 'الدفع المباشر لمندوب التوصيل بعد استلام الوجبة',
                     badge: 'كاش 💵',
                   ),
-                  if (_selectedPaymentMethod != 'cash' && _selectedPaymentMethod != 'wallet')
+                  if (_selectedPaymentMethod == 'geidea')
                     Container(
                       margin: const EdgeInsets.only(top: 8),
                       padding: const EdgeInsets.all(12),

@@ -32,20 +32,6 @@
   </head>
   <body class="bg-slate-50 text-slate-900 font-sans antialiased selection:bg-orange-600 selection:text-white min-h-screen">
     <div id="root"></div>
-    <script>
-      if ('serviceWorker' in navigator && (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.startsWith('ais-dev-'))) {
-        navigator.serviceWorker.getRegistrations().then(function (registrations) {
-          for (var i = 0; i < registrations.length; i++) {
-            registrations[i].unregister();
-          }
-        }).catch(function () {});
-        if ('caches' in window) {
-          caches.keys().then(function(names) {
-            for (var name of names) caches.delete(name);
-          });
-        }
-      }
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

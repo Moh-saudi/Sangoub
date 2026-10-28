@@ -8,6 +8,11 @@ on:
 jobs:
   build-web-and-android:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -39,34 +44,32 @@ jobs:
         run: |
           yes | sdkmanager --licenses || true
 
-      - name: Generate Android Release Signing Keystore
+      - name: Restore stable Android signing key
+        if: env.ANDROID_KEYSTORE_BASE64 != ''
         working-directory: ./android/app
         run: |
-          if [ ! -f release-key.keystore ]; then
-            keytool -genkeypair -v \
-              -keystore release-key.keystore \
-              -alias capital-talabat-key \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass CapitalTalabat2026 \
-              -keypass CapitalTalabat2026 \
-              -dname "CN=Capital Talabat, OU=Government District, O=New Administrative Capital, L=Cairo, S=Cairo, C=EG"
-          fi
+          test -n "$KEYSTORE_PASSWORD" && test -n "$KEY_PASSWORD" && test -n "$KEY_ALIAS"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > release-key.keystore
+          chmod 600 release-key.keystore
+
+      - name: Signing not configured
+        if: env.ANDROID_KEYSTORE_BASE64 == ''
+        run: echo '::notice::Android release skipped. Configure the stable signing key in GitHub Secrets.'
 
       - name: Build Signed Android APK & Google Play App Bundle (.aab)
+        if: env.ANDROID_KEYSTORE_BASE64 != ''
         working-directory: ./android
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease bundleRelease
 
       - name: Upload Signed Google Play App Bundle (.aab) & APK Artifacts
+        if: env.ANDROID_KEYSTORE_BASE64 != ''
         uses: actions/upload-artifact@v4
         with:
           name: capital-talabat-android-google-play-release
           path: |
             android/app/build/outputs/bundle/release/*.aab
             android/app/build/outputs/apk/release/*.apk
-            android/app/release-key.keystore
             firebase-applet-config.json
             firestore.rules

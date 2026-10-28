@@ -18,14 +18,18 @@
     "test:auth": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/auth.integration.test.ts\"",
     "cloud:check": "node --use-env-proxy scripts/check-cloud.mjs",
     "firebase:deploy": "firebase deploy --only firestore --project capital-talabat",
-    "test:admin-web": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx tests/admin-web.browser.mjs\"",
+    "test:admin-web": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx tests/admin-access.browser.mjs\"",
     "test:native-api": "node --test tests/server-native.test.mjs",
     "test:compiled-api": "node --test tests/server-compiled.test.mjs",
     "test:visitors": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/visitors.integration.test.ts\"",
     "test:intake": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/sangoub-requests.integration.test.ts tests/visitors.integration.test.ts\"",
     "test:web-checkout": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/web-checkout.integration.test.ts\"",
     "test:shop-web": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx tests/shop-web.browser.mjs\"",
-    "test:preload-recovery": "node tests/preload-recovery.browser.mjs"
+    "test:preload-recovery": "node tests/preload-recovery.browser.mjs",
+    "test:commerce-services": "node --import tsx --test tests/commerce-services.test.ts",
+    "test:commerce-integration": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/commerce-integration.test.ts\"",
+    "test:legacy-admin-web": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx tests/admin-web.browser.mjs\"",
+    "test:storefront-auth": "firebase emulators:exec --config firebase.emulators.json --only auth --project demo-capital-talabat \"node --import tsx tests/storefront-auth.browser.mjs\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1154.0",

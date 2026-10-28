@@ -1,3 +1,4 @@
+import {consumeStorefrontCart} from './storefrontCartBridge';
 import {
   createContext,
   useContext,
@@ -239,6 +240,7 @@ function useShopState() {
     );
   }
   function consume(purchased: CartLine[]) {
+    consumeStorefrontCart(purchased);
     let next: CartLine[] = [];
     flushSync(() =>
       setLines((current) => {

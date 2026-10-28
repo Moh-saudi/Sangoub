@@ -50,6 +50,30 @@
     {
       "source": "/my-orders",
       "destination": "/index.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/register",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/account",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/profile",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/track",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/order-tracking/:path*",
+      "destination": "/index.html"
     }
   ],
   "headers": [

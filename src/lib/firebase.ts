@@ -135,15 +135,15 @@ export async function updateUserLocationInFirestore(
   coordinates?: Profile["coordinates"],
 ) {
   if (auth.currentUser?.uid !== uid) throw new Error("يرجى تسجيل الدخول.");
-  await updateDoc(doc(db, "users", uid), {
+  const {authenticatedApi}=await import('./authenticatedApi');
+  await authenticatedApi('/api/orders',{action:'profile-update',data:{
     ministry,
     floorNumber,
     roomNumber,
-    updatedAt: serverTimestamp(),
     ...(fullName !== undefined ? { fullName } : {}),
     ...(phone !== undefined ? { phone } : {}),
     ...(coordinates ? { coordinates } : {}),
-  });
+  }});
 }
 export const cleanData = <T>(data: T): T => JSON.parse(JSON.stringify(data));
 export async function saveRecord(name: string, id: string, data: object) {

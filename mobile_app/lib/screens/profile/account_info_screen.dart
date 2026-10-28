@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/services/api_service.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -143,18 +143,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
         debugPrint('Cache avatar error: $e');
       }
 
-      // 3. تخزين في Firestore برابط data URI فوري
-      final dataUri = 'data:image/jpeg;base64,$base64Image';
-      auth.updateAvatarUrl(dataUri);
-
-      try {
-        await FirebaseFirestore.instance.collection('users').doc(user.id).set({
-          'avatarUrl': dataUri,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      } catch (e) {
-        debugPrint('Firestore avatar update error: $e');
-      }
+      bool avatarSynced = false;
 
       // 4. محاولة رفع إلى Cloudflare R2 كخلفية (إن كان متاحاً)
       try {
@@ -165,6 +154,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
         );
         if (uploadedUrl.isNotEmpty && !uploadedUrl.startsWith('data:')) {
           _avatarUrl = uploadedUrl;
+          avatarSynced = true;
           auth.updateAvatarUrl(uploadedUrl);
         }
       } catch (e) {
@@ -181,7 +171,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
               const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 20),
               const SizedBox(width: 8),
               Text(
-                'تم حفظ صورتك الشخصية بنجاح',
+                avatarSynced ? 'تم حفظ صورتك الشخصية في حسابك' : 'الصورة محلية فقط؛ تعذر رفعها، أعد المحاولة',
                 style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
               ),
             ],
@@ -248,20 +238,10 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
       await prefs.setBool('user_offers_$uid', _receiveOffers);
       await prefs.setBool('user_newsletter_$uid', _subscribeNewsletter);
 
-      // 2. تحديث الحقول المسموح بها في Firestore وفق قواعد الأمان (firestore.rules)
-      try {
-        final docRef = FirebaseFirestore.instance.collection('users').doc(uid);
-        final docSnap = await docRef.get();
-        if (docSnap.exists) {
-          await docRef.update({
-            'fullName': fullName,
-            if (phone.isNotEmpty) 'phone': phone,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-        }
-      } catch (firestoreError) {
-        debugPrint('Firestore update note: $firestoreError');
-      }
+      await ApiService().updateOwnProfile({
+        'fullName': fullName,
+        if (phone.isNotEmpty) 'phone': phone,
+      });
 
       // 3. تحديث اسم المستخدم في Firebase Auth
       final firebaseUser = FirebaseAuth.instance.currentUser;

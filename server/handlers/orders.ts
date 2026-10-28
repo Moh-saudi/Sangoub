@@ -30,13 +30,25 @@ export default async function handler(req: any, res: any) {
     const access=(await db.doc('accountAccess/'+identity.uid).get()).data();
     if(access?.disabled||access?.operationLocked||identity.auth_time<=(access?.revokedBefore||0))return res.status(401).json({error:'أُلغيت هذه الجلسة أو عُلّق الحساب. سجل الدخول من جديد.'});
     attachAuditContext(req,identity);
-    if (!identity.email_verified && !identity.phone_number) {
-      const userDoc = await db.collection("users").doc(identity.uid).get();
-      if (!userDoc.exists) {
-        return res.status(403).json({ error: "يرجى تأكيد البريد أو الهاتف." });
-      }
-    }
+    if (!identity.email_verified && !identity.phone_number) return res.status(403).json({error:'أكد بريدك الإلكتروني أو هاتفك أولًا.'});
     const input = req.body;
+    if(input?.action==='profile-update'){
+      const source=input.data,limits:Record<string,number>={fullName:120,phone:30,ministry:120,floorNumber:60,roomNumber:80,avatarUrl:2048};
+      if(!source||typeof source!=='object'||Array.isArray(source)||Object.keys(source).some(key=>!Object.hasOwn(limits,key)&&key!=='coordinates'))return res.status(400).json({error:'حقول ملف غير مسموحة.'});
+      const patch:any={};for(const [key,value]of Object.entries(source)){if(key==='coordinates'){const point=value as any;if(!point||!Number.isFinite(point.latitude)||!Number.isFinite(point.longitude)||Math.abs(point.latitude)>90||Math.abs(point.longitude)>180)return res.status(400).json({error:'إحداثيات غير صالحة.'});patch.coordinates={latitude:point.latitude,longitude:point.longitude};continue;}if(typeof value!=='string'||value.length>limits[key])return res.status(400).json({error:'بيانات ملف غير صالحة.'});patch[key]=value.trim();}
+      if(patch.avatarUrl){try{const url=new URL(patch.avatarUrl);if(url.protocol!=='https:'||url.username||url.password)throw Error();}catch{return res.status(400).json({error:'رابط صورة غير صالح.'});}}
+      const ref=db.doc('users/'+identity.uid);if(!(await ref.get()).exists)return res.status(409).json({error:'أكمل ملف الحساب أولًا.'});await ref.update({...patch,updatedAt:FieldValue.serverTimestamp()});return res.status(200).json({ok:true});
+    }
+    if(input?.action==='profile-address'){
+      const address=input.address;if(!address||typeof address!=='object'||Array.isArray(address))return res.status(400).json({error:'عنوان غير صالح.'});
+      const clean:any={};for(const key of ['title','city','district','street','fullAddress','details','notes']){const value=address[key]??'';if(typeof value!=='string'||value.length>500)return res.status(400).json({error:'بيانات عنوان غير صالحة.'});clean[key]=value.trim();}
+      if(!clean.fullAddress)return res.status(400).json({error:'اكتب العنوان الكامل.'});
+      if(address.coordinates){const latitude=address.coordinates.latitude??address.coordinates.lat,longitude=address.coordinates.longitude??address.coordinates.lng;if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||Math.abs(latitude)>90||Math.abs(longitude)>180)return res.status(400).json({error:'إحداثيات عنوان غير صالحة.'});clean.coordinates={latitude,longitude};}
+      const ref=db.doc('users/'+identity.uid);if(!(await ref.get()).exists)return res.status(409).json({error:'أكمل ملف الحساب أولًا.'});
+      if(input.makeDefault===true)await ref.update({defaultAddress:clean,ministry:clean.fullAddress,...(clean.coordinates?{coordinates:clean.coordinates}:{}),updatedAt:FieldValue.serverTimestamp()});
+      return res.status(200).json({ok:true,address:clean});
+    }
+
     if(input?.action==='payment-session'){
       if(process.env.FIRESTORE_EMULATOR_HOST)return res.status(200).json({paymentError:'جلسة الدفع غير متاحة في المحاكي.'});
       if(typeof input.orderId!=='string'||!/^[\w-]{1,200}$/.test(input.orderId))return res.status(400).json({error:'مرجع الطلب غير صالح.'});

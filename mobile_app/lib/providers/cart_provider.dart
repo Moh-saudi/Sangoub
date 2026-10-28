@@ -68,11 +68,7 @@ class CartProvider with ChangeNotifier {
     required double price,
     String storeId = 'capital-central-kitchen',
   }) {
-    final cleanProductId = (productId != null && productId.isNotEmpty)
-        ? productId
-        : id.contains('_') && (id.startsWith('prod') || id.startsWith('p_') || id.startsWith('item'))
-            ? id.split('_')[0]
-            : id;
+    final cleanProductId = (productId != null && productId.isNotEmpty) ? productId.trim() : id.trim();
 
     if (_items.containsKey(id)) {
       final existing = _items[id]!;
@@ -248,10 +244,7 @@ class CartProvider with ChangeNotifier {
   /// تحويل السلة إلى صيغة items المطلوبة لـ POST /api/orders
   List<Map<String, dynamic>> toApiItems() {
     return _items.values.map((item) {
-      String cleanId = item.productId.trim();
-      if (cleanId.contains('_') && (cleanId.startsWith('prod') || cleanId.startsWith('p_') || cleanId.startsWith('item'))) {
-        cleanId = cleanId.split('_')[0];
-      }
+      final cleanId = item.productId.trim();
 
       return {
         'product': {'id': cleanId},

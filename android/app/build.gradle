@@ -19,9 +19,9 @@ android {
             def keystoreFile = file("release-key.keystore")
             if (keystoreFile.exists()) {
                 storeFile keystoreFile
-                storePassword System.getenv("KEYSTORE_PASSWORD") ?: "CapitalTalabat2026"
+                storePassword System.getenv("KEYSTORE_PASSWORD")
                 keyAlias System.getenv("KEY_ALIAS") ?: "capital-talabat-key"
-                keyPassword System.getenv("KEY_PASSWORD") ?: "CapitalTalabat2026"
+                keyPassword System.getenv("KEY_PASSWORD")
             }
         }
     }

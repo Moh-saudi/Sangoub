@@ -1,5 +1,5 @@
+import 'api_service.dart';
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -157,21 +157,15 @@ class NotificationService {
     try {
       final token = await _fcm.getToken();
       if (token != null && token.isNotEmpty) {
-        await FirebaseFirestore.instance.collection('users').doc(uid).set({
-          'fcmToken': token,
-          'fcmPlatform': defaultTargetPlatform.name,
-          'fcmUpdatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        await ApiService().registerNotificationToken(token, kIsWeb ? 'web' : defaultTargetPlatform.name);
 
         debugPrint('📱 تم ربط رمز FCM بنجاح للمستخدم: $uid');
       }
 
       // الاستماع لأي تجديد تلقائي لرمز الجهاز
-      _fcm.onTokenRefresh.listen((newToken) {
-        FirebaseFirestore.instance.collection('users').doc(uid).set({
-          'fcmToken': newToken,
-          'fcmUpdatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+      _fcm.onTokenRefresh.listen((newToken) async {
+        try { await ApiService().registerNotificationToken(newToken, kIsWeb ? 'web' : defaultTargetPlatform.name); }
+        catch (e) { debugPrint('FCM registration failed: $e'); }
       });
 
       return token;

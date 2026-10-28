@@ -1,5 +1,5 @@
+import '../../core/services/api_service.dart';
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -131,13 +131,13 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
       });
 
       await _persistAddresses();
+      String saveMessage = 'تم حفظ العنوان على هذا الجهاز.';
 
       // تسجيل وتحديث العنوان في بروفايل المستخدم بـ Firestore ليكون مرجعاً أساسياً
       if (mounted) {
         try {
           final auth = Provider.of<AuthProvider>(context, listen: false);
           if (auth.currentUser != null) {
-            final userDoc = FirebaseFirestore.instance.collection('users').doc(auth.currentUser!.id);
             final addressData = {
               'title': result['title'],
               'city': result['city'] ?? '',
@@ -147,24 +147,17 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
               'details': result['details'],
               'coordinates': {'lat': result['lat'], 'lng': result['lng']},
               'notes': result['notes'] ?? '',
-              'updatedAt': FieldValue.serverTimestamp(),
             };
 
-            final Map<String, dynamic> updateData = {
-              'city': result['city'] ?? '',
-              'district': result['district'] ?? '',
-              'street': result['street'] ?? '',
-              'fullAddress': result['address'] ?? result['details'],
-              'coordinates': {'lat': result['lat'], 'lng': result['lng']},
-              'updatedAt': FieldValue.serverTimestamp(),
-            };
             final bool isDef = result['isDefault'] == true || _addresses.length == 1;
             if (isDef) {
-              updateData['defaultAddress'] = addressData;
+              final safeAddress = Map<String, dynamic>.from(addressData);
+              await ApiService().saveDefaultAddress(safeAddress);
+              saveMessage = 'تم حفظ العنوان الافتراضي في حسابك.';
             }
-            await userDoc.set(updateData, SetOptions(merge: true));
           }
         } catch (e) {
+          saveMessage = 'حُفظ محلياً؛ تعذرت مزامنة العنوان مع حسابك.';
           debugPrint('Error updating user profile with address reference: $e');
         }
       }
@@ -177,7 +170,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  'تم حفظ وتوثيق العنوان بنجاح',
+                  saveMessage,
                   style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
                 ),
               ],

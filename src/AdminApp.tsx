@@ -78,16 +78,17 @@ export default function AdminApp() {
   useEffect(() => {
     setOrders([]); setStores([]); setProducts([]); setStaff([]); setCoupons([]); setPartners([]); setJobs([]); setConnected(false);
     if (access !== "admin" || !profile) return;
+    let active=true;
     const stops = [
       subscribeToOrders(profile, setOrders, report, setConnected),
-      watchCollection<Store>("stores", setStores, report),
+      watchCollection<Store>("stores", data=>{setStores(data);void adminApi('data',{action:'contract-list'}).then(result=>{if(active){const rates=new Map(result.contracts.map((c:any)=>[c.id,c.commissionRate]));setStores(data.map(store=>({...store,...(rates.has(store.id)?{commissionRate:rates.get(store.id) as number}:{})})));}}).catch(report)}, report),
       watchCollection<Product>("products", setProducts, report),
       watchCollection<AdminStaff>("staff", setStaff, report),
       watchCollection<Coupon>("coupons", setCoupons, report),
       watchCollection<PartnerApplication>("partnerApplications", setPartners, report),
       watchCollection<JobApplication>("jobApplications", setJobs, report),
     ];
-    return () => stops.forEach((stop) => stop());
+    return () => {active=false;stops.forEach((stop) => stop());};
   }, [profile?.id, access]);
 
   useEffect(() => {

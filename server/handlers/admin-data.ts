@@ -1,3 +1,4 @@
+import {settlementAction} from '../settlements.ts';
 import { adminSangoubRequests } from '../sangoubRequests.ts';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { requireAdmin, AdminError, adminError, validId } from '../adminRequest.ts';
@@ -7,8 +8,8 @@ import { assignmentRef, closeOperationalQueues, paymentReady, ticketRef } from '
 import { mobileCors } from '../mobileCors.ts';
 
 const fields:Record<string,string[]>={
-  products:['id','storeId','storeName','name','description','price','originalPrice','category','imageType','imageUrl','imageKey','inStock','archived','badge','isPopular','options'],
-  stores:['taxRate','taxRegistrationNumber','pricesIncludeTax','id','name','nameEn','locationInDistrict','type','category','status','deliveryTime','minOrder','deliveryFee','imageUrl','bannerUrl','logoUrl','logoKey','bannerKey','imageKey','logo','banner','rating','ratingCount'],
+  products:['id','storeId','storeName','name','description','price','originalPrice','category','imageType','imageUrl','imageKey','inStock','archived','badge','isPopular','optionGroups'],
+  stores:['commissionRate','taxRate','taxRegistrationNumber','pricesIncludeTax','id','name','nameEn','locationInDistrict','type','category','status','deliveryTime','minOrder','deliveryFee','imageUrl','bannerUrl','logoUrl','logoKey','bannerKey','imageKey','logo','banner','rating','ratingCount'],
   coupons:['code','discountType','value','minOrder','title','description'],staff:['role','name','phone','storeId'],partnerApplications:['status'],jobApplications:['status'],
   orders:['orderStatus','courierId','courierName','courierPhone'],
 };
@@ -19,6 +20,7 @@ function validate(type:string,id:string,d:any){
   if(type==='products'&&(!str(d.name,120,true)||!str(d.description,1000)||!num(d.price,100000)||typeof d.inStock!=='boolean'||!str(d.storeId,128,true)||!str(d.category,120,true)))bad('راجع اسم الصنف وسعره ومتجره.');
   if(type==='products'&&d.originalPrice!==undefined&&(!num(d.originalPrice,100000)||d.originalPrice<d.price))bad('السعر قبل الخصم غير صالح.');
   if(type==='products'&&d.archived===true&&d.inStock!==false)bad('المنتج المؤرشف لا يمكن إتاحته.');
+  if(type==='stores'&&d.commissionRate!==undefined&&!num(d.commissionRate,100))bad('نسبة التعاقد غير صالحة.');
   if(type==='stores'&&(!str(d.name,120,true)||!num(d.minOrder,100000)||!num(d.deliveryFee,1000)||!['open','closed','busy'].includes(d.status)))bad('راجع بيانات المتجر ورسومه.');
   if(type==='stores'&&((d.taxRate!==undefined&&!num(d.taxRate,100))||(d.pricesIncludeTax!==undefined&&typeof d.pricesIncludeTax!=='boolean')||(d.taxRegistrationNumber!==undefined&&!str(d.taxRegistrationNumber,60))||(d.taxRate>0&&!str(d.taxRegistrationNumber,60,true))))bad('راجع نسبة الضريبة ورقم تسجيل المتجر.');
   if(type==='staff'&&(!['restaurant','courier'].includes(d.role)||!str(d.name,120,true)||!str(d.phone,30)))bad('راجع دور الموظف وبياناته.');
@@ -32,6 +34,8 @@ export default async function handler(req:any,res:any){
   let context: Awaited<ReturnType<typeof requireAdmin>>|undefined;
   try{
     const {db,auth,actor}=context=await requireAdmin(req);const input=req.body||{};
+    if(input.action==='contract-list'){const records=await db.collection('merchantContracts').limit(500).get();return res.status(200).json({contracts:records.docs.map(d=>({...d.data(),id:d.id}))});}
+    if(['settlement-list','settlement-preview','settlement-save'].includes(input.action))return res.status(200).json(await settlementAction(input,context));
     if(['sangoub-list','sangoub-update'].includes(input.action)) return res.status(200).json(await adminSangoubRequests(input,context));
     if(input.action==='session'){
       if(!['open','logout'].includes(input.event))bad();
@@ -57,6 +61,7 @@ export default async function handler(req:any,res:any){
     if(typeof type!=='string'||!Object.hasOwn(fields,type))bad('المجموعة غير متاحة من هذه الواجهة.');
     if(input.action==='delete'&&!['coupons','staff'].includes(type))bad('هذه البيانات تُؤرشف ولا تُحذف.');
     const patch=input.data||{};
+    if(type==='stores'&&patch.commissionRate!==undefined&&!num(patch.commissionRate,100))bad('راجع نسبة التعاقد.');
     if(typeof patch!=='object'||Array.isArray(patch)||Object.keys(patch).some(key=>!fields[type].includes(key)))bad('تتضمن العملية حقولًا غير مسموحة.');
     if(type==='staff'&&input.action!=='delete'&&(await auth.getUser(id)).disabled)bad('الحساب معطل.');
     await db.runTransaction(async tx=>{
@@ -65,6 +70,9 @@ export default async function handler(req:any,res:any){
       if(!own.exists)throw new AdminError(403,'انتهت صلاحية الإدارة.');
       const before=target.data()||null;
       let after:any={...(before||{}),...patch};
+      const contractRef=type==='stores'?db.doc('merchantContracts/'+id):null;
+      const contractBefore=contractRef?await tx.get(contractRef):null;
+      if(type==='stores')delete after.commissionRate;
       if(input.action==='delete'&&!before)throw new AdminError(404,'السجل غير موجود.');
       if(input.action==='approve'){
         if(type!=='partnerApplications'||!before)bad();validId(input.store?.id);const store=input.store;
@@ -131,6 +139,8 @@ export default async function handler(req:any,res:any){
         if(!(await tx.get(db.doc('stores/'+after.storeId))).exists)bad('المتجر غير موجود.');
       }
       if(input.action!=='delete'&&type!=='orders')validate(type,id,after);
+      if(contractRef&&patch.commissionRate!==undefined){const contract={commissionRate:patch.commissionRate,updatedAt:FieldValue.serverTimestamp(),updatedBy:actor.uid};tx.set(contractRef,contract,{merge:true});auditInTransaction(db,tx,actor,'contract.updated','merchantContracts',id,contractBefore?.data()||null,contract);}
+
       if(input.action==='delete')tx.delete(ref);else tx.set(ref,{...after,updatedAt:FieldValue.serverTimestamp(),...(type==='orders'&&after.orderStatus==='ready'&&before?.orderStatus!=='ready'?{readyAt:FieldValue.serverTimestamp()}:{})});
       auditInTransaction(db,tx,actor,type+'.'+(input.action==='delete'?'delete':!before?'create':input.action==='kitchen'?'kitchen':'update'),type,id,before,input.action==='delete'?null:after);
     });

@@ -21,6 +21,8 @@ export default async function handler(req: any, res: any) {
       return res.status(401).json({ error: "جلسة الدخول غير صالحة." });
     }
 
+    const access=(await db.doc('accountAccess/'+identity.uid).get()).data();
+    if((!identity.email_verified&&!identity.phone_number)||access?.disabled||access?.operationLocked||identity.auth_time<=(access?.revokedBefore||0))return res.status(403).json({error:'أكد الحساب وراجع صلاحية الجلسة.'});
     const { contentType = "image/jpeg", size = 0 } = req.body || {};
     const extensions: Record<string, string> = {
       "image/jpeg": "jpg",
@@ -28,7 +30,8 @@ export default async function handler(req: any, res: any) {
       "image/png": "png",
       "image/webp": "webp",
     };
-    const ext = extensions[contentType] || "jpg";
+    if(!Object.hasOwn(extensions,contentType)||!Number.isInteger(size)||size<1||size>5*1024*1024)return res.status(400).json({error:'اختر صورة JPG أو PNG أو WebP حتى 5 ميجابايت.'});
+    const ext = extensions[contentType];
     const key = `avatars/${identity.uid}.${ext}`;
 
     const { client, bucket, publicUrl } = r2Services();
@@ -38,21 +41,13 @@ export default async function handler(req: any, res: any) {
         Bucket: bucket,
         Key: key,
         ContentType: contentType,
+        ContentLength:size,
         CacheControl: "public, max-age=86400",
       }),
       { expiresIn: 300 }
     );
 
     const avatarPublicUrl = `${publicUrl}/${key}?t=${Date.now()}`;
-
-    // حفظ الرابط مباشرة في بروفايل المستخدم بـ Firestore
-    await db.collection("users").doc(identity.uid).set(
-      {
-        avatarUrl: avatarPublicUrl,
-        updatedAt: new Date(),
-      },
-      { merge: true }
-    );
 
     return res.status(200).json({
       key,

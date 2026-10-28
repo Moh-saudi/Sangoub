@@ -1,9 +1,11 @@
+import {operationsApi} from './lib/operationsApi';
 import { BRAND } from './brand';
 import { MerchantLoginLayout } from './components/MerchantLoginLayout';
 import React, { useEffect, useState, useRef } from "react";
 import {
   auth,
   googleProvider,
+  isVerifiedIdentity,
   db,
   onAuthStateChanged,
   syncUserProfileToFirestore,
@@ -12,7 +14,7 @@ import {
   updateOrderRecord,
   type FirebaseUser,
 } from "./lib/firebase";
-import { signInWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, setPersistence, browserLocalPersistence, browserSessionPersistence, sendEmailVerification } from "firebase/auth";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import {
   Store as StoreIcon,
@@ -51,6 +53,7 @@ export default function MerchantApp() {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [revision,setRevision]=useState(0);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -67,84 +70,23 @@ export default function MerchantApp() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
 
-  // 1. Listen to Auth State
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setIdentity(user);
-      if (!user) {
-        setProfile(null);
-        setAccess("login");
-        return;
-      }
-      setAccess("checking");
-      try {
-        const userProfile = await syncUserProfileToFirestore(user);
-        if (userProfile.role === "restaurant" || userProfile.role === "admin") {
-          setProfile(userProfile);
-          setAccess("merchant");
-        } else {
-          setProfile(userProfile);
-          setAccess("denied");
-        }
-      } catch (err: any) {
-        console.error("Profile sync error:", err);
-        setAccess("denied");
-        setError(err.message || "تعذر قراءة ملف الحساب.");
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // 2. Load Firestore Data when Merchant Access is granted
-  useEffect(() => {
-    if (access !== "merchant" || !profile) return;
-
-    const stopStores = watchCollection<Store>(
-      "stores",
-      (data) => setStores(data),
-      (err) => console.error("Stores listener error:", err)
-    );
-
-    const stopOrders = watchCollection<Order>(
-      "orders",
-      (data) => setOrders(data),
-      (err) => console.error("Orders listener error:", err),
-      [],
-      (conn) => setConnected(conn)
-    );
-
-    const stopProducts = watchCollection<Product>(
-      "products",
-      (data) => setProducts(data),
-      (err) => console.error("Products listener error:", err)
-    );
-
-    const stopUsers = watchCollection<any>(
-      "users",
-      (data) => {
-        const activeCouriers = data
-          .filter((u) => u.role === "courier")
-          .map((c) => ({
-            id: c.uid || c.id,
-            name: c.fullName || c.name || "كابتن سنجوب",
-            phone: c.phone || "",
-            rating: 4.9,
-            avgDeliveryMinutes: 18,
-            coordinates: c.coordinates || null,
-            status: c.disabled ? "offline" : "available",
-          }));
-        setCouriers(activeCouriers);
-      },
-      (err) => console.error("Couriers listener error:", err)
-    );
-
-    return () => {
-      stopStores();
-      stopOrders();
-      stopProducts();
-      stopUsers();
-    };
-  }, [access, profile?.id]);
+  const refreshMerchant=useRef<()=>Promise<void>>(async()=>{});
+  useEffect(()=>onAuthStateChanged(auth,user=>{setIdentity(user);setProfile(null);setStores([]);setOrders([]);setProducts([]);setAccess(user?'checking':'login')}),[]);
+  useEffect(()=>{
+    if(!identity)return;let generation=0;
+    const stop=onSnapshot(doc(db,'staff',identity.uid),{includeMetadataChanges:true},async snapshot=>{
+      const current=++generation;setProfile(null);setError('');
+      if(snapshot.metadata.fromCache){setAccess('checking');return;}
+      if(snapshot.data()?.role!=='restaurant'||!snapshot.data()?.storeId){setAccess('denied');return;}
+      try{const p=await syncUserProfileToFirestore(identity);if(current!==generation)return;if(p.role!=='restaurant'||!p.storeId){setAccess('denied');return;}setProfile({...p,duty:snapshot.data()?.duty||'manager'});setAccess('merchant');}catch(e){if(current===generation){setAccess('denied');setError(customerMessage(e,'أكد الحساب وراجع ربط المتجر.'));}}
+    },e=>{generation++;setProfile(null);setAccess('denied');setError(customerMessage(e,'تعذر التحقق من صلاحية المتجر.'))});return()=>{generation++;stop()};
+  },[identity,revision]);
+  useEffect(()=>{
+    setStores([]);setOrders([]);setProducts([]);setCouriers([]);setConnected(false);
+    if(access!=='merchant'||!profile)return;let active=true,inflight=false;
+    const load=async()=>{if(inflight)return;inflight=true;try{const result=await operationsApi('operations',{action:'store-dashboard'});if(active){setStores(result.stores);setOrders(result.orders);setProducts(result.products);setConnected(true);}}catch(e){if(active){setConnected(false);setError(customerMessage(e,'تعذر تحميل بيانات متجرك.'));}}finally{inflight=false;}};
+    refreshMerchant.current=load;void load();const timer=setInterval(()=>{if(!document.hidden)void load()},15000);return()=>{active=false;clearInterval(timer);refreshMerchant.current=async()=>{}};
+  },[access,profile?.id,profile?.storeId]);
 
   // Handle Login
   async function handleLogin(e: React.FormEvent) {
@@ -195,66 +137,13 @@ export default function MerchantApp() {
     }
   }
 
-  // Handle Kitchen Stage Change
-  async function handleKitchenChange(id: string, storeId: string, stage: "preparing" | "ready") {
-    try {
-      const order = orders.find((o) => o.id === id);
-      if (!order) return;
-      const kitchenStatus = { ...(order.kitchenStatus || {}), [storeId]: stage };
-      await updateOrderRecord(id, {
-        kitchenStatus,
-        orderStatus: stage === "ready" ? "ready" : "preparing",
-      });
-    } catch (err: any) {
-      console.error("Failed to update kitchen stage:", err);
-    }
-  }
-
-  // Handle Order Status
-  async function handleUpdateOrderStatus(orderId: string, status: Order["orderStatus"]) {
-    try {
-      await updateOrderRecord(orderId, { orderStatus: status });
-    } catch (err) {
-      console.error("Order status update failed:", err);
-    }
-  }
-
-  // Handle Product Stock Toggle
-  async function handleUpdateProductStock(productId: string, inStock: boolean) {
-    try {
-      await updateDoc(doc(db, "products", productId), { inStock });
-    } catch (err) {
-      console.error("Product stock update failed:", err);
-    }
-  }
-
-  // Handle Product Price Update
-  async function handleUpdateProductPrice(productId: string, newPrice: number) {
-    try {
-      await updateDoc(doc(db, "products", productId), { price: newPrice });
-    } catch (err) {
-      console.error("Product price update failed:", err);
-    }
-  }
-
-  // Handle Add Product
-  async function handleAddProduct(product: Product) {
-    // Handled via Admin/Partner APIs
-  }
-
-  // Handle Store Open/Close Toggle
-  async function handleToggleStoreStatus(storeId: string) {
-    try {
-      const store = stores.find((s) => s.id === storeId);
-      if (!store) return;
-      const nextStatus = store.status === "open" ? "closed" : "open";
-      await updateDoc(doc(db, "stores", storeId), {
-        status: nextStatus,
-      });
-    } catch (err) {
-      console.error("Store status toggle failed:", err);
-    }
-  }
+  async function merchantMutation(input:object){setError('');try{await operationsApi('operations',input);await refreshMerchant.current();}catch(e){setError(customerMessage(e,'تعذر حفظ التعديل.'));throw e;}}
+  async function handleKitchenChange(id:string,_storeId:string,stage:'preparing'|'ready'){await merchantMutation({action:'legacy-prepare',id,next:stage});}
+  async function handleUpdateOrderStatus(_id:string,_status:Order['orderStatus']){setError('حالة التوصيل يحدّثها المندوب، والتحضير من أزرار المطبخ.');}
+  async function handleUpdateProductStock(id:string,inStock:boolean){try{await merchantMutation({action:'set-product-stock',id,inStock})}catch{}}
+  async function handleUpdateProductPrice(id:string,price:number){await merchantMutation({action:'set-product-price',id,price});}
+  async function handleAddProduct(product:Product){await merchantMutation({action:'save-product',id:product.id,product});}
+  async function handleToggleStoreStatus(_storeId:string){const store=stores.find(s=>s.id===profile?.storeId);if(!store)return;try{await merchantMutation({action:'set-store-status',status:store.status==='open'?'closed':'open'})}catch{}}
 
   // RENDER: 1. Loading State
   if (access === "checking") {
@@ -277,7 +166,9 @@ export default function MerchantApp() {
           <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
             <AlertCircle size={32} />
           </div>
-          <h2 className="text-lg font-black text-slate-900">حساب غير مصرح له كتاجر</h2>
+          <h2 className="text-lg font-black text-slate-900">{identity&&!isVerifiedIdentity(identity)?'أكد بريد الحساب أولًا':'حساب غير مصرح له كتاجر'}</h2>
+          {error&&<p role="alert" className="text-red-700">{error}</p>}
+          {identity&&!isVerifiedIdentity(identity)&&<div className="space-y-2"><button className="p-3 border rounded-lg" disabled={busy} onClick={async()=>{setBusy(true);try{await sendEmailVerification(identity);setError('أرسلت رسالة تأكيد البريد.')}catch(e){setError(customerMessage(e,'تعذر الإرسال.'))}finally{setBusy(false)}}}>إرسال تأكيد البريد</button><button className="p-3 border rounded-lg" disabled={busy} onClick={async()=>{setBusy(true);try{await identity.reload();await identity.getIdToken(true);setRevision(v=>v+1)}catch(e){setError(customerMessage(e,'تعذر التحقق.'))}finally{setBusy(false)}}}>تم التأكيد، إعادة الفحص</button></div>}
           <p className="text-xs text-slate-600 leading-relaxed">
             الحساب الحالي مسجل كـ (<strong>{profile?.role === "employee" ? "عميل بالحي الحكومي" : profile?.role || "مستخدم"}</strong>).
             هذه البوابة مخصصة حصرياً للمطابخ والمتاجر الشريكة المعتمدة في سنجوب.
@@ -303,7 +194,7 @@ export default function MerchantApp() {
 
   // RENDER: 3. Logged-in Merchant Portal
   if (access === "merchant" && profile) {
-    const userStore = stores.find((s) => s.id === profile.storeId) || stores[0];
+    const userStore = stores.find((s) => s.id === profile.storeId);
 
     return (
       <div className="min-h-screen bg-slate-100 font-cairo" dir="rtl">
@@ -358,6 +249,7 @@ export default function MerchantApp() {
 
         {/* Main Portal Body */}
         <main className="max-w-7xl mx-auto p-4 sm:p-6">
+          {error&&<p role="alert" className="p-3 mb-3 bg-red-50 text-red-800 rounded-xl">{error}</p>}
           <RestaurantPortal
             currentProfile={profile}
             stores={stores}

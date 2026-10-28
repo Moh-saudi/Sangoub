@@ -8,7 +8,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,6 +22,7 @@ jobs:
       - run: npm install
       - run: npm run lint
       - run: npm test
+      - run: npm run test:commerce-services
       - run: npm run test:native-api
       - run: npm run test:compiled-api
         env:
@@ -30,6 +31,11 @@ jobs:
       - run: npm run test:auth
       - run: npm run test:operations
       - run: npm run test:rules
+      - run: npm run test:web-checkout
+      - run: npm run test:commerce-integration
       - run: npx playwright install --with-deps chromium
       - run: node tests/pwa-build.browser.mjs
       - run: npm run test:admin-web
+      - run: npm run test:shop-web
+      - run: npm run test:storefront-auth
+      - run: npm run test:preload-recovery

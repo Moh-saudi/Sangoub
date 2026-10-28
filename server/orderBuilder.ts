@@ -31,7 +31,7 @@ export function buildOrder(
       throw new Error(`بيانات غير صالحة: ${key}`);
     return value.trim();
   };
-  const allowedPaymentMethods = ["cash", "instapay", "vodafone_cash", "card", "wallet", "geidea"];
+  const allowedPaymentMethods = ["cash", "geidea"];
   const paymentMethod = input.paymentMethod || "cash";
   if (!allowedPaymentMethods.includes(paymentMethod))
     throw new Error("طريقة الدفع المختارة غير صالحة.");
