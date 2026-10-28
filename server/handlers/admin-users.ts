@@ -1,3 +1,4 @@
+import { validateAccount } from '../../src/validation/accounts.ts';
 import { randomBytes } from 'node:crypto';
 import { FieldValue } from 'firebase-admin/firestore';
 import { requireAdmin, AdminError, adminError, validId } from '../adminRequest.ts';
@@ -50,6 +51,8 @@ export default async function handler(req:any,res:any) {
           vehiclePlate:uData.vehiclePlate||sData.vehiclePlate||'',
           drivingLicenseNumber:uData.drivingLicenseNumber||'',
           licenseExpiryDate:uData.licenseExpiryDate||'',
+          licenseIssueDate:uData.licenseIssueDate||'',
+          vehicleYear:uData.vehicleYear||'',
           drugTestStatus:uData.drugTestStatus||'pending',
           drugTestDate:uData.drugTestDate||'',
           criminalRecordStatus:uData.criminalRecordStatus||'pending',
@@ -97,13 +100,15 @@ export default async function handler(req:any,res:any) {
         vehiclePlate:text(input.vehiclePlate||'',30),
         drivingLicenseNumber:text(input.drivingLicenseNumber||'',60),
         licenseExpiryDate:text(input.licenseExpiryDate||'',30),
-        drugTestStatus:['passed','failed','pending'].includes(input.drugTestStatus)?input.drugTestStatus:'pending',
+        licenseIssueDate:text(input.licenseIssueDate||'',30),
+        vehicleYear:text(input.vehicleYear||'',4),
+        drugTestStatus:input.drugTestStatus??'pending',
         drugTestDate:text(input.drugTestDate||'',30),
-        criminalRecordStatus:['passed','failed','pending'].includes(input.criminalRecordStatus)?input.criminalRecordStatus:'pending',
+        criminalRecordStatus:input.criminalRecordStatus??'pending',
         criminalRecordDate:text(input.criminalRecordDate||'',30),
         hasThermalBox:input.hasThermalBox===true||input.hasThermalBox==='true'||input.hasThermalBox==='on',
         hasThermalBackpack:input.hasThermalBackpack===true||input.hasThermalBackpack==='true'||input.hasThermalBackpack==='on',
-        courierStatus:['active','pending','suspended'].includes(input.courierStatus)?input.courierStatus:'active',
+        courierStatus:input.courierStatus??'pending',
         coverageRadiusKm:Number(input.coverageRadiusKm)||5,
         preferredDeliveryMethod:['bicycle','motorcycle','car','auto'].includes(input.preferredDeliveryMethod)?input.preferredDeliveryMethod:'auto'
       };
@@ -129,7 +134,7 @@ export default async function handler(req:any,res:any) {
       if(existingLock.exists)throw new AdminError(409,'هناك عملية معلّقة على هذا الحساب. راجع سجل التدقيق قبل المحاولة مجددًا.');
       if(input.action!=='create'){target=await auth.getUser(uid);authBefore={uid:target.uid,email:target.email||'',displayName:target.displayName||'',disabled:target.disabled,emailVerified:target.emailVerified};protectAccess=['role','disable','delete','revoke'].includes(input.action)||(input.action==='update'&&email!==target.email);}
       const currentRole=admin.exists?'admin':staff.data()?.role||'employee';
-      if(input.action==='update'&&requestedRole!==undefined)assignmentChanged=requestedRole!==currentRole||(requestedRole==='restaurant'&&(input.storeId!==staff.data()?.storeId||duty!==(staff.data()?.duty||'manager')));
+      if(input.action==='update'&&requestedRole!==undefined)assignmentChanged=requestedRole!==currentRole||(requestedRole==='restaurant'&&(input.storeId!==staff.data()?.storeId||duty!==(staff.data()?.duty||'manager')))||(requestedRole==='courier'&&profilePatch.courierStatus!==(staff.data()?.courierStatus||'active'));
       if(assignmentChanged&&uid===actor.uid)throw new AdminError(409,'لا يمكنك تعديل صلاحياتك من الجلسة الحالية.');
       if(assignmentChanged)protectAccess=true;
       if(admin.exists&&(assignmentChanged||['disable','delete'].includes(input.action))&&admins.size<=1)throw new AdminError(409,'لا يمكن إزالة آخر مدير.');
@@ -139,6 +144,13 @@ export default async function handler(req:any,res:any) {
         const assignments=await tx.get(db.collection('orders').where('courierId','==',uid));
         const kitchen=staff.data()?.role==='restaurant'?await tx.get(db.collection('orders').where('storeIds','array-contains',staff.data()!.storeId)):null;
         if([...assignments.docs,...customerOrders.docs,...(kitchen?.docs||[])].some(doc=>!['delivered','cancelled'].includes(doc.data().orderStatus)))throw new AdminError(409,'أعد تعيين الطلبات النشطة قبل تغيير دور الحساب أو تعطيله.');
+      }
+      if(['create','update','role'].includes(input.action)){
+        const effectiveRole=requestedRole||currentRole;
+        const candidate={...(profile.data()||{}),...profilePatch};
+        const validation=validateAccount(candidate,effectiveRole);
+        if(Object.keys(validation.errors).length)throw Object.assign(new AdminError(400,Object.values(validation.errors)[0]),{fields:validation.errors});
+        if(input.action!=='role')for(const key of Object.keys(profilePatch))profilePatch[key]=validation.data[key];
       }
       const previous={auth:authBefore,profile:profile.data()||null,role:admin.exists?'admin':staff.data()?.role||'employee',staff:staff.data()||null,access:access.data()||null};
       if(protectAccess)tx.set(db.doc('accountAccess/'+uid),{operationLocked:true,updatedAt:FieldValue.serverTimestamp()},{merge:true});
@@ -169,7 +181,7 @@ export default async function handler(req:any,res:any) {
           tx.delete(db.doc('admins/'+uid));tx.delete(db.doc('staff/'+uid));
           after.staff=null;
           if(requestedRole==='admin')tx.set(db.doc('admins/'+uid),{active:true,grantedBy:actor.uid,updatedAt:FieldValue.serverTimestamp()});
-          if(requestedRole==='courier'||requestedRole==='restaurant'){const assignment={role:requestedRole,name:fullName||profile.data()?.fullName||target?.displayName||'',phone:profilePatch.phone??profile.data()?.phone??'',vehicleType:profilePatch.vehicleType||profile.data()?.vehicleType||'',vehiclePlate:profilePatch.vehiclePlate||profile.data()?.vehiclePlate||'',...(requestedRole==='restaurant'?{storeId:input.storeId,duty}:{}),updatedAt:FieldValue.serverTimestamp()};tx.set(db.doc('staff/'+uid),assignment);after.staff=assignment;}
+          if(requestedRole==='courier'||requestedRole==='restaurant'){const assignment={role:requestedRole,name:fullName||profile.data()?.fullName||target?.displayName||'',phone:profilePatch.phone??profile.data()?.phone??'',vehicleType:profilePatch.vehicleType||profile.data()?.vehicleType||'',vehiclePlate:profilePatch.vehiclePlate||profile.data()?.vehiclePlate||'',...(requestedRole==='courier'?{courierStatus:profilePatch.courierStatus||profile.data()?.courierStatus||'pending'}:{}),...(requestedRole==='restaurant'?{storeId:input.storeId,duty}:{}),updatedAt:FieldValue.serverTimestamp()};tx.set(db.doc('staff/'+uid),assignment);after.staff=assignment;}
           const targetStoreId = input.storeId || before.staff?.storeId;
           if ((input.action === 'create' || input.action === 'update' || input.action === 'role') && targetStoreId && (requestedRole === 'restaurant' || profile.data()?.role === 'restaurant' || input.role === 'restaurant')) {
             const storeUpdates: any = { updatedAt: FieldValue.serverTimestamp() };
@@ -194,7 +206,7 @@ export default async function handler(req:any,res:any) {
         if(input.action==='delete'){
           tx.set(db.doc('users/'+uid),{fullName:'حساب محذوف',email:'',phone:'',ministry:'',floorNumber:'',roomNumber:'',avatarUrl:'',coordinates:FieldValue.delete(),role:'employee',deletedAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()},{merge:true});after={deleted:true,uid,access:after.access};
         }
-        if(input.action==='update'&&before.staff&&!assignmentChanged){const change={name:fullName,phone:profilePatch.phone,vehicleType:profilePatch.vehicleType||before.staff.vehicleType||'',vehiclePlate:profilePatch.vehiclePlate||before.staff.vehiclePlate||'',updatedAt:FieldValue.serverTimestamp()};tx.update(db.doc('staff/'+uid),change);after.staff={...before.staff,...change};}
+        if(input.action==='update'&&before.staff&&!assignmentChanged){const change={name:fullName,phone:profilePatch.phone,...(before.staff.role==='courier'?{courierStatus:profilePatch.courierStatus}:{}),vehicleType:profilePatch.vehicleType||before.staff.vehicleType||'',vehiclePlate:profilePatch.vehiclePlate||before.staff.vehiclePlate||'',updatedAt:FieldValue.serverTimestamp()};tx.update(db.doc('staff/'+uid),change);after.staff={...before.staff,...change};}
         tx.update(log,{status:'success',after:auditSafe(after),changedFields:auditChangedFields(before,after),completedAt:FieldValue.serverTimestamp()});tx.delete(lock);if(serializesMembership)tx.delete(db.doc('adminControl/membership'));
       });
       return res.status(200).json({ok:true,uid,...(resetLink?{resetLink}:{})});

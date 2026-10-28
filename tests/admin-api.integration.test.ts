@@ -1,3 +1,4 @@
+import operations from '../api/operations.ts';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { initializeApp, deleteApp } from 'firebase/app';
@@ -47,7 +48,7 @@ test('catalog mutation and immutable audit event commit together; forged totals 
 test('active courier assignments prevent role changes and disable; Auth failure remains visible without locking the next operation',async()=>{
  const courier=await services.auth.createUser({email:'busy-courier@example.com',emailVerified:true});await services.db.doc('staff/'+courier.uid).set({role:'courier',name:'مندوب اختبار',phone:'01012345678'});await services.db.doc('orders/busy-order').set({orderStatus:'with_courier',courierId:courier.uid});
  assert.equal((await invoke({action:'disable',uid:courier.uid,reason:'اختبار منع تعطيل مندوب مشغول'})).status,409);
- const failed=await invoke({action:'create',email:'audit-admin@example.com',fullName:'بريد مكرر',role:'employee',reason:'اختبار تكرار البريد'});assert.equal(failed.status,409);assert.equal((await services.db.doc('adminControl/membership').get()).exists,false);
+ const failed=await invoke({action:'create',email:'audit-admin@example.com',fullName:'بريد مكرر',phone:'01012345678',role:'employee',reason:'اختبار تكرار البريد'});assert.equal(failed.status,409);assert.equal((await services.db.doc('adminControl/membership').get()).exists,false);
  const logs=await services.db.collection('auditLogs').where('status','==','failed').get();assert(logs.size>=1);
 });
 test('audit strips credentials recursively and keeps meaningful changes',()=>{
@@ -58,7 +59,7 @@ test('an ambiguous Auth network result leaves a partial audit and a lock for rev
  const original=services.auth.createUser.bind(services.auth);let createdUid='';
  services.auth.createUser=async properties=>{const user=await original(properties);createdUid=user.uid;throw Object.assign(new Error('Simulated lost acknowledgement'),{code:'auth/network-request-failed'});};
  try{
-  const result=await invoke({action:'create',email:'ambiguous-auth@example.com',fullName:'اختبار نتيجة غير مؤكدة',role:'employee',reason:'اختبار انقطاع الاتصال بعد الكتابة'});assert.equal(result.status,503);assert(createdUid);
+  const result=await invoke({action:'create',email:'ambiguous-auth@example.com',fullName:'اختبار نتيجة غير مؤكدة',phone:'01012345678',role:'employee',reason:'اختبار انقطاع الاتصال بعد الكتابة'});assert.equal(result.status,503);assert(createdUid);
   const lock=await services.db.doc('adminUserLocks/'+createdUid).get();assert(lock.exists);assert.equal((await services.db.doc('auditLogs/'+lock.data()!.operationId).get()).data()?.status,'partial');assert.equal((await services.auth.getUser(createdUid)).email,'ambiguous-auth@example.com');
  }finally{services.auth.createUser=original;if(createdUid){await services.auth.deleteUser(createdUid);await services.db.doc('adminUserLocks/'+createdUid).delete();await services.db.doc('accountAccess/'+createdUid).delete();await services.db.doc('adminControl/membership').delete();}}
 });
@@ -91,7 +92,7 @@ test('store-team onboarding returns a private password-setup link and persists t
 });
 test('all created accounts receive a one-use password setup link without exposing it in stored profiles or audit',async()=>{
  const email='password-onboarding@example.com';
- const created=await invoke({action:'create',email,fullName:'اختبار تفعيل الحساب',role:'employee',reason:'اختبار رابط تعيين كلمة مرور العميل'});
+ const created=await invoke({action:'create',email,fullName:'اختبار تفعيل الحساب',phone:'01012345678',role:'employee',reason:'اختبار رابط تعيين كلمة مرور العميل'});
  assert.equal(created.status,200,JSON.stringify(created.result));assert.equal(typeof created.result.resetLink,'string');
  const target=created.result.uid,code=new URL(created.result.resetLink).searchParams.get('oobCode')!;
  const profile=(await services.db.doc('users/'+target).get()).data();
@@ -106,16 +107,29 @@ test('all created accounts receive a one-use password setup link without exposin
  const blocked=await invoke({action:'update',uid:target,email,fullName:'اسم',password:'PlaintextPassword123!',reason:'اختبار رفض كلمة المرور في بيانات الملف'});assert.equal(blocked.status,400);
 });
 test('editing assignment persists the selected role/store/duty and protects active assignments and self access',async()=>{
- const created=await invoke({action:'create',email:'assignment-edit@example.com',fullName:'اختبار تعديل الحساب',role:'employee',reason:'إنشاء حساب اختبار التعديل'});assert.equal(created.status,200);
+ const created=await invoke({action:'create',email:'assignment-edit@example.com',fullName:'اختبار تعديل الحساب',phone:'01012345678',role:'employee',reason:'إنشاء حساب اختبار التعديل'});assert.equal(created.status,200);
  const target=created.result.uid;
- const update=await invoke({action:'update',uid:target,email:'assignment-edit@example.com',fullName:'مسؤول المتجر الجديد',role:'restaurant',storeId:'admin-api-store',duty:'manager',reason:'ربط الحساب بالمتجر وتعيين مديره'});
+ const update=await invoke({action:'update',uid:target,email:'assignment-edit@example.com',fullName:'مسؤول المتجر الجديد',phone:'01012345678',role:'restaurant',storeId:'admin-api-store',duty:'manager',reason:'ربط الحساب بالمتجر وتعيين مديره'});
  assert.equal(update.status,200,JSON.stringify(update.result));assert.equal((await services.db.doc('staff/'+target).get()).data()?.duty,'manager');assert.equal((await services.db.doc('users/'+target).get()).data()?.role,'restaurant');assert((await services.db.doc('accountAccess/'+target).get()).data()?.revokedBefore>0);
  await services.db.doc('orders/assignment-edit-active').set({storeIds:['admin-api-store'],orderStatus:'preparing'});
- const contactOnly=await invoke({action:'update',uid:target,email:'assignment-edit@example.com',fullName:'اسم الاتصال المعدل',role:'restaurant',storeId:'admin-api-store',duty:'manager',reason:'تصحيح اسم مسؤول المتجر دون تغيير تكليفه'});assert.equal(contactOnly.status,200,JSON.stringify(contactOnly.result));
+ const contactOnly=await invoke({action:'update',uid:target,email:'assignment-edit@example.com',fullName:'اسم الاتصال المعدل',phone:'01012345678',role:'restaurant',storeId:'admin-api-store',duty:'manager',reason:'تصحيح اسم مسؤول المتجر دون تغيير تكليفه'});assert.equal(contactOnly.status,200,JSON.stringify(contactOnly.result));
  const blocked=await invoke({action:'update',uid:target,email:'assignment-edit@example.com',fullName:'اسم معدل',role:'courier',reason:'محاولة تغيير دور له طلب نشط'});assert.equal(blocked.status,409);
  assert.equal((await services.db.doc('staff/'+target).get()).data()?.role,'restaurant');
  await services.db.doc('orders/assignment-edit-active').delete();
  assert.equal((await invoke({action:'update',uid,email:'audit-admin@example.com',fullName:'المدير',role:'courier',reason:'اختبار منع تغيير صلاحية النفس'})).status,409);
+});
+
+test('server rejects invalid Egyptian contacts and national ID; pending KYC cannot operate or become active with incomplete documents',async()=>{
+ const badPhone=await invoke({action:'create',email:'bad-kyc-phone@example.com',fullName:'حساب تحقق البيانات',phone:'12345',role:'employee',reason:'اختبار رفض الهاتف غير المصري'});assert.equal(badPhone.status,400);assert(badPhone.result.fields.phone);
+ await assert.rejects(services.auth.getUserByEmail('bad-kyc-phone@example.com'));
+ const dossier={action:'create',email:'pending-kyc@example.com',fullName:'أحمد محمد',phone:'+201012345678',role:'courier',nationalId:'29001010112345',emergencyPhone:'01112345678',currentAddress:'القاهرة شارع التحرير عمارة 10',idCardAddress:'القاهرة مدينة نصر شارع النصر',vehicleType:'motorcycle',courierStatus:'pending',drugTestStatus:'pending',criminalRecordStatus:'pending',reason:'إنشاء ملف مندوب قيد الفحص'};
+ const invalid=await invoke({...dossier,nationalId:'00000000000000'});assert.equal(invalid.status,400);assert(invalid.result.fields.nationalId);
+ const pending=await invoke(dossier);assert.equal(pending.status,200,JSON.stringify(pending.result));
+ const userId=pending.result.uid;assert.equal((await services.db.doc('users/'+userId).get()).data()?.phone,'01012345678');assert.equal((await services.db.doc('staff/'+userId).get()).data()?.courierStatus,'pending');
+ await services.auth.updateUser(userId,{emailVerified:true,password:'TestPassword123!'});
+ const login=await signInWithEmailAndPassword(client,dossier.email,'TestPassword123!');const pendingToken=await login.user.getIdToken();
+ const tasks=await invoke({action:'portal-active'},operations,pendingToken);assert.equal(tasks.status,403);assert.match(tasks.result.error,/قيد الفحص/);
+ const activation=await invoke({...dossier,action:'update',uid:userId,courierStatus:'active'});assert.equal(activation.status,400);assert(activation.result.fields.drugTestStatus);assert.equal((await services.db.doc('staff/'+userId).get()).data()?.courierStatus,'pending');
 });
 
 test('concurrent administrators cannot disable each other and remove all management access',async()=>{

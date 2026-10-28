@@ -24,6 +24,7 @@ jobs:
       - run: npm test
       - run: npm run test:commerce-services
       - run: npm run test:portal-services
+      - run: npm run test:account-validation
       - run: npm run test:native-api
       - run: npm run test:compiled-api
         env:

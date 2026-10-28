@@ -18,7 +18,7 @@ export function adminError(res: any, error: any) {
   const code = String(error?.code || '');
   if (code === 'FIREBASE_ADMIN_NOT_CONFIGURED') return res.status(503).json({error:'خدمة الإدارة غير متاحة حاليًا. يرجى التواصل مع مسؤول المنصة.',code});
   if (code.includes('invalid-credential')) return res.status(503).json({error:'تعذر الاتصال بخدمة الإدارة. يرجى التواصل مع مسؤول المنصة.',code:'FIREBASE_ADMIN_INVALID_CREDENTIALS'});
-  if (error instanceof AdminError) return res.status(error.status).json({error:error.message});
+  if (error instanceof AdminError) return res.status(error.status).json({error:error.message,...((error as any).fields?{fields:(error as any).fields}:{})});
   if (code.includes('email-already-exists')) return res.status(409).json({error:'البريد مستخدم في حساب آخر.'});
   if (code.includes('user-not-found')) return res.status(404).json({error:'الحساب غير موجود.'});
   if (code==='9'||code.includes('failed-precondition')) return res.status(503).json({error:'البيانات غير متاحة حاليًا. يرجى المحاولة لاحقًا.'});

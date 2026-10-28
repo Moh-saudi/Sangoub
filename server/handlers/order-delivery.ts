@@ -1,3 +1,4 @@
+import { courierApprovalError } from '../../src/validation/accounts.ts';
 import { writeOrderSignals } from '../orderSignals.ts';
 import { auditInTransaction, attachAuditContext } from "../audit.ts";
 import { FieldValue } from "firebase-admin/firestore";
@@ -26,8 +27,8 @@ export default async function handler(req: any, res: any) {
     const orderRef = db.collection("orders").doc(orderId);
     const secretRef = db.collection("orderSecrets").doc(orderId);
     const result = await db.runTransaction(async (tx) => {
-      const [orderDoc, secretDoc, staff, currentAccess] = await Promise.all([
-        tx.get(orderRef), tx.get(secretRef), tx.get(db.collection("staff").doc(user.uid)), tx.get(db.doc("accountAccess/"+user.uid)),
+      const [orderDoc, secretDoc, staff, currentAccess, profile] = await Promise.all([
+        tx.get(orderRef), tx.get(secretRef), tx.get(db.collection("staff").doc(user.uid)), tx.get(db.doc("accountAccess/"+user.uid)), tx.get(db.doc("users/"+user.uid)),
       ]);
       const control=currentAccess.data();
       if(control?.disabled||control?.operationLocked||user.auth_time<=(control?.revokedBefore||0))return {status:403,body:{error:'انتهت صلاحية الحساب.'}};
@@ -39,8 +40,9 @@ export default async function handler(req: any, res: any) {
           return { status: 409, body: { error: "رمز الاستلام غير متاح لهذا الطلب." } };
         return { status: 200, body: { otpCode: secretDoc.data()!.otpCode } };
       }
-      if (order.courierId !== user.uid || staff.data()?.role !== "courier")
+      if (order.courierId !== user.uid || staff.data()?.role !== "courier" || (staff.data()?.courierStatus&&staff.data()?.courierStatus!=="active"))
         return { status: 403, body: { error: "التسليم للمندوب المكلّف فقط." } };
+      const approvalError=courierApprovalError(staff.data(),profile.data());if(approvalError)return {status:403,body:{error:approvalError}};
       if (order.orderStatus === "delivered") return { status: 200, body: { ok: true } };
       if (order.orderStatus !== "with_courier" || !secretDoc.exists)
         return { status: 409, body: { error: "الطلب غير متاح للتسليم بالرمز. راجع الإدارة." } };

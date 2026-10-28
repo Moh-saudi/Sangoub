@@ -75,6 +75,8 @@ export default function CourierApp() {
         if(profile.uid!==uid||profile.role!=='courier'){
           deny('هذا الحساب ليس مسجلاً كمندوب. اطلب من الإدارة تعيين نوع الحساب إلى «مندوب توصيل» للبريد الظاهر أدناه.');return;
         }
+        if(profile.courierApprovalError){deny(profile.courierApprovalError);return;}
+        if(profile.courierStatus&&profile.courierStatus!=='active'){deny('ملفك قيد الفحص أو موقوف مؤقتًا. تواصل مع الإدارة لاستكمال اعتماد المندوب.');return;}
         setAccessMessage('');setName(profile.displayName);setAccess('courier');
       }catch(e){if(active&&current===version)deny(customerMessage(e,'تعذر الاتصال للتحقق من حساب المندوب. أعد المحاولة؛ لم يتم تأكيد أو رفض اعتماد الحساب.'));}
       finally{inFlight=false;if(again&&active){again=false;void check();}}

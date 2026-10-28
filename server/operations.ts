@@ -1,3 +1,4 @@
+import { courierApprovalError } from '../src/validation/accounts.ts';
 import { FieldValue, type Transaction, type Firestore } from 'firebase-admin/firestore';
 import { adminServices } from './firebaseAdmin.ts';
 import { AdminError, validId } from './adminRequest.ts';
@@ -24,6 +25,7 @@ export async function operationIdentity(req: any) {
 export type OperationIdentity = Awaited<ReturnType<typeof operationIdentity>>;
 export function requireOperationalAccess(context: OperationIdentity) {
  if (!context.verified) throw new AdminError(403, 'أكد بريدك الإلكتروني أو هاتفك أولًا ثم سجل الدخول.');
+ if(context.role==='courier'){const error=courierApprovalError(context.staff,context.profile);if(error)throw new AdminError(403,error);}
  if (!['admin', 'restaurant', 'courier'].includes(context.role)) throw new AdminError(403, 'الحساب غير مخصص للتحضير أو التوصيل.');
 }
 export function paymentReady(order: any) {

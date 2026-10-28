@@ -1,3 +1,4 @@
+import { courierApprovalError } from '../../src/validation/accounts.ts';
 import { writeOrderSignals } from '../orderSignals.ts';
 import {settlementAction} from '../settlements.ts';
 import { adminSangoubRequests } from '../sangoubRequests.ts';
@@ -90,7 +91,8 @@ export default async function handler(req:any,res:any){
         if(after.orderStatus==='with_courier'||'courierId'in patch){
           validId(after.courierId);const courier=await tx.get(db.doc('staff/'+after.courierId));let account;
           try{account=await auth.getUser(after.courierId);}catch{bad('حساب المندوب غير موجود.');}
-          if(courier.data()?.role!=='courier'||account!.disabled)bad('المندوب غير متاح.');
+          if(courier.data()?.role!=='courier'||(courier.data()?.courierStatus&&courier.data()?.courierStatus!=='active')||account!.disabled)bad('المندوب غير متاح.');
+          const courierProfile=await tx.get(db.doc('users/'+after.courierId));const approvalError=courierApprovalError(courier.data(),courierProfile.data());if(approvalError)bad(approvalError);
           resolvedCourier=courier.data();
         }
         if(before.paymentMethod!=='cash'&&paymentReady(before)&&patch.orderStatus==='cancelled')throw new AdminError(409,'الطلب مدفوع؛ راجع إجراءات الاسترداد قبل الإلغاء.');

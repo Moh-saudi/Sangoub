@@ -1,3 +1,4 @@
+import { courierApprovalError } from '../../src/validation/accounts.ts';
 import { portalOrderActions, portalOrders } from '../portalOrders.ts';
 import { writeOrderSignals } from '../orderSignals.ts';
 import {merchantActions,merchantAction} from '../merchantActions.ts';
@@ -16,6 +17,8 @@ export default async function handler(req: any, res: any) {
    const store = role === 'restaurant' && staff?.storeId ? (await db.doc('stores/' + staff.storeId).get()).data() : null;
    return res.status(200).json({ uid: actor.uid, role, duty: role === 'restaurant' ? staff?.duty || 'manager' : null, storeId: staff?.storeId || null,
     store: store ? { id: staff!.storeId, name: store.name, category: store.category, status: store.status, preparationType: store.category === 'supermarket' ? 'picking' : 'kitchen' } : null,
+    courierStatus: role==='courier'?staff?.courierStatus||null:null,
+    courierApprovalError:role==='courier'?courierApprovalError(staff,context.profile):null,
     displayName: context.profile?.fullName || actor.name || '', needsVerification: !context.verified,
     destination: role === 'admin' ? 'admin_web' : role === 'restaurant' ? 'store_preparation' : role === 'courier' ? 'courier_tasks' : 'customer_home',
     capabilities: ['operations_v2'], rolloutReady: rolloutReady(), requiresStoreAssignment: role === 'restaurant' && !store });
@@ -87,6 +90,8 @@ export default async function handler(req: any, res: any) {
    if (terminal(order.orderStatus)) throw new AdminError(409, 'الطلب مغلق.');
    const storeIds: string[] = order.storeIds || [];
    const tickets = await Promise.all(storeIds.map(id => tx.get(ticketRef(db, order.id, id))));
+   const courierProfile=role==='courier'?await tx.get(db.doc('users/'+actor.uid)):null;
+   if(role==='courier'){const error=courierApprovalError(currentStaff.data(),courierProfile?.data());if(error)throw new AdminError(403,error);}
    if (tickets.some(ticket => !ticket.exists)) throw new AdminError(409, 'تذاكر الطلب غير مكتملة. راجع الإدارة.');
    if(input.action==='resolve-issue'){
     if(role!=='admin')throw new AdminError(403,'معالجة المشكلة للإدارة فقط.');
@@ -122,7 +127,7 @@ export default async function handler(req: any, res: any) {
     writeOrderSignals(db,tx,{...order,orderStatus:input.next==='ready'&&allReady?'ready':'preparing'},order);
     auditInTransaction(db, tx, actor, 'fulfillment.' + input.next, 'orders', order.id, { storeId, status: ticket.status }, { storeId, status: input.next }); return;
    }
-   if (role !== 'courier' || order.courierId !== actor.uid) throw new AdminError(403, 'الطلب لمندوب آخر.');
+   if (role !== 'courier' || order.courierId !== actor.uid || (currentStaff.data()?.courierStatus&&currentStaff.data()?.courierStatus!=='active')) throw new AdminError(403, 'الطلب لمندوب آخر.');
    if (!paymentReady(order)) throw new AdminError(409, 'بانتظار تأكيد الدفع.');
    if (input.action === 'pickup') {
     validId(input.storeId); const index = storeIds.indexOf(input.storeId);

@@ -95,6 +95,7 @@ try {
       await accountForm.locator('[name=role]').selectOption('employee');
       await accountForm.locator('[name=fullName]').fill('حساب اختبار تعيين كلمة المرور');
       await accountForm.locator('[name=email]').fill('ui-password-setup@example.com');
+      await accountForm.locator('[name=phone]').fill('01012345678');
       await accountForm.locator('[name=reason]').fill('اختبار إنشاء حساب وتعيين كلمة المرور بشكل خاص');
       await page.getByRole('button',{name:'حفظ وقيد السجل المعتمَد',exact:true}).click();
       const accessDialog=page.getByRole('dialog',{name:'تعيين كلمة مرور الحساب',exact:true});

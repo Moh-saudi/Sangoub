@@ -1,3 +1,4 @@
+import { validateAccount, cairoToday } from '../validation/accounts';
 import { AccountAccessDialog } from './AccountAccessDialog';
 import { formatEGP } from "../utils/orderCalculations";
 import { useEffect, useRef, useState, useMemo } from 'react';
@@ -54,6 +55,8 @@ export interface AccountRecord {
   vehiclePlate?: string;
   drivingLicenseNumber?: string;
   licenseExpiryDate?: string;
+  licenseIssueDate?: string;
+  vehicleYear?: string;
   drugTestStatus?: 'passed' | 'failed' | 'pending';
   drugTestDate?: string;
   criminalRecordStatus?: 'passed' | 'failed' | 'pending';
@@ -89,6 +92,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
   const [viewingUser, setViewingUser] = useState<AccountRecord | null>(null);
   const [deleteConfirmationUser, setDeleteConfirmationUser] = useState<AccountRecord | null>(null);
   const [resetLink, setResetLink] = useState('');
+  const [fieldErrors,setFieldErrors]=useState<Record<string,string>>({});
   const [accessAccount,setAccessAccount]=useState<{email:string;role:string}|null>(null);
 
   // Form State
@@ -149,6 +153,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
     setError('');
     setNotice('');
     setGpsError('');
+    setFieldErrors({});
     setResetLink('');
     setEditingUser(null);
     setFormRole('courier');
@@ -166,6 +171,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
     setError('');
     setNotice('');
     setGpsError('');
+    setFieldErrors({});
     setResetLink('');
     setEditingUser(user);
     setFormRole(user.role);
@@ -335,8 +341,16 @@ export function UserManagement({ stores }: { stores: Store[] }) {
       currentAddress: formRole === 'restaurant' ? (formAddress || undefined) : (data.currentAddress || formAddress || undefined)
     };
 
+    const validation=validateAccount(payload,formRole);
+    setFieldErrors(validation.errors);
+    if(Object.keys(validation.errors).length){
+      setBusy(false);setError('راجع الحقول المحددة قبل حفظ الحساب.');
+      const [key,message]=Object.entries(validation.errors)[0];
+      const field=event.currentTarget.elements.namedItem(key) as HTMLInputElement|null;
+      field?.focus();field?.setCustomValidity?.(message);event.currentTarget.reportValidity();return;
+    }
     try {
-      const result = await adminApi('users', payload);
+      const result = await adminApi('users', {...payload,...validation.data});
       setIsFormModalOpen(false);
       setEditingUser(null);
       if (result.resetLink) {
@@ -348,7 +362,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
       }
       setRevision((v) => v + 1);
     } catch (e) {
-      setError((e as Error).message);
+      setFieldErrors((e as any).fields||{});setError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -953,7 +967,8 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                 </div>
               )}
 
-              <form id="user-mgmt-form" onSubmit={handleSubmit} className="space-y-4">
+              <form id="user-mgmt-form"
+                onInput={event=>{const field=event.target as HTMLInputElement;field.setCustomValidity?.('');if(field.name)setFieldErrors(prev=>{const next={...prev};delete next[field.name];return next})}} onSubmit={handleSubmit} className="space-y-4">
                 {/* Section A: Basic Account Credentials */}
                 <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-4 space-y-3">
                   <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 border-b border-slate-200/60 pb-2">
@@ -1008,6 +1023,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                       <label className="block text-slate-700 font-bold mb-1">رقم الهاتف الأساسي (واتساب) *</label>
                       <input
                         name="phone"
+                        inputMode="tel"
                         required
                         maxLength={30}
                         defaultValue={editingUser?.phone}
@@ -1088,6 +1104,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                           <label className="block text-slate-600 font-bold mb-1">الرقم القومي (14 رقماً) *</label>
                           <input
                             name="nationalId"
+                            inputMode="numeric"
                             required
                             maxLength={14}
                             pattern="[0-9]{14}"
@@ -1101,6 +1118,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                           <label className="block text-slate-600 font-bold mb-1">هاتف الطوارئ (قريب / مرجع) *</label>
                           <input
                             name="emergencyPhone"
+                            inputMode="tel"
                             required
                             maxLength={30}
                             defaultValue={editingUser?.emergencyPhone}
@@ -1113,7 +1131,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                           <label className="block text-slate-600 font-bold mb-1">حالة الاعتماد التشغيلي</label>
                           <select
                             name="courierStatus"
-                            defaultValue={editingUser?.courierStatus || 'active'}
+                            defaultValue={editingUser?.courierStatus || 'pending'}
                             className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
                           >
                             <option value="active">نشط ومتاح لاستقبال الطلبات</option>
@@ -1166,8 +1184,10 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                           </select>
                         </div>
 
+                        <div><label className="block text-slate-600 font-bold mb-1">ماركة المركبة</label><input name="vehicleMake" maxLength={60} defaultValue={editingUser?.vehicleMake} className="w-full h-9 px-3 border rounded-lg"/></div>
+                        <div><label className="block text-slate-600 font-bold mb-1">سنة الصنع</label><input name="vehicleYear" type="number" min={1900} max={Number(cairoToday().slice(0,4))+1} defaultValue={editingUser?.vehicleYear} className="w-full h-9 px-3 border rounded-lg"/></div>
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">الماركة والموديل وسنة الصنع</label>
+                          <label className="block text-slate-600 font-bold mb-1">موديل المركبة</label>
                           <input
                             name="vehicleModel"
                             maxLength={60}
@@ -1199,6 +1219,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                           />
                         </div>
 
+                        <div><label className="block text-slate-600 font-bold mb-1">تاريخ إصدار رخصة القيادة</label><input name="licenseIssueDate" type="date" max={cairoToday()} defaultValue={editingUser?.licenseIssueDate} className="w-full h-9 px-3 border rounded-lg"/></div>
                         <div>
                           <label className="block text-slate-600 font-bold mb-1">تاريخ انتهاء رخصة القيادة</label>
                           <input
@@ -1256,6 +1277,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                           <input
                             name="drugTestDate"
                             type="date"
+                            max={cairoToday()}
                             defaultValue={editingUser?.drugTestDate}
                             className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
                           />
@@ -1279,6 +1301,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                           <input
                             name="criminalRecordDate"
                             type="date"
+                            max={cairoToday()}
                             defaultValue={editingUser?.criminalRecordDate}
                             className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
                           />
@@ -1477,6 +1500,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                 )}
 
                 <div className="p-3 rounded-xl border bg-orange-50 text-xs leading-6"><strong>بيانات الدخول</strong><p>{editingUser?'تعديل البيانات لا يغيّر كلمة المرور الحالية. لإعادة تعيينها استخدم زر «تعيين كلمة المرور» في قائمة الحسابات. تغيير البريد يتطلب تأكيده مجددًا.':'سيُنشأ الحساب بكلمة مرور عشوائية غير معروضة، ثم تحصل على رابط خاص ليختار صاحب الحساب كلمته قبل الدخول.'}</p></div>
+                {Object.keys(fieldErrors).length>0&&<div role="alert" className="p-3 border border-red-200 bg-red-50 text-red-800 rounded-xl"><strong>صحح البيانات التالية:</strong><ul>{Object.entries(fieldErrors).map(([field,message])=><li key={field}><button type="button" className="text-right underline py-1" onClick={()=>{const form=document.getElementById('user-mgmt-form') as HTMLFormElement;const control=form.elements.namedItem(field) as HTMLInputElement;control?.focus()}}>{message}</button></li>)}</ul></div>}
                 {/* Section E: Audit Reason & Notes */}
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
                   <label className="block text-slate-700 font-bold text-xs mb-1">

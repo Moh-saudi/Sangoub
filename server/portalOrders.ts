@@ -1,3 +1,4 @@
+import { courierApprovalError } from '../src/validation/accounts.ts';
 import { FieldPath, FieldValue } from 'firebase-admin/firestore';
 import { AdminError, validId } from './adminRequest.ts';
 import { activeOrderStatuses, writeOrderSignals } from './orderSignals.ts';
@@ -125,10 +126,11 @@ export async function portalOrders(input: any, context: OperationIdentity) {
   validId(input.orderId);
   return db.runTransaction(async tx => {
     const ref = db.doc('orders/' + input.orderId);
-    const [record, membership, access] = await Promise.all([tx.get(ref), tx.get(db.doc('staff/' + actor.uid)), tx.get(db.doc('accountAccess/' + actor.uid))]);
+    const [record, membership, access, profile] = await Promise.all([tx.get(ref), tx.get(db.doc('staff/' + actor.uid)), tx.get(db.doc('accountAccess/' + actor.uid)),tx.get(db.doc('users/'+actor.uid))]);
     const o = record.data(),
       a = access.data();
-    if (membership.data()?.role !== 'courier' || a?.disabled || a?.operationLocked || actor.auth_time <= (a?.revokedBefore || 0)) throw new AdminError(403, 'انتهت صلاحية الحساب.');
+    if (membership.data()?.role !== 'courier' || (membership.data()?.courierStatus&&membership.data()?.courierStatus!=='active') || a?.disabled || a?.operationLocked || actor.auth_time <= (a?.revokedBefore || 0)) throw new AdminError(403, 'انتهت صلاحية الحساب.');
+    const approvalError=courierApprovalError(membership.data(),profile.data());if(approvalError)throw new AdminError(403,approvalError);
     if (!o || o.courierId !== actor.uid) throw new AdminError(403, 'المهمة ليست مسندة إليك.');
     if (o.fulfillmentVersion === 2) throw new AdminError(409, 'استخدم إجراءات نقاط الاستلام لهذا الطلب.');
     if (!paymentReady(o) || !['ready', 'with_courier'].includes(o.orderStatus)) throw new AdminError(409, 'الطلب غير جاهز للاستلام أو التوصيل.');
