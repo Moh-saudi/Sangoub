@@ -3,6 +3,7 @@ import { MerchantLoginLayout } from './components/MerchantLoginLayout';
 import React, { useEffect, useState, useRef } from "react";
 import {
   auth,
+  googleProvider,
   db,
   onAuthStateChanged,
   syncUserProfileToFirestore,
@@ -11,7 +12,7 @@ import {
   updateOrderRecord,
   type FirebaseUser,
 } from "./lib/firebase";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import {
   Store as StoreIcon,
@@ -48,6 +49,7 @@ export default function MerchantApp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -152,15 +154,8 @@ export default function MerchantApp() {
     setError("");
     setNotice("");
     try {
-      const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const userProfile = await syncUserProfileToFirestore(cred.user);
-      if (userProfile.role === "restaurant" || userProfile.role === "admin") {
-        setProfile(userProfile);
-        setAccess("merchant");
-      } else {
-        setProfile(userProfile);
-        setAccess("denied");
-      }
+      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
+      await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (err: any) {
       const code = err.code || "";
       if (/invalid-credential|wrong-password|user-not-found/.test(code)) {
@@ -171,6 +166,16 @@ export default function MerchantApp() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleGoogleLogin() {
+    if (busy) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) { setError(customerMessage(err, "تعذر الدخول باستخدام Google. حاول مجددًا.")); }
+    finally { setBusy(false); }
   }
 
   // Handle Password Reset
@@ -406,7 +411,10 @@ export default function MerchantApp() {
               </div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-4">
+            <button type="button" className="merchant-entry-google" disabled={busy} onClick={() => void handleGoogleLogin()}><svg aria-hidden="true" viewBox="0 0 24 24" width="21" height="21"><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-1.99 3.02v2.51h3.23c1.89-1.74 2.98-4.3 2.98-7.36Z"/><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.41l-3.23-2.51c-.9.6-2.05.97-3.39.97-2.61 0-4.82-1.76-5.61-4.12H3.05v2.59A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.39 13.93a6 6 0 0 1 0-3.86V7.48H3.05a10 10 0 0 0 0 9.04l3.34-2.59Z"/><path fill="#EA4335" d="M12 5.95c1.47 0 2.79.51 3.82 1.51l2.87-2.87A9.59 9.59 0 0 0 12 2a10 10 0 0 0-8.95 5.48l3.34 2.59C7.18 7.71 9.39 5.95 12 5.95Z"/></svg>المتابعة باستخدام Google</button>
+            <div className="merchant-entry-divider"><span>أو</span></div>
+            <form onSubmit={handleLogin} className="space-y-4" aria-label="دخول التاجر">
+              <label className="merchant-entry-remember"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)} />تذكرني على هذا الجهاز</label>
               <div>
                 <label htmlFor="merchant-email" className="block text-slate-700 font-bold mb-1.5 flex items-center gap-1.5">
                   <Mail size={14} className="text-slate-400" />
@@ -478,26 +486,14 @@ export default function MerchantApp() {
                   </>
                 ) : (
                   <>
-                    <span>تسجيل الدخول للمطبخ المباشر</span>
+                    <span>دخول التاجر</span>
                     <ArrowRight size={15} className="rotate-180" />
                   </>
                 )}
               </button>
             </form>
 
-            {/* Note & Guidelines */}
-            <div className="pt-3 border-t border-slate-100 text-[11px] text-slate-500 text-center leading-relaxed">
-              يتم إنشاء حسابات التجار والمطابخ مركزياً عبر إدارة عمليات سنجوب.
-              <br />
-              تحتاج لتسجيل مطعمك أو استلام بيانات الدخول؟{" "}
-              <button
-                type="button"
-                onClick={() => setIsHelpOpen(true)}
-                className="text-orange-600 font-bold hover:underline cursor-pointer"
-              >
-                تواصل مع سنجوب
-              </button>
-            </div>
+            <p className="merchant-entry-join">ليس لديك حساب تاجر؟ <button type="button" onClick={() => setIsHelpOpen(true)}>انضم الآن</button></p>
           </div>
       </MerchantLoginLayout>
 
