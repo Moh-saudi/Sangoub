@@ -12,7 +12,7 @@ export type CourierTrackingOrder = Pick<Order,
 export function CourierTracking({order}: { order: CourierTrackingOrder }) {
   const {eligible,state}=useCourierTracking(order);
   const [expanded,setExpanded]=useState(false);
-  const {route,remaining}=useOsmRoute(eligible?state?.point:null,eligible?order.coordinates:null);
+  const {route,remaining}=useOsmRoute(eligible?state?.point:null,eligible?order.coordinates:null,order.id);
   if(!eligible)return null;
   return <section aria-label="حالة تتبع المندوب" className="rounded-xl border p-3 text-sm"><p role="status">{state?.message||'جارٍ بدء التتبع…'}</p>
     <p className="text-xs">التتبع أثناء فتح الصفحة فقط. قفل الشاشة أو فتح تطبيق آخر يوقف الإرسال.</p>
