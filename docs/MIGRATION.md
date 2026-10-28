@@ -73,3 +73,16 @@
    ```
 2. متغيرات البيئة يمكن إعادتها فوراً من لوحة تحكم Vercel دون الحاجة لتعديل الكود المصدري.
 
+
+## T8 — Emulator-only simulator (implemented)
+
+The simulator is not part of the production bundle. It refuses startup before SDK initialization unless FIRESTORE_EMULATOR_HOST is loopback and FIREBASE_PROJECT_ID is unset or demo-capital-talabat. It uses an explicit emulator-only owner credential, never a service-account file. Seed mode creates an order fixture, not login accounts/roles. Provide emulator Auth UIDs for real demo participants.
+
+```sh
+# Terminal 1 — emulators only; never select the production project.
+firebase emulators:start --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat
+# Terminal 2 — synthetic line, 20 km/h, stand still 5 min, simulate a 30s GPS interruption.
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_PROJECT_ID=demo-capital-talabat npm run simulate:courier -- --seed --route scripts/fixtures/nac-synthetic-route.json --order sim-order --courier sim-courier --customer sim-customer --speed 20 --pause 300 --outage-at 30 --outage 30
+```
+
+The example is explicitly synthetic, not a real or OSRM road. Coordinates are inside the documented development bounding box. SIGINT/SIGTERM attempts active:false in finally; abrupt process kill cannot guarantee cleanup. End-to-end emulator execution is NOT RUN here because the official Firestore jar download is blocked. Unit guard/timing tests and refusal without emulator were run; neither is a real journey test.

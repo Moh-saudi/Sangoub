@@ -1,0 +1,11 @@
+{
+  "kind": "synthetic",
+  "description": "Straight line subdivided inside NAC. NOT an OSRM route or recorded journey.",
+  "points": [
+    {"latitude":30.0131,"longitude":31.7346},
+    {"latitude":30.0141,"longitude":31.7366},
+    {"latitude":30.0151,"longitude":31.7386},
+    {"latitude":30.0161,"longitude":31.7406},
+    {"latitude":30.0171,"longitude":31.7426}
+  ]
+}

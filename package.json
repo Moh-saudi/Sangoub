@@ -12,7 +12,7 @@
     "lint": "tsc --noEmit",
     "mobile:sync": "npm run build && npx cap sync android",
     "mobile:build": "npm run build && npx cap sync android && cd android && ./gradlew assembleRelease bundleRelease",
-    "test": "node --import tsx --test src/utils/orderCalculations.test.ts server/orderBuilder.test.ts server/mobileCors.test.ts server/r2.test.ts src/utils/orderIntegration.test.ts src/utils/catalogManagement.test.ts src/utils/productOffers.test.ts src/utils/cairoTime.test.ts src/utils/breakfastOrder.test.ts src/utils/siteAnalytics.test.ts server/orderTax.test.ts src/shop/cartState.test.ts src/services/osmRouting.test.ts src/services/locationTrackingFilter.test.ts server/osmProxy.test.ts src/services/trackingSession.test.ts src/services/trackingObserver.test.ts",
+    "test": "node --import tsx --test src/utils/orderCalculations.test.ts server/orderBuilder.test.ts server/mobileCors.test.ts server/r2.test.ts src/utils/orderIntegration.test.ts src/utils/catalogManagement.test.ts src/utils/productOffers.test.ts src/utils/cairoTime.test.ts src/utils/breakfastOrder.test.ts src/utils/siteAnalytics.test.ts server/orderTax.test.ts src/shop/cartState.test.ts src/services/osmRouting.test.ts src/services/locationTrackingFilter.test.ts server/osmProxy.test.ts src/services/trackingSession.test.ts src/services/trackingObserver.test.ts scripts/simulate-courier.test.ts",
     "test:rules": "firebase emulators:exec --config firebase.emulators.json --only firestore,auth --project demo-capital-talabat \"node --import tsx --test --test-concurrency=1 tests/firestore.security.test.ts tests/order-api.integration.test.ts tests/admin-api.integration.test.ts\"",
     "test:operations": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test --test-concurrency=1 tests/app-content.integration.test.ts tests/operations.integration.test.ts\"",
     "test:auth": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/auth.integration.test.ts\"",
@@ -33,7 +33,8 @@
     "test:portal-services": "node --import tsx --test tests/portal-orders.test.ts",
     "test:portal-regression": "node tests/portal-regression.browser.mjs",
     "test:account-validation": "node --import tsx --test tests/account-validation.test.ts",
-    "test:tracking-map": "node tests/tracking-map.browser.mjs"
+    "test:tracking-map": "node tests/tracking-map.browser.mjs",
+    "simulate:courier": "node --import tsx scripts/simulate-courier.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1154.0",
