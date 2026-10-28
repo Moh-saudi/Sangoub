@@ -1,3 +1,5 @@
+import { BRAND } from './brand';
+import { MerchantLoginLayout } from './components/MerchantLoginLayout';
 import React, { useEffect, useState, useRef } from "react";
 import {
   auth,
@@ -387,59 +389,18 @@ export default function MerchantApp() {
 
   // RENDER: 4. Dedicated Merchant Login Screen
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-between font-cairo" dir="rtl">
-      {/* Background Ambience */}
-      <div className="fixed inset-0 pointer-events-none opacity-20 bg-[radial-gradient(#f97316_1px,transparent_1px)] [background-size:24px_24px]" />
-
-      {/* Header Bar */}
-      <header className="relative z-10 p-4 sm:p-6 flex items-center justify-between max-w-7xl mx-auto w-full">
-        <a href="/" className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity">
-          <img src={SANGOUB_LOGO} alt="سنجوب" className="w-10 h-10 rounded-xl bg-white p-1" />
-          <div>
-            <span className="font-black text-base tracking-tight block">سنجوب الشركاء</span>
-            <span className="text-[10px] text-orange-400 font-bold block">Sangoub Merchant Portal</span>
-          </div>
-        </a>
-
-        {/* Cheerful Mascot Quick Contact */}
-        <button
-          type="button"
-          onClick={() => setIsHelpOpen(true)}
-          className="inline-flex items-center gap-2 bg-slate-800/90 hover:bg-slate-800 text-amber-300 border border-amber-500/30 px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors cursor-pointer"
-        >
-          <img src={SANGOUB_WINK} alt="سنجوب" className="w-5 h-5 object-contain" />
-          <span>دعم المطابخ والشركاء</span>
-        </button>
-      </header>
-
-      {/* Main Login Card */}
-      <main className="relative z-10 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden animate-fadeIn">
-          {/* Card Top Banner with Cheerful Mascot */}
-          <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-6 text-white text-center relative overflow-hidden">
-            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-sm" />
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="w-20 h-20 rounded-2xl bg-white/20 p-2 backdrop-blur-xs shadow-md mb-2 flex items-center justify-center">
-                <img src={SANGOUB_MASCOT} alt="سنجوب التاجر" className="w-16 h-16 object-contain" />
-              </div>
-              <h2 className="text-xl font-black tracking-tight">بوابة شركاء سنجوب</h2>
-              <p className="text-xs text-orange-100 mt-1 max-w-xs font-medium">
-                منظومة المطبخ المباشر لإدارة طلبات الوجبات وتحديث قائمة الطعام اللحظية
-              </p>
-            </div>
-          </div>
-
-          {/* Form Content */}
-          <div className="p-6 sm:p-7 space-y-4 text-xs">
+    <>
+      <MerchantLoginLayout onSupport={() => setIsHelpOpen(true)}>
+          <div className="merchant-entry-form space-y-4">
             {error && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-center gap-2 font-bold animate-fadeIn">
+              <div role="alert" className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-center gap-2 font-bold animate-fadeIn">
                 <AlertCircle size={16} className="shrink-0 text-rose-600" />
                 <span>{error}</span>
               </div>
             )}
 
             {notice && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-2 font-bold animate-fadeIn">
+              <div role="status" className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-2 font-bold animate-fadeIn">
                 <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
                 <span>{notice}</span>
               </div>
@@ -447,11 +408,13 @@ export default function MerchantApp() {
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-slate-700 font-bold mb-1.5 flex items-center gap-1.5">
+                <label htmlFor="merchant-email" className="block text-slate-700 font-bold mb-1.5 flex items-center gap-1.5">
                   <Mail size={14} className="text-slate-400" />
                   <span>البريد الإلكتروني المعتمد للتاجر *</span>
                 </label>
                 <input
+                  id="merchant-email"
+                  autoComplete="username"
                   type="email"
                   required
                   dir="ltr"
@@ -464,7 +427,7 @@ export default function MerchantApp() {
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-slate-700 font-bold flex items-center gap-1.5">
+                  <label htmlFor="merchant-password" className="text-slate-700 font-bold flex items-center gap-1.5">
                     <Lock size={14} className="text-slate-400" />
                     <span>كلمة المرور *</span>
                   </label>
@@ -481,6 +444,8 @@ export default function MerchantApp() {
                 </div>
                 <div className="relative">
                   <input
+                    id="merchant-password"
+                    autoComplete="current-password"
                     type={showPassword ? "text" : "password"}
                     required
                     dir="ltr"
@@ -491,6 +456,8 @@ export default function MerchantApp() {
                   />
                   <button
                     type="button"
+                    aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                    aria-pressed={showPassword}
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                   >
@@ -532,13 +499,7 @@ export default function MerchantApp() {
               </button>
             </div>
           </div>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="relative z-10 p-4 text-center text-slate-500 text-xs">
-        منظومة سنجوب لخدمات توصيل الطعام والطلبات السريعة © 2026 — العاصمة الإدارية الجديدة
-      </footer>
+      </MerchantLoginLayout>
 
       {/* Cheerful Help Modal */}
       {isHelpOpen && <SangoubHelpModal onClose={() => setIsHelpOpen(false)} />}
@@ -596,7 +557,7 @@ export default function MerchantApp() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -604,8 +565,7 @@ export default function MerchantApp() {
  * Cheerful Sangoub Mascot Partner Support Modal
  */
 function SangoubHelpModal({ onClose }: { onClose: () => void }) {
-  const whatsappNumber = "201012345678";
-  const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+  const whatsappUrl = `${BRAND.supportUrl}?text=${encodeURIComponent(
     "مرحباً فريق عمليات سنجوب، أنا تاجر شريك وأحتاج مساعدة فنية في بوابة المتجر والطلبات."
   )}`;
 
