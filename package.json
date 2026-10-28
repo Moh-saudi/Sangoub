@@ -32,7 +32,8 @@
     "test:storefront-auth": "firebase emulators:exec --config firebase.emulators.json --only auth --project demo-capital-talabat \"node --import tsx tests/storefront-auth.browser.mjs\"",
     "test:portal-services": "node --import tsx --test tests/portal-orders.test.ts",
     "test:portal-regression": "node tests/portal-regression.browser.mjs",
-    "test:account-validation": "node --import tsx --test tests/account-validation.test.ts"
+    "test:account-validation": "node --import tsx --test tests/account-validation.test.ts",
+    "test:tracking-map": "node tests/tracking-map.browser.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1154.0",
