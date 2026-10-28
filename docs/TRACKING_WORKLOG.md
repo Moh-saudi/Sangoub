@@ -561,3 +561,132 @@ files generated
   dist/sw.js
   dist/workbox-95677aec.js
 ```
+
+### T3 commit
+SHA: 53c17c4863c3c4e26ea77d5df7214675543a1a33
+
+```text
+commit 53c17c4863c3c4e26ea77d5df7214675543a1a33
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Wed Oct 28 20:08:39 2026 +0000
+
+    feat(routing): use authenticated proxy and deviation-only planning
+
+ docs/TRACKING_WORKLOG.md                       | 131 +++++++++++++++++++++++++
+ src/services/osmClient.ts                      |  13 +++
+ src/services/osmRouting.test.ts                |  86 ++++------------
+ src/services/osmRouting.ts                     |  84 ++++++++--------
+ src/storefront/components/ServiceAreaModal.tsx |  25 ++---
+ 5 files changed, 210 insertions(+), 129 deletions(-)
+```
+
+## T4 — PASS
+
+CourierTracking is the only publishing seam. Shared source owns one foreground GPS watch/Wake Lock with reference count, each order owns unchanged filter, 10s heartbeat timer and scoped write. Tests cover two orders, independent stop, 2/5/10s retry, 3min rejection deadline and unacknowledged-write watchdog, visibility pause/reacquisition. D2 resolved by tracking-only setDoc with serverTimestamp; saveRecord unchanged. Cleanup active:false is best-effort; offline SDK writes may await reconnection and cannot guarantee delivery after logout/browser termination. No beforeunload or background claim.
+
+### Command
+```sh
+npm run lint
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+```
+
+### Command
+```sh
+npm test
+```
+```text
+[truncated]
+✔ eligibility requires both authenticated assigned UID and with_courier (0.986505ms)
+✔ two orders share one GPS and one Wake Lock but each filters/writes its own heartbeat and stops independently (4.541639ms)
+✔ retry uses 2s/5s/10s backoff, survives transient failure, stops after three continuous failure minutes (4.224077ms)
+✔ visibility stops foreground publishing and reacquires one watch/lock; no stale point republished before a fresh fix (1.859089ms)
+✔ unacknowledged offline write cannot keep GPS or Wake Lock alive indefinitely (5.32041ms)
+✔ checkout acknowledgment cannot erase quantities or new lines added during the request (2.690121ms)
+✔ mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities (2.217416ms)
+✔ InstaPay is a requested payment method and never a paid confirmation (0.296512ms)
+✔ incomplete customer details, invalid quantities and unknown menu items cannot produce a sendable request (0.928845ms)
+✔ Arabic and Persian quantity digits are accepted while fractional quantities are rejected (0.525728ms)
+✔ supermarket request combines packs from every section without breakfast items or payment claims (0.768302ms)
+✔ campaign scheduling uses Cairo rather than the execution host timezone (20.220375ms)
+✔ catalog monitoring counts delivered snapshots and excludes cancelled orders (1.707194ms)
+✔ editing archived items cannot silently make them available (30.299312ms)
+✔ catalog editor rejects invalid discounts, unsafe URLs and nonnumeric prices (1.171671ms)
+✔ calculateCartSubtotal correctly sums prices with quantities and options (1.704596ms)
+✔ applyCouponDiscount handles minOrder thresholds and discount calculation (0.368021ms)
+✔ calculateOrderTotal applies discount, delivery fee, and tip properly (0.176783ms)
+✔ getNextOrderStatus advances status correctly (0.288211ms)
+✔ validateEmployeeProfile validates name, Egyptian phone, ministry and floor (0.473555ms)
+✔ updateCourierMilestone updates checklist and advances to delivered when completed (0.554139ms)
+✔ currency formatting preserves cents charged by the payment gateway (15.145497ms)
+✔ calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission (0.367454ms)
+✔ generateMerchantJournalEntries creates balanced double-entry accounting records (0.880773ms)
+✔ calculateTopSellingProducts ranks products correctly by volume and share (0.742415ms)
+✔ calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest (0.97761ms)
+✔ Flutter summary records preserve totals and normalize Firestore timestamps (4.728927ms)
+✔ one kitchen cannot mark a multi-store order globally ready (0.785212ms)
+✔ daily metrics use Cairo date and actual delivery time across midnight (27.561835ms)
+✔ offers exclude invalid discounts, archived stock, and closed or missing stores (1.76312ms)
+✔ price and store availability changes immediately update offer eligibility (0.319646ms)
+✔ campaign tags and referrer domains classify sources without accepting spoofed hosts or collecting raw values (1.239873ms)
+ℹ tests 75
+ℹ suites 0
+ℹ pass 75
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1111.914039
+```
+
+### Command
+```sh
+npm run build
+```
+```text
+[truncated]
+rendering chunks...
+computing gzip size...
+dist/build-info.json                        0.08 kB │ gzip:   0.09 kB
+dist/registerSW.js                          0.13 kB
+dist/manifest.webmanifest                   0.50 kB
+dist/index.html                             3.00 kB │ gzip:   1.09 kB
+dist/assets/CourierApp-objfHoLw.css         2.49 kB │ gzip:   0.85 kB
+dist/assets/MerchantApp-BTOjdwri.css       10.25 kB │ gzip:   2.57 kB
+dist/assets/ShopFront-RYKMbjBy.css         10.40 kB │ gzip:   2.60 kB
+dist/assets/AdminApp-EWhne2zZ.css          49.46 kB │ gzip:   9.88 kB
+dist/assets/index-D9vuyBnO.css            267.74 kB │ gzip:  46.62 kB
+dist/assets/operationsApi-C3ySHP08.js       0.08 kB │ gzip:   0.10 kB
+dist/assets/orderDelivery-BshlMgY8.js       0.49 kB │ gzip:   0.39 kB
+dist/assets/DataStates-CsDeyFYb.js          3.30 kB │ gzip:   1.63 kB
+dist/assets/jsx-runtime-CU1iNrZ4.js         9.13 kB │ gzip:   3.53 kB
+dist/assets/KitchenDisplay-C6kO1zYy.js     12.03 kB │ gzip:   4.46 kB
+dist/assets/LocationModal-6njZkj1D.js      13.94 kB │ gzip:   4.30 kB
+dist/assets/CourierApp-DriMXmku.js         19.56 kB │ gzip:   6.99 kB
+dist/assets/ShopFront-BYe1wWtU.js          39.32 kB │ gzip:  11.20 kB
+dist/assets/MerchantApp-DYFCIMXG.js        77.77 kB │ gzip:  19.47 kB
+dist/assets/AdminApp-Dgng8iFH.js          283.34 kB │ gzip:  67.88 kB
+dist/assets/index-BaxGKTx9.js           1,140.88 kB │ gzip: 334.90 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/authenticatedApi.ts is dynamically imported by src/lib/firebase.ts but also statically imported by src/components/NotificationCenter.tsx, src/lib/adminApi.ts, src/lib/operationsApi.ts, src/shop/ShopFront.tsx, src/storefront/components/SangoubAuthModal.tsx, dynamic import will not move module into another chunk.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/firebase.ts is dynamically imported by src/services/osmClient.ts but also statically imported by src/AdminApp.tsx, src/CourierApp.tsx, src/MerchantApp.tsx, src/components/AdminDashboard.tsx, src/components/CatalogManager.tsx, ..., dynamic import will not move module into another chunk.
+
+✓ built in 2.97s
+
+PWA v2.0.0
+mode      generateSW
+precache  26 entries (2679.14 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-95677aec.js
+```
