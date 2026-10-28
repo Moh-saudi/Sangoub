@@ -1,7 +1,7 @@
 import { BRAND } from "../brand";
 import { OrderReceiptCode } from "../components/OrderReceiptCode";
 import { OrderInvoice } from "./OrderInvoice";
-import { RealMap, mapsLink } from "../components/LocationModal";
+import { OrderMap } from "../components/OrderMap";
 import { goShop } from "./navigation";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -927,11 +927,6 @@ function Checkout() {
 function OrderReceipt() {
   const shop = useShop();
   const id = new URLSearchParams(location.search).get("orderId") || "";
-  const [tracking, setTracking] = useState<{
-    coordinates: import("../types").Coordinates;
-    active: boolean;
-    updatedAt: string | null;
-  } | null>(null);
   const [order, setOrder] = useState<Order | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -952,7 +947,7 @@ function OrderReceipt() {
         });
         if (active) {
           setOrder(result.order);
-          setTracking(result.tracking || null);
+
           setError("");
         }
         if (
@@ -1132,34 +1127,7 @@ function OrderReceipt() {
           {order.orderStatus === "with_courier" && (
             <section className="shop-tracking">
               <h2>طلبك في الطريق إليك</h2>
-              {tracking ? (
-                <>
-                  <RealMap
-                    coordinates={tracking.coordinates}
-                    title="موقع المندوب أثناء التوصيل"
-                  />
-                  <p>
-                    {tracking.active
-                      ? "آخر موقع شاركه المندوب"
-                      : "مشاركة الموقع متوقفة — هذا آخر موقع معروف"}
-                    {tracking.updatedAt &&
-                      ` · ${new Date(tracking.updatedAt).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}`}
-                  </p>
-                  <p>راجع وقت التحديث؛ الموقع قد لا يكون لحظيًا.</p>
-                  <a
-                    href={mapsLink(tracking.coordinates)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    فتح موقع المندوب في الخريطة
-                  </a>
-                </>
-              ) : (
-                <p>
-                  بانتظار مشاركة المندوب لموقعه. ستظهر الخريطة عند وصول تحديث
-                  فعلي.
-                </p>
-              )}
+              <OrderMap order={order}/>
             </section>
           )}
           <dl>

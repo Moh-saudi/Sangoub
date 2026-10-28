@@ -57,3 +57,9 @@ precache  29 entries (2663.31 KiB)
 ## T1 configuration decision
 
 `VITE_TILE_URL` is public browser configuration, with visible OSM attribution. Public OSM defaults are for development; no commercial-production SLA or suitability is claimed. Server routing/search URLs and identifiable User-Agent remain server-only. Existing iframe map is not L.tileLayer; it will be replaced by the shared viewer as GPS views are implemented. T1 also removes the seed test's live network dependency ahead of T3 so adding it to npm test is deterministic. Filter source is unchanged.
+
+## T6 deviations and constrained adapter
+
+D5: active cannot be known before observing the document, and unsubscribing on active:false would make the viewer miss a resumed publisher. A single document listener exists while the canonical order is with_courier and the viewer is open/authenticated; coordinates/route are considered live only for active:true and a server-backed update. Listener stops on terminal state, auth change, modal close/unmount. This is the minimum deviation from the literal “listen only while active” wording. Cached snapshots never establish a live timestamp.
+
+D6: the real receipt's GPS-only section now renders shared OrderMap, so the feature is reachable; payment/cart/account code is unchanged. The existing order-status endpoint still performs its legacy server tracking read (`server/handlers/orders.ts:63`); changing that endpoint would cross the excluded orders/payment service scope, so this duplicate read remains a measured-cost TODO, not a claimed optimization. No multi-store tracking fields were invented; store coordinates remain absent.
