@@ -139,6 +139,9 @@ test('merchant projection excludes every other store and customer/provider/contr
   for (const value of ['private-product', 'secret-account', 'private-customer', 'اسم العميل', '01000000000', 'internalCost', 'geideaTransaction']) assert(!JSON.stringify(view).includes(value), value);
   const courier = courierOrderView('o', order());
   assert.equal(courier.amountToCollect, 100);
+  const trackingSource=order({coordinates:{latitude:30.01,longitude:31.7}});
+  const trackingView=courierOrderView('o',trackingSource);
+  for(const key of ['orderStatus','courierId','profileId','coordinates'])assert.deepEqual(trackingView[key],trackingSource[key],`Tracking contract must preserve ${key}`);
   assert(!JSON.stringify(courier).includes('geideaTransaction'));
   assert.equal(courierOrderView('o', order({
     paymentMethod: 'geidea'

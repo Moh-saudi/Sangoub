@@ -37,7 +37,7 @@ export function merchantOrderView(id: string, order: any, storeId: string) {
 export function courierOrderView(id: string, order: any) {
   return auditSafe({
     id,
-    ...fields(order, ['orderNumber', 'orderStatus', 'fulfillmentVersion', 'profileName', 'phone', 'ministry', 'floorNumber', 'roomNumber', 'coordinates', 'createdAt', 'updatedAt', 'deliveredAt', 'paymentMethod', 'paymentStatus']),
+    ...fields(order, ['orderNumber', 'orderStatus', 'courierId', 'profileId', 'fulfillmentVersion', 'profileName', 'phone', 'ministry', 'floorNumber', 'roomNumber', 'coordinates', 'createdAt', 'updatedAt', 'deliveredAt', 'paymentMethod', 'paymentStatus']),
     items: portalItems(order.items),
     storeIds: order.storeIds || [],
     total: order.total,
