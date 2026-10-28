@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, connectAuthEmulator, signInWithEmailAndPassword, confirmPasswordReset } from 'firebase/auth';
 import { adminServices } from '../server/firebaseAdmin.ts';
 import users from '../api/admin-users.ts';
 import data from '../api/admin-data.ts';
@@ -89,6 +89,35 @@ test('store-team onboarding returns a private password-setup link and persists t
  const staff=(await services.db.doc('staff/'+result.result.uid).get()).data()!;assert.equal(staff.storeId,'admin-api-store');assert.equal(staff.duty,'preparer');assert.equal((await services.auth.getUser(result.result.uid)).emailVerified,false);
  const logs=await services.db.collection('auditLogs').where('entityId','==',result.result.uid).get();assert(!JSON.stringify(logs.docs.map(doc=>doc.data())).includes(result.result.resetLink));
 });
+test('all created accounts receive a one-use password setup link without exposing it in stored profiles or audit',async()=>{
+ const email='password-onboarding@example.com';
+ const created=await invoke({action:'create',email,fullName:'اختبار تفعيل الحساب',role:'employee',reason:'اختبار رابط تعيين كلمة مرور العميل'});
+ assert.equal(created.status,200,JSON.stringify(created.result));assert.equal(typeof created.result.resetLink,'string');
+ const target=created.result.uid,code=new URL(created.result.resetLink).searchParams.get('oobCode')!;
+ const profile=(await services.db.doc('users/'+target).get()).data();
+ const logs=await services.db.collection('auditLogs').where('entityId','==',target).get();
+ assert(!JSON.stringify([profile,...logs.docs.map(d=>d.data())]).includes(code));
+ assert.equal(profile?.password,undefined);assert.equal(created.result.password,undefined);
+ await assert.rejects(signInWithEmailAndPassword(client,email,'WrongPassword123!'));
+ await confirmPasswordReset(client,code,'AccountOwnerPassword123!');
+ await assert.rejects(confirmPasswordReset(client,code,'AnotherPassword123!'));
+ assert.equal((await signInWithEmailAndPassword(client,email,'AccountOwnerPassword123!')).user.uid,target);
+ const reset=await invoke({action:'reset',uid:target,reason:'طلب صاحب الحساب إعادة تعيين كلمة مروره'});assert.equal(reset.status,200);assert.equal(typeof reset.result.resetLink,'string');
+ const blocked=await invoke({action:'update',uid:target,email,fullName:'اسم',password:'PlaintextPassword123!',reason:'اختبار رفض كلمة المرور في بيانات الملف'});assert.equal(blocked.status,400);
+});
+test('editing assignment persists the selected role/store/duty and protects active assignments and self access',async()=>{
+ const created=await invoke({action:'create',email:'assignment-edit@example.com',fullName:'اختبار تعديل الحساب',role:'employee',reason:'إنشاء حساب اختبار التعديل'});assert.equal(created.status,200);
+ const target=created.result.uid;
+ const update=await invoke({action:'update',uid:target,email:'assignment-edit@example.com',fullName:'مسؤول المتجر الجديد',role:'restaurant',storeId:'admin-api-store',duty:'manager',reason:'ربط الحساب بالمتجر وتعيين مديره'});
+ assert.equal(update.status,200,JSON.stringify(update.result));assert.equal((await services.db.doc('staff/'+target).get()).data()?.duty,'manager');assert.equal((await services.db.doc('users/'+target).get()).data()?.role,'restaurant');assert((await services.db.doc('accountAccess/'+target).get()).data()?.revokedBefore>0);
+ await services.db.doc('orders/assignment-edit-active').set({storeIds:['admin-api-store'],orderStatus:'preparing'});
+ const contactOnly=await invoke({action:'update',uid:target,email:'assignment-edit@example.com',fullName:'اسم الاتصال المعدل',role:'restaurant',storeId:'admin-api-store',duty:'manager',reason:'تصحيح اسم مسؤول المتجر دون تغيير تكليفه'});assert.equal(contactOnly.status,200,JSON.stringify(contactOnly.result));
+ const blocked=await invoke({action:'update',uid:target,email:'assignment-edit@example.com',fullName:'اسم معدل',role:'courier',reason:'محاولة تغيير دور له طلب نشط'});assert.equal(blocked.status,409);
+ assert.equal((await services.db.doc('staff/'+target).get()).data()?.role,'restaurant');
+ await services.db.doc('orders/assignment-edit-active').delete();
+ assert.equal((await invoke({action:'update',uid,email:'audit-admin@example.com',fullName:'المدير',role:'courier',reason:'اختبار منع تغيير صلاحية النفس'})).status,409);
+});
+
 test('concurrent administrators cannot disable each other and remove all management access',async()=>{
  const other=await services.auth.createUser({email:'second-audit-admin@example.com',emailVerified:true,password:'TestPassword123!'});await services.db.doc('admins/'+other.uid).set({active:true});
  const otherToken=await(await signInWithEmailAndPassword(client,'second-audit-admin@example.com','TestPassword123!')).user.getIdToken();

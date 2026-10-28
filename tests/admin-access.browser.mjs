@@ -89,6 +89,19 @@ try {
       await page
         .getByRole("navigation", { name: "أقسام إدارة التشغيل", exact: true })
         .waitFor();
+      await page.getByRole('button',{name:'سجل المناديب والتجار والمستخدمين',exact:true}).click();
+      await page.getByRole('button',{name:'+ إضافة قيد معتمد جديد',exact:true}).click();
+      const accountForm=page.locator('#user-mgmt-form');
+      await accountForm.locator('[name=role]').selectOption('employee');
+      await accountForm.locator('[name=fullName]').fill('حساب اختبار تعيين كلمة المرور');
+      await accountForm.locator('[name=email]').fill('ui-password-setup@example.com');
+      await accountForm.locator('[name=reason]').fill('اختبار إنشاء حساب وتعيين كلمة المرور بشكل خاص');
+      await page.getByRole('button',{name:'حفظ وقيد السجل المعتمَد',exact:true}).click();
+      const accessDialog=page.getByRole('dialog',{name:'تعيين كلمة مرور الحساب',exact:true});
+      await accessDialog.waitFor();
+      assert.equal(await page.locator('#user-mgmt-form').count(),0,'Creation form must close after success to avoid duplicate account creation');
+      assert.equal(await accessDialog.getByRole('button',{name:'نسخ رابط تعيين كلمة المرور',exact:true}).count(),1);
+      await accessDialog.getByRole('button',{name:'تم، إغلاق',exact:true}).click();
       await service.db.doc("admins/" + users.admin.uid).delete();
       await page
         .getByRole("heading", { name: "الحساب غير مخوّل للإدارة", exact: true })

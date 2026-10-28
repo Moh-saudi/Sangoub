@@ -1,3 +1,4 @@
+import { AccountAccessDialog } from './AccountAccessDialog';
 import { formatEGP } from "../utils/orderCalculations";
 import { useEffect, useRef, useState, useMemo } from 'react';
 import {
@@ -88,6 +89,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
   const [viewingUser, setViewingUser] = useState<AccountRecord | null>(null);
   const [deleteConfirmationUser, setDeleteConfirmationUser] = useState<AccountRecord | null>(null);
   const [resetLink, setResetLink] = useState('');
+  const [accessAccount,setAccessAccount]=useState<{email:string;role:string}|null>(null);
 
   // Form State
   const [formRole, setFormRole] = useState<UserRole>('courier');
@@ -335,13 +337,14 @@ export function UserManagement({ stores }: { stores: Store[] }) {
 
     try {
       const result = await adminApi('users', payload);
+      setIsFormModalOpen(false);
+      setEditingUser(null);
       if (result.resetLink) {
         setResetLink(result.resetLink);
-        setNotice('تم قيد الحساب بنجاح، ونسخ رابط تعيين كلمة المرور متاح الآن.');
+        setAccessAccount({email:String(data.email),role:formRole});
+        setNotice('حُفظ الحساب. سلّم رابط تعيين كلمة المرور لصاحبه؛ لم يُرسل بريد تلقائيًا.');
       } else {
-        setIsFormModalOpen(false);
-        setEditingUser(null);
-        setNotice(editingUser ? 'تم تحديث بيانات القيد بنجاح.' : 'تم إضافة وقيد السجل الجديد بنجاح.');
+        setNotice('تم تحديث بيانات الحساب وصلاحياته بنجاح.');
       }
       setRevision((v) => v + 1);
     } catch (e) {
@@ -349,6 +352,13 @@ export function UserManagement({ stores }: { stores: Store[] }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handlePasswordSetup(user:AccountRecord){
+    setBusy(true);setError('');setResetLink('');
+    try{const result=await adminApi('users',{action:'reset',uid:user.uid,reason:'إصدار رابط تعيين كلمة المرور لصاحب الحساب بناء على طلب الإدارة'});setResetLink(result.resetLink);setAccessAccount({email:user.email,role:user.role});}
+    catch{setError('تعذر إصدار رابط تعيين كلمة المرور. تحقق من حالة الحساب وأعد المحاولة.');}
+    finally{setBusy(false);}
   }
 
   // Quick Action Handlers
@@ -835,6 +845,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                           تعديل
                         </button>
 
+                        <button type="button" disabled={busy||user.disabled||!user.email} onClick={()=>void handlePasswordSetup(user)} className="px-2 py-1 border rounded-md text-xs">تعيين كلمة المرور</button>
                         {/* Toggle Status */}
                         <button
                           type="button"
@@ -1465,6 +1476,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                   </div>
                 )}
 
+                <div className="p-3 rounded-xl border bg-orange-50 text-xs leading-6"><strong>بيانات الدخول</strong><p>{editingUser?'تعديل البيانات لا يغيّر كلمة المرور الحالية. لإعادة تعيينها استخدم زر «تعيين كلمة المرور» في قائمة الحسابات. تغيير البريد يتطلب تأكيده مجددًا.':'سيُنشأ الحساب بكلمة مرور عشوائية غير معروضة، ثم تحصل على رابط خاص ليختار صاحب الحساب كلمته قبل الدخول.'}</p></div>
                 {/* Section E: Audit Reason & Notes */}
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
                   <label className="block text-slate-700 font-bold text-xs mb-1">
@@ -1505,22 +1517,13 @@ export function UserManagement({ stores }: { stores: Store[] }) {
                 </button>
               </div>
 
-              {resetLink && (
-                <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 text-xs text-emerald-800">
-                  <span>تم إنشاء رابط كلمة المرور:</span>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(resetLink, 'reset-link')}
-                    className="font-bold underline text-emerald-900 hover:text-emerald-950 cursor-pointer"
-                  >
-                    {copiedUid === 'reset-link' ? 'نُسخ الرابط ✓' : 'نسخ الرابط لصاحب الحساب'}
-                  </button>
-                </div>
-              )}
+
             </div>
           </div>
         </div>
       )}
+
+      {accessAccount&&resetLink&&<AccountAccessDialog email={accessAccount.email} role={accessAccount.role} link={resetLink} onClose={()=>{setAccessAccount(null);setResetLink('')}}/>}
 
       {/* 6. POP-UP MODAL: Full Comprehensive Profile Inspection (نهج بطاقة المعاينة الشاملة - زر العين) */}
       {viewingUser && (

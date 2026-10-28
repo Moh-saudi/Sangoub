@@ -67,8 +67,11 @@ export default async function handler(req:any,res:any) {
     if(!['create','update','role','disable','enable','revoke','reset','delete'].includes(input.action))throw new AdminError(400,'عملية غير معروفة.');
     const reason=text(input.reason||'',500,true);if(reason.length<5)throw new AdminError(400,'اكتب سببًا واضحًا للتغيير.');
     let uid=input.uid;
-    const requestedRole=input.action==='create'||input.action==='role'?input.role:undefined;
-    if((input.action==='create'||input.action==='role')&&!roles.includes(requestedRole))throw new AdminError(400,'اختر دورًا صحيحًا.');
+    const requestedRole=['create','role','update'].includes(input.action)?input.role:undefined;
+    const serializesMembership=['create','role','disable','delete'].includes(input.action)||(input.action==='update'&&requestedRole!==undefined);
+    let assignmentChanged=input.action==='create'||input.action==='role';
+    if('password' in input||'newPassword' in input)throw new AdminError(400,'كلمة المرور يحددها صاحب الحساب عبر رابط التعيين، ولا تحفظ في لوحة الإدارة.');
+    if((input.action==='create'||input.action==='role'||requestedRole!==undefined)&&!roles.includes(requestedRole))throw new AdminError(400,'اختر دورًا صحيحًا.');
     const duty=input.duty||'preparer';
     if(requestedRole==='restaurant'&&!['manager','preparer'].includes(duty))throw new AdminError(400,'اختر مهمة فريق المتجر.');
     if(requestedRole==='restaurant'){validId(input.storeId);if(!(await db.doc('stores/'+input.storeId).get()).exists)throw new AdminError(400,'المتجر غير موجود.');}
@@ -121,12 +124,16 @@ export default async function handler(req:any,res:any) {
     let authBefore=target?{uid:target.uid,email:target.email||'',displayName:target.displayName||'',disabled:target.disabled,emailVerified:target.emailVerified}:null;
     const before=await db.runTransaction(async tx=>{
       const [own,existingLock,profile,admin,staff,admins,control,access]=await Promise.all([tx.get(db.doc('admins/'+actor.uid)),tx.get(lock),tx.get(db.doc('users/'+uid)),tx.get(db.doc('admins/'+uid)),tx.get(db.doc('staff/'+uid)),tx.get(db.collection('admins')),tx.get(db.doc('adminControl/membership')),tx.get(db.doc('accountAccess/'+uid))]);
-      if(control.data()?.operationId&&['create','role','disable','delete'].includes(input.action))throw new AdminError(409,'هناك تغيير صلاحيات قيد التنفيذ. راجع السجل ثم حاول مجددًا.');
+      if(control.data()?.operationId&&serializesMembership)throw new AdminError(409,'هناك تغيير صلاحيات قيد التنفيذ. راجع السجل ثم حاول مجددًا.');
       if(!own.exists)throw new AdminError(403,'انتهت صلاحية الإدارة.');
       if(existingLock.exists)throw new AdminError(409,'هناك عملية معلّقة على هذا الحساب. راجع سجل التدقيق قبل المحاولة مجددًا.');
       if(input.action!=='create'){target=await auth.getUser(uid);authBefore={uid:target.uid,email:target.email||'',displayName:target.displayName||'',disabled:target.disabled,emailVerified:target.emailVerified};protectAccess=['role','disable','delete','revoke'].includes(input.action)||(input.action==='update'&&email!==target.email);}
-      if(admin.exists&&['role','disable','delete'].includes(input.action)&&admins.size<=1)throw new AdminError(409,'لا يمكن إزالة آخر مدير.');
-      if(['role','disable','delete'].includes(input.action)) {
+      const currentRole=admin.exists?'admin':staff.data()?.role||'employee';
+      if(input.action==='update'&&requestedRole!==undefined)assignmentChanged=requestedRole!==currentRole||(requestedRole==='restaurant'&&(input.storeId!==staff.data()?.storeId||duty!==(staff.data()?.duty||'manager')));
+      if(assignmentChanged&&uid===actor.uid)throw new AdminError(409,'لا يمكنك تعديل صلاحياتك من الجلسة الحالية.');
+      if(assignmentChanged)protectAccess=true;
+      if(admin.exists&&(assignmentChanged||['disable','delete'].includes(input.action))&&admins.size<=1)throw new AdminError(409,'لا يمكن إزالة آخر مدير.');
+      if(assignmentChanged||['disable','delete'].includes(input.action)) {
         if(input.action==='delete'&&Number(profile.data()?.walletBalance||0)!==0)throw new AdminError(409,'يجب تسوية رصيد المستخدم قبل حذف الحساب.');
         const customerOrders=await tx.get(db.collection('orders').where('profileId','==',uid));
         const assignments=await tx.get(db.collection('orders').where('courierId','==',uid));
@@ -138,17 +145,17 @@ export default async function handler(req:any,res:any) {
       tx.create(lock,{operationId:log.id,action:input.action,createdAt:FieldValue.serverTimestamp()});
       tx.create(log,{...auditRecord(actor,'user.'+input.action,'users',uid,previous,null,reason),status:'pending',requestedChange:auditSafe(input)});
       // Serialize changes to admin membership, including across different UIDs.
-      if(['create','role','disable','delete'].includes(input.action))tx.set(db.doc('adminControl/membership'),{operationId:log.id,updatedAt:FieldValue.serverTimestamp()});
+      if(serializesMembership)tx.set(db.doc('adminControl/membership'),{operationId:log.id,updatedAt:FieldValue.serverTimestamp()});
       return previous;
     });
     journalStarted=true;
     let authChanged=false;let authAttempted=false;
     try {
       let resetLink:string|undefined;
-      if(input.action==='create'){authAttempted=true;await auth.createUser({uid,email,displayName:fullName,password:randomBytes(32).toString('base64url'),emailVerified:false});authChanged=true;if(requestedRole!=='employee')resetLink=await auth.generatePasswordResetLink(email);}
-      if(input.action==='update'){authAttempted=true;await auth.updateUser(uid,{email,displayName:fullName,...(email!==target!.email?{emailVerified:false}:{})});authChanged=true;}
+      if(input.action==='create'){authAttempted=true;await auth.createUser({uid,email,displayName:fullName,password:randomBytes(32).toString('base64url'),emailVerified:false});authChanged=true;resetLink=await auth.generatePasswordResetLink(email);}
+      if(input.action==='update'){authAttempted=true;await auth.updateUser(uid,{email,displayName:fullName,...(email!==target!.email?{emailVerified:false}:{})});authChanged=true;if(email!==target!.email)resetLink=await auth.generatePasswordResetLink(email);}
       if(input.action==='disable'||input.action==='enable'){authAttempted=true;await auth.updateUser(uid,{disabled:input.action==='disable'});authChanged=true;}
-      if(['disable','revoke','role'].includes(input.action)||(input.action==='update'&&email!==target?.email)){authAttempted=true;await auth.revokeRefreshTokens(uid);authChanged=true;}
+      if((assignmentChanged&&input.action!=='create')||['disable','revoke','role'].includes(input.action)||(input.action==='update'&&email!==target?.email)){authAttempted=true;await auth.revokeRefreshTokens(uid);authChanged=true;}
       if(input.action==='reset'){if(!target!.email)throw new AdminError(400,'الحساب لا يحتوي بريدًا لاستعادة الوصول.');resetLink=await auth.generatePasswordResetLink(target!.email);}
       if(input.action==='delete'){authAttempted=true;await auth.deleteUser(uid);authChanged=true;}
       await db.runTransaction(async tx=>{
@@ -158,11 +165,11 @@ export default async function handler(req:any,res:any) {
           const data={...profilePatch,uid,...(!profile.exists?{role:requestedRole||'employee',walletBalance:0,createdAt:FieldValue.serverTimestamp()}:{}),updatedAt:FieldValue.serverTimestamp()};
           tx.set(db.doc('users/'+uid),data,{merge:true});after.profile={...(profile.data()||{}),...data};after.auth={uid,email,displayName:fullName,disabled:false,...(input.action==='update'?{disabled:target!.disabled}:{}),emailVerified:input.action==='create'?false:email===target!.email&&target!.emailVerified};
         }
-        if(input.action==='create'||input.action==='role'){
+        if(assignmentChanged){
           tx.delete(db.doc('admins/'+uid));tx.delete(db.doc('staff/'+uid));
           after.staff=null;
           if(requestedRole==='admin')tx.set(db.doc('admins/'+uid),{active:true,grantedBy:actor.uid,updatedAt:FieldValue.serverTimestamp()});
-          if(requestedRole==='courier'||requestedRole==='restaurant'){const assignment={role:requestedRole,name:fullName||profile.data()?.fullName||target?.displayName||'',phone:profile.data()?.phone||profilePatch.phone||'',vehicleType:profilePatch.vehicleType||profile.data()?.vehicleType||'',vehiclePlate:profilePatch.vehiclePlate||profile.data()?.vehiclePlate||'',...(requestedRole==='restaurant'?{storeId:input.storeId,duty}:{}),updatedAt:FieldValue.serverTimestamp()};tx.set(db.doc('staff/'+uid),assignment);after.staff=assignment;}
+          if(requestedRole==='courier'||requestedRole==='restaurant'){const assignment={role:requestedRole,name:fullName||profile.data()?.fullName||target?.displayName||'',phone:profilePatch.phone??profile.data()?.phone??'',vehicleType:profilePatch.vehicleType||profile.data()?.vehicleType||'',vehiclePlate:profilePatch.vehiclePlate||profile.data()?.vehiclePlate||'',...(requestedRole==='restaurant'?{storeId:input.storeId,duty}:{}),updatedAt:FieldValue.serverTimestamp()};tx.set(db.doc('staff/'+uid),assignment);after.staff=assignment;}
           const targetStoreId = input.storeId || before.staff?.storeId;
           if ((input.action === 'create' || input.action === 'update' || input.action === 'role') && targetStoreId && (requestedRole === 'restaurant' || profile.data()?.role === 'restaurant' || input.role === 'restaurant')) {
             const storeUpdates: any = { updatedAt: FieldValue.serverTimestamp() };
@@ -179,7 +186,7 @@ export default async function handler(req:any,res:any) {
         }
         if(input.action==='disable'||input.action==='delete'){tx.delete(db.doc('admins/'+uid));tx.delete(db.doc('staff/'+uid));after.role='employee';after.staff=null;if(after.profile)after.profile.role='employee';if(profile.exists)tx.update(db.doc('users/'+uid),{role:'employee',updatedAt:FieldValue.serverTimestamp()});}
         if(input.action==='disable'||input.action==='enable'){after.auth.disabled=input.action==='disable';}
-        const revocation=['role','disable','delete','revoke'].includes(input.action)||(input.action==='update'&&email!==target?.email);
+        const revocation=(assignmentChanged&&input.action!=='create')||['role','disable','delete','revoke'].includes(input.action)||(input.action==='update'&&email!==target?.email);
         if(protectAccess||input.action==='enable'){
           after.access={...(before.access||{}),operationLocked:false,...(revocation?{disabled:['disable','delete'].includes(input.action)||Boolean(target?.disabled),revokedBefore:Math.floor(Date.now()/1000)}:{}),...(input.action==='create'||input.action==='enable'?{disabled:false}:{})};
           tx.set(db.doc('accountAccess/'+uid),{...after.access,updatedAt:FieldValue.serverTimestamp()},{merge:true});
@@ -187,15 +194,15 @@ export default async function handler(req:any,res:any) {
         if(input.action==='delete'){
           tx.set(db.doc('users/'+uid),{fullName:'حساب محذوف',email:'',phone:'',ministry:'',floorNumber:'',roomNumber:'',avatarUrl:'',coordinates:FieldValue.delete(),role:'employee',deletedAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()},{merge:true});after={deleted:true,uid,access:after.access};
         }
-        if(input.action==='update'&&before.staff){const change={name:fullName,phone:profilePatch.phone,vehicleType:profilePatch.vehicleType||before.staff.vehicleType||'',vehiclePlate:profilePatch.vehiclePlate||before.staff.vehiclePlate||'',updatedAt:FieldValue.serverTimestamp()};tx.update(db.doc('staff/'+uid),change);after.staff={...before.staff,...change};}
-        tx.update(log,{status:'success',after:auditSafe(after),changedFields:auditChangedFields(before,after),completedAt:FieldValue.serverTimestamp()});tx.delete(lock);if(['create','role','disable','delete'].includes(input.action))tx.delete(db.doc('adminControl/membership'));
+        if(input.action==='update'&&before.staff&&!assignmentChanged){const change={name:fullName,phone:profilePatch.phone,vehicleType:profilePatch.vehicleType||before.staff.vehicleType||'',vehiclePlate:profilePatch.vehiclePlate||before.staff.vehiclePlate||'',updatedAt:FieldValue.serverTimestamp()};tx.update(db.doc('staff/'+uid),change);after.staff={...before.staff,...change};}
+        tx.update(log,{status:'success',after:auditSafe(after),changedFields:auditChangedFields(before,after),completedAt:FieldValue.serverTimestamp()});tx.delete(lock);if(serializesMembership)tx.delete(db.doc('adminControl/membership'));
       });
       return res.status(200).json({ok:true,uid,...(resetLink?{resetLink}:{})});
     }catch(error){
       const definitive=['auth/email-already-exists','auth/uid-already-exists','auth/user-not-found','auth/invalid-email','auth/invalid-display-name','auth/invalid-password'].includes(String((error as any)?.code||''));
       const uncertain=authChanged||(authAttempted&&!definitive&&!(error instanceof AdminError));
       await log.update({status:uncertain?'partial':'failed',errorCode:error instanceof AdminError?'validation':String((error as any)?.code||'operation-failed').slice(0,100),completedAt:FieldValue.serverTimestamp()});
-      if(!uncertain){const batch=db.batch();batch.delete(lock);if(protectAccess){if(before.access)batch.set(db.doc('accountAccess/'+uid),before.access);else batch.delete(db.doc('accountAccess/'+uid));}if(['create','role','disable','delete'].includes(input.action))batch.delete(db.doc('adminControl/membership'));await batch.commit();}
+      if(!uncertain){const batch=db.batch();batch.delete(lock);if(protectAccess){if(before.access)batch.set(db.doc('accountAccess/'+uid),before.access);else batch.delete(db.doc('accountAccess/'+uid));}if(serializesMembership)batch.delete(db.doc('adminControl/membership'));await batch.commit();}
       if(uncertain)throw new AdminError(503,'قد تكون العملية نُفذت جزئيًا. راجع سجل التدقيق قبل تكرارها. معرّف العملية: '+log.id);
       throw error;
     }
