@@ -7,6 +7,7 @@ import { orderDelivery } from './lib/orderDelivery';
 import { useActivePortalOrders } from './lib/useActivePortalOrders';
 import { LoadingState, ErrorState, EmptyState, ConnectionState } from './components/ui/DataStates';
 import { BRAND } from './brand';
+import { customerMessage } from './utils/customerMessage';
 import './courier.css';
 const states: Record<string, string> = {
   received: 'تم استلام الطلب',
@@ -25,6 +26,7 @@ export default function CourierApp() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
+    [accessMessage, setAccessMessage] = useState(''),
     [revision, setRevision] = useState(0);
   const [history, setHistory] = useState<any[]>([]),
     [cursor, setCursor] = useState<string | null>(null),
@@ -56,50 +58,34 @@ export default function CourierApp() {
   }), []);
   useEffect(() => {
     if (!uid) return;
-    let active = true,
-      version = 0;
-    const stop = onSnapshot(doc(db, 'staff', uid), {
-      includeMetadataChanges: true
-    }, async snapshot => {
-      const current = ++version;
-      if (snapshot.metadata.fromCache) return;
-      if (snapshot.data()?.role !== 'courier') {
-        generation.current++;
-        setHistory([]);
-        setCodes({});
-        setHistoryBusy(false);
-        setAccess('denied');
-        return;
-      }
-      try {
-        const p = await operationsApi('operations', {
-          action: 'profile'
-        });
-        if (!active || current !== version) return;
-        if (p.role !== 'courier' || p.needsVerification) {
-          setAccess('denied');
-          return;
-        }
-        setName(p.displayName);
-        setAccess('courier');
-      } catch {
-        if (active && current === version) setAccess('denied');
-      }
-    }, () => {
-      if (active) {
-        generation.current++;
-        setHistory([]);
-        setCodes({});
-        setHistoryBusy(false);
-        setAccess('denied');
-      }
-    });
-    return () => {
-      active = false;
-      version++;
-      stop();
+    let active=true, version=0, inFlight=false, again=false;
+    const deny=(message:string)=>{
+      generation.current++;setHistory([]);setCodes({});setHistoryBusy(false);
+      setAccessMessage(message);setAccess('denied');
     };
-  }, [uid, revision]);
+    const check=async()=>{
+      const current=++version;
+      if(inFlight){again=true;return;}
+      inFlight=true;setAccess('checking');
+      try{
+        // The authenticated server is authoritative. A failed Firestore listener is not evidence of a missing role.
+        const profile=await operationsApi('operations',{action:'profile'});
+        if(!active||current!==version||auth.currentUser?.uid!==uid)return;
+        if(profile.needsVerification){deny('أكد بريد الحساب أولاً، ثم اضغط إعادة التحقق.');return;}
+        if(profile.uid!==uid||profile.role!=='courier'){
+          deny('هذا الحساب ليس مسجلاً كمندوب. اطلب من الإدارة تعيين نوع الحساب إلى «مندوب توصيل» للبريد الظاهر أدناه.');return;
+        }
+        setAccessMessage('');setName(profile.displayName);setAccess('courier');
+      }catch(e){if(active&&current===version)deny(customerMessage(e,'تعذر الاتصال للتحقق من حساب المندوب. أعد المحاولة؛ لم يتم تأكيد أو رفض اعتماد الحساب.'));}
+      finally{inFlight=false;if(again&&active){again=false;void check();}}
+    };
+    void check();
+    const changed=()=>void check();
+    const subscriptions=['staff','accountAccess'].map(collection=>onSnapshot(doc(db,collection,uid),{includeMetadataChanges:true},snapshot=>{
+      if(!snapshot.metadata.fromCache)changed();
+    },()=>{if(active)changed()}));
+    return()=>{active=false;version++;subscriptions.forEach(stop=>stop());};
+  },[uid,revision]);
   useEffect(() => {
     const tag = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     if (!tag) return;
@@ -182,7 +168,7 @@ export default function CourierApp() {
     currency: 'EGP'
   }).format(n || 0);
   if (access === 'checking') return <main className="courier-app"><LoadingState message="جارٍ التحقق من حساب المندوب…" /></main>;
-  if (access === 'login' || access === 'denied') return <main className="courier-app courier-auth" dir="rtl"><section className="courier-panel"><a href="/"><img src={BRAND.logo} alt="سنجوب" width="64" height="64" /></a><h1>دخول مندوب سنجوب</h1><p>مهامك المسندة إليك، والاستلام والتسليم بالرمز.</p>{access === 'denied' ? <><ErrorState message={auth.currentUser && !isVerifiedIdentity(auth.currentUser) ? 'أكد بريد الحساب أولاً.' : 'هذا الحساب غير معتمد كمندوب، أو تعذر التحقق من الصلاحية.'} />{auth.currentUser && !isVerifiedIdentity(auth.currentUser) && <button disabled={busy} onClick={async () => {
+  if (access === 'login' || access === 'denied') return <main className="courier-app courier-auth" dir="rtl"><section className="courier-panel"><a href="/"><img src={BRAND.logo} alt="سنجوب" width="64" height="64" /></a><h1>دخول مندوب سنجوب</h1><p>مهامك المسندة إليك، والاستلام والتسليم بالرمز.</p>{access === 'denied' ? <><ErrorState message={accessMessage||'لم تكتمل مراجعة صلاحية الحساب.'} /><p>البريد الحالي: <strong dir="ltr">{auth.currentUser?.email}</strong></p><p className="text-xs">معرّف الحساب: <span dir="ltr">{uid}</span></p>{auth.currentUser && !isVerifiedIdentity(auth.currentUser) && <button disabled={busy} onClick={async () => {
           setBusy(true);
           try {
             await sendEmailVerification(auth.currentUser!);

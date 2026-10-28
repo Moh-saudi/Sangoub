@@ -148,8 +148,18 @@ try {
   await courierPage.getByRole('button',{name:'سجل التوصيل',exact:true}).click();
   await courierPage.getByRole('heading',{name:'طلب CUR-BROWSER',exact:true}).waitFor();
   assert.equal(await courierPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await courierPage.route('**/api/operations',async route=>{
+    if(route.request().postDataJSON()?.action==='profile')return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'خدمة التحقق غير متاحة حاليًا. أعد المحاولة.'})});
+    return route.continue();
+  });
+  await courierPage.reload();
+  await courierPage.getByText('خدمة التحقق غير متاحة حاليًا. أعد المحاولة.',{exact:true}).waitFor();
+  assert.equal(await courierPage.getByText('هذا الحساب ليس مسجلاً كمندوب.',{exact:false}).count(),0,'An API outage must not be presented as a rejected courier role');
+  await courierPage.unroute('**/api/operations');
+  await courierPage.getByRole('button',{name:'إعادة التحقق',exact:true}).click();
+  await courierPage.getByRole('heading',{name:'مهام التوصيل',exact:true}).waitFor();
   await service.db.doc('staff/'+users.courier.uid).delete();
-  await courierPage.getByText('هذا الحساب غير معتمد كمندوب، أو تعذر التحقق من الصلاحية.',{exact:true}).waitFor();
+  await courierPage.getByText('هذا الحساب ليس مسجلاً كمندوب. اطلب من الإدارة تعيين نوع الحساب إلى «مندوب توصيل» للبريد الظاهر أدناه.',{exact:true}).waitFor();
   assert.equal(await courierPage.getByText('CUR-BROWSER',{exact:false}).count(),0);
   await courierContext.close();
   console.log(
