@@ -1,3 +1,4 @@
+import { OSM_CONFIG } from '../services/osmRouting';
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Bike,
@@ -127,9 +128,9 @@ export function CouriersLiveMap({
       L.control.zoom({ position: "bottomleft" }).addTo(map);
 
       // OpenStreetMap Tile Layer
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      L.tileLayer(OSM_CONFIG.tileUrl, {
+        attribution: OSM_CONFIG.attribution,
         maxZoom: 19,
-        attribution: "© OpenStreetMap contributors | سنجوب",
       }).addTo(map);
 
       const markersGroup = L.layerGroup().addTo(map);

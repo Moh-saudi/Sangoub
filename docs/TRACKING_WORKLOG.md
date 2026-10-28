@@ -159,3 +159,142 @@ i  hub: Stopping emulator hub
 
 Error: Failed to make request to https://storage.googleapis.com/firebase-preview-drop/emulator/cloud-firestore-emulator-v1.22.0.jar
 ```
+
+### T0 commit
+SHA: 88b100db0447d952720964aba2ba63396c991dcc
+
+```text
+commit 88b100db0447d952720964aba2ba63396c991dcc
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Wed Oct 28 20:00:47 2026 +0000
+
+    docs(tracking): audit baseline and record T0 verification
+
+ docs/TRACKING_AUDIT.md   |  55 ++++++++++++++++
+ docs/TRACKING_WORKLOG.md | 161 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 216 insertions(+)
+```
+
+## T1 — PASS
+
+Central tile config and visible attribution. Seed network test made offline before adding to npm test (preparatory T3 deviation). First lint failed on duplicate attribution keys; fixed before second attempt. Filter source unchanged. Public OSM defaults development-only.
+
+### Command
+```sh
+npm run lint (attempt 1)
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+src/components/CouriersLiveMap.tsx(134,9): error TS1117: An object literal cannot have multiple properties with the same name.
+src/storefront/components/ServiceAreaModal.tsx(129,9): error TS1117: An object literal cannot have multiple properties with the same name.
+```
+
+### Command
+```sh
+npm run lint
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+```
+
+### Command
+```sh
+npm test
+```
+```text
+[truncated]
+✔ haversineDistanceMeters accurately measures known distance in Cairo / NAC (1.498312ms)
+✔ estimateFallbackRoute applies 30% curvature factor and generates reasonable duration (0.988795ms)
+✔ hasDeviatedFromRoute accurately detects deviation threshold (0.359136ms)
+✔ calculateOsmRoute falls back gracefully when network fails or times out (1.128015ms)
+✔ OSM_CONFIG exposes valid tileUrl and attribution (0.18599ms)
+✔ checkout acknowledgment cannot erase quantities or new lines added during the request (1.481287ms)
+✔ mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities (3.712646ms)
+✔ InstaPay is a requested payment method and never a paid confirmation (0.467764ms)
+✔ incomplete customer details, invalid quantities and unknown menu items cannot produce a sendable request (1.194894ms)
+✔ Arabic and Persian quantity digits are accepted while fractional quantities are rejected (0.686617ms)
+✔ supermarket request combines packs from every section without breakfast items or payment claims (1.025711ms)
+✔ campaign scheduling uses Cairo rather than the execution host timezone (20.59499ms)
+✔ catalog monitoring counts delivered snapshots and excludes cancelled orders (1.887482ms)
+✔ editing archived items cannot silently make them available (47.179622ms)
+✔ catalog editor rejects invalid discounts, unsafe URLs and nonnumeric prices (0.895998ms)
+✔ calculateCartSubtotal correctly sums prices with quantities and options (1.632819ms)
+✔ applyCouponDiscount handles minOrder thresholds and discount calculation (0.508081ms)
+✔ calculateOrderTotal applies discount, delivery fee, and tip properly (0.294156ms)
+✔ getNextOrderStatus advances status correctly (0.623119ms)
+✔ validateEmployeeProfile validates name, Egyptian phone, ministry and floor (0.610579ms)
+✔ updateCourierMilestone updates checklist and advances to delivered when completed (0.345594ms)
+✔ currency formatting preserves cents charged by the payment gateway (25.62576ms)
+✔ calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission (0.497273ms)
+✔ generateMerchantJournalEntries creates balanced double-entry accounting records (1.292442ms)
+✔ calculateTopSellingProducts ranks products correctly by volume and share (1.694002ms)
+✔ calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest (1.385284ms)
+✔ Flutter summary records preserve totals and normalize Firestore timestamps (2.577283ms)
+✔ one kitchen cannot mark a multi-store order globally ready (0.427051ms)
+✔ daily metrics use Cairo date and actual delivery time across midnight (20.1186ms)
+✔ offers exclude invalid discounts, archived stock, and closed or missing stores (2.12202ms)
+✔ price and store availability changes immediately update offer eligibility (0.468332ms)
+✔ campaign tags and referrer domains classify sources without accepting spoofed hosts or collecting raw values (1.705232ms)
+ℹ tests 64
+ℹ suites 0
+ℹ pass 64
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1085.745255
+```
+
+### Command
+```sh
+npm run build
+```
+```text
+[truncated]
+computing gzip size...
+dist/build-info.json                        0.08 kB │ gzip:   0.09 kB
+dist/registerSW.js                          0.13 kB
+dist/manifest.webmanifest                   0.50 kB
+dist/index.html                             3.25 kB │ gzip:   1.15 kB
+dist/assets/CourierApp-objfHoLw.css         2.49 kB │ gzip:   0.85 kB
+dist/assets/MerchantApp-BTOjdwri.css       10.25 kB │ gzip:   2.57 kB
+dist/assets/ShopFront-RYKMbjBy.css         10.40 kB │ gzip:   2.60 kB
+dist/assets/AdminApp-EWhne2zZ.css          49.46 kB │ gzip:   9.88 kB
+dist/assets/index-D9vuyBnO.css            267.74 kB │ gzip:  46.62 kB
+dist/assets/operationsApi-CzZJkVOs.js       0.09 kB │ gzip:   0.10 kB
+dist/assets/orderDelivery-Cb6ET3E9.js       0.49 kB │ gzip:   0.40 kB
+dist/assets/rolldown-runtime-WkwZ5CU-.js    0.59 kB │ gzip:   0.36 kB
+dist/assets/loader-circle-BB_a9ApL.js       1.50 kB │ gzip:   0.86 kB
+dist/assets/DataStates-CJBxYAsJ.js          3.35 kB │ gzip:   1.65 kB
+dist/assets/react-dom-fuSZiae7.js           3.90 kB │ gzip:   1.42 kB
+dist/assets/CourierApp-Chj-6xLc.js         11.85 kB │ gzip:   4.24 kB
+dist/assets/KitchenDisplay-J3Oiohy_.js     12.11 kB │ gzip:   4.50 kB
+dist/assets/LocationModal-xLsXyCAC.js      13.98 kB │ gzip:   4.33 kB
+dist/assets/ShopFront-s0tMeIVM.js          39.34 kB │ gzip:  11.21 kB
+dist/assets/MerchantApp-gcnH9ecY.js        77.84 kB │ gzip:  19.49 kB
+dist/assets/AdminApp-DUuJuHNd.js          283.42 kB │ gzip:  67.87 kB
+dist/assets/index-iBWRP2LT.js             529.42 kB │ gzip: 150.68 kB
+dist/assets/jsx-runtime-B8K-vAZj.js       605.87 kB │ gzip: 184.29 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/authenticatedApi.ts is dynamically imported by src/lib/firebase.ts but also statically imported by src/components/NotificationCenter.tsx, src/lib/adminApi.ts, src/lib/operationsApi.ts, src/shop/ShopFront.tsx, src/storefront/components/SangoubAuthModal.tsx, dynamic import will not move module into another chunk.
+
+✓ built in 2.96s
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+PWA v2.0.0
+mode      generateSW
+precache  29 entries (2663.46 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-95677aec.js
+```

@@ -53,3 +53,7 @@ Seed MIGRATION includes claims not implemented (IndexedDB queue, fixed cost/trip
 
 Previews inherit project defaults unless isolated: cannot verify dashboard values here. Draft PR publication remains gated on preventing automatic Vercel deployment. Vercel schema retrieval was blocked by HTTP403; do not assume remote preview isolation from branch name alone.
 precache  29 entries (2663.31 KiB)
+
+## T1 configuration decision
+
+`VITE_TILE_URL` is public browser configuration, with visible OSM attribution. Public OSM defaults are for development; no commercial-production SLA or suitability is claimed. Server routing/search URLs and identifiable User-Agent remain server-only. Existing iframe map is not L.tileLayer; it will be replaced by the shared viewer as GPS views are implemented. T1 also removes the seed test's live network dependency ahead of T3 so adding it to npm test is deterministic. Filter source is unchanged.

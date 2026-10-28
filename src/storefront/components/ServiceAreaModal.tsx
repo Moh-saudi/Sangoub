@@ -1,3 +1,4 @@
+import { OSM_CONFIG } from '../../services/osmRouting';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore, type ServiceArea } from '../context/StoreContext';
 import { cleanDisplayAddress } from '../../utils/orderCalculations';
@@ -123,8 +124,8 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
         zoomControl: false,
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
+      L.tileLayer(OSM_CONFIG.tileUrl, {
+      attribution: OSM_CONFIG.attribution,
         maxZoom: 19,
       }).addTo(map);
 

@@ -54,7 +54,10 @@ test("calculateOsmRoute falls back gracefully when network fails or times out", 
   const to = { latitude: 30.038, longitude: 31.715 };
 
   // Should succeed either with live route or fallback without throwing an exception
-  const result = await calculateOsmRoute(from, to, { timeoutMs: 1000 });
+  const original=globalThis.fetch;
+  globalThis.fetch=async()=>{throw new Error('offline fixture');};
+  let result;
+  try{result=await calculateOsmRoute(from,to,{timeoutMs:1000});}finally{globalThis.fetch=original;}
   assert.ok(result.distanceMeters > 0);
   assert.ok(result.durationSeconds > 0);
   assert.ok(result.polyline.length >= 2);

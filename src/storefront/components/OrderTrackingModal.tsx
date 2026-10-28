@@ -1,3 +1,4 @@
+import { OSM_CONFIG } from '../../services/osmRouting';
 import React, { useState, useEffect, useRef } from 'react';
 import { formatEGP } from '../../utils/orderCalculations';
 import { BRAND } from '../../brand';
@@ -95,11 +96,12 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
 
     const map = L.map(mapContainerRef.current, {
       zoomControl: false,
-      attributionControl: false,
+      attributionControl: true,
       scrollWheelZoom: true,
     }).setView([destCoords.lat, destCoords.lng], 14);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer(OSM_CONFIG.tileUrl, {
+      attribution: OSM_CONFIG.attribution,
       maxZoom: 19,
     }).addTo(map);
 
