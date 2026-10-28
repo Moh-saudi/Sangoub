@@ -298,3 +298,135 @@ files generated
   dist/sw.js
   dist/workbox-95677aec.js
 ```
+
+### T1 commit
+SHA: 72c9d71a8ab3386abd7f3b74eec947b1b7a660b6
+
+```text
+commit 72c9d71a8ab3386abd7f3b74eec947b1b7a660b6
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Wed Oct 28 20:02:54 2026 +0000
+
+    feat(maps): centralize development tiles and enable service tests
+
+ .env.example                                     |  10 ++
+ docs/TRACKING_AUDIT.md                           |   4 +
+ docs/TRACKING_WORKLOG.md                         | 139 +++++++++++++++++++++++
+ package.json                                     |   2 +-
+ src/components/CouriersLiveMap.tsx               |   5 +-
+ src/services/osmRouting.test.ts                  |   5 +-
+ src/storefront/components/OrderTrackingModal.tsx |   6 +-
+ src/storefront/components/ServiceAreaModal.tsx   |   5 +-
+ 8 files changed, 168 insertions(+), 8 deletions(-)
+```
+
+## T2 — PASS
+
+One dynamic authenticated OSM API; numeric bounded geography, 4s abort, bounded cache/per-user budgets and instance-global Nominatim 1/s. Five unit tests use fake fetch; no Firebase calls. Limits are per warm instance only, not distributed on Vercel. Production upstreams/User-Agent require explicit configuration. Vercel schema lookup HTTP403 and npm schemas lookup HTTP404: Preview isolation remains NOT VERIFIED; do not push yet.
+
+### Command
+```sh
+npm run lint
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+```
+
+### Command
+```sh
+npm test
+```
+```text
+[truncated]
+✔ haversineDistanceMeters accurately measures known distance in Cairo / NAC (0.863148ms)
+✔ estimateFallbackRoute applies 30% curvature factor and generates reasonable duration (0.305894ms)
+✔ hasDeviatedFromRoute accurately detects deviation threshold (0.249275ms)
+✔ calculateOsmRoute falls back gracefully when network fails or times out (1.151017ms)
+✔ OSM_CONFIG exposes valid tileUrl and attribution (1.088352ms)
+✔ checkout acknowledgment cannot erase quantities or new lines added during the request (1.708339ms)
+✔ mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities (1.726211ms)
+✔ InstaPay is a requested payment method and never a paid confirmation (0.698938ms)
+✔ incomplete customer details, invalid quantities and unknown menu items cannot produce a sendable request (0.770473ms)
+✔ Arabic and Persian quantity digits are accepted while fractional quantities are rejected (0.630294ms)
+✔ supermarket request combines packs from every section without breakfast items or payment claims (0.445474ms)
+✔ campaign scheduling uses Cairo rather than the execution host timezone (34.732704ms)
+✔ catalog monitoring counts delivered snapshots and excludes cancelled orders (2.718491ms)
+✔ editing archived items cannot silently make them available (33.799978ms)
+✔ catalog editor rejects invalid discounts, unsafe URLs and nonnumeric prices (1.028556ms)
+✔ calculateCartSubtotal correctly sums prices with quantities and options (1.693528ms)
+✔ applyCouponDiscount handles minOrder thresholds and discount calculation (0.326497ms)
+✔ calculateOrderTotal applies discount, delivery fee, and tip properly (0.310516ms)
+✔ getNextOrderStatus advances status correctly (0.160217ms)
+✔ validateEmployeeProfile validates name, Egyptian phone, ministry and floor (0.369453ms)
+✔ updateCourierMilestone updates checklist and advances to delivered when completed (0.195251ms)
+✔ currency formatting preserves cents charged by the payment gateway (14.697118ms)
+✔ calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission (0.615864ms)
+✔ generateMerchantJournalEntries creates balanced double-entry accounting records (1.193483ms)
+✔ calculateTopSellingProducts ranks products correctly by volume and share (0.703503ms)
+✔ calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest (0.404269ms)
+✔ Flutter summary records preserve totals and normalize Firestore timestamps (3.138498ms)
+✔ one kitchen cannot mark a multi-store order globally ready (0.70083ms)
+✔ daily metrics use Cairo date and actual delivery time across midnight (20.976535ms)
+✔ offers exclude invalid discounts, archived stock, and closed or missing stores (3.229377ms)
+✔ price and store availability changes immediately update offer eligibility (0.395453ms)
+✔ campaign tags and referrer domains classify sources without accepting spoofed hosts or collecting raw values (2.4906ms)
+ℹ tests 69
+ℹ suites 0
+ℹ pass 69
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1061.195734
+```
+
+### Command
+```sh
+npm run build
+```
+```text
+[truncated]
+computing gzip size...
+dist/build-info.json                        0.08 kB │ gzip:   0.09 kB
+dist/registerSW.js                          0.13 kB
+dist/manifest.webmanifest                   0.50 kB
+dist/index.html                             3.25 kB │ gzip:   1.15 kB
+dist/assets/CourierApp-objfHoLw.css         2.49 kB │ gzip:   0.85 kB
+dist/assets/MerchantApp-BTOjdwri.css       10.25 kB │ gzip:   2.57 kB
+dist/assets/ShopFront-RYKMbjBy.css         10.40 kB │ gzip:   2.60 kB
+dist/assets/AdminApp-EWhne2zZ.css          49.46 kB │ gzip:   9.88 kB
+dist/assets/index-D9vuyBnO.css            267.74 kB │ gzip:  46.62 kB
+dist/assets/operationsApi-CzZJkVOs.js       0.09 kB │ gzip:   0.10 kB
+dist/assets/orderDelivery-Cb6ET3E9.js       0.49 kB │ gzip:   0.40 kB
+dist/assets/rolldown-runtime-WkwZ5CU-.js    0.59 kB │ gzip:   0.36 kB
+dist/assets/loader-circle-BB_a9ApL.js       1.50 kB │ gzip:   0.86 kB
+dist/assets/DataStates-CJBxYAsJ.js          3.35 kB │ gzip:   1.65 kB
+dist/assets/react-dom-fuSZiae7.js           3.90 kB │ gzip:   1.42 kB
+dist/assets/CourierApp-yZYhzg3v.js         11.85 kB │ gzip:   4.24 kB
+dist/assets/KitchenDisplay-C6u_QUo8.js     12.11 kB │ gzip:   4.50 kB
+dist/assets/LocationModal-xLsXyCAC.js      13.98 kB │ gzip:   4.33 kB
+dist/assets/ShopFront-CQEQzHBW.js          39.34 kB │ gzip:  11.21 kB
+dist/assets/MerchantApp-nwmuMoJo.js        77.84 kB │ gzip:  19.49 kB
+dist/assets/AdminApp-CsWoqRGJ.js          283.42 kB │ gzip:  67.87 kB
+dist/assets/index-B41PCAR_.js             529.42 kB │ gzip: 150.68 kB
+dist/assets/jsx-runtime-B8K-vAZj.js       605.87 kB │ gzip: 184.29 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/authenticatedApi.ts is dynamically imported by src/lib/firebase.ts but also statically imported by src/components/NotificationCenter.tsx, src/lib/adminApi.ts, src/lib/operationsApi.ts, src/shop/ShopFront.tsx, src/storefront/components/SangoubAuthModal.tsx, dynamic import will not move module into another chunk.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.92s
+
+PWA v2.0.0
+mode      generateSW
+precache  29 entries (2663.46 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-95677aec.js
+```

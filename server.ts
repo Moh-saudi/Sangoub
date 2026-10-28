@@ -1,3 +1,4 @@
+import osmHandler from './api/osm/[action].ts';
 import avatarHandler from './api/user-avatar.ts';
 import express from "express";
 import visitorsHandler from "./api/visitors.ts";
@@ -56,6 +57,9 @@ async function startServer() {
 
   app.post("/api/gemini/:action", geminiHandler);
   app.options("/api/gemini/:action", geminiHandler);
+
+  app.post("/api/osm/:action", osmHandler);
+  app.options("/api/osm/:action", osmHandler);
 
   app.all("/api/github/*", (_req, res) =>
     res
