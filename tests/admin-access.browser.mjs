@@ -84,6 +84,8 @@ try {
       .getByRole("button", { name: "دخول لوحة الإدارة", exact: true })
       .click();
     if (role === "admin") {
+      // Mobile navigation is intentionally hidden until the administrator opens it.
+      await page.getByRole("button", { name: "أقسام الإدارة", exact: true }).click();
       await page
         .getByRole("navigation", { name: "أقسام إدارة التشغيل", exact: true })
         .waitFor();
