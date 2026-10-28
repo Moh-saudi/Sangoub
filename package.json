@@ -24,7 +24,8 @@
     "test:visitors": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/visitors.integration.test.ts\"",
     "test:intake": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/sangoub-requests.integration.test.ts tests/visitors.integration.test.ts\"",
     "test:web-checkout": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/web-checkout.integration.test.ts\"",
-    "test:shop-web": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx tests/shop-web.browser.mjs\""
+    "test:shop-web": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx tests/shop-web.browser.mjs\"",
+    "test:preload-recovery": "node tests/preload-recovery.browser.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1154.0",
