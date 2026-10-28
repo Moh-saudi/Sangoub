@@ -13,7 +13,7 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import type { AdminStaff } from "./components/AdminSetupPanel";
 import type { Profile, Store, Product, Order, Coupon, PartnerApplication, JobApplication, ApplicationStatus } from "./types";
 
-const logo = "/brand/sangoub-logo-128x128.png";
+const logo = "/brand/sangoub-mark-white-128.png";
 function message(error: unknown): string {
   const code = (error as { code?: string })?.code || "";
   if (/invalid-credential|wrong-password|user-not-found/.test(code)) return "راجع البريد وكلمة المرور.";

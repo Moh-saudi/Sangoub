@@ -94,11 +94,11 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
                 className="flex items-center gap-2 text-decoration-none group"
                 aria-label="الرئيسية"
               >
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-[#FFF2EC] border border-[#FFD4C2] flex items-center justify-center shadow-xs overflow-hidden">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white flex items-center justify-center overflow-hidden">
                   <img 
-                    src="/assets/sangoub/sangoub-favicon.png" 
+                    src="/brand/sangoub-mark-white-128.png"
                     alt="شعار سنجوب Sangoub" 
-                    className="w-7 h-7 object-contain group-hover:scale-105 transition-transform"
+                    className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                     width="28" 
                     height="28" 
                   />

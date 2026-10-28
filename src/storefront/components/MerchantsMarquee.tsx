@@ -54,7 +54,7 @@ export const MerchantsMarquee: React.FC = () => {
                     alt={store.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = '/assets/sangoub/sangoub-favicon.png';
+                      (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
                     }}
                   />
                 ) : (

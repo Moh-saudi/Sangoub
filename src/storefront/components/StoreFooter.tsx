@@ -38,7 +38,7 @@ export const StoreFooter: React.FC = () => {
           {/* Logo & Slogan */}
           <div className="flex items-center gap-2">
             <img
-              src="/assets/sangoub/sangoub-favicon.png"
+              src="/brand/sangoub-mark-white-128.png"
               alt="سنجوب"
               className="w-6 h-6 object-contain rounded-md"
             />

@@ -247,7 +247,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
         >
           <img
             className="official-logo"
-            src="/brand/sangoub-logo-256x256.png"
+            src="/brand/sangoub-mark-white-256.png"
             alt="شعار سنجوب الرسمي"
             width="80"
             height="80"
@@ -1049,7 +1049,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
         <div className="footer-brand">
           <img
             className="official-logo"
-            src="/brand/sangoub-logo-256x256.png"
+            src="/brand/sangoub-mark-white-256.png"
             alt="شعار سنجوب الرسمي"
             width="80"
             height="80"

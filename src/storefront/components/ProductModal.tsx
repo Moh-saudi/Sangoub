@@ -118,7 +118,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose }) 
                 alt={product.name}
                 className="w-full h-full object-contain p-4"
                 onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = '/assets/sangoub/sangoub-favicon.png';
+                  (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
                 }}
               />
             ) : (

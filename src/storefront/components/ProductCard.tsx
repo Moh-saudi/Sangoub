@@ -88,7 +88,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
             onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/assets/sangoub/sangoub-favicon.png';
+              (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
             }}
           />
         ) : (

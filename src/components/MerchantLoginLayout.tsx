@@ -26,11 +26,11 @@ export function MerchantLoginLayout({ children, onSupport }: { children: ReactNo
     <main className="merchant-entry-card">
       <aside className="merchant-entry-scene" aria-label="هوية المتجر وسنجوب">
         <div className="merchant-entry-skyline" />
-        <a className="merchant-entry-brand" href="/" aria-label="سنجوب، العودة إلى المتجر"><img src="/brand/sangoub-logo-128x128.png" alt="" /><span>سنجوب <small>Sangoub Partners</small></span></a>
+        <a className="merchant-entry-brand" href="/" aria-label="سنجوب، العودة إلى المتجر"><img src="/brand/sangoub-mark-white-128.png" alt="" /><span>سنجوب <small>Sangoub Partners</small></span></a>
         <div className="merchant-entry-story"><span className="merchant-entry-tag">شريكك في كل طلب</span><h1>متجرك أقرب.<br />وطلباتك مع سنجوب.</h1><p>من قلب العاصمة الإدارية، نوصّل منتجاتك لعملائك.</p></div>
         <img className="merchant-entry-mascot" src="/assets/sangoub/mascot-cheerful.png" alt="سنجوب في العاصمة الإدارية" />
         <div className="merchant-entry-store" aria-live="polite">
-          <img key={logo || 'default'} src={logo || '/brand/sangoub-logo-128x128.png'} alt={store ? `شعار ${store.name}` : 'شعار سنجوب'} onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = '/brand/sangoub-logo-128x128.png'; }} />
+          <img key={logo || 'default'} src={logo || '/brand/sangoub-mark-white-128.png'} alt={store ? `شعار ${store.name}` : 'شعار سنجوب'} onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = '/brand/sangoub-mark-white-128.png'; }} />
           <div><strong>{store?.name || (storeState === 'loading' ? 'جارٍ تحميل بيانات المتجر…' : 'بوابة شركاء سنجوب')}</strong><p><MapPin size={14} aria-hidden="true" />{store?.locationInDistrict || (storeState === 'missing' ? 'تعذر تحميل المتجر من هذا الرابط' : 'العاصمة الإدارية الجديدة')}</p></div>
         </div>
       </aside>

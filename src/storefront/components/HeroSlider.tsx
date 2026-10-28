@@ -192,7 +192,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
                         alt="سنجوب Sangoub"
                         className="max-h-[115px] sm:max-h-[155px] md:max-h-[185px] w-auto object-contain drop-shadow-md"
                         onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = '/assets/sangoub/sangoub-favicon.png';
+                          (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
                         }}
                       />
                     </div>

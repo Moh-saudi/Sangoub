@@ -76,7 +76,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0 z-10">
           <div className="flex items-center gap-2.5">
             <img
-              src="/brand/sangoub-logo-256x256.png"
+              src="/brand/sangoub-mark-white-256.png"
               alt="سنجوب"
               className="w-8 h-8 rounded-xl object-cover shadow-xs border border-orange-200"
             />
@@ -127,7 +127,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             {/* Official App Logo Overlay in Corner */}
             <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-xs p-1 rounded-xl shadow-xs border border-slate-200 flex items-center gap-1.5 px-2">
               <img
-                src="/brand/sangoub-logo-256x256.png"
+                src="/brand/sangoub-mark-white-256.png"
                 alt="Logo"
                 className="w-5 h-5 rounded-md object-cover"
               />

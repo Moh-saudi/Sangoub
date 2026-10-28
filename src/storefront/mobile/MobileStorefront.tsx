@@ -298,11 +298,11 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
               <span className="text-xs font-black text-[#FF5900] tracking-tight">سنجوب</span>
               <span className="text-[8px] font-bold text-[#6B7280] tracking-wider uppercase">Sangoub</span>
             </div>
-            <div className="w-8 h-8 rounded-xl bg-[#FFF2EC] border border-[#FFD4C2] flex items-center justify-center overflow-hidden">
+            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center overflow-hidden">
               <img 
-                src="/assets/sangoub/sangoub-favicon.png" 
+                src="/brand/sangoub-mark-white-128.png"
                 alt="سنجوب Sangoub" 
-                className="w-6 h-6 object-contain"
+                className="w-full h-full object-contain"
               />
             </div>
           </div>
@@ -456,7 +456,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                             alt="سنجوب Sangoub"
                             className="max-h-[102px] w-auto object-contain drop-shadow-md"
                             onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = '/assets/sangoub/sangoub-favicon.png';
+                              (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
                             }}
                           />
                         </div>
@@ -601,12 +601,12 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                     <div>
                       <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#F9FAFB] mb-1.5">
                         <img
-                          src={product.imageUrl || '/assets/sangoub/sangoub-favicon.png'}
+                          src={product.imageUrl || '/brand/sangoub-mark-white-128.png'}
                           alt={product.name}
                           className="w-full h-full object-cover"
                           loading="lazy"
                           onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = '/assets/sangoub/sangoub-favicon.png';
+                            (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
                           }}
                         />
                         {product.originalPrice && product.originalPrice > product.price && (
@@ -773,12 +773,12 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                     {/* Image */}
                     <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-[#F9FAFB] mb-1">
                       <img
-                        src={product.imageUrl || '/assets/sangoub/sangoub-favicon.png'}
+                        src={product.imageUrl || '/brand/sangoub-mark-white-128.png'}
                         alt={product.name}
                         className="w-full h-full object-cover"
                         loading="lazy"
                         onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = '/assets/sangoub/sangoub-favicon.png';
+                          (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
                         }}
                       />
                       {product.badge && (

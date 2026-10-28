@@ -52,11 +52,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <div
             onClick={() => setActiveTab("home")}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl overflow-hidden shadow-xs shrink-0 cursor-pointer border border-orange-200 hover:scale-105 transition-transform bg-white"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl overflow-hidden shadow-xs shrink-0 cursor-pointer hover:scale-105 transition-transform bg-white"
             title="الصفحة الرئيسية - سنجوب"
           >
             <img
-              src="/brand/sangoub-logo-256x256.png"
+              src="/brand/sangoub-mark-white-256.png"
               alt="شعار سنجوب"
               className="w-full h-full object-cover"
             />

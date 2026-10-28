@@ -68,11 +68,11 @@ export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({ isOpen, onFini
         />
 
         {/* White Squircle Card housing the Brand Logo */}
-        <div className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-[32px] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.08)] flex items-center justify-center p-4 border border-white/90">
+        <div className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-[32px] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.08)] flex items-center justify-center overflow-hidden">
           <img
-            src="/brand/sangoub-logo-256x256.png"
+            src="/brand/sangoub-mark-white-256.png"
             alt="شعار سنجوب"
-            className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-contain drop-shadow-xs"
+            className="w-full h-full rounded-[32px] object-contain"
           />
         </div>
       </div>

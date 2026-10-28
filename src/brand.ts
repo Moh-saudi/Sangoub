@@ -1,10 +1,10 @@
 export const BRAND = {
   nameAr: 'سنجوب',
   nameEn: 'Sangoub',
-  logo: '/assets/sangoub/sangoub-favicon.png',
-  logoSmall: '/assets/sangoub/sangoub-favicon.png',
-  logoLarge: '/assets/sangoub/sangoub-favicon-master-1024.png',
-  iconMaster: '/assets/sangoub/sangoub-icon-master-1024.png',
+  logo: '/brand/sangoub-mark-white-128.png',
+  logoSmall: '/brand/sangoub-mark-white-128.png',
+  logoLarge: '/brand/sangoub-mark-white-1024.png',
+  iconMaster: '/brand/sangoub-mark-white-1024.png',
   favicon: '/favicon.ico',
   supportUrl: 'https://wa.me/201017799580',
   colors: {

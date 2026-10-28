@@ -36,7 +36,7 @@ try {
     });
     const keys = await caches.keys();
     const urls = (await Promise.all(keys.filter(key => key.includes('precache')).map(async key => (await (await caches.open(key)).keys()).map(request => request.url)))).flat();
-    return { active: registration.active?.state, logos: urls.filter(url => url.includes('/brand/sangoub-logo-512x512.png')) };
+    return { active: registration.active?.state, logos: urls.filter(url => url.includes('/brand/sangoub-mark-white-512.png')) };
   });
   assert.equal(result.active, 'activated');
   assert.equal(result.logos.length, 1, 'The logo must have exactly one precache entry');
@@ -56,7 +56,7 @@ try {
   }
   const manifest=await page.evaluate(async()=>fetch(document.querySelector('link[rel=manifest]').href).then(response=>response.json()));
   assert.equal(manifest.name,'سنجوب');assert.equal(manifest.short_name,'سنجوب');assert.match(await page.title(),/سنجوب/);assert.ok((await page.locator('.site-brand').innerText()).includes('Sangoub'));assert.ok(!/طلبات العاصمة|Capital Talabat/.test(await page.locator('body').innerText()));
-  assert.deepEqual(manifest.icons.map(icon=>[icon.src,icon.sizes]),[['/brand/sangoub-logo-256x256.png','256x256'],['/brand/sangoub-logo-512x512.png','512x512']]);
+  assert.deepEqual(manifest.icons.map(icon=>[icon.src,icon.sizes]),[['/brand/sangoub-mark-white-256.png','256x256'],['/brand/sangoub-mark-white-512.png','512x512']]);
   await context.setOffline(true);await page.reload();await page.waitForFunction(()=>{const img=document.querySelector('.mascot-support-portrait img');return img?.complete&&img.naturalWidth===256;});await context.setOffline(false);
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.evaluate(()=>document.querySelector('.public-how').scrollIntoView());

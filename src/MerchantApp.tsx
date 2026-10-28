@@ -38,7 +38,7 @@ import { RestaurantPortal } from "./components/RestaurantPortal";
 import { customerMessage } from "./utils/customerMessage";
 
 const SANGOUB_MASCOT = "/assets/sangoub/mascot-cheerful.png";
-const SANGOUB_LOGO = "/brand/sangoub-logo-128x128.png";
+const SANGOUB_LOGO = "/brand/sangoub-mark-white-128.png";
 const SANGOUB_WINK = "/assets/sangoub/mascot-wink.png";
 
 export default function MerchantApp() {
@@ -307,7 +307,7 @@ export default function MerchantApp() {
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
             {/* Store & Mascot Info */}
             <div className="flex items-center gap-3">
-              <img src={SANGOUB_LOGO} alt="سنجوب" className="w-9 h-9 rounded-lg bg-white p-1" />
+              <img src={SANGOUB_LOGO} alt="سنجوب" className="w-9 h-9 rounded-lg bg-white" />
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-sm font-black text-white">{userStore?.name || "بوابة التاجر والمطبخ"}</h1>

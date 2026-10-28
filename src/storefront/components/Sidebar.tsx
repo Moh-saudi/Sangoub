@@ -180,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           alt="سنجوب العاصمة"
           className="w-20 h-20 object-contain drop-shadow-sm mb-1.5"
           onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = '/assets/sangoub/sangoub-favicon.png';
+            (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
           }}
         />
         <h5 className="text-xs font-black text-[#2D3142]">سنجوب معك في العاصمة</h5>
