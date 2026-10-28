@@ -137,9 +137,9 @@ test("clients cannot create orders or forge totals, including admins", async () 
     db("admin").doc("orders/o1").update({ total: 0, updatedAt: timestamp() }),
   );
 });
-test("restaurant reads and queries are restricted to its own store", async () => {
-  await assertSucceeds(db("restaurant").doc("orders/o1").get());
-  await assertSucceeds(
+test("restaurant cannot read raw orders even for its own store; scoped server views are required", async () => {
+  await assertFails(db("restaurant").doc("orders/o1").get());
+  await assertFails(
     db("restaurant")
       .collection("orders")
       .where("storeIds", "array-contains", "s1")
@@ -436,4 +436,25 @@ test('new preparation-only accounts cannot edit prices, create products, close s
  await assertFails(db('restaurant').doc('staff/restaurant').update({duty:'manager'}));
  await env.withSecurityRulesDisabled(context=>context.firestore().doc('staff/restaurant').update({duty:'manager'}));
  await assertSucceeds(db('restaurant').doc('products/duty-product').set(product));
+});
+
+test("operational signals isolate stores and courier accounts and forbid client writes", async () => {
+  await env.withSecurityRulesDisabled(async ({firestore}) => {
+    const db=firestore();
+    await db.doc('storeOrderSignals/s1/orders/o1').set({orderId:'o1',storeId:'s1',active:true,orderStatus:'ready'});
+    await db.doc('storeOrderSignals/s2/orders/private').set({orderId:'private',storeId:'s2',active:true,orderStatus:'ready'});
+    await db.doc('storeOrderSignals/s1/orders/closed').set({orderId:'closed',storeId:'s1',active:false,orderStatus:'delivered'});
+    await db.doc('courierOrderSignals/courier/orders/o1').set({orderId:'o1',courierId:'courier',active:true,orderStatus:'ready'});
+  });
+  await assertSucceeds(db('restaurant').collection('storeOrderSignals/s1/orders').where('active','==',true).limit(50).get());
+  await assertFails(db('restaurant').collection('storeOrderSignals/s2/orders').where('active','==',true).limit(50).get());
+  await assertFails(db('restaurant').collection('storeOrderSignals/s1/orders').get());
+  await assertFails(db('customer').doc('storeOrderSignals/s1/orders/o1').get());
+  await assertFails(db('restaurant').doc('storeOrderSignals/s1/orders/o1').update({active:false}));
+  await assertSucceeds(db('courier').collection('courierOrderSignals/courier/orders').where('active','==',true).limit(50).get());
+  await assertFails(db('restaurant').doc('courierOrderSignals/courier/orders/o1').get());
+  await assertFails(db('courier').doc('courierOrderSignals/other/orders/o1').get());
+  await assertFails(db('courier').doc('courierOrderSignals/courier/orders/fake').set({active:true}));
+  await env.withSecurityRulesDisabled(async ({firestore})=>{await firestore().doc('staff/restaurant').delete();});
+  await assertFails(db('restaurant').doc('storeOrderSignals/s1/orders/o1').get());
 });

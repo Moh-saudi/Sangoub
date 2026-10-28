@@ -1,3 +1,5 @@
+import { merchantOrderView } from './portalOrders.ts';
+import { writeOrderSignals } from './orderSignals.ts';
 import { FieldValue } from "firebase-admin/firestore";
 import { AdminError, validId } from "./adminRequest.ts";
 import { auditInTransaction } from "./audit.ts";
@@ -27,7 +29,7 @@ export async function merchantAction(input: any, context: OperationIdentity) {
         .where("storeId", "==", storeId)
         .limit(100)
         .get(),
-      db
+      input.includeOrders===false ? Promise.resolve({docs:[]}) : db
         .collection("orders")
         .where("storeIds", "array-contains", storeId)
         .limit(100)
@@ -50,29 +52,7 @@ export async function merchantAction(input: any, context: OperationIdentity) {
       orders: orders.docs
         .filter((d) => d.data().fulfillmentVersion !== 2)
         .map((d) => {
-          const order = d.data(),
-            items = (order.items || []).filter(
-              (i: any) => i.product?.storeId === storeId,
-            ),
-            snapshot = order.storeSnapshots?.find((s: any) => s.id === storeId);
-          const subtotal = items.reduce(
-            (n: number, i: any) =>
-              n + (i.product.price + (i.extraPrice || 0)) * i.quantity,
-            0,
-          );
-          return {
-            ...order,
-            id: d.id,
-            items,
-            storeIds: [storeId],
-            kitchenStatus: {
-              [storeId]: order.kitchenStatus?.[storeId] || "received",
-            },
-            subtotal,
-            total: snapshot?.total ?? subtotal,
-            createdAt:
-              order.createdAt?.toDate?.().toISOString() || order.createdAt,
-          };
+          return merchantOrderView(d.id, d.data(), storeId);
         }),
     };
   }
@@ -138,6 +118,7 @@ export async function merchantAction(input: any, context: OperationIdentity) {
         ...(all ? { readyAt: FieldValue.serverTimestamp() } : {}),
       };
       tx.update(ref, after);
+      writeOrderSignals(db, tx, {...before, ...after, id}, {...before, id});
       auditInTransaction(
         db,
         tx,

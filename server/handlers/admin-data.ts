@@ -1,3 +1,4 @@
+import { writeOrderSignals } from '../orderSignals.ts';
 import {settlementAction} from '../settlements.ts';
 import { adminSangoubRequests } from '../sangoubRequests.ts';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
@@ -142,6 +143,7 @@ export default async function handler(req:any,res:any){
       if(contractRef&&patch.commissionRate!==undefined){const contract={commissionRate:patch.commissionRate,updatedAt:FieldValue.serverTimestamp(),updatedBy:actor.uid};tx.set(contractRef,contract,{merge:true});auditInTransaction(db,tx,actor,'contract.updated','merchantContracts',id,contractBefore?.data()||null,contract);}
 
       if(input.action==='delete')tx.delete(ref);else tx.set(ref,{...after,updatedAt:FieldValue.serverTimestamp(),...(type==='orders'&&after.orderStatus==='ready'&&before?.orderStatus!=='ready'?{readyAt:FieldValue.serverTimestamp()}:{})});
+      if(type==='orders')writeOrderSignals(db,tx,{...after,id},{...before,id});
       auditInTransaction(db,tx,actor,type+'.'+(input.action==='delete'?'delete':!before?'create':input.action==='kitchen'?'kitchen':'update'),type,id,before,input.action==='delete'?null:after);
     });
     return res.status(200).json({ok:true});

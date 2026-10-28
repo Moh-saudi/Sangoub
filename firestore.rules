@@ -18,7 +18,7 @@ service cloud.firestore {
     }
     function ownerOrder(data) {
       return verified() && (data.profileId == request.auth.uid || admin() ||
-        assignedCourier(data) || (data.get('fulfillmentVersion', 1) != 2 && restaurantOrder(data)));
+        assignedCourier(data));
     }
     // users: required identity/contact fields; role, wallet and createdAt are immutable for clients.
     // Server-managed FCM, addresses and staff metadata may be preserved, never added/changed by self updates.
@@ -95,6 +95,16 @@ service cloud.firestore {
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['paymentStatus']) ||
          (resource.data.paymentMethod == 'cash' && request.resource.data.paymentStatus == 'paid' &&
           request.resource.data.orderStatus == 'delivered'));
+    }
+    // Server-only invalidation signals: IDs/status only, no order contents or customer PII.
+    // Active-only scoped queries; never grant merchants access to parent multi-store orders.
+    match /storeOrderSignals/{storeId}/orders/{orderId} {
+      allow read: if verified() && exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && staff().role == 'restaurant' && staff().storeId == storeId && resource.data.active == true;
+      allow write: if false;
+    }
+    match /courierOrderSignals/{uid}/orders/{orderId} {
+      allow read: if verified() && uid == request.auth.uid && exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && staff().role == 'courier' && resource.data.active == true;
+      allow write: if false;
     }
     // V2 operational writes and merchant projections are served only by the audited API.
     match /orders/{orderId}/fulfillments/{storeId} { allow read, write: if false; }

@@ -58,7 +58,7 @@ export default defineConfig(() => {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           // Only Vite's hashed chunks are immutable; public/assets images are not.
           dontCacheBustURLsMatching: /^assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/,
-          globPatterns: ['**/*.{js,css,woff,woff2}', 'favicon.ico', 'brand/sangoub-mark-white-{32,64,128,256,512}.png'],
+          globPatterns: ['**/*.{js,css,woff,woff2}', 'favicon.ico', 'brand/sangoub-mark-white-{32,64,128,256,512}.png', 'courier.webmanifest'],
           // Fetch current HTML on navigation instead of pinning visitors to precached releases.
           globIgnores: ['**/index.html'],
           navigateFallback: null,

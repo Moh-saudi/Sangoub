@@ -1,3 +1,7 @@
+import { useActivePortalOrders } from './lib/useActivePortalOrders';
+import { normalizeOrder } from './utils/orderIntegration';
+import { PreparationTasks } from './components/PreparationTasks';
+import { LoadingState, ErrorState, EmptyState, ConnectionState } from './components/ui/DataStates';
 import {operationsApi} from './lib/operationsApi';
 import { BRAND } from './brand';
 import { MerchantLoginLayout } from './components/MerchantLoginLayout';
@@ -70,6 +74,15 @@ export default function MerchantApp() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
 
+  const feed=useActivePortalOrders(access==='merchant'?identity?.uid:undefined,profile?.storeId);
+  const [catalogLoading,setCatalogLoading]=useState(true);
+  const [history,setHistory]=useState<Order[]>([]);
+  const [historyCursor,setHistoryCursor]=useState<string|null>(null);
+  const [historyBusy,setHistoryBusy]=useState(false);
+  const [historyLoaded,setHistoryLoaded]=useState(false);
+  const historyGeneration=useRef(0);
+  useEffect(()=>{historyGeneration.current++;setHistory([]);setHistoryCursor(null);setHistoryBusy(false);setHistoryLoaded(false)},[identity?.uid,profile?.storeId,access]);
+  async function loadHistory(){if(historyBusy)return;const generation=historyGeneration.current;setHistoryBusy(true);try{const result=await operationsApi('operations',{action:'portal-history',...(historyCursor?{cursor:historyCursor}:{})});if(generation!==historyGeneration.current)return;setHistory(prev=>[...new Map([...prev,...result.items.map(normalizeOrder)].map(o=>[o.id,o])).values()]);setHistoryCursor(result.nextCursor);setHistoryLoaded(true)}catch{if(generation===historyGeneration.current)setError('تعذر تحميل السجل؛ أعد المحاولة.')}finally{if(generation===historyGeneration.current)setHistoryBusy(false)}}
   const refreshMerchant=useRef<()=>Promise<void>>(async()=>{});
   useEffect(()=>onAuthStateChanged(auth,user=>{setIdentity(user);setProfile(null);setStores([]);setOrders([]);setProducts([]);setAccess(user?'checking':'login')}),[]);
   useEffect(()=>{
@@ -82,9 +95,9 @@ export default function MerchantApp() {
     },e=>{generation++;setProfile(null);setAccess('denied');setError(customerMessage(e,'تعذر التحقق من صلاحية المتجر.'))});return()=>{generation++;stop()};
   },[identity,revision]);
   useEffect(()=>{
-    setStores([]);setOrders([]);setProducts([]);setCouriers([]);setConnected(false);
+    setStores([]);setOrders([]);setProducts([]);setCouriers([]);setConnected(false);setCatalogLoading(true);
     if(access!=='merchant'||!profile)return;let active=true,inflight=false;
-    const load=async()=>{if(inflight)return;inflight=true;try{const result=await operationsApi('operations',{action:'store-dashboard'});if(active){setStores(result.stores);setOrders(result.orders);setProducts(result.products);setConnected(true);}}catch(e){if(active){setConnected(false);setError(customerMessage(e,'تعذر تحميل بيانات متجرك.'));}}finally{inflight=false;}};
+    const load=async()=>{if(inflight)return;inflight=true;try{const result=await operationsApi('operations',{action:'store-dashboard',includeOrders:false});if(active){setStores(result.stores);setProducts(result.products);setConnected(true);setError('');}}catch(e){if(active){setConnected(false);setError(customerMessage(e,'تعذر تحميل بيانات متجرك.'));}}finally{inflight=false;if(active)setCatalogLoading(false);}};
     refreshMerchant.current=load;void load();const timer=setInterval(()=>{if(!document.hidden)void load()},15000);return()=>{active=false;clearInterval(timer);refreshMerchant.current=async()=>{}};
   },[access,profile?.id,profile?.storeId]);
 
@@ -137,7 +150,7 @@ export default function MerchantApp() {
     }
   }
 
-  async function merchantMutation(input:object){setError('');try{await operationsApi('operations',input);await refreshMerchant.current();}catch(e){setError(customerMessage(e,'تعذر حفظ التعديل.'));throw e;}}
+  async function merchantMutation(input:object){setError('');try{await operationsApi('operations',input);await Promise.all([refreshMerchant.current(),feed.refresh()]);}catch(e){setError(customerMessage(e,'تعذر حفظ التعديل.'));throw e;}}
   async function handleKitchenChange(id:string,_storeId:string,stage:'preparing'|'ready'){await merchantMutation({action:'legacy-prepare',id,next:stage});}
   async function handleUpdateOrderStatus(_id:string,_status:Order['orderStatus']){setError('حالة التوصيل يحدّثها المندوب، والتحضير من أزرار المطبخ.');}
   async function handleUpdateProductStock(id:string,inStock:boolean){try{await merchantMutation({action:'set-product-stock',id,inStock})}catch{}}
@@ -197,7 +210,7 @@ export default function MerchantApp() {
     const userStore = stores.find((s) => s.id === profile.storeId);
 
     return (
-      <div className="min-h-screen bg-slate-100 font-cairo" dir="rtl">
+      <div className="merchant-portal min-h-screen bg-slate-100 font-cairo" dir="rtl">
         {/* Top Operational Header */}
         <header className="bg-slate-900 text-white sticky top-0 z-40 border-b border-slate-800 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
@@ -249,21 +262,28 @@ export default function MerchantApp() {
 
         {/* Main Portal Body */}
         <main className="max-w-7xl mx-auto p-4 sm:p-6">
-          {error&&<p role="alert" className="p-3 mb-3 bg-red-50 text-red-800 rounded-xl">{error}</p>}
-          <RestaurantPortal
+          <ConnectionState online={feed.online} live={feed.live} updatedAt={feed.updatedAt}/>
+          {(error||feed.error)&&<ErrorState message={error||feed.error} retry={()=>{void refreshMerchant.current();void feed.refresh()}}/>}
+          {(catalogLoading||feed.loading)&&<LoadingState message="جارٍ تحميل المتجر والطلبات…"/>}
+          <button className="btn btn-outline-secondary mb-3" disabled={historyBusy||(historyLoaded&&!historyCursor)} onClick={()=>void loadHistory()}>{historyLoaded&&!historyCursor?'اكتمل تحميل السجل':historyBusy?'جارٍ تحميل السجل…':history.length&&historyCursor?'تحميل المزيد من الطلبات السابقة':'تحميل سجل الطلبات السابق'}</button>
+          {history.length>0&&<p className="text-sm">المالية والسجل يعرضان الطلبات المحملة فقط، وليس إجمالي الحساب.</p>}
+          {feed.truncated&&<p role="status">تعرض أول 50 طلباً نشطاً؛ راجع الإدارة إذا تجاوز العدد هذا الحد.</p>}
+          {!catalogLoading&&!userStore&&!error&&<EmptyState message="لم يُربط حسابك بمتجر تشغيل متاح؛ تواصل مع الإدارة."/>}
+          {userStore&&<RestaurantPortal
+            preparationContent={feed.items.some(o=>o.fulfillmentVersion===2)?<PreparationTasks orders={feed.items.filter(o=>o.fulfillmentVersion===2)} storeId={profile.storeId!} online={feed.online&&!feed.error} refresh={feed.refresh}/>:undefined}
             currentProfile={profile}
             stores={stores}
             products={products}
-            orders={orders}
+            orders={[...new Map([...history,...feed.items.map(normalizeOrder)].map(o=>[o.id,o])).values()]}
             couriers={couriers}
-            connected={connected}
+            connected={connected&&feed.online&&!feed.error}
             onKitchenChange={handleKitchenChange}
             onUpdateOrderStatus={handleUpdateOrderStatus}
             onUpdateProductStock={handleUpdateProductStock}
             onUpdateProductPrice={handleUpdateProductPrice}
             onAddProduct={handleAddProduct}
             onToggleStoreStatus={handleToggleStoreStatus}
-          />
+          />}
         </main>
 
         {/* Floating Cheerful Support Button */}

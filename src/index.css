@@ -12,15 +12,16 @@
 
 :root {
   color-scheme: light;
-  --font-ui: 'Cairo', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --color-ink: #152d38;
-  --color-muted: #526773;
+  --font-ui: 'Cairo Web', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --color-ink: #2D3142;
+  --color-muted: #6B7280;
   --color-subtle: #edf2f3;
-  --color-line: #dce5e7;
+  --color-line: #E7E9EE;
   --color-surface: #fff;
-  --color-canvas: #f3f6f7;
-  --color-primary: #cf430e;
-  --color-primary-hover: #ad3306;
+  --color-canvas: #F8F9FA;
+  --color-primary: #FF5900;
+  --color-on-primary: #2D3142;
+  --color-primary-hover: #b83f00;
   --color-primary-soft: #fff0e7;
   --color-teal: #08766b;
   --color-focus: #007d92;
@@ -30,7 +31,7 @@
   --bs-body-color: var(--color-ink);
   --bs-body-bg: var(--color-canvas);
   --bs-primary: var(--color-primary);
-  --bs-primary-rgb: 207, 67, 14;
+  --bs-primary-rgb: 255, 89, 0;
   --bs-border-color: var(--color-line);
   --bs-border-radius: 12px;
   --bs-link-color: var(--color-primary);
@@ -52,7 +53,7 @@ img { max-width: 100%; }
 
 /* Shared Bootstrap theme. Its behavior remains controlled by React and native controls. */
 .btn { --bs-btn-font-family: var(--font-ui); --bs-btn-font-weight: 700; --bs-btn-border-radius: 12px; --bs-btn-padding-y: .65rem; --bs-btn-padding-x: 1rem; }
-.btn-primary { --bs-btn-bg: var(--color-primary); --bs-btn-border-color: var(--color-primary); --bs-btn-hover-bg: var(--color-primary-hover); --bs-btn-hover-border-color: var(--color-primary-hover); --bs-btn-active-bg: var(--color-primary-hover); --bs-btn-active-border-color: var(--color-primary-hover); --bs-btn-disabled-bg: var(--color-primary); --bs-btn-disabled-border-color: var(--color-primary); }
+.btn-primary { --bs-btn-color: var(--color-on-primary); --bs-btn-hover-color: #fff; --bs-btn-bg: var(--color-primary); --bs-btn-border-color: var(--color-primary); --bs-btn-hover-bg: var(--color-primary-hover); --bs-btn-hover-border-color: var(--color-primary-hover); --bs-btn-active-bg: var(--color-primary-hover); --bs-btn-active-border-color: var(--color-primary-hover); --bs-btn-disabled-bg: var(--color-primary); --bs-btn-disabled-border-color: var(--color-primary); }
 .form-control, .form-select { min-height: 46px; font-family: var(--font-ui); border-color: var(--color-line); border-radius: 12px; color: var(--color-ink); }
 [dir="rtl"] .form-select { padding: .65rem .8rem .65rem 2.3rem; background-position: left .8rem center; }
 .form-control:focus, .form-select:focus { border-color: var(--color-focus); box-shadow: 0 0 0 .2rem rgb(0 125 146 / 15%); }
@@ -65,3 +66,12 @@ img { max-width: 100%; }
 /* Muted copy must remain readable on the light surfaces used by both web areas. */
 .admin-app .text-slate-400, .admin-app .text-slate-500,
 .capital-site .text-slate-400, .capital-site .text-slate-500 { color: var(--color-muted); }
+
+/* Shared data states; portal layouts remain scoped to their own stylesheets. */
+.data-state{display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px 16px;text-align:center;color:var(--color-muted);background:var(--color-surface);border:1px solid var(--color-line);border-radius:14px;margin:12px 0}.data-state p{margin:0}.data-state-error{color:#9f231b;background:#fff5f3;border-color:#f2c6c0}.data-state button{min-height:44px;padding:8px 16px;background:var(--color-surface);color:inherit;border:1px solid currentColor;border-radius:10px}.connection-state{font-size:12px;color:var(--color-muted);padding:8px 0}.preparation-tasks{display:grid;gap:12px}.preparation-task{background:var(--color-surface);border:1px solid var(--color-line);border-radius:16px;padding:16px}.preparation-task label{display:flex;gap:8px;align-items:center;padding:8px 0}.preparation-task button{min-height:44px;padding:8px 16px;border-radius:10px;background:var(--color-primary);color:var(--color-on-primary);margin:8px 0}
+
+/* Portal identity aliases; semantic success/error colours stay distinct. */
+.merchant-portal{color:var(--color-ink);background:var(--color-canvas);font-family:var(--font-ui)}
+.merchant-portal>header{background:var(--color-ink)}
+.merchant-portal .bg-orange-600{background-color:var(--color-primary);color:var(--color-on-primary)}
+.merchant-portal .text-orange-600{color:var(--color-primary-hover)}

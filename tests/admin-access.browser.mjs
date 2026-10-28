@@ -112,6 +112,31 @@ try {
     .getByRole("heading", { name: "حساب غير مصرح له كتاجر", exact: true })
     .waitFor();
   await context.close();
+  const courierContext=await browser.newContext({viewport:{width:390,height:844}}),courierPage=await courierContext.newPage();
+  await courierPage.goto('http://127.0.0.1:3105/courier');
+  await courierPage.getByLabel('البريد الإلكتروني',{exact:true}).fill('access-courier@example.com');
+  await courierPage.getByLabel('كلمة المرور',{exact:true}).fill('TestPassword123!');
+  await courierPage.getByRole('button',{name:'دخول المندوب',exact:true}).click();
+  await courierPage.getByRole('heading',{name:'مهام التوصيل',exact:true}).waitFor();
+  const {writeOrderSignals}=await import('../server/orderSignals.ts');
+  const assigned={id:'courier-browser-order',orderNumber:'CUR-BROWSER',storeIds:['access-store'],courierId:users.courier.uid,orderStatus:'ready',paymentMethod:'cash',paymentStatus:'cash_on_delivery',total:25,profileId:users.employee.uid,profileName:'عميل التوصيل',phone:'01012345678',ministry:'عنوان الاختبار',floorNumber:'1',roomNumber:'2',items:[{id:'item',quantity:1,extraPrice:0,product:{id:'access-product',name:'منتج المهمة',storeId:'access-store',storeName:'متجر صلاحيات الاختبار',price:25}}]};
+  await service.db.runTransaction(async tx=>{tx.set(service.db.doc('orders/'+assigned.id),assigned);tx.set(service.db.doc('orderSecrets/'+assigned.id),{otpCode:'1234',attempts:0});writeOrderSignals(service.db,tx,assigned);});
+  await courierPage.getByRole('heading',{name:'طلب CUR-BROWSER',exact:true}).waitFor();
+  await courierPage.getByLabel('راجعت الأصناف والكميات عند الاستلام').check();
+  await courierPage.getByRole('button',{name:'تأكيد استلام الطلب',exact:true}).click();
+  await courierPage.getByRole('button',{name:'بدء التوصيل للعميل',exact:true}).click();
+  await courierPage.getByLabel('رمز تسليم CUR-BROWSER',{exact:true}).fill('1234');
+  await courierPage.getByLabel('حصّلت قيمة الطلب كاملة وسلّمت الأصناف').check();
+  await courierPage.getByRole('button',{name:'تأكيد التسليم بالرمز',exact:true}).click();
+  await courierPage.getByText('لا توجد مهام نشطة مسندة إليك.',{exact:false}).waitFor();
+  assert.equal((await service.db.doc('orders/'+assigned.id).get()).data().orderStatus,'delivered');
+  await courierPage.getByRole('button',{name:'سجل التوصيل',exact:true}).click();
+  await courierPage.getByRole('heading',{name:'طلب CUR-BROWSER',exact:true}).waitFor();
+  assert.equal(await courierPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await service.db.doc('staff/'+users.courier.uid).delete();
+  await courierPage.getByText('هذا الحساب غير معتمد كمندوب، أو تعذر التحقق من الصلاحية.',{exact:true}).waitFor();
+  assert.equal(await courierPage.getByText('CUR-BROWSER',{exact:false}).count(),0);
+  await courierContext.close();
   console.log(
     "Current admin and merchant entrypoints: role separation, admin admission and live membership revocation passed. Demo accounts only.",
   );

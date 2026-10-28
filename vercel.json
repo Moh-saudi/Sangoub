@@ -4,6 +4,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/courier",
+      "destination": "/index.html"
+    },
+    {
       "source": "/merchant",
       "destination": "/index.html"
     },
@@ -141,6 +145,15 @@
     },
     {
       "source": "/checkout/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/courier",
       "headers": [
         {
           "key": "Cache-Control",

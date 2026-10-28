@@ -11,7 +11,7 @@ export const BRAND = {
     orange: '#FF5900',
     navy: '#2D3142',
     white: '#FFFFFF',
-    neutralBg: '#F7F8FA',
+    neutralBg: '#F8F9FA',
     border: '#E7E9EE',
     textSecondary: '#6B7280',
   },

@@ -1,3 +1,4 @@
+import { writeOrderSignals } from '../orderSignals.ts';
 import {customerOrderHistory} from '../customerOrders.ts';
 import {checkoutQuoteHash} from '../checkoutQuote.ts';
 import {ensureOrderPayment} from '../orderPayments.ts';
@@ -147,6 +148,7 @@ export default async function handler(req: any, res: any) {
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
+      writeOrderSignals(db, tx, order);
       tx.create(db.doc('customerOrderHistory/'+identity.uid+'/orders/'+ref.id),{createdAt:FieldValue.serverTimestamp()});
       tx.create(db.collection("orderSecrets").doc(ref.id), {
         otpCode: randomInt(1000, 10000).toString(), attempts: 0,

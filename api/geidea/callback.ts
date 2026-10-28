@@ -1,3 +1,4 @@
+import { writeOrderSignals } from '../../server/orderSignals.ts';
 import { FieldValue } from "firebase-admin/firestore";
 import { adminServices } from "../../server/firebaseAdmin.ts";
 import { GeideaGateway, ChatAmanGateway } from "../../server/integrations.ts";
@@ -77,6 +78,7 @@ export default async function handler(req: any, res: any) {
         updatedAt: FieldValue.serverTimestamp(),
         geideaTransaction: verified,
       });
+      writeOrderSignals(db,tx,{...current.data(),id,storeIds:current.data()!.pendingStoreIds || current.data()!.storeIds,paymentStatus:"paid"});
       tx.update(payment.ref, {
         state: "paid",
         providerId,

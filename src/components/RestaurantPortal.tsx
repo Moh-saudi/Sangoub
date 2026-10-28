@@ -1,3 +1,4 @@
+import { EmptyState } from './ui/DataStates';
 import { cairoDay } from "../utils/orderIntegration";
 import { KitchenDisplay } from "./KitchenDisplay";
 import React, { useState, useMemo } from "react";
@@ -44,6 +45,7 @@ import {
 import { SmartImage } from "./SmartImage.tsx";
 
 interface RestaurantPortalProps {
+  preparationContent?: React.ReactNode;
   connected: boolean;
   onKitchenChange: (id: string, storeId: string, stage: "preparing" | "ready") => Promise<void>;
   currentProfile: Profile;
@@ -67,6 +69,7 @@ interface RestaurantPortalProps {
 }
 
 export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
+  preparationContent,
   currentProfile,
   stores,
   products,
@@ -388,13 +391,14 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "kitchen" && (
         <section aria-label="شاشة تذاكر المطبخ الحية">
-          <KitchenDisplay
-            orders={orders}
+          {preparationContent}
+          {(!preparationContent||orders.some(o=>o.fulfillmentVersion!==2&&["received","preparing"].includes(o.orderStatus)))&&<KitchenDisplay
+            orders={orders.filter(o=>o.fulfillmentVersion!==2)}
             stores={stores}
             fixedStoreId={userStore.id}
             connected={connected}
             onChange={onKitchenChange}
-          />
+          />}
         </section>
       )}
 
@@ -559,6 +563,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             </form>
           )}
 
+          {filteredProducts.length===0&&<EmptyState message={productSearch?"لا توجد أصناف تطابق البحث؛ جرّب اسمًا آخر.":"لا توجد أصناف في هذه القائمة. يمكن لمدير المتجر إضافة صنف جديد."}/>}
           {/* Product Items Cards (Apple Minimalist Grid) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredProducts.map((prod) => (

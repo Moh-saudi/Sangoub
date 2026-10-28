@@ -1,3 +1,4 @@
+import { writeOrderSignals } from '../orderSignals.ts';
 import { auditInTransaction, attachAuditContext } from "../audit.ts";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminServices } from "../firebaseAdmin.ts";
@@ -25,9 +26,11 @@ export default async function handler(req: any, res: any) {
     const orderRef = db.collection("orders").doc(orderId);
     const secretRef = db.collection("orderSecrets").doc(orderId);
     const result = await db.runTransaction(async (tx) => {
-      const [orderDoc, secretDoc, staff] = await Promise.all([
-        tx.get(orderRef), tx.get(secretRef), tx.get(db.collection("staff").doc(user.uid)),
+      const [orderDoc, secretDoc, staff, currentAccess] = await Promise.all([
+        tx.get(orderRef), tx.get(secretRef), tx.get(db.collection("staff").doc(user.uid)), tx.get(db.doc("accountAccess/"+user.uid)),
       ]);
+      const control=currentAccess.data();
+      if(control?.disabled||control?.operationLocked||user.auth_time<=(control?.revokedBefore||0))return {status:403,body:{error:'انتهت صلاحية الحساب.'}};
       if (!orderDoc.exists) return { status: 404, body: { error: "الطلب غير موجود." } };
       const order = orderDoc.data()!;
       if (action === "code") {
@@ -62,6 +65,7 @@ export default async function handler(req: any, res: any) {
       tx.update(orderRef, { orderStatus: "delivered", deliveredAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), paymentStatus: "paid",
         courierChecklist: { ...order.courierChecklist, collectedPayment: true, collectedAmount, arrivedAtCustomerOffice: true },
       });
+      writeOrderSignals(db,tx,{...order,id:orderId,orderStatus:"delivered"},{...order,id:orderId});
       auditInTransaction(db,tx,user,"orders.delivered","orders",orderId,{orderStatus:order.orderStatus,paymentStatus:order.paymentStatus},{orderStatus:"delivered",paymentStatus:"paid",collectedAmount},"","delivery-api");
       if(order.fulfillmentVersion===2)closeOperationalQueues(db,tx,{...order,id:orderId});
       tx.delete(secretRef);

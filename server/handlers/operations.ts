@@ -1,3 +1,5 @@
+import { portalOrderActions, portalOrders } from '../portalOrders.ts';
+import { writeOrderSignals } from '../orderSignals.ts';
 import {merchantActions,merchantAction} from '../merchantActions.ts';
 import { FieldValue } from 'firebase-admin/firestore';
 import { AdminError, adminError, validId } from '../adminRequest.ts';
@@ -18,6 +20,7 @@ export default async function handler(req: any, res: any) {
     destination: role === 'admin' ? 'admin_web' : role === 'restaurant' ? 'store_preparation' : role === 'courier' ? 'courier_tasks' : 'customer_home',
     capabilities: ['operations_v2'], rolloutReady: rolloutReady(), requiresStoreAssignment: role === 'restaurant' && !store });
   }
+  if(portalOrderActions.includes(input.action))return res.status(200).json(await portalOrders(input,context));
   if(merchantActions.includes(input.action))return res.status(200).json(await merchantAction(input,context));
   if(input.action==='cancel'){
    validId(input.orderId);
@@ -33,6 +36,7 @@ export default async function handler(req: any, res: any) {
     if(tickets.some(ticket=>ticket.data()?.status!=='received'))throw new AdminError(409,'بدأ تحضير الطلب.');
     for(const ticket of tickets)tx.update(ticket.ref,{status:'cancelled',updatedAt:FieldValue.serverTimestamp()});
     tx.update(doc.ref,{orderStatus:'cancelled',updatedAt:FieldValue.serverTimestamp()});closeOperationalQueues(db,tx,order);
+    writeOrderSignals(db,tx,{...order,orderStatus:'cancelled'},order);
     auditInTransaction(db,tx,actor,'orders.cancelled','orders',order.id,{orderStatus:'received'},{orderStatus:'cancelled'});
    });return res.status(200).json({ok:true});
   }
@@ -90,6 +94,7 @@ export default async function handler(req: any, res: any) {
     if(index<0)throw new AdminError(400,'المتجر ليس ضمن الطلب.');
     if(typeof input.reason!=='string'||input.reason.trim().length<5||input.reason.length>500)throw new AdminError(400,'اكتب نتيجة المراجعة.');
     tx.update(tickets[index].ref,{issueOpen:false,resolution:input.reason.trim(),resolvedBy:actor.uid,updatedAt:FieldValue.serverTimestamp()});
+    writeOrderSignals(db,tx,order,order);
     auditInTransaction(db,tx,actor,'fulfillment.issue.resolved','orders',order.id,null,{storeId:input.storeId,reason:input.reason.trim()});return;
    }
    if (['prepare', 'report-issue'].includes(input.action)) {
@@ -100,6 +105,7 @@ export default async function handler(req: any, res: any) {
     if (input.action === 'report-issue') {
      if (typeof input.reason !== 'string' || input.reason.trim().length < 5 || input.reason.length > 500) throw new AdminError(400, 'اشرح المشكلة في حدود 500 حرف.');
      tx.update(tickets[index].ref, { issue: input.reason.trim(), issueOpen: true, updatedAt: FieldValue.serverTimestamp() });
+     writeOrderSignals(db,tx,order,order);
      auditInTransaction(db, tx, actor, 'fulfillment.issue', 'orders', order.id, null, { storeId, reason: input.reason.trim() }); return;
     }
     if(ticket.issueOpen)throw new AdminError(409,'تحتاج التذكرة مراجعة الإدارة قبل متابعة التحضير.');
@@ -113,9 +119,11 @@ export default async function handler(req: any, res: any) {
     const allReady = tickets.every((doc, i) => i === index || ['ready', 'picked_up'].includes(doc.data()!.status));
     tx.update(tickets[index].ref, { status: input.next, preparedBy: actor.uid, preparedByName: String(currentStaff.data()?.name || '').slice(0,120), checkedItemIds: input.next === 'ready' ? checked : [], updatedAt: FieldValue.serverTimestamp(), ...(input.next === 'ready' ? { readyAt: FieldValue.serverTimestamp() } : {}) });
     tx.update(orderDoc.ref, { kitchenStatus: { ...order.kitchenStatus, [storeId]: input.next }, orderStatus: input.next === 'ready' && allReady ? 'ready' : 'preparing', updatedAt: FieldValue.serverTimestamp(), ...(input.next === 'ready' && allReady ? { readyAt: FieldValue.serverTimestamp() } : {}) });
+    writeOrderSignals(db,tx,{...order,orderStatus:input.next==='ready'&&allReady?'ready':'preparing'},order);
     auditInTransaction(db, tx, actor, 'fulfillment.' + input.next, 'orders', order.id, { storeId, status: ticket.status }, { storeId, status: input.next }); return;
    }
    if (role !== 'courier' || order.courierId !== actor.uid) throw new AdminError(403, 'الطلب لمندوب آخر.');
+   if (!paymentReady(order)) throw new AdminError(409, 'بانتظار تأكيد الدفع.');
    if (input.action === 'pickup') {
     validId(input.storeId); const index = storeIds.indexOf(input.storeId);
     if (index < 0) throw new AdminError(403, 'المتجر ليس ضمن نقاط هذا الطلب.');
@@ -126,11 +134,13 @@ export default async function handler(req: any, res: any) {
     tx.update(tickets[index].ref, { status: 'picked_up', pickedUpBy: actor.uid, pickedUpByName: String(currentStaff.data()?.name || '').slice(0,120), pickedUpAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
     tx.set(queueRef(db, input.storeId, order.id), { active: false }, { merge: true });
     tx.update(orderDoc.ref,{pickedUpStoreIds:FieldValue.arrayUnion(input.storeId),updatedAt:FieldValue.serverTimestamp()});
+    writeOrderSignals(db,tx,order,order);
     auditInTransaction(db, tx, actor, 'fulfillment.picked_up', 'orders', order.id, { storeId: input.storeId, status: ticket.status }, { storeId: input.storeId, status: 'picked_up' }); return;
    }
    if (order.orderStatus === 'with_courier') return;
    if (order.orderStatus !== 'ready' || tickets.some(ticket => ticket.data()!.status !== 'picked_up')) throw new AdminError(409, 'أكد الاستلام من جميع المتاجر قبل بدء التوصيل.');
    tx.update(orderDoc.ref, { orderStatus: 'with_courier', departedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+   writeOrderSignals(db,tx,{...order,orderStatus:'with_courier'},order);
    auditInTransaction(db, tx, actor, 'orders.departed', 'orders', order.id, { orderStatus: 'ready' }, { orderStatus: 'with_courier' });
   });
   return res.status(200).json({ ok: true });

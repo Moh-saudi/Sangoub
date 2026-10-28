@@ -23,6 +23,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run test:commerce-services
+      - run: npm run test:portal-services
       - run: npm run test:native-api
       - run: npm run test:compiled-api
         env:
@@ -35,6 +36,7 @@ jobs:
       - run: npm run test:commerce-integration
       - run: npx playwright install --with-deps chromium
       - run: node tests/pwa-build.browser.mjs
+      - run: npm run test:portal-regression
       - run: npm run test:admin-web
       - run: npm run test:shop-web
       - run: npm run test:storefront-auth

@@ -4,18 +4,18 @@
    ============================================================ */
 
 :root {
-  --talabat-orange: #FF5A00;
-  --talabat-orange-dark: #E04E00;
-  --talabat-orange-light: #FFF2EC;
-  --talabat-bg: #F7F7F8;
-  --talabat-text: #1F2937;
-  --talabat-muted: #6B7280;
-  --talabat-border: #E5E7EB;
+  --talabat-orange: var(--color-primary);
+  --talabat-orange-dark: var(--color-primary-hover);
+  --talabat-orange-light: var(--color-primary-soft);
+  --talabat-bg: var(--color-canvas);
+  --talabat-text: var(--color-ink);
+  --talabat-muted: var(--color-muted);
+  --talabat-border: var(--color-line);
 }
 
 /* Base resets for storefront */
 .sangoub-store {
-  font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+  font-family: 'Cairo Web', system-ui, -apple-system, sans-serif;
   background-color: var(--talabat-bg);
   color: var(--talabat-text);
   min-height: 100vh;

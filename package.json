@@ -29,7 +29,9 @@
     "test:commerce-services": "node --import tsx --test tests/commerce-services.test.ts",
     "test:commerce-integration": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx --test tests/commerce-integration.test.ts\"",
     "test:legacy-admin-web": "firebase emulators:exec --config firebase.emulators.json --only auth,firestore --project demo-capital-talabat \"node --import tsx tests/admin-web.browser.mjs\"",
-    "test:storefront-auth": "firebase emulators:exec --config firebase.emulators.json --only auth --project demo-capital-talabat \"node --import tsx tests/storefront-auth.browser.mjs\""
+    "test:storefront-auth": "firebase emulators:exec --config firebase.emulators.json --only auth --project demo-capital-talabat \"node --import tsx tests/storefront-auth.browser.mjs\"",
+    "test:portal-services": "node --import tsx --test tests/portal-orders.test.ts",
+    "test:portal-regression": "node tests/portal-regression.browser.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1154.0",
