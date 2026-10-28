@@ -1,0 +1,161 @@
+# Tracking implementation worklog
+
+Baseline branch: feature/osm-tracking at 79deabe. Work restricted to GPS/web scope. No main push, merge, deployment or production Firebase connection authorized. Start: 2026-10-28 (Africa/Cairo). No other agent is working on this branch.
+
+This log records literal command tails after each task's gates. Git metadata for a task is recorded immediately after its implementation commit, in the next bookkeeping change: a commit cannot contain its own SHA. The final log update will be a separate documentation commit. Secrets and environment values are excluded.
+
+## Environment and external prerequisites
+
+Node v24.19.0; Java OpenJDK 21.0.12.1. Node 22 requested but not installed in this workspace; Node 24 is within the allowed test:rules range. Vercel Preview environment isolation, its production Git trigger, Staging project creation and private SDK-file placement outside tools' workspace cannot be verified from this environment. No secrets have been read. Preview deployment must be disabled or isolated before pushing this branch; a branch push may trigger the user's external deployment integration. No remote branch push will be made until that prerequisite is established; draft PR creation will be attempted using the existing remote branch only if safe and callable.
+
+## T0 — IN PROGRESS
+
+Audit and npm ci/lint/test/build, with demo-only emulator tests where possible.
+
+## T0 — PASS
+
+npm ci/lint/test/build PASS; test:rules NOT RUN: emulator startup failed before tests. Node24/Java21; no production access. Detailed D1–D4 in AUDIT.
+
+### Command
+```sh
+npm ci --cache /workspace/.npm-cache --prefer-offline --no-audit --no-fund --fetch-retries=0 --fetch-timeout=20000
+```
+```text
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm warn deprecated json-ptr@3.1.1: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated uuid@7.0.3: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+npm warn deprecated glob@11.1.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+
+added 1271 packages in 2m
+```
+
+### Command
+```sh
+npm run lint
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+```
+
+### Command
+```sh
+npm test
+```
+```text
+[truncated]
+✔ discount allocations never become negative and do not lose cents across stores (0.773917ms)
+✔ tax is not invented and configured VAT requires a registration number (0.672387ms)
+✔ R2 uploads use a generated catalog key with correct extension (1.533231ms)
+✔ rejects unsupported types, oversize files and arbitrary object paths (0.482295ms)
+✔ image signing requires authentication before accessing cloud services (0.604212ms)
+✔ checkout acknowledgment cannot erase quantities or new lines added during the request (3.060285ms)
+✔ mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities (3.386034ms)
+✔ InstaPay is a requested payment method and never a paid confirmation (0.362412ms)
+✔ incomplete customer details, invalid quantities and unknown menu items cannot produce a sendable request (0.763901ms)
+✔ Arabic and Persian quantity digits are accepted while fractional quantities are rejected (0.44441ms)
+✔ supermarket request combines packs from every section without breakfast items or payment claims (0.555404ms)
+✔ campaign scheduling uses Cairo rather than the execution host timezone (35.276885ms)
+✔ catalog monitoring counts delivered snapshots and excludes cancelled orders (2.999793ms)
+✔ editing archived items cannot silently make them available (32.016217ms)
+✔ catalog editor rejects invalid discounts, unsafe URLs and nonnumeric prices (1.811833ms)
+✔ calculateCartSubtotal correctly sums prices with quantities and options (1.783099ms)
+✔ applyCouponDiscount handles minOrder thresholds and discount calculation (0.412741ms)
+✔ calculateOrderTotal applies discount, delivery fee, and tip properly (0.160544ms)
+✔ getNextOrderStatus advances status correctly (0.121318ms)
+✔ validateEmployeeProfile validates name, Egyptian phone, ministry and floor (0.411556ms)
+✔ updateCourierMilestone updates checklist and advances to delivered when completed (0.188736ms)
+✔ currency formatting preserves cents charged by the payment gateway (15.927317ms)
+✔ calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission (0.402966ms)
+✔ generateMerchantJournalEntries creates balanced double-entry accounting records (0.723717ms)
+✔ calculateTopSellingProducts ranks products correctly by volume and share (0.639607ms)
+✔ calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest (0.526491ms)
+✔ Flutter summary records preserve totals and normalize Firestore timestamps (2.961455ms)
+✔ one kitchen cannot mark a multi-store order globally ready (0.674884ms)
+✔ daily metrics use Cairo date and actual delivery time across midnight (27.200679ms)
+✔ offers exclude invalid discounts, archived stock, and closed or missing stores (2.872416ms)
+✔ price and store availability changes immediately update offer eligibility (0.290055ms)
+✔ campaign tags and referrer domains classify sources without accepting spoofed hosts or collecting raw values (1.184675ms)
+ℹ tests 47
+ℹ suites 0
+ℹ pass 47
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 877.007663
+```
+
+### Command
+```sh
+npm run build
+```
+```text
+[truncated]
+dist/assets/index-D9vuyBnO.css            267.74 kB │ gzip:  46.62 kB
+dist/assets/operationsApi-CzZJkVOs.js       0.09 kB │ gzip:   0.10 kB
+dist/assets/orderDelivery-Cb6ET3E9.js       0.49 kB │ gzip:   0.40 kB
+dist/assets/rolldown-runtime-WkwZ5CU-.js    0.59 kB │ gzip:   0.36 kB
+dist/assets/loader-circle-BB_a9ApL.js       1.50 kB │ gzip:   0.86 kB
+dist/assets/DataStates-CJBxYAsJ.js          3.35 kB │ gzip:   1.65 kB
+dist/assets/react-dom-fuSZiae7.js           3.90 kB │ gzip:   1.42 kB
+dist/assets/CourierApp-Bo1r15t5.js         11.85 kB │ gzip:   4.24 kB
+dist/assets/KitchenDisplay-Dt8T1Ouz.js     12.11 kB │ gzip:   4.50 kB
+dist/assets/LocationModal-xLsXyCAC.js      13.98 kB │ gzip:   4.33 kB
+dist/assets/ShopFront-5mg_Mmdl.js          39.34 kB │ gzip:  11.20 kB
+dist/assets/MerchantApp-P7H9JjKl.js        77.84 kB │ gzip:  19.49 kB
+dist/assets/AdminApp-Yowacc0b.js          283.49 kB │ gzip:  67.91 kB
+dist/assets/index-CBYNEXhx.js             529.20 kB │ gzip: 150.58 kB
+dist/assets/jsx-runtime-B8K-vAZj.js       605.87 kB │ gzip: 184.29 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/authenticatedApi.ts is dynamically imported by src/lib/firebase.ts but also statically imported by src/components/NotificationCenter.tsx, src/lib/adminApi.ts, src/lib/operationsApi.ts, src/shop/ShopFront.tsx, src/storefront/components/SangoubAuthModal.tsx, dynamic import will not move module into another chunk.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.52s
+
+PWA v2.0.0
+mode      generateSW
+precache  29 entries (2663.31 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-95677aec.js
+[33m[PLUGIN_TIMINGS] [0mJavaScript callbacks ran for 5.1s. The build took 3.5s. Callbacks such as `closeBundle` run after the build ends, so callback time can be more than build time.
+The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - plugin vite-plugin-pwa:build closeBundle (55%, 1.9s, 1 call)
+Additional callback time came from the callbacks below and from callbacks under 1s.
+2 callbacks are listed without a time. Their calls overlapped, so the time inside one call includes work from other calls. To find their cost, profile the build with `node --cpu-prof`:
+  - plugin vite:css transform (10 calls)
+  - plugin @tailwindcss/vite:generate:build transform (9 calls)
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
+
+```
+
+### Command
+```sh
+env -u FIREBASE_CLIENT_EMAIL -u FIREBASE_PRIVATE_KEY -u GOOGLE_APPLICATION_CREDENTIALS XDG_CONFIG_HOME=/workspace/.config CI=1 FIREBASE_PROJECT_ID=demo-capital-talabat npm run test:rules
+```
+```text
+
+> react-example@0.0.0 test:rules
+> firebase emulators:exec --config firebase.emulators.json --only firestore,auth --project demo-capital-talabat "node --import tsx --test --test-concurrency=1 tests/firestore.security.test.ts tests/order-api.integration.test.ts tests/admin-api.integration.test.ts"
+
+i  emulators: Starting emulators: auth, firestore
+i  emulators: Detected demo project ID "demo-capital-talabat", emulated services will use a demo configuration and attempts to access non-emulated services for this project will fail.
+⚠  It appears you are running in a CI environment. You can avoid downloading the Firestore Emulator repeatedly by caching the /home/agent/.cache/firebase/emulators directory.
+i  firestore: downloading cloud-firestore-emulator-v1.22.0.jar...
+i  emulators: Shutting down emulators.
+i  firestore: Stopping Firestore Emulator
+i  hub: Stopping emulator hub
+
+Error: Failed to make request to https://storage.googleapis.com/firebase-preview-drop/emulator/cloud-firestore-emulator-v1.22.0.jar
+```
