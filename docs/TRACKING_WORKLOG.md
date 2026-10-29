@@ -2165,3 +2165,144 @@ files generated
 ```
 
 جاهز للمراجعة
+
+## Branches-CI-2 — PASS
+
+CI40832116354 أكد نجاح auth/operations وفشل اختبار operational signals. صُحح فقدان this في fixture context.firestore() دون تغيير rules، وضبط مسار Chromium من Playwright نفسه. نجحت البوابات المحلية؛ ننتظر CI التالية قبل الدمج. هذه متابعة فشل حقيقي وليست إخفاء له.
+
+### Command
+```sh
+npm run lint
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+```
+
+### Command
+```sh
+npm test
+```
+```text
+[truncated]
+✔ two orders share one GPS and one Wake Lock but each filters/writes its own heartbeat and stops independently (3.508342ms)
+✔ retry uses 2s/5s/10s backoff, survives transient failure, stops after three continuous failure minutes (5.016041ms)
+✔ visibility stops foreground publishing and reacquires one watch/lock; no stale point republished before a fresh fix (1.271693ms)
+✔ unacknowledged offline write cannot keep GPS or Wake Lock alive indefinitely (0.881933ms)
+✔ heartbeats stop claiming a live position after 120s without a reliable GPS fix (0.818469ms)
+✔ checkout acknowledgment cannot erase quantities or new lines added during the request (2.31042ms)
+✔ mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities (2.009679ms)
+✔ InstaPay is a requested payment method and never a paid confirmation (0.305198ms)
+✔ incomplete customer details, invalid quantities and unknown menu items cannot produce a sendable request (0.728909ms)
+✔ Arabic and Persian quantity digits are accepted while fractional quantities are rejected (0.533327ms)
+✔ supermarket request combines packs from every section without breakfast items or payment claims (0.615229ms)
+✔ campaign scheduling uses Cairo rather than the execution host timezone (19.763481ms)
+✔ catalog monitoring counts delivered snapshots and excludes cancelled orders (2.115077ms)
+✔ editing archived items cannot silently make them available (29.497192ms)
+✔ catalog editor rejects invalid discounts, unsafe URLs and nonnumeric prices (0.548271ms)
+✔ calculateCartSubtotal correctly sums prices with quantities and options (1.561985ms)
+✔ applyCouponDiscount handles minOrder thresholds and discount calculation (0.48772ms)
+✔ calculateOrderTotal applies discount, delivery fee, and tip properly (0.282256ms)
+✔ getNextOrderStatus advances status correctly (0.211417ms)
+✔ validateEmployeeProfile validates name, Egyptian phone, ministry and floor (0.611722ms)
+✔ updateCourierMilestone updates checklist and advances to delivered when completed (0.340589ms)
+✔ currency formatting preserves cents charged by the payment gateway (20.16885ms)
+✔ calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission (0.409897ms)
+✔ generateMerchantJournalEntries creates balanced double-entry accounting records (0.763585ms)
+✔ calculateTopSellingProducts ranks products correctly by volume and share (0.500901ms)
+✔ calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest (0.409817ms)
+✔ Flutter summary records preserve totals and normalize Firestore timestamps (2.322048ms)
+✔ one kitchen cannot mark a multi-store order globally ready (0.573207ms)
+✔ daily metrics use Cairo date and actual delivery time across midnight (24.42566ms)
+✔ offers exclude invalid discounts, archived stock, and closed or missing stores (2.08522ms)
+✔ price and store availability changes immediately update offer eligibility (0.22513ms)
+✔ campaign tags and referrer domains classify sources without accepting spoofed hosts or collecting raw values (1.344587ms)
+ℹ tests 85
+ℹ suites 0
+ℹ pass 85
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1375.044358
+```
+
+### Command
+```sh
+npm run build
+```
+```text
+[truncated]
+rendering chunks...
+computing gzip size...
+dist/build-info.json                         0.08 kB │ gzip:   0.09 kB
+dist/registerSW.js                           0.13 kB
+dist/manifest.webmanifest                    0.50 kB
+dist/index.html                              3.16 kB │ gzip:   1.12 kB
+dist/assets/CourierApp-objfHoLw.css          2.49 kB │ gzip:   0.85 kB
+dist/assets/MerchantApp-BTOjdwri.css        10.25 kB │ gzip:   2.57 kB
+dist/assets/ShopFront-RYKMbjBy.css          10.40 kB │ gzip:   2.60 kB
+dist/assets/useOsmRoute-vh-t_kPv.css        15.09 kB │ gzip:   6.36 kB
+dist/assets/AdminApp-EWhne2zZ.css           49.46 kB │ gzip:   9.88 kB
+dist/assets/index-qn0S2sR_.css             250.65 kB │ gzip:  39.95 kB
+dist/assets/operationsApi-DfLln63v.js        0.09 kB │ gzip:   0.10 kB
+dist/assets/adminPresentation-Bc0jKY_r.js    0.19 kB │ gzip:   0.17 kB
+dist/assets/orderDelivery-CduKpJsZ.js        0.49 kB │ gzip:   0.39 kB
+dist/assets/DataStates-2HZl428u.js           3.33 kB │ gzip:   1.64 kB
+dist/assets/KitchenDisplay-DR--rppj.js      12.41 kB │ gzip:   4.62 kB
+dist/assets/CourierApp-CUbh_5dv.js          21.68 kB │ gzip:   7.74 kB
+dist/assets/ShopFront-DN16ytb1.js           38.79 kB │ gzip:  11.07 kB
+dist/assets/MerchantApp-Ba2HXykc.js         74.33 kB │ gzip:  18.82 kB
+dist/assets/useOsmRoute-w8e3omTz.js        167.98 kB │ gzip:  50.66 kB
+dist/assets/AdminApp-CvB1J8vj.js           281.44 kB │ gzip:  68.39 kB
+dist/assets/index-C8_LAWkm.js              370.96 kB │ gzip: 104.89 kB
+dist/assets/firebase-DsZuyFPx.js           604.78 kB │ gzip: 182.98 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/authenticatedApi.ts is dynamically imported by src/lib/firebase.ts but also statically imported by src/components/NotificationCenter.tsx, src/lib/adminApi.ts, src/lib/operationsApi.ts, src/shop/ShopFront.tsx, src/storefront/components/SangoubAuthModal.tsx, dynamic import will not move module into another chunk.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.48s
+
+PWA v2.0.0
+mode      generateSW
+precache  28 entries (2654.40 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-95677aec.js
+```
+
+### Command
+```sh
+npm run test:tracking-map
+```
+```text
+
+> react-example@0.0.0 test:tracking-map
+> node tests/tracking-map.browser.mjs
+
+PASS: isolated Leaflet fixture at 320/390/1366px; smooth marker update preserves map DOM, attribution visible, no horizontal overflow. External requests intercepted; no Firebase imported or contacted.
+```
+
+### Previous CI repair commit
+```text
+commit abbfeea51f14cf1ecc0262c116c49c4f52838195
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Thu Oct 29 06:54:56 2026 +0000
+
+    fix(ci): align merchant realtime tests with scoped signals and validate GPS branch
+
+ .github/workflows/web-validation.yml |  14 +++-
+ docs/BRANCH_CONSOLIDATION.md         |  17 +++++
+ docs/TRACKING_WORKLOG.md             | 144 +++++++++++++++++++++++++++++++++++
+ scripts/check-rules-ci.mjs           |  15 ++++
+ tests/firestore.security.test.ts     |  52 ++++++++-----
+ 5 files changed, 219 insertions(+), 23 deletions(-)
+```
+
+جاهز للمراجعة

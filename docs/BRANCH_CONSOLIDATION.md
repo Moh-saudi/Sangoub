@@ -15,3 +15,9 @@ main لديه فشل CI في test:rules وفق صفحة GitHub العامة لل
 CI أصبح يفحص فرع GPS نفسه، مع npm ci بدل npm install لتجنب اختلاف نسخ dependencies. معرفات Firebase الاختبارية demo-only؛ لم توضع أسرار أو مشروع إنتاج في المهمة. أضيف wrapper يحتفظ برمز خروج test:rules ويعلن أسماء الاختبارات الفاشلة الثابتة فقط عبر GitHub annotations؛ لا طباعة قيم tokens أو حسابات أو بيانات اختبارات إضافية.
 
 نجحت بوابات lint/lint:server و85 اختبارًا وcompiled API والبناء محليًا. emulator jar الرسمي ما زال يرجع403 حتى بعد منح الشبكة لهذه الجولة؛ لذلك لا ادعاء بنجاح test:rules أو أن كل فشل CI انتهى. لا تعديل/نشر firestore.rules. تبقى مراجعة نتيجة CI الجديدة شرطًا قبل إزالة فرع GPS أو وصفه بأنه اندمج بنجاح.
+
+## نتيجة CI الأولى على GPS
+
+تشغيل40832116354 نجح حتى auth وoperations؛ فشل test:rules حدد اختبار operational signals فقط. ظهر خطأ fixture مؤكد في المصدر: destructuring لطريقة context.firestore يفقد this، وطريقة SDK تعتمد على this.emulators/this.getApp. أُعيد الاستدعاء عبر context دون أي تغيير للقواعد. الاختبار القديم للـraw-order listener صُحح في الدفعة السابقة. هذه نتيجة تشخيص فعلية وليست نجاح test:rules بعد.
+
+إعداد متصفح CI أصبح يستخدم chromium.executablePath() للنسخة التي يثبتها Playwright بدل افتراض وجود /usr/bin/chromium في GitHub Runner، مع إضافة fixture GPS إلى CI. لا تغيير لسلوك التطبيق أو قواعد البيانات.

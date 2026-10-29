@@ -451,8 +451,8 @@ test('new preparation-only accounts cannot edit prices, create products, close s
 });
 
 test("operational signals isolate stores and courier accounts and forbid client writes", async () => {
-  await env.withSecurityRulesDisabled(async ({firestore}) => {
-    const db=firestore();
+  await env.withSecurityRulesDisabled(async context => {
+    const db=context.firestore();
     await db.doc('storeOrderSignals/s1/orders/o1').set({orderId:'o1',storeId:'s1',active:true,orderStatus:'ready'});
     await db.doc('storeOrderSignals/s2/orders/private').set({orderId:'private',storeId:'s2',active:true,orderStatus:'ready'});
     await db.doc('storeOrderSignals/s1/orders/closed').set({orderId:'closed',storeId:'s1',active:false,orderStatus:'delivered'});
@@ -467,7 +467,7 @@ test("operational signals isolate stores and courier accounts and forbid client 
   await assertFails(db('restaurant').doc('courierOrderSignals/courier/orders/o1').get());
   await assertFails(db('courier').doc('courierOrderSignals/other/orders/o1').get());
   await assertFails(db('courier').doc('courierOrderSignals/courier/orders/fake').set({active:true}));
-  await env.withSecurityRulesDisabled(async ({firestore})=>{await firestore().doc('staff/restaurant').delete();});
+  await env.withSecurityRulesDisabled(async context=>{await context.firestore().doc('staff/restaurant').delete();});
   await assertFails(db('restaurant').doc('storeOrderSignals/s1/orders/o1').get());
 });
 
