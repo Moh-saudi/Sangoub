@@ -38,7 +38,12 @@ export default async function handler(req: any, res: any) {
       if(!source||typeof source!=='object'||Array.isArray(source)||Object.keys(source).some(key=>!Object.hasOwn(limits,key)&&key!=='coordinates'))return res.status(400).json({error:'حقول ملف غير مسموحة.'});
       const patch:any={};for(const [key,value]of Object.entries(source)){if(key==='coordinates'){const point=value as any;if(!point||!Number.isFinite(point.latitude)||!Number.isFinite(point.longitude)||Math.abs(point.latitude)>90||Math.abs(point.longitude)>180)return res.status(400).json({error:'إحداثيات غير صالحة.'});patch.coordinates={latitude:point.latitude,longitude:point.longitude};continue;}if(typeof value!=='string'||value.length>limits[key])return res.status(400).json({error:'بيانات ملف غير صالحة.'});patch[key]=value.trim();}
       if(patch.avatarUrl){try{const url=new URL(patch.avatarUrl);if(url.protocol!=='https:'||url.username||url.password)throw Error();}catch{return res.status(400).json({error:'رابط صورة غير صالح.'});}}
-      const ref=db.doc('users/'+identity.uid);if(!(await ref.get()).exists)return res.status(409).json({error:'أكمل ملف الحساب أولًا.'});await ref.update({...patch,updatedAt:FieldValue.serverTimestamp()});return res.status(200).json({ok:true});
+      const ref=db.doc('users/'+identity.uid);const profile=await ref.get();if(!profile.exists)return res.status(409).json({error:'أكمل ملف الحساب أولًا.'});
+      if(profile.data()?.defaultAddress){
+        if(patch.ministry!==undefined&&patch.ministry!==profile.data()?.ministry){patch['defaultAddress.fullAddress']=patch.ministry;patch['defaultAddress.details']='';}
+        if(patch.coordinates)patch['defaultAddress.coordinates']=patch.coordinates;
+      }
+      await ref.update({...patch,updatedAt:FieldValue.serverTimestamp()});return res.status(200).json({ok:true});
     }
     if(input?.action==='profile-address'){
       const address=input.address;if(!address||typeof address!=='object'||Array.isArray(address))return res.status(400).json({error:'عنوان غير صالح.'});
@@ -46,7 +51,7 @@ export default async function handler(req: any, res: any) {
       if(!clean.fullAddress)return res.status(400).json({error:'اكتب العنوان الكامل.'});
       if(address.coordinates){const latitude=address.coordinates.latitude??address.coordinates.lat,longitude=address.coordinates.longitude??address.coordinates.lng;if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||Math.abs(latitude)>90||Math.abs(longitude)>180)return res.status(400).json({error:'إحداثيات عنوان غير صالحة.'});clean.coordinates={latitude,longitude};}
       const ref=db.doc('users/'+identity.uid);if(!(await ref.get()).exists)return res.status(409).json({error:'أكمل ملف الحساب أولًا.'});
-      if(input.makeDefault===true)await ref.update({defaultAddress:clean,ministry:clean.fullAddress,...(clean.coordinates?{coordinates:clean.coordinates}:{}),updatedAt:FieldValue.serverTimestamp()});
+      if(input.makeDefault===true)await ref.update({defaultAddress:clean,ministry:clean.fullAddress.slice(0,120),coordinates:clean.coordinates||FieldValue.delete(),updatedAt:FieldValue.serverTimestamp()});
       return res.status(200).json({ok:true,address:clean});
     }
 

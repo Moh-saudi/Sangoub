@@ -66,6 +66,7 @@ export interface CourierProfileData {
 }
 
 export interface Profile extends CourierProfileData {
+  defaultAddress?: { fullAddress: string; city?: string; details?: string; coordinates?: Coordinates };
   coordinates?: Coordinates;
   id: string;
   fullName: string;

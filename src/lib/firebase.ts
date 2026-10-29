@@ -109,6 +109,7 @@ export async function syncUserProfileToFirestore(
     email: user.email || "",
     phone: data.phone || "",
     ministry: data.ministry,
+    ...(data.defaultAddress ? { defaultAddress: data.defaultAddress } : {}),
     floorNumber: data.floorNumber,
     roomNumber: data.roomNumber,
     walletBalance: 0,

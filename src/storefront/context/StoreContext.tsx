@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import { authenticatedApi } from '../../lib/authenticatedApi';
+import { usableDeliveryAddress } from '../../services/deliveryAddress';
+import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
 import type { Product, Store, CartItem, Coupon, Profile } from '../../types';
 import { BRAND } from '../../brand';
 import { calculateCartSubtotal, calculateOrderTotal, applyCouponDiscount, cleanDisplayAddress } from '../../utils/orderCalculations';
@@ -18,6 +20,7 @@ export interface ServiceArea {
   longitude?: number;
   city?: string;
   street?: string;
+  details?: string;
 }
 
 export interface StoreContextType {
@@ -50,6 +53,7 @@ export interface StoreContextType {
   // Service Area
   serviceArea: ServiceArea;
   setServiceArea: (area: ServiceArea) => void;
+  saveDeliveryLocation: (area: ServiceArea) => Promise<void>;
   availableAreas: readonly ServiceArea[];
 
   // Cart
@@ -138,7 +142,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setServiceArea = (area: ServiceArea) => {
     setServiceAreaState(area);
-    localStorage.setItem(STORAGE_KEYS.AREA, JSON.stringify(area));
+    try { localStorage.setItem(auth.currentUser ? `${STORAGE_KEYS.AREA}:${auth.currentUser.uid}` : STORAGE_KEYS.AREA, JSON.stringify(area)); } catch {}
+  };
+
+  const saveDeliveryLocation = async (area: ServiceArea) => {
+    if (!usableDeliveryAddress(area.name)) throw new Error('اكتب اسم الشارع والمنطقة وتفاصيل التوصيل.');
+    const current = auth.currentUser;
+    if (current) {
+      if (!user || user.isGuest || user.id !== current.uid) throw new Error('انتظر تحميل حسابك وأكد البريد أو الهاتف أولًا.');
+      const address = { fullAddress: area.name, city: area.city || '', details: area.details || '',
+        ...(area.latitude !== undefined && area.longitude !== undefined ? { coordinates: { latitude: area.latitude, longitude: area.longitude } } : {}) };
+      await authenticatedApi('/api/orders', { action: 'profile-address', makeDefault: true, address });
+      if (auth.currentUser?.uid !== current.uid) throw new Error('تغيّر الحساب؛ افتح العنوان من حسابك الحالي.');
+      setUser(previous => previous?.id === current.uid ? { ...previous, ministry: area.name.slice(0,120), defaultAddress: address,
+        coordinates: address.coordinates } : previous);
+    }
+    setServiceArea(area);
   };
 
   // 3. Catalog Products & Stores
@@ -464,6 +483,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });return()=>{generation++;unsub();};
   },[]);
 
+  const locationAccount = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user && locationAccount.current === null) return;
+    locationAccount.current = user?.id || null;
+    const address = user?.defaultAddress;
+    setServiceAreaState(user && (address?.fullAddress || user.ministry) ? {
+      id: `account_${user.id}`, name: address?.fullAddress || user.ministry || '',
+      active: true, deliveryTime: '', city: address?.city || '', details: address?.details || '',
+      latitude: (address?.coordinates || user.coordinates)?.latitude,
+      longitude: (address?.coordinates || user.coordinates)?.longitude,
+    } : { id: 'default_map', name: LAUNCH_CONFIG.serviceAreaLabel, active: true, deliveryTime: '' });
+  }, [user?.id, user?.ministry, user?.defaultAddress, user?.coordinates]);
+
   const loginAsGuest = (name: string, phone: string) => {
     const profile: Profile = {
       id: `usr-${Date.now()}`,
@@ -504,6 +536,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         handleBannerClick,
         serviceArea,
         setServiceArea,
+        saveDeliveryLocation,
         availableAreas,
         cartItems,
         addToCart,

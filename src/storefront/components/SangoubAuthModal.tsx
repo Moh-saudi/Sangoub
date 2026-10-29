@@ -219,6 +219,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
         fullName: cleanName,
         phone: cleanPhone,
         ministry: cleanAddress,
+        ...(user.defaultAddress && cleanAddress !== user.ministry ? {defaultAddress:{...user.defaultAddress,fullAddress:cleanAddress,details:''}} : {}),
         floorNumber: floorNumber.trim(),
         roomNumber: roomNumber.trim(),
       };
@@ -227,7 +228,11 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
       if (cleanAddress) {
         setServiceArea({
           id: `addr_${uid}`,
-          name: cleanAddress,
+          name: updatedProfile.defaultAddress?.fullAddress || cleanAddress,
+          latitude: updatedProfile.coordinates?.latitude,
+          longitude: updatedProfile.coordinates?.longitude,
+          city: updatedProfile.defaultAddress?.city,
+          details: updatedProfile.defaultAddress?.details,
           deliveryTime: LAUNCH_CONFIG.showEta ? '20-30 دقيقة' : '',
           active: true,
         });

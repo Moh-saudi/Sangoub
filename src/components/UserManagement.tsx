@@ -1,3 +1,5 @@
+import { searchOsm } from '../services/osmClient';
+import { placeAddress } from '../services/deliveryAddress';
 import { validateAccount, cairoToday } from '../validation/accounts';
 import { AccountAccessDialog } from './AccountAccessDialog';
 import { formatEGP } from "../utils/orderCalculations";
@@ -212,50 +214,10 @@ export function UserManagement({ stores }: { stores: Store[] }) {
 
   // Reverse geocoding helper to extract detailed street, district and city in Arabic
   async function reverseGeocode(lat: number, lng: number): Promise<string> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=ar`,
-        {
-          headers: {
-            'Accept-Language': 'ar',
-            'User-Agent': 'SangoubDelivery/2.0'
-          },
-          signal: controller.signal
-        }
-      );
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.display_name) {
-          const addr = data.address || {};
-          const parts = [
-            addr.office || addr.amenity || addr.building || addr.shop || data.name,
-            addr.road || addr.street,
-            addr.neighbourhood || addr.suburb || addr.quarter,
-            addr.city || addr.town || addr.municipality || 'العاصمة الإدارية الجديدة',
-            addr.state || addr.governorate || 'القاهرة',
-            'مصر'
-          ].filter(Boolean);
-
-          const uniqueParts: string[] = [];
-          for (const p of parts) {
-            const trimmed = String(p).trim();
-            if (trimmed && !uniqueParts.some((up) => up.includes(trimmed) || trimmed.includes(up))) {
-              uniqueParts.push(trimmed);
-            }
-          }
-          if (uniqueParts.length > 0) {
-            return uniqueParts.join('، ');
-          }
-          return String(data.display_name).trim();
-        }
-      }
-    } catch {
-      // Graceful fallback
-    }
-    return `مقر معتمد، الحي الحكومي، العاصمة الإدارية الجديدة (إحداثيات: ${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+    const result = await searchOsm({ coordinates: { latitude: lat, longitude: lng } });
+    const address = result.results?.[0] && placeAddress(result.results[0]);
+    if (!address) throw new Error('لم يُعثر على اسم الشارع؛ اكتب العنوان يدويًا.');
+    return address;
   }
 
   // High Precision GPS Geolocation Handler + Automatic Detailed Arabic Address Resolution
@@ -281,7 +243,7 @@ export function UserManagement({ stores }: { stores: Store[] }) {
           setFormAddress(detailedAddr);
           setNotice(`تم التقاط الموقع وكتابة العنوان بالتفصيل: ${detailedAddr}`);
         } catch {
-          setNotice(`تم التقاط إحداثيات الموقع: (${lat}, ${lng}) بنجاح.`);
+          setGpsError('تم التقاط الإحداثيات، لكن تعذر قراءة الشارع؛ اكتب العنوان يدويًا قبل الحفظ.');
         } finally {
           setGeocoding(false);
         }
