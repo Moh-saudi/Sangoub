@@ -11,20 +11,20 @@ export function MerchantCatalogPicker({products,onLink,onClose}:{products:Produc
  const generation=useRef(0);
  const linked=new Set(products.map(p=>p.catalogProductId).filter(Boolean));
  async function load(next?:string){const current=generation.current;setLoading(true);setError('');try{
-  const result=await operationsApi('operations',{action:'shared-catalog',...(next?{cursor:next}:{})});
+  const result=await operationsApi('operations',{action:'shared-catalog',query:query.trim(),...(next?{cursor:next}:{})});
   if(current!==generation.current)return;
   setItems(previous=>[...new Map([...(next?previous:[]),...result.items].map(p=>[p.id,p])).values()]);setCursor(result.nextCursor);
  }catch(e){if(current===generation.current)setError(customerMessage(e,'تعذر تحميل الكتالوج العام.'));}finally{if(current===generation.current)setLoading(false);}}
- useEffect(()=>{void load();return()=>{generation.current++;}},[]);
+ useEffect(()=>{setCursor(null);setItems([]);setLoading(true);const timer=setTimeout(()=>void load(),query.trim()?350:0);return()=>{generation.current++;clearTimeout(timer);}},[query]);
  async function submit(){if(busy||!selected||price==='')return;setBusy(true);setError('');setNotice('');try{await onLink(selected,Number(price),existingId||undefined);setNotice('المنتج مرتبط بمتجرك. راجع سعره وتوفره من قائمة منتجاتك.');setSelected('');setPrice('');setExistingId('');}catch(e){setError(customerMessage(e,'تعذر ربط المنتج.'));}finally{setBusy(false);}}
  return <section aria-label="اختيار من الكتالوج العام" className="p-4 border rounded-2xl bg-white space-y-3">
   <header className="flex justify-between gap-3"><h4 className="font-bold">اختر منتجًا من كتالوج سنجوب العام</h4><button type="button" disabled={busy} onClick={onClose}>إغلاق</button></header>
-  <p className="text-xs text-slate-600">الاسم والوصف والصورة والخيارات من الكتالوج المعتمد. أنت تحدد سعر متجرك وتوفره؛ إعادة الاختيار لا تنشئ نسخة أخرى.</p>
-  <input aria-label="البحث في الكتالوج العام" placeholder="ابحث في المنتجات المحملة" value={query} onChange={e=>setQuery(e.target.value)} className="w-full p-3 border rounded-xl"/>
+  <p className="text-xs text-slate-600">الاسم والوصف والصورة والخيارات من كتالوج سنجوب والمنتجات المنشورة القائمة. أنت تحدد سعر متجرك وتوفره؛ إعادة الاختيار لا تنشئ نسخة أخرى.</p>
+  <input aria-label="البحث في الكتالوج العام" placeholder="ابحث ببداية اسم المنتج في الكتالوج" value={query} onChange={e=>setQuery(e.target.value)} className="w-full p-3 border rounded-xl"/>
   {error&&<p role="alert" className="text-red-700">{error}<button disabled={loading} onClick={()=>void load()}>إعادة المحاولة</button></p>}
   {notice&&<p role="status" className="text-emerald-700">{notice}</p>}
   {loading&&<p role="status">جارٍ تحميل الكتالوج…</p>}
-  {!loading&&!items.length&&!error&&<p>لم تنشر الإدارة منتجات في الكتالوج العام بعد. تُعتمد المنتجات القائمة من لوحة الإدارة قبل اختيارها هنا.</p>}
+  {!loading&&!items.length&&!error&&<p>لا توجد منتجات مطابقة في هذه الصفحة. جرّب البحث ببداية الاسم أو تحميل الصفحة التالية.</p>}
   <div className="grid sm:grid-cols-2 gap-3">{items.filter(p=>(p.name+' '+p.description).includes(query.trim())).map(p=><button type="button" key={p.id} disabled={busy||linked.has(p.id)} onClick={()=>{setSelected(p.id);setPrice('');setExistingId('');}} aria-pressed={selected===p.id} className={`text-right border rounded-xl p-3 ${selected===p.id?'border-orange-500 bg-orange-50':''}`}>
    <strong>{p.name}</strong><p className="text-xs">{p.description}</p><small>{linked.has(p.id)?'مرتبط بمتجرك بالفعل':p.category}</small>
   </button>)}</div>

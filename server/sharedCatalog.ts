@@ -23,12 +23,33 @@ export function catalogDefinition(data:any) {
   }
   return definition;
 }
-export async function sharedCatalogPage(db:any, cursor?:string) {
-  let query=db.collection('catalogProducts').orderBy(FieldPath.documentId());
-  if(cursor!==undefined){validId(cursor);query=query.startAfter(cursor);}
-  const snapshot=await query.limit(51).get();const docs=snapshot.docs.slice(0,50);
-  return {items:docs.filter((d:any)=>d.data().active===true).map((d:any)=>({id:d.id,...catalogDefinition(d.data())})),
-    nextCursor:snapshot.docs.length>50?docs.at(-1)!.id:null};
+function publishedDefinition(product:any){
+  if(typeof product.name!=='string'||!product.name.trim())throw new AdminError(400,'اسم المنتج المنشور غير مكتمل.');
+  return catalogDefinition({...product,name:product.name.trim().slice(0,120),
+    description:typeof product.description==='string'?product.description.slice(0,1000):'',
+    category:typeof product.category==='string'&&product.category.trim()?product.category.trim().slice(0,120):'غير مصنف'});
+}
+export async function sharedCatalogPage(db:any, cursor?:string, search='') {
+  if(cursor!==undefined&&(typeof cursor!=='string'||cursor.length>160))throw new AdminError(400,'مؤشر غير صالح.');
+  if(typeof search!=='string'||search.length>120)throw new AdminError(400,'بحث غير صالح.');
+  let source='catalog',last='';
+  if(cursor){const split=cursor.indexOf(':');source=cursor.slice(0,split);last=cursor.slice(split+1);if(!['catalog','legacy'].includes(source))throw new AdminError(400,'مؤشر غير صالح.');if(last)validId(last);}
+  // Published products already exist in production. Read them as migration candidates,
+  // without requiring an empty new collection to be populated manually first.
+  const read=async(kind:string,after:string)=>{
+    const collection=kind==='catalog'?'catalogProducts':'products';
+    let query=db.collection(collection);
+    if(search.trim())query=query.orderBy('name').startAt(search.trim()).endAt(search.trim()+'\uf8ff').orderBy(FieldPath.documentId());
+    else query=query.orderBy(FieldPath.documentId());
+    if(after){if(search.trim()){const previous=await db.doc(collection+'/'+after).get();if(!previous.exists)throw new AdminError(400,'أعد البحث لتحديث الصفحة.');query=query.startAfter(previous);}else query=query.startAfter(after);}
+    const snapshot=await query.limit(51).get();const docs=snapshot.docs.slice(0,50);
+    const eligible=docs.filter((d:any)=>kind==='catalog'?d.data().active===true:d.data().inStock===true&&!d.data().archived&&!d.data().catalogProductId);
+    const items=eligible.flatMap((d:any)=>{try{const data=d.data();return [{id:d.id,...(kind==='legacy'?publishedDefinition(data):catalogDefinition(data)),legacy:kind==='legacy'}];}catch{return [];}});
+    return {items,nextCursor:snapshot.docs.length>50?kind+':'+docs.at(-1)!.id:kind==='catalog'?'legacy:':null};
+  };
+  const result=await read(source,last);
+  if(source==='catalog'&&!result.items.length&&result.nextCursor==='legacy:')return read('legacy','');
+  return result;
 }
 export async function publishCatalogProduct(id:string, context:any) {
   validId(id);const {db,actor}=context;
@@ -61,29 +82,49 @@ export async function linkCatalogProduct(input:any, context:any) {
   const key=catalogOfferKey(storeId,input.catalogProductId);
   return db.runTransaction(async(tx:any)=>{
     const linkRef=db.doc('catalogOffers/'+key);
+    const definitionRef=db.doc('catalogProducts/'+input.catalogProductId);
     const [membership,access,store,definition,link]=await Promise.all([
       tx.get(db.doc('staff/'+actor.uid)),tx.get(db.doc('accountAccess/'+actor.uid)),tx.get(db.doc('stores/'+storeId)),
-      tx.get(db.doc('catalogProducts/'+input.catalogProductId)),tx.get(linkRef),
+      tx.get(definitionRef),tx.get(linkRef),
     ]);
     const m=membership.data(),a=access.data();
     if(m?.role!=='restaurant'||m?.storeId!==storeId||(m.duty||'manager')!=='manager'||a?.disabled||a?.operationLocked||actor.auth_time<=(a?.revokedBefore||0))throw new AdminError(403,'تعديل عروض المتجر متاح لمديره المعتمد فقط.');
-    if(!store.exists||!definition.exists||definition.data().active!==true)throw new AdminError(404,'المتجر أو المنتج العام غير متاح.');
+    if(!store.exists)throw new AdminError(404,'المتجر غير متاح.');
+    let legacy:any=null,sourceLink:any=null,sourceRef:any=null,sourceLinkRef:any=null;
+    let data=definition.data();
+    if(!definition.exists){
+      sourceRef=db.doc('products/'+input.catalogProductId);legacy=await tx.get(sourceRef);
+      const p=legacy.data();
+      if(!legacy.exists||p.inStock!==true||p.archived||p.catalogProductId)throw new AdminError(404,'المنتج غير متاح في الكتالوج المنشور.');
+      if(p.storeId){validId(p.storeId);sourceLinkRef=db.doc('catalogOffers/'+catalogOfferKey(p.storeId,input.catalogProductId));
+        sourceLink=sourceLinkRef.path===linkRef.path?link:await tx.get(sourceLinkRef);
+        if(sourceLink.exists)throw new AdminError(409,'تعارض في رابط المنتج الأصلي.');}
+      data={...publishedDefinition(p),active:true,origin:'published-product',createdAt:FieldValue.serverTimestamp(),createdBy:actor.uid};
+      if(p.storeId===storeId&&input.existingProductId&&input.existingProductId!==legacy.id)throw new AdminError(409,'هذا المنتج موجود في متجرك بالفعل؛ استخدم سجله الأصلي.');
+    }
+    if(data.active!==true)throw new AdminError(404,'المنتج العام غير متاح.');
     if(link.exists){
       if(input.existingProductId&&input.existingProductId!==link.data().productId)throw new AdminError(409,'المنتج العام مرتبط بعرض آخر في متجرك؛ لا ندمج السجلات تلقائيًا.');
       return {ok:true,id:link.data().productId,alreadyLinked:true};
     }
-    const id=input.existingProductId||'offer_'+key;const ref=db.doc('products/'+id);const existing=await tx.get(ref);
-    if(input.existingProductId){
+    const adoptId=input.existingProductId||(legacy?.data().storeId===storeId?legacy.id:undefined);
+    const id=adoptId||'offer_'+key;const ref=db.doc('products/'+id);const existing=await tx.get(ref);
+    if(adoptId){
       if(!existing.exists||existing.data().storeId!==storeId)throw new AdminError(403,'اختر منتجًا قائمًا من متجرك فقط.');
       if(existing.data().catalogProductId&&existing.data().catalogProductId!==input.catalogProductId)throw new AdminError(409,'المنتج القائم مرتبط بتعريف عام آخر.');
     }else if(existing.exists)throw new AdminError(409,'تعارض في معرف عرض المتجر؛ راجع الإدارة.');
-    const metadata=catalogDefinition(definition.data());
+    const metadata=catalogDefinition(data);
     const price=existing.exists?existing.data().price:input.price;
     if(typeof price!=='number'||!Number.isFinite(price)||price<0||price>100000)throw new AdminError(400,'صحح سعر المنتج القائم أولًا.');
     const offer={...metadata,optionGroups:metadata.optionGroups||[],imageUrl:metadata.imageUrl||'',
       id,storeId,storeName:store.data().name,catalogProductId:input.catalogProductId,
       price,inStock:existing.exists?Boolean(existing.data().inStock):false,
       archived:existing.exists?Boolean(existing.data().archived):false,updatedAt:FieldValue.serverTimestamp()};
+    if(legacy){
+      tx.create(definitionRef,data);
+      if(sourceRef.path!==ref.path)tx.update(sourceRef,{catalogProductId:input.catalogProductId,updatedAt:FieldValue.serverTimestamp()});
+      if(sourceLinkRef&&sourceLinkRef.path!==linkRef.path)tx.create(sourceLinkRef,{storeId:legacy.data().storeId,catalogProductId:input.catalogProductId,productId:legacy.id});
+    }
     if(existing.exists)tx.set(ref,offer,{merge:true});else tx.create(ref,offer);tx.create(linkRef,{storeId,catalogProductId:input.catalogProductId,productId:id});
     auditInTransaction(db,tx,actor,'merchant.catalog-link','products',id,existing.exists?existing.data():null,offer);
     return {ok:true,id,alreadyLinked:false};

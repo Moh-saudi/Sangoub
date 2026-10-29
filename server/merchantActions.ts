@@ -1,3 +1,4 @@
+import {merchantReadModel} from './merchantReadModels.ts';
 import { sharedCatalogPage, linkCatalogProduct } from './sharedCatalog.ts';
 import { merchantOrderView } from './portalOrders.ts';
 import { writeOrderSignals } from './orderSignals.ts';
@@ -9,6 +10,8 @@ export const merchantActions = [
   "store-dashboard",
   "store-products",
   "shared-catalog",
+  "store-customers",
+  "store-payments",
   "link-catalog-product",
   "set-product-archived",
   "save-product",
@@ -23,7 +26,8 @@ export async function merchantAction(input: any, context: OperationIdentity) {
     throw new AdminError(403, "الحساب غير مرتبط بمتجر معتمد.");
   const storeId = staff.storeId;
   validId(storeId);
-  if(input.action==='shared-catalog')return sharedCatalogPage(db,input.cursor);
+  if(['store-customers','store-payments'].includes(input.action))return merchantReadModel(input,context);
+  if(input.action==='shared-catalog')return sharedCatalogPage(db,input.cursor,input.query||'');
   if(input.action==='link-catalog-product')return linkCatalogProduct(input,context);
   const storeRef = db.doc("stores/" + storeId);
   const productPage=async(cursor?:string)=>{

@@ -1,15 +1,17 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import {chromium} from 'playwright';
 const fixture=`
+import '/src/index.css';import '/src/bootstrap.scss';
 import React,{useState} from 'react';import {createRoot} from 'react-dom/client';
 import {RestaurantPortal} from '/src/components/RestaurantPortal.tsx';
 import {CatalogManager} from '/src/components/CatalogManager.tsx';
 const catalog=[{id:'master-water',name:'مياه كتالوج',description:'عبوة مياه معتمدة',category:'مشروبات'},
 {id:'master-coffee',name:'قهوة كتالوج',description:'قهوة معتمدة',category:'مشروبات'}];
 window.__requests=[];window.__failNext=true;
-window.__merchantApi=async(endpoint,input)=>{window.__requests.push(input);return {items:input.cursor?[catalog[1]]:[catalog[0]],nextCursor:input.cursor?null:'master-water'};};
+window.__merchantApi=async(endpoint,input)=>{window.__requests.push(input);if(input.action==='store-customers')return {items:[{id:'customer',name:'عميل متجر الاختبار',orderIds:['order-a']}]};if(input.action==='store-payments')return {items:[{id:'settlement-a',gross:100,commission:10,net:90,reference:'ref-a',orderCount:1}],nextCursor:null};return {items:input.query?catalog.filter(p=>p.name.startsWith(input.query)):(input.cursor?[catalog[1]]:[catalog[0]]),nextCursor:input.query||input.cursor?null:'master-water'};};
 const store={id:'store-a',name:'متجر الاختبار',status:'open',commissionRate:10,minOrder:0,deliveryFee:15,category:'supermarket'};
 function Fixture(){const [products,setProducts]=useState((new URLSearchParams(location.search).has('admin')||new URLSearchParams(location.search).has('adopt'))?[{...catalog[0],id:'legacy-water',storeId:'store-a',storeName:store.name,price:10,inStock:true,imageType:'water'}]:[]);
 window.__offers=products;
@@ -22,7 +24,7 @@ onLinkProduct={async(id,price,existingProductId)=>{window.__lastLink={id,price,.
 if(existingProductId){setProducts(prev=>prev.map(p=>p.id===existingProductId?{...p,...catalog.find(c=>c.id===id),id:p.id,catalogProductId:id}:p));return;}
 setProducts(prev=>prev.some(p=>p.catalogProductId===id)?prev:[...prev,{...catalog.find(p=>p.id===id),id:'offer-'+id,catalogProductId:id,storeId:store.id,storeName:store.name,price,inStock:false,imageType:'water'}]);
 }}/><p data-testid="offer-count">{products.length}</p></main>;}createRoot(document.getElementById('root')).render(<Fixture/>);`;
-const server=await createServer({configFile:false,root:process.cwd(),optimizeDeps:{noDiscovery:true,include:['react','react-dom/client','leaflet','lucide-react','firebase/app','firebase/auth','firebase/firestore','firebase/storage','@capacitor/core']},plugins:[react(),{
+const server=await createServer({configFile:false,root:process.cwd(),css:{preprocessorOptions:{scss:{quietDeps:true,silenceDeprecations:['import','global-builtin','color-functions']}}},optimizeDeps:{noDiscovery:true,include:['react','react-dom/client','leaflet','lucide-react','firebase/app','firebase/auth','firebase/firestore','firebase/storage','@capacitor/core']},plugins:[react(),tailwindcss(),{
  name:'catalog-browser-fixture',enforce:'pre',
  resolveId(id){if(id.includes('lib/operationsApi'))return '/__catalog-operations-api.ts';if(id.includes('lib/adminApi'))return '/__catalog-admin-api.ts';if(id==='/__catalog-fixture.tsx')return id;},
  load(id){if(id==='/__catalog-admin-api.ts')return 'export const adminApi=(endpoint,input)=>window.__adminApi(endpoint,input);';if(id==='/__catalog-operations-api.ts')return 'export const operationsApi=(endpoint,input)=>window.__merchantApi(endpoint,input);';if(id==='/__catalog-fixture.tsx')return fixture;},
@@ -49,7 +51,9 @@ try{
   await page.getByRole('button',{name:'تحميل المزيد من الكتالوج'}).click();await page.getByRole('button',{name:'قهوة كتالوج',exact:false}).waitFor();
   await page.getByRole('textbox',{name:'البحث في الكتالوج العام'}).fill('قهوة');
   assert.equal(await page.getByRole('button',{name:'مياه كتالوج',exact:false}).count(),0);
-  assert.equal(await page.evaluate(()=>window.__requests.length),2);
+  await page.waitForFunction(()=>window.__requests.some(r=>r.query==='قهوة'));
+  await page.getByRole('button',{name:'قهوة كتالوج',exact:false}).waitFor();
+  assert.equal(await page.evaluate(()=>window.__requests.length),3);
   await page.getByRole('button',{name:'إغلاق',exact:true}).click();
   await page.getByRole('button',{name:'أرشفة عرض المتجر'}).click();
   await page.getByRole('button',{name:'المؤرشفة',exact:true}).click();
@@ -57,6 +61,16 @@ try{
   await page.getByRole('button',{name:'المنتجات الحالية',exact:true}).click();
   assert.equal(await page.getByRole('button',{name:'الصنف غير متوفر حالياً'}).count(),1);
   assert.equal(await page.getByText('الصافي الجاهز للتحويل لحساب التاجر البنكي',{exact:true}).count(),0);
+  const nav=page.getByRole('navigation',{name:'أقسام لوحة التحكم'});
+  assert.equal(await nav.getByRole('button').count(),9);
+  for(const label of ['الرئيسية','الطلبات','المخزون','التقارير','الإعدادات','الدعم والمساعدة']){
+   await nav.getByRole('button',{name:label,exact:true}).click();
+   assert.equal(await nav.getByRole('button',{name:label,exact:true}).getAttribute('aria-current'),'page');
+   assert(page.url().includes('/merchant/'));
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,label+' must not overflow');
+  }
+  await nav.getByRole('button',{name:'العملاء',exact:true}).click();await page.getByText('عميل متجر الاختبار',{exact:true}).waitFor();
+  await nav.getByRole('button',{name:'المدفوعات',exact:true}).click();await page.getByText('تسوية settlement-a',{exact:true}).waitFor();
   await page.goto('http://127.0.0.1:3134/__catalog-test?adopt=1');
   await page.getByRole('button',{name:'المنتجات والأسعار',exact:true}).click();
   await page.getByRole('button',{name:'اختيار من الكتالوج العام',exact:true}).click();

@@ -112,6 +112,10 @@ test("real emulator: scoped merchant catalog/preparation, settlement claims, not
         price: 10,
       });
     await service.db.doc('products/contract-product').set({id:'contract-product',storeId:'contract-store',name:'Product',description:'Test product',category:'فطور',price:100,inStock:true});
+    const existingCatalog=await call(operations,{action:'shared-catalog',query:'Product'},merchant.token);
+    assert.equal(existingCatalog.status,200);assert(existingCatalog.result.items.some((p:any)=>p.id==='contract-product'));
+    const imported=await call(operations,{action:'link-catalog-product',catalogProductId:'contract-product',price:100},merchant.token);
+    assert.equal(imported.status,200);assert.equal(imported.result.id,'contract-product');
     assert.equal((await call(data,{action:'catalog-publish',id:'contract-product'},admin.token)).status,200);
     const globalCatalog=await call(operations,{action:'shared-catalog'},merchant.token);
     assert.equal(globalCatalog.status,200);
@@ -312,6 +316,11 @@ test("real emulator: scoped merchant catalog/preparation, settlement claims, not
     assert.equal((await service.db.doc('users/'+customer.uid).get()).data()?.coordinates,undefined);
     assert.equal((await service.db.collection('users').get()).size, usersBefore);
     assert.deepEqual((await service.db.doc('users/' + merchant.uid).get()).data(), merchantBefore);
+    const merchantCustomers=await call(operations,{action:'store-customers'},merchant.token);
+    assert.equal(merchantCustomers.status,200);assert(merchantCustomers.result.items.some((v:any)=>v.orderIds.includes(orderId)));
+    assert(!JSON.stringify(merchantCustomers.result).includes(customer.uid));
+    const merchantPayments=await call(operations,{action:'store-payments'},merchant.token);
+    assert.equal(merchantPayments.status,200);assert(merchantPayments.result.items.some((v:any)=>v.id==='contract-settlement'));
     await service.db.doc("staff/" + merchant.uid).delete();
     assert.equal(
       (await call(operations, { action: "store-dashboard" }, merchant.token))

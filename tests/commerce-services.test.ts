@@ -32,6 +32,7 @@ class MemoryDb {
     let max = Infinity;
     let cursor = '';
     let ordered=false;
+    let prefix='';
     const q: any = {
       doc: (id = randomUUID()) => this.doc(path + "/" + id),
       where: (key: string, op: string, value: any) => {
@@ -39,7 +40,9 @@ class MemoryDb {
         return q;
       },
       orderBy: () => {ordered=true;return q;},
-      startAfter: (value:string) => {cursor=value;return q;},
+      startAfter: (value:any) => {cursor=typeof value==='string'?value:value.id;return q;},
+      startAt:(value:string)=>{prefix=value;return q;},
+      endAt:()=>q,
       limit: (n: number) => {
         max = n;
         return q;
@@ -59,7 +62,7 @@ class MemoryDb {
                 : d.data()[k] === v,
             ),
           )
-          .filter(d=>(d.id || '')>cursor)
+          .filter(d=>(d.id || '')>cursor && (!prefix || String(d.data().name||'').startsWith(prefix)))
           .sort((a,b)=>ordered?(a.id || '').localeCompare(b.id || '','en'):0)
           .slice(0, max);
         return { docs, size: docs.length };
@@ -405,6 +408,7 @@ test('shared catalog publication reuses the source offer and repeated concurrent
 test('shared catalog rejects unpublished products, revoked managers and direct product creation', async () => {
  const c=setup();
  await assert.rejects(()=>merchantAction({action:'save-product',id:'new',product:{}},c),/الكتالوج العام/);
+ c.db.data.get('products/a-item').inStock=false;
  await assert.rejects(()=>merchantAction({action:'link-catalog-product',catalogProductId:'a-item',price:1},c),/غير متاح/);
  c.db.data.set('catalogProducts/a-item',{active:true,name:'مياه',description:'مياه',category:'مشروبات'});
  c.db.data.set('staff/merchant',{role:'restaurant',storeId:'a',duty:'preparer'});
@@ -439,4 +443,45 @@ test('adopting an existing merchant product preserves its ID, price and availabi
  c.db.data.set('catalogProducts/another',{active:true,name:'قهوة',description:'قهوة',category:'مشروبات'});
  await assert.rejects(()=>merchantAction({action:'link-catalog-product',catalogProductId:'another',existingProductId:'b-item',price:1},c),/متجرك/);
  await assert.rejects(()=>merchantAction({action:'link-catalog-product',catalogProductId:'another',existingProductId:'a-item',price:1},c),/تعريف عام آخر/);
+});
+
+test('an empty new shared catalog still finds published existing products and lazy linking preserves the source offer', async () => {
+ const c=setup();c.db.data.set('products/a-item',{id:'a-item',storeId:'a',name:'شاي أخضر',description:'عبوة شاي',category:'مشروبات',price:10,inStock:true,internalCost:3});
+ c.db.data.set('products/unpublished',{storeId:'a',name:'شاي خاص',description:'خاص',category:'مشروبات',price:9,inStock:false});
+ const page:any=await merchantAction({action:'shared-catalog',query:'شاي'},c);
+ assert.deepEqual(page.items.map((p:any)=>p.id),['a-item']);assert.equal(page.items[0].price,undefined);assert.equal(page.items[0].internalCost,undefined);
+ assert.equal([...c.db.data.keys()].filter(k=>k.startsWith('catalogProducts/')).length,0,'Reading does not migrate or duplicate data');
+ c.db.data.set('staff/merchant',{role:'restaurant',storeId:'b',duty:'manager'});const b={...c,staff:{storeId:'b'}};
+ const selected:any=await merchantAction({action:'link-catalog-product',catalogProductId:'a-item',price:25},b);
+ assert.equal(c.db.data.get('products/a-item').price,10);assert.equal(c.db.data.get('products/a-item').catalogProductId,'a-item');
+ assert.equal(c.db.data.get('products/'+selected.id).price,25);assert.equal(c.db.data.get('catalogProducts/a-item').name,'شاي أخضر');
+ c.db.data.set('staff/merchant',{role:'restaurant',storeId:'a',duty:'manager'});
+ const own:any=await merchantAction({action:'link-catalog-product',catalogProductId:'a-item',price:999},c);
+ assert.equal(own.id,'a-item');assert.equal(c.db.data.get('products/a-item').price,10);
+});
+
+test('choosing an existing own published product from an empty shared catalog never creates a replacement product', async () => {
+ const c=setup();c.db.data.set('products/a-item',{id:'a-item',storeId:'a',name:'شاي',description:'شاي',category:'مشروبات',price:10,inStock:true});
+ const count=[...c.db.data.keys()].filter(k=>k.startsWith('products/')).length;
+ for(let i=0;i<3;i++){const r:any=await merchantAction({action:'link-catalog-product',catalogProductId:'a-item',price:555},c);assert.equal(r.id,'a-item');}
+ assert.equal([...c.db.data.keys()].filter(k=>k.startsWith('products/')).length,count);assert.equal(c.db.data.get('products/a-item').price,10);
+});
+
+test('customer and settlement pages expose only store-scoped records and enforce manager access',async()=>{
+ const c=setup();c.db.data.set('orders/own',{storeIds:['a'],profileId:'private-uid',profileName:'عميل أ',phone:'private-phone'});
+ c.db.data.set('orders/other',{storeIds:['b'],profileId:'other-uid',profileName:'private-other'});
+ c.db.data.set('merchantSettlements/own',{storeId:'a',gross:100,commission:10,net:90,reference:'ref',orderIds:['own'],bankAccount:'private-bank'});
+ c.db.data.set('merchantSettlements/other',{storeId:'b',net:999});
+ const customers:any=await merchantAction({action:'store-customers',storeId:'b'},c);assert.equal(customers.items.length,1);assert.equal(customers.items[0].name,'عميل أ');assert(!JSON.stringify(customers).includes('private-uid'));assert(!JSON.stringify(customers).includes('private-phone'));
+ const payments:any=await merchantAction({action:'store-payments',storeId:'b'},c);assert.equal(payments.items.length,1);assert.equal(payments.items[0].net,90);assert(!JSON.stringify(payments).includes('private-bank'));
+ const preparer={...c,staff:{storeId:'a',duty:'preparer'}};
+ await assert.rejects(()=>merchantAction({action:'store-payments'},preparer),/مدير/);
+ c.db.data.set('accountAccess/merchant',{disabled:true});await assert.rejects(()=>merchantAction({action:'store-customers'},c),/صلاحية/);
+});
+
+test('published catalog entries without an assigned store or optional description remain selectable',async()=>{
+ const c=setup();c.db.data.set('products/general-tea',{name:'شاي عام',inStock:true,price:20});
+ const listed:any=await merchantAction({action:'shared-catalog',query:'شاي عام'},c);assert.equal(listed.items.length,1);assert.equal(listed.items[0].description,'');
+ const r:any=await merchantAction({action:'link-catalog-product',catalogProductId:'general-tea',price:15},c);
+ assert.equal(c.db.data.get('products/'+r.id).storeId,'a');assert.equal(c.db.data.get('products/general-tea').price,20);
 });

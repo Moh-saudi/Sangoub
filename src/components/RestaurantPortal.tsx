@@ -1,10 +1,12 @@
+import {MerchantRecords} from './MerchantRecords';
+import {BRAND} from '../brand';
 import { MerchantCatalogPicker } from './MerchantCatalogPicker';
 import { productCategories } from '../utils/catalogManagement';
 import {OrderMap} from './OrderMap';
 import { EmptyState } from './ui/DataStates';
 import { cairoDay } from "../utils/orderIntegration";
 import { KitchenDisplay } from "./KitchenDisplay";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Store as StoreIcon,
   ChefHat,
@@ -92,7 +94,12 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   const userStore = stores.find((s) => s.id === currentProfile.storeId);
 
   const [trackingOrderId,setTrackingOrderId] = useState("");
-  const [activeTab, setActiveTab] = useState<"kitchen" | "menu" | "accounting" | "radar">("kitchen");
+  const sections=[['dashboard','الرئيسية'],['kitchen','الطلبات'],['menu','المنتجات والأسعار'],['inventory','المخزون'],['customers','العملاء'],['accounting','التقارير'],['payments','المدفوعات'],['settings','الإعدادات'],['support','الدعم والمساعدة']] as const;
+  const slugs:Record<string,string>={dashboard:'dashboard',kitchen:'orders',menu:'products',inventory:'inventory',customers:'customers',accounting:'reports',payments:'payments',settings:'settings',support:'support',radar:'tracking'};
+  const sectionFromPath=()=>Object.keys(slugs).find(key=>slugs[key]===location.pathname.split('/')[2])||'dashboard';
+  const [activeTab,setActiveTab]=useState(sectionFromPath);
+  function navigateSection(key:string){setActiveTab(key);window.history.pushState({},'', '/merchant/'+slugs[key]+location.search);}
+  useEffect(()=>{const changed=()=>setActiveTab(sectionFromPath());window.addEventListener('popstate',changed);return()=>window.removeEventListener('popstate',changed);},[]);
 
   // New item modal state
   const [isAddingItem, setIsAddingItem] = useState(false);
@@ -213,63 +220,8 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             </div>
           </div>
 
-          {/* Clean Segmented Navigation Tabs */}
-          <nav
-            aria-label="أقسام لوحة التحكم"
-            className="bg-slate-100 p-1 rounded-xl border border-slate-200 inline-flex flex-wrap items-center gap-1 self-start md:self-center"
-          >
-            <button
-              onClick={() => setActiveTab("kitchen")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === "kitchen"
-                  ? "bg-white text-slate-950 shadow-xs"
-                  : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
-              }`}
-            >
-              <ChefHat size={14} className={activeTab === "kitchen" ? "text-orange-600" : "text-slate-400"} />
-              <span>تذاكر المطبخ</span>
-              {activeKitchenOrders.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-orange-600 text-white">
-                  {activeKitchenOrders.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab("menu")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === "menu"
-                  ? "bg-white text-slate-950 shadow-xs"
-                  : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
-              }`}
-            >
-              <Package size={14} className={activeTab === "menu" ? "text-indigo-600" : "text-slate-400"} />
-              <span>المنتجات والأسعار</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("accounting")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === "accounting"
-                  ? "bg-white text-slate-950 shadow-xs"
-                  : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
-              }`}
-            >
-              <BookOpen size={14} className={activeTab === "accounting" ? "text-emerald-600" : "text-slate-400"} />
-              <span>الحسابات والقيود</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("radar")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === "radar"
-                  ? "bg-white text-slate-950 shadow-xs"
-                  : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
-              }`}
-            >
-              <Navigation size={14} className={activeTab === "radar" ? "text-purple-600" : "text-slate-400"} />
-              <span>رادار المناديب</span>
-            </button>
+          <nav aria-label="أقسام لوحة التحكم" className="flex flex-wrap gap-2 rounded-xl border p-2 bg-slate-50">
+            {sections.map(([key,label])=><button key={key} aria-current={activeTab===key?'page':undefined} onClick={()=>navigateSection(key)} className={`px-3 py-2 rounded-lg text-sm font-bold ${activeTab===key?'bg-slate-900 text-white':'text-slate-700 bg-white'}`}>{label}</button>)}
           </nav>
         </div>
 
@@ -327,6 +279,10 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
         </div>
       </header>
 
+      {activeTab==='dashboard'&&<section aria-label="الرئيسية" className="p-5 border rounded-2xl bg-white space-y-3"><h2 className="text-xl font-bold">ملخص المتجر</h2><p>المؤشرات من الطلبات المحملة حاليًا؛ حمّل السجل لعرض مزيد من الطلبات.</p><h3>أحدث الطلبات المحملة</h3>{[...storeOrders].sort((a,b)=>Date.parse(b.createdAt||'')-Date.parse(a.createdAt||'')).slice(0,10).map(o=><button key={o.id} onClick={()=>navigateSection('kitchen')} className="block p-2 border rounded-xl w-full text-right">{o.orderNumber||o.id} · {o.orderStatus}</button>)}{!storeOrders.length&&<p>لا توجد طلبات محملة بعد.</p>}<button onClick={()=>navigateSection('menu')} className="p-3 border rounded-xl">إدارة منتجات المتجر</button></section>}
+      {(activeTab==='customers'||activeTab==='payments')&&(canManage?<MerchantRecords key={activeTab+userStore.id} kind={activeTab} storeId={userStore.id}/>:<p role="alert">هذه الصفحة لمدير المتجر فقط.</p>)}
+      {activeTab==='settings'&&<section aria-label="إعدادات المتجر" className="p-5 border rounded-2xl bg-white space-y-3"><h2 className="text-xl font-bold">بيانات النشاط والإعدادات</h2><dl><dt>اسم المتجر</dt><dd>{userStore.name}</dd><dt>العنوان</dt><dd>{userStore.locationInDistrict||'غير مسجل'}</dd><dt>الحد الأدنى للطلب</dt><dd>{formatEGP(userStore.minOrder)}</dd><dt>رسوم التوصيل المسجلة</dt><dd>{formatEGP(userStore.deliveryFee)}</dd></dl><button disabled={!canManage||!connected} onClick={()=>onToggleStoreStatus(userStore.id)} className="p-3 border rounded-xl">{userStore.status==='open'?'إغلاق المتجر مؤقتًا':'فتح المتجر'}</button><p>لتعديل العنوان والرسوم وساعات العمل أو صلاحيات الحساب، تواصل مع الإدارة عبر الدعم.</p><a href={BRAND.supportUrl} target="_blank" rel="noreferrer">التواصل مع دعم سنجوب</a></section>}
+      {activeTab==='support'&&<section aria-label="الدعم والمساعدة" className="p-5 border rounded-2xl bg-white space-y-4"><h2 className="text-xl font-bold">دليل التاجر والمساعدة</h2><details><summary>كيف أضيف منتجات متجري؟</summary><p>من المنتجات اختر من كتالوج سنجوب. إذا كان الصنف موجودًا عندك اختر ربط بسجل قائم؛ سيحتفظ بمعرّفه وسعره. العرض الجديد يبدأ غير متاح حتى تفعّله.</p></details><details><summary>كيف أجهز طلبًا؟</summary><p>افتح الطلبات وابدأ التحضير ثم أكد جاهزية أصناف متجرك. الاستلام والتوصيل من صلاحيات المندوب.</p></details><details><summary>هل أرقام التقارير رصيد جاهز للتحويل؟</summary><p>لا، التقارير تقديرات للطلبات المحملة. المدفوعات تعرض التسويات المسجلة، والمراجعة المالية لدى الإدارة.</p></details><a href={BRAND.supportUrl} target="_blank" rel="noreferrer">التواصل مع دعم سنجوب</a><p>متابعة تذاكر الدعم داخل اللوحة غير متاحة حاليًا.</p></section>}
       {/* Error Banner */}
       {menuError && (
         <div className="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-2xl flex items-center gap-2 text-xs font-bold animate-in fade-in duration-200">
@@ -339,7 +295,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
           1. تبويب تذاكر المطبخ واستقبال الطلبات
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "kitchen" && (
-        <section aria-label="شاشة تذاكر المطبخ الحية">
+        <section aria-label="شاشة تذاكر المطبخ الحية"><button onClick={()=>navigateSection('radar')} className="p-2 border rounded-xl mb-3">تتبع طلبات المتجر</button>
           {preparationContent}
           {(!preparationContent||orders.some(o=>o.fulfillmentVersion!==2&&["received","preparing"].includes(o.orderStatus)))&&<KitchenDisplay
             orders={orders.filter(o=>o.fulfillmentVersion!==2)}
@@ -354,18 +310,19 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
       {/* ════════════════════════════════════════════════════════════════════════
           2. تبويب إدارة أصناف المنيو وتحديث الأسعار (APPLE TABLE + MATERIAL YOU)
           ════════════════════════════════════════════════════════════════════════ */}
-      {activeTab === "menu" && (
+      {(activeTab === "menu" || activeTab === "inventory") && (
         <section className="space-y-5" aria-label="إدارة أصناف المنيو وتحديث الأسعار">
           {/* Header Controls */}
           <div className="bg-white/80 backdrop-blur-xl p-5 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-black text-slate-900 tracking-tight">أصناف وقائمة أسعار {userStore.name}</h3>
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">{activeTab==='inventory'?'المخزون والتوفر':'منتجات وأسعار'} {userStore.name}</h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 تحديث فوري لأسعار البيع، تفعيل أو إيقاف توفر المنتجات بالمطبخ فوراً لموظفي العاصمة.
               </p>
             </div>
 
             <button
+              hidden={activeTab==='inventory'}
               disabled={!canManage || !connected}
               onClick={() => setIsAddingItem(true)}
               className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
@@ -411,7 +368,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             {productsNextCursor&&<button disabled={productsLoading} onClick={onLoadMoreProducts}>{productsLoading?'جارٍ التحميل…':'تحميل المزيد من منتجات المتجر'}</button>}
           </div>
           {menuError&&<p role="alert" className="text-red-700">{menuError}</p>}
-          {isAddingItem&&canManage&&<MerchantCatalogPicker products={storeProducts} onLink={onLinkProduct} onClose={()=>setIsAddingItem(false)}/>}
+          {activeTab==='menu'&&isAddingItem&&canManage&&<MerchantCatalogPicker products={storeProducts} onLink={onLinkProduct} onClose={()=>setIsAddingItem(false)}/>}
           {filteredProducts.length===0&&<EmptyState message={productSearch?"لا توجد أصناف تطابق البحث؛ جرّب اسمًا آخر.":"لا توجد أصناف في هذه القائمة. اختر منتجات موجودة من الكتالوج العام."}/>}
           {/* Product Items Cards (Apple Minimalist Grid) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
