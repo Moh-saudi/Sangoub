@@ -1,3 +1,5 @@
+import {clientQuery} from '../data/firestoreQueries';
+import type {QueryPlan} from '../data/queryPlans';
 import { adminApi } from "./adminApi";
 import { initializeApp } from "firebase/app";
 import { apiUrl } from "./apiUrl";
@@ -160,11 +162,12 @@ export function watchCollection<T>(
   name: string,
   onData: (data: T[]) => void,
   onError: (error: Error) => void,
-  constraints: QueryConstraint[] = [],
+  constraints: QueryConstraint[] | QueryPlan = [],
   onConnection?: (connected: boolean) => void,
 ) {
+  if(!Array.isArray(constraints)&&constraints.collection!==name)throw new Error('Read contract collection mismatch');
   return onSnapshot(
-    query(collection(db, name), ...constraints),
+    Array.isArray(constraints)?query(collection(db,name),...constraints):clientQuery(db,constraints),
     { includeMetadataChanges: true },
     (snapshot) => {
       onConnection?.(!snapshot.metadata.fromCache);

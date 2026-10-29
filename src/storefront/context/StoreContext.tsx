@@ -1,3 +1,4 @@
+import {queryPlans} from '../../data/queryPlans';
 import { authenticatedApi } from '../../lib/authenticatedApi';
 import { usableDeliveryAddress, pendingDeliveryAddressKey } from '../../services/deliveryAddress';
 import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
@@ -7,7 +8,7 @@ import { calculateCartSubtotal, calculateOrderTotal, applyCouponDiscount, cleanD
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import { watchCollection, auth, db, signOutFromFirebase, syncUserProfileToFirestore, isVerifiedIdentity } from '../../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { limit, where, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 import { StoreBanner, DEFAULT_SANGOUB_BANNERS } from '../types/banner';
 
@@ -189,7 +190,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setProducts([]);setCatalogError('تعذر تحميل المنتجات. تحقق من الاتصال وأعد المحاولة.');
           setIsLoadingCatalog(false);
         },
-        [where('inStock', '==', true), limit(60)]
+        queryPlans.homeProducts()
       );
 
       stopStores = watchCollection<Store>(
@@ -202,7 +203,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         },
         () => {setStores([]);setCatalogError('تعذر تحميل المتاجر. تحقق من الاتصال.');},
-        [limit(30)]
+        queryPlans.homeStores()
       );
     } catch {
       setProducts([]);

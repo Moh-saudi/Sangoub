@@ -1,8 +1,10 @@
+import {readQuery} from './data/firestoreQueries.ts';
+import {queryPlans} from '../src/data/queryPlans.ts';
 import {merchantReadModel} from './merchantReadModels.ts';
 import { sharedCatalogPage, linkCatalogProduct } from './sharedCatalog.ts';
 import { merchantOrderView } from './portalOrders.ts';
 import { writeOrderSignals } from './orderSignals.ts';
-import { FieldPath, FieldValue } from "firebase-admin/firestore";
+import { FieldValue } from "firebase-admin/firestore";
 import { AdminError, validId } from "./adminRequest.ts";
 import { auditInTransaction } from "./audit.ts";
 import { paymentReady, type OperationIdentity } from "./operations.ts";
@@ -31,9 +33,8 @@ export async function merchantAction(input: any, context: OperationIdentity) {
   if(input.action==='link-catalog-product')return linkCatalogProduct(input,context);
   const storeRef = db.doc("stores/" + storeId);
   const productPage=async(cursor?:string)=>{
-    let query=db.collection('products').where('storeId','==',storeId).orderBy(FieldPath.documentId());
-    if(cursor!==undefined){validId(cursor);query=query.startAfter(cursor);}
-    const snapshot=await query.limit(101).get();const docs=snapshot.docs.slice(0,100);
+    if(cursor!==undefined)validId(cursor);
+    const snapshot=await readQuery(db,queryPlans.merchantProducts(storeId),cursor);const docs=snapshot.docs.slice(0,100);
     return {products:docs.map(d=>({...d.data(),id:d.id})),productsNextCursor:snapshot.docs.length>100?docs.at(-1)!.id:null};
   };
   if(input.action==='store-products')return productPage(input.cursor);

@@ -30,6 +30,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run lint:server
+      - run: npm run test:queries
       - run: npm test
       - run: npm run test:commerce-services
       - run: npm run test:portal-services

@@ -1,0 +1,15 @@
+{
+  "api/geidea/callback.ts": 4,
+  "server/customerOrders.ts": 1,
+  "server/handlers/admin-data.ts": 3,
+  "server/handlers/admin-users.ts": 3,
+  "server/handlers/app-content.ts": 7,
+  "server/handlers/notifications.ts": 1,
+  "server/handlers/operations.ts": 3,
+  "server/merchantActions.ts": 2,
+  "server/sangoubRequests.ts": 3,
+  "src/components/PublicOffers.tsx": 2,
+  "src/lib/firebase.ts": 3,
+  "src/lib/useActivePortalOrders.ts": 2,
+  "src/shop/ShopContext.tsx": 1
+}

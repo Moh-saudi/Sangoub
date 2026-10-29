@@ -1,3 +1,5 @@
+import {readQuery} from '../data/firestoreQueries.ts';
+import {queryPlans} from '../../src/data/queryPlans.ts';
 import {operationIdentity} from '../operations.ts';
 import { Timestamp } from "firebase-admin/firestore";
 import { requireAdmin, AdminError, adminError } from "../adminRequest.ts";
@@ -22,11 +24,7 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === "GET" || (req.method === "POST" && req.body?.action === "list")) {
       // جلب سجل الإشعارات السابقة
-      const snapshot = await db
-        .collection("notifications")
-        .orderBy("createdAt", "desc")
-        .limit(50)
-        .get();
+      const snapshot = await readQuery(db,queryPlans.notifications());
 
       const notifications = snapshot.docs.map((doc) => ({
         id: doc.id,

@@ -1,3 +1,5 @@
+import {clientQuery} from '../data/firestoreQueries';
+import {queryPlans} from '../data/queryPlans';
 import { pendingDeliveryAddressKey, readPendingDeliveryAddress } from '../services/deliveryAddress';
 import { BRAND } from "../brand";
 import { OrderReceiptCode } from "../components/OrderReceiptCode";
@@ -6,16 +8,9 @@ import { OrderMap } from "../components/OrderMap";
 import { goShop } from "./navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  collection,
   doc,
-  documentId,
   getDoc,
   getDocs,
-  limit,
-  orderBy,
-  query,
-  startAfter,
-  where,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
@@ -65,12 +60,7 @@ function Stores() {
     setError("");
     try {
       const result = await getDocs(
-        query(
-          collection(db, "stores"),
-          orderBy(documentId()),
-          ...(next && cursor ? [startAfter(cursor)] : []),
-          limit(30),
-        ),
+        clientQuery(db,queryPlans.publicStores(),next&&cursor?cursor:undefined),
       );
       const values = result.docs.map(
         (doc) => ({ ...doc.data(), id: doc.id }) as Store,
@@ -184,13 +174,7 @@ function StorePage({ id }: { id: string }) {
       const [storeDoc, result] = await Promise.all([
         getDoc(doc(db, "stores", id)),
         getDocs(
-          query(
-            collection(db, "products"),
-            where("storeId", "==", id),
-            orderBy(documentId()),
-            ...(next && cursor ? [startAfter(cursor)] : []),
-            limit(25),
-          ),
+          clientQuery(db,queryPlans.publicStoreProducts(id),next&&cursor?cursor:undefined),
         ),
       ]);
       if (!storeDoc.exists()) throw new Error("المتجر غير موجود.");

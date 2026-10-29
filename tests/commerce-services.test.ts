@@ -505,11 +505,11 @@ test('real Firestore SDK accepts Arabic catalog search constraints before any ne
   for(const collection of ['products','catalogProducts']){
    for(const term of ['ش','شاي',' شاي ']){
     const query=catalogSearchQuery(db,collection,term);
-    const expected=db.collection(collection).orderBy('name').orderBy(FieldPath.documentId()).startAt(term.trim()).endAt(term.trim()+'\uf8ff');
+    const expected=db.collection(collection).orderBy('name').orderBy(FieldPath.documentId()).startAt(term.trim()).endAt(term.trim()+'\uf8ff').limit(51);
     assert(query.isEqual(expected),'Search must retain name bounds and stable document ordering');
     assert.doesNotThrow(()=>query.limit(51));
    }
-   assert(catalogSearchQuery(db,collection,'').isEqual(db.collection(collection).orderBy(FieldPath.documentId())));
+   assert(catalogSearchQuery(db,collection,'').isEqual(db.collection(collection).orderBy(FieldPath.documentId()).limit(51)));
   }
  }finally{await db.terminate();}
 });
