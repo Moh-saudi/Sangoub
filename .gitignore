@@ -20,3 +20,8 @@ __pycache__/
 # Private Android signing keys
 *.keystore
 *.jks
+
+# Private migration artifacts
+migration-artifacts/
+*.ndjson
+*private-import.sql
