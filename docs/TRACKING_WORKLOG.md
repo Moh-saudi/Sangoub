@@ -1971,4 +1971,53 @@ Commit هذه الدفعة يمس OrderMap وCouriersLiveMap وOrderTracking obs
 
 السجل السابق ينتهي بعلامة مراجعة تخص9b3c18c؛ هذا الملحق هو أحدث تسليم. الوثائق محدثة لتفريق كود منفذ عن نشر/اختبار ميداني غير منفذ. SHA/stat هذه الدفعة تسجل في commit توثيق تالٍ لأن commit لا يحتوي SHA نفسه. لا نشر يدوي أو دمج main؛ رفع feature ضمن الإذن السابق، وإعداد Vercel الفعلي غير مفحوص.
 
+### GPS follow-up implementation commit
+SHA: 4028da9d3fb14b9c08e3d458bca19f18acb99827
+```text
+commit 4028da9d3fb14b9c08e3d458bca19f18acb99827
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Thu Oct 29 06:18:39 2026 +0000
+
+    fix(tracking): unify scoped merchant and customer maps and isolate serverless types
+
+ .github/workflows/web-validation.yml        |   1 +
+ api/tsconfig.json                           |  17 +++
+ docs/GPS_FOLLOWUP_2026-10-29.md             |  44 ++++++
+ docs/GPS_INTEGRATION_CONTRACT.ar.md         |   2 +
+ docs/GPS_SECURITY_REVIEW.json               |  18 +++
+ docs/MIGRATION.md                           |   2 +
+ docs/TRACKING_AUDIT.md                      |   2 +
+ docs/TRACKING_RULES_COST.md                 |   2 +
+ docs/TRACKING_WORKLOG.md                    | 222 ++++++++++++++++++++++++++++
+ package.json                                |   5 +-
+ server/handlers/admin-data.ts               |   1 +
+ server/handlers/operations.ts               |   2 +
+ server/handlers/osm.ts                      |   6 +-
+ server/merchantTracking.test.ts             |   5 +
+ server/merchantTracking.ts                  |  19 +++
+ server/osmProxy.ts                          |   2 +-
+ src/App.tsx                                 |   2 +-
+ src/components/CourierTracking.tsx          |   8 +-
+ src/components/CouriersLiveMap.tsx          |   2 +-
+ src/components/OrderMap.tsx                 |   8 +-
+ src/components/RestaurantPortal.tsx         | 115 ++------------
+ src/components/TrackingMap.tsx              |  10 +-
+ src/services/merchantTrackingClient.test.ts |   2 +
+ src/services/merchantTrackingClient.ts      |   9 ++
+ src/services/trackingObserver.test.ts       |   4 +-
+ src/services/trackingObserver.ts            |  11 +-
+ src/services/trackingSession.test.ts        |   2 +
+ src/services/trackingSession.ts             |  15 +-
+ src/services/useCourierTracking.ts          |   7 +-
+ src/services/useOrderTracking.ts            |  16 +-
+ src/shop/ShopFront.tsx                      |   6 +-
+ tests/fixtures/tracking-map.tsx             |   2 +-
+ tests/server-compiled.test.mjs              |   7 +-
+ tests/server-native.test.mjs                |   3 +-
+ tests/tracking-map.browser.mjs              |   2 +-
+ 35 files changed, 428 insertions(+), 153 deletions(-)
+```
+
+بوابات الكود المثبتة أعلاه تخص هذا المحتوى؛ commit التوثيق التالي لا يغيّر كودًا. حالة نشر Vercel الفعلية غير متحقق منها؛ إصلاح TS2688 مثبت بفحص الخادم وتجهيز JS محليًا، وليس بنشر بعيد.
+
 جاهز للمراجعة
