@@ -2817,4 +2817,8 @@ Date:   Thu Oct 29 07:35:33 2026 +0000
  3 files changed, 141 insertions(+)
 ```
 
+## Explicit approval — 2026-10-29
+
+User replied «موافق» to the explicit request to merge GPS into main, delete the preserved feature branch, and accept possible automatic Vercel deployment. The previous automatic approval rejection is now addressed by explicit user authorization. Remote refs matched the reviewed source before execution; main is an ancestor of GPS. Changes after CI-verified4aacebb are documentation only. Atomic push is authorized; final remote verification is reported after execution. No rules deploy.
+
 جاهز للمراجعة
