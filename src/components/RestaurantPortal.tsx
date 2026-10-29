@@ -1,3 +1,4 @@
+import {MerchantProductImage} from './MerchantProductImage';
 import {MerchantRecords} from './MerchantRecords';
 import {BRAND} from '../brand';
 import { MerchantCatalogPicker } from './MerchantCatalogPicker';
@@ -46,7 +47,6 @@ import {
   generateMerchantJournalEntries,
   calculateTopSellingProducts,
 } from "../utils/orderCalculations.ts";
-import { SmartImage } from "./SmartImage.tsx";
 
 interface RestaurantPortalProps {
   preparationContent?: React.ReactNode;
@@ -174,12 +174,12 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-4 text-xs font-['Cairo',-apple-system,BlinkMacSystemFont,sans-serif]" dir="rtl">
+    <div className="max-w-7xl mx-auto space-y-5 text-sm font-['Cairo',-apple-system,BlinkMacSystemFont,sans-serif]" dir="rtl">
       {/* Compact Enterprise Header matching Image 3 & 4 style */}
       <header className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Brand Info & Identity */}
-          <div className="flex items-center gap-3.5">
+          {(activeTab==='dashboard'||activeTab==='settings')&&<div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0">
               <span className="text-2xl select-none">{userStore.logo || "🥘"}</span>
             </div>
@@ -218,7 +218,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                 <span>المشرف: {currentProfile.fullName}</span>
               </p>
             </div>
-          </div>
+          </div>}
 
           <nav aria-label="أقسام لوحة التحكم" className="flex flex-wrap gap-2 rounded-xl border p-2 bg-slate-50">
             {sections.map(([key,label])=><button key={key} aria-current={activeTab===key?'page':undefined} onClick={()=>navigateSection(key)} className={`px-3 py-2 rounded-lg text-sm font-bold ${activeTab===key?'bg-slate-900 text-white':'text-slate-700 bg-white'}`}>{label}</button>)}
@@ -226,7 +226,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
         </div>
 
         {/* Compact KPI Metric Cards (Image 3 Style: 4 Cards) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100">
+        {(activeTab==='dashboard'||activeTab==='accounting')&&<div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100">
           <div className="bg-slate-50/70 rounded-xl p-3 border border-slate-200/80 flex items-center justify-between">
             <div>
               <span className="text-[11px] font-bold text-slate-500 block">إجمالي المبيعات</span>
@@ -276,7 +276,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
               <Award size={18} />
             </div>
           </div>
-        </div>
+        </div>}
       </header>
 
       {activeTab==='dashboard'&&<section aria-label="الرئيسية" className="p-5 border rounded-2xl bg-white space-y-3"><h2 className="text-xl font-bold">ملخص المتجر</h2><p>المؤشرات من الطلبات المحملة حاليًا؛ حمّل السجل لعرض مزيد من الطلبات.</p><h3>أحدث الطلبات المحملة</h3>{[...storeOrders].sort((a,b)=>Date.parse(b.createdAt||'')-Date.parse(a.createdAt||'')).slice(0,10).map(o=><button key={o.id} onClick={()=>navigateSection('kitchen')} className="block p-2 border rounded-xl w-full text-right">{o.orderNumber||o.id} · {o.orderStatus}</button>)}{!storeOrders.length&&<p>لا توجد طلبات محملة بعد.</p>}<button onClick={()=>navigateSection('menu')} className="p-3 border rounded-xl">إدارة منتجات المتجر</button></section>}
@@ -317,7 +317,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             <div>
               <h3 className="text-lg font-black text-slate-900 tracking-tight">{activeTab==='inventory'?'المخزون والتوفر':'منتجات وأسعار'} {userStore.name}</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                تحديث فوري لأسعار البيع، تفعيل أو إيقاف توفر المنتجات بالمطبخ فوراً لموظفي العاصمة.
+                منتجات متجرك وأسعارها وتوفرها، في مكان واحد.
               </p>
             </div>
 
@@ -328,12 +328,12 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
               className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
             >
               <Plus size={16} />
-              <span>اختيار من الكتالوج العام</span>
+              <span>إضافة منتج</span>
             </button>
           </div>
 
           {/* Search & Category Filter Pills */}
-          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+          {storeProducts.length>0&&<><div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
             <div className="relative w-full sm:w-80">
               <Search size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -366,7 +366,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             <button onClick={()=>setInventoryView('active')} aria-pressed={inventoryView==='active'}>المنتجات الحالية</button>
             <button onClick={()=>setInventoryView('archived')} aria-pressed={inventoryView==='archived'}>المؤرشفة</button>
             {productsNextCursor&&<button disabled={productsLoading} onClick={onLoadMoreProducts}>{productsLoading?'جارٍ التحميل…':'تحميل المزيد من منتجات المتجر'}</button>}
-          </div>
+          </div></>}
           {menuError&&<p role="alert" className="text-red-700">{menuError}</p>}
           {activeTab==='menu'&&isAddingItem&&canManage&&<MerchantCatalogPicker products={storeProducts} onLink={onLinkProduct} onClose={()=>setIsAddingItem(false)}/>}
           {filteredProducts.length===0&&<EmptyState message={productSearch?"لا توجد أصناف تطابق البحث؛ جرّب اسمًا آخر.":"لا توجد أصناف في هذه القائمة. اختر منتجات موجودة من الكتالوج العام."}/>}
@@ -379,12 +379,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
               >
                 <div className="flex items-start gap-3.5">
                   <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 border border-slate-100 bg-slate-50">
-                    <SmartImage
-                      src={prod.imageUrl}
-                      alt={prod.name}
-                      fallbackType={prod.imageType}
-                      aspectRatio="aspect-square"
-                    />
+                    <MerchantProductImage src={prod.imageUrl} name={prod.name}/>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">

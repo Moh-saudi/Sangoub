@@ -485,3 +485,14 @@ test('published catalog entries without an assigned store or optional descriptio
  const r:any=await merchantAction({action:'link-catalog-product',catalogProductId:'general-tea',price:15},c);
  assert.equal(c.db.data.get('products/'+r.id).storeId,'a');assert.equal(c.db.data.get('products/general-tea').price,20);
 });
+
+test('single-character search combines shared and legacy products with their actual image URLs',async()=>{
+ const c=setup();
+ c.db.data.set('catalogProducts/shared-tea',{active:true,name:'شاي أخضر',description:'شاي',category:'مشروبات',imageUrl:'https://images.example/green-tea.jpg'});
+ c.db.data.set('products/legacy-tea',{storeId:'a',inStock:true,name:'شاي أسود',description:'شاي',category:'مشروبات',price:15,imageUrl:'https://images.example/black-tea.jpg'});
+ const result:any=await merchantAction({action:'shared-catalog',query:'ش'},c);
+ assert.deepEqual(result.items.map((p:any)=>p.id).sort(),['legacy-tea','shared-tea']);
+ assert.equal(result.items.find((p:any)=>p.id==='legacy-tea').imageUrl,'https://images.example/black-tea.jpg');
+ assert.equal(result.items.find((p:any)=>p.id==='shared-tea').imageUrl,'https://images.example/green-tea.jpg');
+ assert.equal(result.nextCursor,null);
+});

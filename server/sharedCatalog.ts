@@ -48,7 +48,7 @@ export async function sharedCatalogPage(db:any, cursor?:string, search='') {
     return {items,nextCursor:snapshot.docs.length>50?kind+':'+docs.at(-1)!.id:kind==='catalog'?'legacy:':null};
   };
   const result=await read(source,last);
-  if(source==='catalog'&&!result.items.length&&result.nextCursor==='legacy:')return read('legacy','');
+  if(source==='catalog'&&result.nextCursor==='legacy:'){const legacy=await read('legacy','');return {items:[...result.items,...legacy.items],nextCursor:legacy.nextCursor};}
   return result;
 }
 export async function publishCatalogProduct(id:string, context:any) {
