@@ -2822,3 +2822,225 @@ Date:   Thu Oct 29 07:35:33 2026 +0000
 User replied «موافق» to the explicit request to merge GPS into main, delete the preserved feature branch, and accept possible automatic Vercel deployment. The previous automatic approval rejection is now addressed by explicit user authorization. Remote refs matched the reviewed source before execution; main is an ancestor of GPS. Changes after CI-verified4aacebb are documentation only. Atomic push is authorized; final remote verification is reported after execution. No rules deploy.
 
 جاهز للمراجعة
+
+## Vercel-node-types — PASS
+
+أُعيد TS2688 الحقيقي محليًا بإزالة typeRoots/types المطلقين من اختبار compiled API؛ صار الاختبار يفشل بنفس رسالة السجل المرفق. أضيف typeRoots إلى إعداد الخادم الحقيقي فنجح دون تعويض. جميع البوابات أدناه نجحت، ولا تغيير لقواعد/دفع/GPS/dependencies. نتيجة نشر Vercel الجديد غير متحقق منها بعد.
+
+### Command
+```sh
+npm run test:compiled-api (before fix, expected regression failure)
+```
+```text
+
+> react-example@0.0.0 test:compiled-api
+> node --test tests/server-compiled.test.mjs
+
+✖ compiled serverless JavaScript loads the real handlers without TypeScript loaders (491.897348ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 574.914773
+
+✖ failing tests:
+
+test at tests/server-compiled.test.mjs:9:1
+✖ compiled serverless JavaScript loads the real handlers without TypeScript loaders (491.897348ms)
+  AssertionError [ERR_ASSERTION]: error TS2688: Cannot find type definition file for 'node'.
+    The file is in the program because:
+      Entry point of type library 'node' specified in compilerOptions
+  
+  
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/capital-talabat/tests/server-compiled.test.mjs:44:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+```
+
+### Command
+```sh
+npm run lint
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+```
+
+### Command
+```sh
+npm run lint:server
+```
+```text
+
+> react-example@0.0.0 lint:server
+> tsc --noEmit -p api/tsconfig.json
+
+```
+
+### Command
+```sh
+npm run test:compiled-api (after config fix)
+```
+```text
+
+> react-example@0.0.0 test:compiled-api
+> node --test tests/server-compiled.test.mjs
+
+✔ compiled serverless JavaScript loads the real handlers without TypeScript loaders (918.372123ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 990.672239
+```
+
+### Command
+```sh
+npm run test:native-api
+```
+```text
+
+> react-example@0.0.0 test:native-api
+> node --test tests/server-native.test.mjs
+
+Server entry failure {
+  incidentId: 'mvt8wis8-ao3ge33',
+  stage: 'module',
+  code: 'ERR_MODULE_NOT_FOUND',
+  message: 'example-internal-path'
+}
+✔ native ESM loads orders and rejects unauthenticated requests before cloud access (1.18122ms)
+✔ native ESM loads images and rejects unauthenticated requests before cloud access (0.152097ms)
+✔ native ESM loads delivery and rejects unauthenticated requests before cloud access (0.145076ms)
+✔ native ESM loads assistant and rejects unauthenticated requests before cloud access (0.474969ms)
+✔ native ESM loads users and rejects unauthenticated requests before cloud access (0.114658ms)
+✔ native ESM loads data and rejects unauthenticated requests before cloud access (0.093695ms)
+✔ native ESM loads operations and rejects unauthenticated requests before cloud access (0.092931ms)
+✔ native ESM loads appContent and rejects unauthenticated requests before cloud access (19.991311ms)
+✔ native ESM loads osm and rejects unauthenticated requests before cloud access (0.168419ms)
+✔ server entry reports an import incident without exposing its raw message (1.620272ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 480.606946
+```
+
+### Command
+```sh
+npm test
+```
+```text
+[truncated]
+✔ two orders share one GPS and one Wake Lock but each filters/writes its own heartbeat and stops independently (3.187745ms)
+✔ retry uses 2s/5s/10s backoff, survives transient failure, stops after three continuous failure minutes (4.191146ms)
+✔ visibility stops foreground publishing and reacquires one watch/lock; no stale point republished before a fresh fix (1.521066ms)
+✔ unacknowledged offline write cannot keep GPS or Wake Lock alive indefinitely (0.686237ms)
+✔ heartbeats stop claiming a live position after 120s without a reliable GPS fix (0.715551ms)
+✔ checkout acknowledgment cannot erase quantities or new lines added during the request (2.150682ms)
+✔ mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities (1.963827ms)
+✔ InstaPay is a requested payment method and never a paid confirmation (0.33033ms)
+✔ incomplete customer details, invalid quantities and unknown menu items cannot produce a sendable request (0.772039ms)
+✔ Arabic and Persian quantity digits are accepted while fractional quantities are rejected (0.514644ms)
+✔ supermarket request combines packs from every section without breakfast items or payment claims (0.84369ms)
+✔ campaign scheduling uses Cairo rather than the execution host timezone (17.536751ms)
+✔ catalog monitoring counts delivered snapshots and excludes cancelled orders (2.387067ms)
+✔ editing archived items cannot silently make them available (31.138317ms)
+✔ catalog editor rejects invalid discounts, unsafe URLs and nonnumeric prices (1.494692ms)
+✔ calculateCartSubtotal correctly sums prices with quantities and options (1.430622ms)
+✔ applyCouponDiscount handles minOrder thresholds and discount calculation (0.538161ms)
+✔ calculateOrderTotal applies discount, delivery fee, and tip properly (0.269971ms)
+✔ getNextOrderStatus advances status correctly (0.19555ms)
+✔ validateEmployeeProfile validates name, Egyptian phone, ministry and floor (0.671032ms)
+✔ updateCourierMilestone updates checklist and advances to delivered when completed (0.317146ms)
+✔ currency formatting preserves cents charged by the payment gateway (22.959882ms)
+✔ calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission (0.573096ms)
+✔ generateMerchantJournalEntries creates balanced double-entry accounting records (1.090149ms)
+✔ calculateTopSellingProducts ranks products correctly by volume and share (1.011763ms)
+✔ calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest (0.608321ms)
+✔ Flutter summary records preserve totals and normalize Firestore timestamps (3.848859ms)
+✔ one kitchen cannot mark a multi-store order globally ready (0.788592ms)
+✔ daily metrics use Cairo date and actual delivery time across midnight (20.382466ms)
+✔ offers exclude invalid discounts, archived stock, and closed or missing stores (2.016504ms)
+✔ price and store availability changes immediately update offer eligibility (0.522994ms)
+✔ campaign tags and referrer domains classify sources without accepting spoofed hosts or collecting raw values (1.214801ms)
+ℹ tests 85
+ℹ suites 0
+ℹ pass 85
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1376.379438
+```
+
+### Command
+```sh
+npm run build
+```
+```text
+[truncated]
+rendering chunks...
+computing gzip size...
+dist/build-info.json                         0.08 kB │ gzip:   0.09 kB
+dist/registerSW.js                           0.13 kB
+dist/manifest.webmanifest                    0.50 kB
+dist/index.html                              3.16 kB │ gzip:   1.12 kB
+dist/assets/CourierApp-objfHoLw.css          2.49 kB │ gzip:   0.85 kB
+dist/assets/MerchantApp-BTOjdwri.css        10.25 kB │ gzip:   2.57 kB
+dist/assets/ShopFront-Bpi2N2qu.css          10.48 kB │ gzip:   2.62 kB
+dist/assets/useOsmRoute-vh-t_kPv.css        15.09 kB │ gzip:   6.36 kB
+dist/assets/AdminApp-EWhne2zZ.css           49.46 kB │ gzip:   9.88 kB
+dist/assets/index-qn0S2sR_.css             250.65 kB │ gzip:  39.95 kB
+dist/assets/operationsApi-DfLln63v.js        0.09 kB │ gzip:   0.10 kB
+dist/assets/adminPresentation-Bc0jKY_r.js    0.19 kB │ gzip:   0.17 kB
+dist/assets/orderDelivery-CduKpJsZ.js        0.49 kB │ gzip:   0.39 kB
+dist/assets/DataStates-D0RacR5B.js           3.33 kB │ gzip:   1.64 kB
+dist/assets/KitchenDisplay-DEckMg17.js      12.41 kB │ gzip:   4.62 kB
+dist/assets/CourierApp-wDarZTLZ.js          21.80 kB │ gzip:   7.77 kB
+dist/assets/ShopFront-CzZYg6_T.js           38.79 kB │ gzip:  11.07 kB
+dist/assets/MerchantApp-DdZD4guV.js         74.33 kB │ gzip:  18.83 kB
+dist/assets/useOsmRoute-w8e3omTz.js        167.98 kB │ gzip:  50.66 kB
+dist/assets/AdminApp-rxBUXneo.js           281.44 kB │ gzip:  68.39 kB
+dist/assets/index-DbsnhnNK.js              370.96 kB │ gzip: 104.89 kB
+dist/assets/firebase-DsZuyFPx.js           604.78 kB │ gzip: 182.98 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/authenticatedApi.ts is dynamically imported by src/lib/firebase.ts but also statically imported by src/components/NotificationCenter.tsx, src/lib/adminApi.ts, src/lib/operationsApi.ts, src/shop/ShopFront.tsx, src/storefront/components/SangoubAuthModal.tsx, dynamic import will not move module into another chunk.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.48s
+
+PWA v2.0.0
+mode      generateSW
+precache  28 entries (2654.59 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-95677aec.js
+```
+
+جاهز للمراجعة

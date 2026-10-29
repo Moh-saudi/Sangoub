@@ -23,8 +23,6 @@ test('compiled serverless JavaScript loads the real handlers without TypeScript 
           rewriteRelativeImportExtensions: true,
           rootDir: norm(root),
           outDir: norm(out),
-          types: ['node'],
-          typeRoots: [norm(join(root, 'node_modules/@types'))],
         },
         include: [
           norm(join(root, 'api/**/*.ts')),
