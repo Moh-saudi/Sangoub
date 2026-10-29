@@ -2,13 +2,21 @@ name: Web and Firebase validation
 on:
   pull_request:
   push:
-    branches: [main, feature/real-orders-auth-maps, feature/admin-web-only]
+    branches: [main, feature/osm-tracking]
 permissions:
   contents: read
 jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      FIREBASE_PROJECT_ID: demo-capital-talabat
+      VITE_FIREBASE_PROJECT_ID: demo-capital-talabat
+      VITE_FIREBASE_API_KEY: demo-key
+      VITE_FIREBASE_AUTH_DOMAIN: demo-capital-talabat.invalid
+      VITE_FIREBASE_STORAGE_BUCKET: demo-capital-talabat.invalid
+      VITE_FIREBASE_DATABASE_ID: (default)
+      VITE_USE_FIREBASE_EMULATORS: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,7 +27,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - run: npm install
+      - run: npm ci
       - run: npm run lint
       - run: npm run lint:server
       - run: npm test
@@ -33,7 +41,7 @@ jobs:
       - run: npm run build
       - run: npm run test:auth
       - run: npm run test:operations
-      - run: npm run test:rules
+      - run: node scripts/check-rules-ci.mjs
       - run: npm run test:web-checkout
       - run: npm run test:commerce-integration
       - run: npx playwright install --with-deps chromium
