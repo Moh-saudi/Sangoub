@@ -3,7 +3,7 @@ import type { LocationSource,LocationEvent } from './sharedLocationSource';
 export type TrackingWrite={coordinates:{latitude:number;longitude:number};active:boolean};
 export interface TrackingState {status:'waiting'|'active'|'reconnecting'|'gps-error'|'paused'|'stopped';point:TrackingWrite['coordinates']|null;message:string;lastWriteAt:number|null;hiddenAt:number|null;awayMs:number;wake:string;accuracyMeters:number|null}
 export interface TrackingClock {now:()=>number;interval:(fn:()=>void,ms:number)=>any;clearInterval:(id:any)=>void;timeout:(fn:()=>void,ms:number)=>any;clearTimeout:(id:any)=>void}
-export const realTrackingClock:TrackingClock={now:Date.now,interval:setInterval,clearInterval,timeout:setTimeout,clearTimeout};
+export const realTrackingClock:TrackingClock={now:()=>Date.now(),interval:(fn,ms)=>globalThis.setInterval(fn,ms),clearInterval:id=>globalThis.clearInterval(id),timeout:(fn,ms)=>globalThis.setTimeout(fn,ms),clearTimeout:id=>globalThis.clearTimeout(id)};
 export function canTrackOrder(order:{courierId?:string;orderStatus:string},uid:string|null|undefined){return !!uid&&order.courierId===uid&&order.orderStatus==='with_courier'}
 /** One filter and writer per order. All timers/location are injected for deterministic tests. */
 export function startTrackingSession(options:{source:LocationSource;write:(payload:TrackingWrite)=>Promise<void>;notify:(state:TrackingState)=>void;clock?:TrackingClock}){

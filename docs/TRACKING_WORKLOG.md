@@ -2435,3 +2435,203 @@ Date:   Thu Oct 29 07:01:13 2026 +0000
 ```
 
 جاهز للمراجعة
+
+## Branches-GPS-clock — PASS
+
+فشل browser admin موضع144 كان عطلًا فعليًا في GPS clock: استدعاء مؤقت Window عبر كائن وسيط يرمي Illegal invocation. أعدت إنتاج المكوّن الحقيقي بحساب اصطناعي وحجب كل شبكة Firebase، ثم أصلحت realTrackingClock إلى globalThis wrappers. fixture المتصفح الدائم يفحص real clock عند كل عرض، وshop test يفحص الخريطة المشتركة الفعلية بدل iframe القديم. قواعد emulator نجحت سابقًا في CI؛ ننتظر كامل CI الجديد قبل main.
+
+### Command
+```sh
+npm run lint
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+```
+
+### Command
+```sh
+npm run lint:server
+```
+```text
+
+> react-example@0.0.0 lint:server
+> tsc --noEmit -p api/tsconfig.json
+
+```
+
+### Command
+```sh
+npm test
+```
+```text
+[truncated]
+✔ two orders share one GPS and one Wake Lock but each filters/writes its own heartbeat and stops independently (8.661199ms)
+✔ retry uses 2s/5s/10s backoff, survives transient failure, stops after three continuous failure minutes (4.408303ms)
+✔ visibility stops foreground publishing and reacquires one watch/lock; no stale point republished before a fresh fix (1.273455ms)
+✔ unacknowledged offline write cannot keep GPS or Wake Lock alive indefinitely (1.119839ms)
+✔ heartbeats stop claiming a live position after 120s without a reliable GPS fix (3.489488ms)
+✔ checkout acknowledgment cannot erase quantities or new lines added during the request (2.375794ms)
+✔ mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities (1.512543ms)
+✔ InstaPay is a requested payment method and never a paid confirmation (0.346781ms)
+✔ incomplete customer details, invalid quantities and unknown menu items cannot produce a sendable request (0.540866ms)
+✔ Arabic and Persian quantity digits are accepted while fractional quantities are rejected (0.328714ms)
+✔ supermarket request combines packs from every section without breakfast items or payment claims (0.41784ms)
+✔ campaign scheduling uses Cairo rather than the execution host timezone (18.465727ms)
+✔ catalog monitoring counts delivered snapshots and excludes cancelled orders (2.106947ms)
+✔ editing archived items cannot silently make them available (28.123776ms)
+✔ catalog editor rejects invalid discounts, unsafe URLs and nonnumeric prices (0.561528ms)
+✔ calculateCartSubtotal correctly sums prices with quantities and options (1.72902ms)
+✔ applyCouponDiscount handles minOrder thresholds and discount calculation (0.554272ms)
+✔ calculateOrderTotal applies discount, delivery fee, and tip properly (0.256812ms)
+✔ getNextOrderStatus advances status correctly (0.227142ms)
+✔ validateEmployeeProfile validates name, Egyptian phone, ministry and floor (0.612577ms)
+✔ updateCourierMilestone updates checklist and advances to delivered when completed (0.32464ms)
+✔ currency formatting preserves cents charged by the payment gateway (23.43881ms)
+✔ calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission (0.508565ms)
+✔ generateMerchantJournalEntries creates balanced double-entry accounting records (0.99439ms)
+✔ calculateTopSellingProducts ranks products correctly by volume and share (0.791394ms)
+✔ calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest (0.569483ms)
+✔ Flutter summary records preserve totals and normalize Firestore timestamps (1.825646ms)
+✔ one kitchen cannot mark a multi-store order globally ready (0.467665ms)
+✔ daily metrics use Cairo date and actual delivery time across midnight (16.116428ms)
+✔ offers exclude invalid discounts, archived stock, and closed or missing stores (2.328742ms)
+✔ price and store availability changes immediately update offer eligibility (0.231941ms)
+✔ campaign tags and referrer domains classify sources without accepting spoofed hosts or collecting raw values (1.272459ms)
+ℹ tests 85
+ℹ suites 0
+ℹ pass 85
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1444.700462
+```
+
+### Command
+```sh
+npm run test:compiled-api
+```
+```text
+
+> react-example@0.0.0 test:compiled-api
+> node --test tests/server-compiled.test.mjs
+
+✔ compiled serverless JavaScript loads the real handlers without TypeScript loaders (997.627387ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1070.583585
+```
+
+### Command
+```sh
+npm run build
+```
+```text
+[truncated]
+rendering chunks...
+computing gzip size...
+dist/build-info.json                         0.08 kB │ gzip:   0.09 kB
+dist/registerSW.js                           0.13 kB
+dist/manifest.webmanifest                    0.50 kB
+dist/index.html                              3.16 kB │ gzip:   1.11 kB
+dist/assets/CourierApp-objfHoLw.css          2.49 kB │ gzip:   0.85 kB
+dist/assets/MerchantApp-BTOjdwri.css        10.25 kB │ gzip:   2.57 kB
+dist/assets/ShopFront-RYKMbjBy.css          10.40 kB │ gzip:   2.60 kB
+dist/assets/useOsmRoute-vh-t_kPv.css        15.09 kB │ gzip:   6.36 kB
+dist/assets/AdminApp-EWhne2zZ.css           49.46 kB │ gzip:   9.88 kB
+dist/assets/index-qn0S2sR_.css             250.65 kB │ gzip:  39.95 kB
+dist/assets/operationsApi-DfLln63v.js        0.09 kB │ gzip:   0.10 kB
+dist/assets/adminPresentation-Bc0jKY_r.js    0.19 kB │ gzip:   0.17 kB
+dist/assets/orderDelivery-CduKpJsZ.js        0.49 kB │ gzip:   0.39 kB
+dist/assets/DataStates-Dz1DsFgw.js           3.33 kB │ gzip:   1.64 kB
+dist/assets/KitchenDisplay-Gtbfm_-J.js      12.41 kB │ gzip:   4.62 kB
+dist/assets/CourierApp-bmUJHLAL.js          21.80 kB │ gzip:   7.77 kB
+dist/assets/ShopFront-CB2t2Sn9.js           38.79 kB │ gzip:  11.07 kB
+dist/assets/MerchantApp-xLioOr2-.js         74.33 kB │ gzip:  18.83 kB
+dist/assets/useOsmRoute-w8e3omTz.js        167.98 kB │ gzip:  50.66 kB
+dist/assets/AdminApp-D0_jSU4Q.js           281.44 kB │ gzip:  68.39 kB
+dist/assets/index-qbyvWkoJ.js              370.96 kB │ gzip: 104.90 kB
+dist/assets/firebase-DsZuyFPx.js           604.78 kB │ gzip: 182.98 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/authenticatedApi.ts is dynamically imported by src/lib/firebase.ts but also statically imported by src/components/NotificationCenter.tsx, src/lib/adminApi.ts, src/lib/operationsApi.ts, src/shop/ShopFront.tsx, src/storefront/components/SangoubAuthModal.tsx, dynamic import will not move module into another chunk.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.54s
+
+PWA v2.0.0
+mode      generateSW
+precache  28 entries (2654.51 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-95677aec.js
+```
+
+### Command
+```sh
+npm run test:tracking-map
+```
+```text
+
+> react-example@0.0.0 test:tracking-map
+> node tests/tracking-map.browser.mjs
+
+PASS: isolated Leaflet fixture at 320/390/1366px; smooth marker update preserves map DOM, attribution visible, no horizontal overflow. External requests intercepted; no Firebase imported or contacted.
+```
+
+### CI follow-up commit
+```text
+commit 86f559a20103682789c9de0ec294e4ad3dff7ef6
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Thu Oct 29 07:05:42 2026 +0000
+
+    test(checkout): exercise scoped merchant and courier operational APIs
+
+ scripts/{check-rules-ci.mjs => check-tests-ci.mjs} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+```
+
+### CI follow-up commit
+```text
+commit a830104fe13c384a76580b0498bf8833c023ce59
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Thu Oct 29 07:06:05 2026 +0000
+
+    fix(ci): wire shared test runner and scoped checkout regression
+
+ .github/workflows/web-validation.yml   |   6 +-
+ docs/BRANCH_CONSOLIDATION.md           |   6 ++
+ docs/TRACKING_WORKLOG.md               | 129 +++++++++++++++++++++++++++++++++
+ scripts/check-tests-ci.mjs             |  12 +--
+ tests/web-checkout.integration.test.ts |  16 ++--
+ 5 files changed, 155 insertions(+), 14 deletions(-)
+```
+
+### CI follow-up commit
+```text
+commit 49db01620b2120a75a51def128063d6608a417a2
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Thu Oct 29 07:13:33 2026 +0000
+
+    ci: report browser failure locations and run all browser checks
+
+ .github/workflows/web-validation.yml | 11 +++++++----
+ docs/BRANCH_CONSOLIDATION.md         |  4 ++++
+ scripts/check-tests-ci.mjs           |  6 ++++--
+ 3 files changed, 15 insertions(+), 6 deletions(-)
+```
+
+86f559a سجل rename فقط بسبب pathspec ملف حُذف؛ a830104 أضاف بقية التغييرات فورًا، دون force-push أو إخفاء السجل. لا حذف لفرع GPS قبل حفظ كامل تعديلاته في main ونجاح الفحص.
+
+جاهز للمراجعة
