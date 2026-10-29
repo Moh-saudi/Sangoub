@@ -1,2 +1,2 @@
-import { serverEntry } from '../server/serverEntry.js';
-export default serverEntry(() => import('../server/handlers/operations.ts'));
+import { createOperationsEntry } from '../server/operationsEntry.ts';
+export default createOperationsEntry();
