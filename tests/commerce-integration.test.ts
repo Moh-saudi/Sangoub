@@ -299,18 +299,20 @@ test("real emulator: scoped merchant catalog/preparation, settlement claims, not
     const usersBefore = (await service.db.collection('users').get()).size;
     const merchantBefore = (await service.db.doc('users/' + merchant.uid).get()).data();
     const fullAddress = 'شارع النخيل، مبنى ٥، زهرة العاصمة، ' + 'تفاصيل التوصيل '.repeat(10);
+    // The API trims surrounding whitespace while preserving the full delivery address.
+    const normalizedAddress = fullAddress.trim();
     for (let attempt = 0; attempt < 2; attempt++) {
       assert.equal((await call(orders, { action: 'profile-address', makeDefault: true,
         address: { fullAddress, details: 'الدور الثالث، مكتب ٣', city: 'العاصمة الإدارية', coordinates: { latitude:30.01, longitude:31.7 } },
       }, customer.token)).status, 200);
     }
     const savedAddress = (await service.db.doc('users/' + customer.uid).get()).data();
-    assert.equal(savedAddress?.defaultAddress.fullAddress, fullAddress);
+    assert.equal(savedAddress?.defaultAddress.fullAddress, normalizedAddress);
     assert.equal(savedAddress?.defaultAddress.details, 'الدور الثالث، مكتب ٣');
     assert.deepEqual(savedAddress?.coordinates, { latitude:30.01, longitude:31.7 });
     assert.equal(savedAddress?.ministry.length, 120);
     assert.equal((await call(orders, {action:'profile-update',data:{ministry:savedAddress?.ministry,fullName:'عميل اختبار'}},customer.token)).status,200);
-    assert.equal((await service.db.doc('users/'+customer.uid).get()).data()?.defaultAddress.fullAddress,fullAddress,'Unchanged address must not truncate the saved full address');
+    assert.equal((await service.db.doc('users/'+customer.uid).get()).data()?.defaultAddress.fullAddress,normalizedAddress,'Unchanged address must not truncate the saved full address');
     assert.equal((await call(orders, {action:'profile-update',data:{ministry:'شارع جديد، مبنى ٦'}},customer.token)).status,200);
     assert.equal((await service.db.doc('users/'+customer.uid).get()).data()?.defaultAddress.fullAddress,'شارع جديد، مبنى ٦');
     assert.equal((await call(orders, {action:'profile-address',makeDefault:true,address:{fullAddress:'عنوان يدوي بدون نقطة مؤكدة'}},customer.token)).status,200);
