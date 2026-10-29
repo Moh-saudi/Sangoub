@@ -55,3 +55,13 @@ test('both entry paths keep authentication, method restrictions and native CORS 
   }
   assert.equal(loads, 0);
 });
+
+test('only OSM search is public; operations, routes and unknown actions keep authentication', async () => {
+ const calls:string[]=[];
+ const handler=createOperationsEntry(async()=>({default:(_req:any,res:any)=>{calls.push('operations');return res.status(200).json({});}}),async()=>({default:(req:any,res:any)=>{calls.push(req.query.action);return res.status(200).json({});}}));
+ for(const query of [{},{osmAction:'route'},{osmAction:'other'}]){
+  const res=response();await handler({method:'POST',headers:{},query,body:{}},res);assert.equal(res.code,401);
+ }
+ const res=response();await handler({method:'POST',headers:{},query:{osmAction:'search'},body:{query:'شارع النخيل'}},res);
+ assert.equal(res.code,200);assert.deepEqual(calls,['search']);
+});

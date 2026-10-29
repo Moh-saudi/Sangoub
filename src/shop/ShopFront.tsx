@@ -1,3 +1,4 @@
+import { pendingDeliveryAddressKey, readPendingDeliveryAddress } from '../services/deliveryAddress';
 import { BRAND } from "../brand";
 import { OrderReceiptCode } from "../components/OrderReceiptCode";
 import { OrderInvoice } from "./OrderInvoice";
@@ -495,13 +496,14 @@ function Cart() {
 function CheckoutForm() {
   const shop = useShop(),
     profile = shop.profile!;
+  const [pendingAddress] = useState(() => readPendingDeliveryAddress(sessionStorage));
   const [fields, setFields] = useState({
     profileName: profile.fullName || "",
     phone: profile.phone || "",
-    ministry: profile.ministry || "",
+    ministry: pendingAddress?.name.slice(0,120) || profile.ministry || "",
     floorNumber: profile.floorNumber || "",
     roomNumber: profile.roomNumber || "",
-    notes: "",
+    notes: pendingAddress && pendingAddress.name.length > 120 ? pendingAddress.name : "",
     couponCode: "",
     paymentMethod: "",
   });
@@ -517,7 +519,7 @@ function CheckoutForm() {
     } | null>(null);
   const [coordinates, setCoordinates] = useState<
     import("../types").Coordinates | undefined
-  >(profile.coordinates);
+  >(pendingAddress ? (pendingAddress.latitude !== undefined && pendingAddress.longitude !== undefined ? {latitude:pendingAddress.latitude,longitude:pendingAddress.longitude} : undefined) : profile.coordinates);
   const attemptMemory = useRef<{
     uid: string;
     fingerprint: string;
@@ -609,6 +611,12 @@ function CheckoutForm() {
         ...payload,
         action: "quote",
       });
+      if (pendingAddress && readPendingDeliveryAddress(sessionStorage)) {
+        await authenticatedApi('/api/orders', { action:'profile-address', makeDefault:true,
+          address:{fullAddress:fields.ministry === pendingAddress.name.slice(0,120) ? pendingAddress.name : fields.ministry,
+            city:pendingAddress.city || '', details:pendingAddress.details || '', ...(coordinates ? {coordinates} : {})} });
+        try { sessionStorage.removeItem(pendingDeliveryAddressKey); } catch {}
+      }
       setReview({
         quote: result.quote,
         quoteHash: result.quoteHash,

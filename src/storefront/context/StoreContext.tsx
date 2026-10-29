@@ -1,5 +1,5 @@
 import { authenticatedApi } from '../../lib/authenticatedApi';
-import { usableDeliveryAddress } from '../../services/deliveryAddress';
+import { usableDeliveryAddress, pendingDeliveryAddressKey } from '../../services/deliveryAddress';
 import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
 import type { Product, Store, CartItem, Coupon, Profile } from '../../types';
 import { BRAND } from '../../brand';
@@ -142,6 +142,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setServiceArea = (area: ServiceArea) => {
     setServiceAreaState(area);
+    if (auth.currentUser) { try { sessionStorage.removeItem(pendingDeliveryAddressKey); } catch {} }
     try { localStorage.setItem(auth.currentUser ? `${STORAGE_KEYS.AREA}:${auth.currentUser.uid}` : STORAGE_KEYS.AREA, JSON.stringify(area)); } catch {}
   };
 
@@ -157,6 +158,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setUser(previous => previous?.id === current.uid ? { ...previous, ministry: area.name.slice(0,120), defaultAddress: address,
         coordinates: address.coordinates } : previous);
     }
+    if (!current) { try { sessionStorage.setItem(pendingDeliveryAddressKey, JSON.stringify(area)); } catch {} }
     setServiceArea(area);
   };
 

@@ -11,7 +11,10 @@ try {
  const page=await context.newPage();
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  let osmRequests=0;
- await page.route('**/api/osm/**',async route=>{osmRequests++;await route.fulfill({status:401,contentType:'application/json',body:'{"error":"سجل الدخول"}'});});
+ await page.route('**/api/osm/**',async route=>{
+  osmRequests++;assert.equal(route.request().headers().authorization,undefined);
+  await route.fulfill({contentType:'application/json',body:JSON.stringify({results:[{place_id:'guest-place',lat:'30.025',lon:'31.725',display_name:'شارع النخيل، زهرة العاصمة',address:{road:'شارع النخيل',suburb:'زهرة العاصمة'}}]})});
+ });
  await page.route('**/api/app-content**',route=>route.fulfill({contentType:'application/json',body:'{"slides":[],"config":{}}'}));
  await page.goto(base);await page.getByRole('button',{name:'تغيير موقع التوصيل'}).waitFor();
  assert.equal(await page.getByRole('dialog',{name:'عنوان التوصيل'}).count(),0,'No intrusive modal on initial visit');
@@ -23,7 +26,7 @@ try {
  await address.fill('شارع النخيل، زهرة العاصمة، زهرة العاصمة');
  await page.getByPlaceholder('رقم المبنى / الدور / رقم الشقة أو المكتب (اختياري)...').fill('مبنى ٥، الدور ٣');
  await confirm.click();await dialog.waitFor({state:'hidden'});
- assert.equal(osmRequests,0,'Guest never calls the authenticated geocoder');
+ assert.equal(osmRequests,0,'Typing an address immediately avoids unnecessary lookups');
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('sangoub_selected_area')));
  assert.equal(saved.name,'شارع النخيل، زهرة العاصمة (مبنى ٥، الدور ٣)');
  assert.equal(saved.latitude,undefined,'Manual entry does not invent map coordinates');
@@ -34,7 +37,20 @@ try {
  await confirm.click();await dialog.waitFor({state:'hidden'});
  assert.equal((await page.evaluate(()=>JSON.parse(localStorage.getItem('sangoub_selected_area')))).name,saved.name,'Re-saving does not duplicate building details');
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ // A fresh guest can resolve the initial point, search, and save without signing in.
+ await page.evaluate(()=>{localStorage.removeItem('sangoub_selected_area');});
+ await page.reload();await page.getByRole('button',{name:'تغيير موقع التوصيل'}).click();
+ await page.waitForFunction(()=>document.querySelector('input[aria-label="الشارع والمنطقة أو أقرب علامة مميزة"]')?.value==='شارع النخيل، زهرة العاصمة');
+ await page.getByPlaceholder('ابحث عن اسم الشارع، الحي، أو المدينة...').fill('شارع النخيل');
+ await page.getByRole('button',{name:'شارع النخيل، زهرة العاصمة',exact:true}).click();
+ await confirm.click();await dialog.waitFor({state:'hidden'});
+ const guestPlace=await page.evaluate(()=>JSON.parse(localStorage.getItem('sangoub_selected_area')));
+ assert.equal(guestPlace.latitude,30.025);assert.equal(guestPlace.longitude,31.725);
+ assert.equal(guestPlace.name,'شارع النخيل، زهرة العاصمة');assert(osmRequests>=2);
+ const staged=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('sangoub_pending_delivery_address')));
+ assert.equal(staged.name,guestPlace.name);assert.equal(staged.latitude,guestPlace.latitude);
+ assert.equal(await page.getByText('سجّل الدخول للبحث',{exact:false}).count(),0);
  assert.deepEqual(errors,[]);
  await context.close();
- console.log('Mobile: no automatic popup; guest address entry, placeholder rejection, persistence, reload, no invented coordinates, no duplicate details and no overflow passed.');
+ console.log('Mobile: public guest reverse geocoding and search; no automatic popup; guest address entry, placeholder rejection, persistence, reload, no invented coordinates, no duplicate details and no overflow passed.');
 } finally { await browser?.close();server.kill('SIGTERM'); }

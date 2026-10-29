@@ -35,8 +35,8 @@ test('native shared entry retains OSM authentication and native preflight', asyn
     let status;
     const headers = {};
     const res = { setHeader(key, value) { headers[key] = value; }, status(code) { status = code; return this; }, json() { return this; }, end() { return this; } };
-    await operations({ method: 'POST', headers: {}, query: { osmAction: action }, body: {} }, res);
-    assert.equal(status, 401);
+    await operations({ method: 'POST', headers: {}, query: { osmAction: action }, body: {url:'https://not-allowed.example'} }, res);
+    assert.equal(status, action === 'search' ? 400 : 401);
     await operations({ method: 'OPTIONS', headers: { origin: 'https://localhost' }, query: { osmAction: action } }, res);
     assert.equal(status, 204);
     assert.equal(headers['Access-Control-Allow-Origin'], 'https://localhost');

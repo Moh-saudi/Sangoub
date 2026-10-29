@@ -31,3 +31,14 @@ test('unverified account receives the verification error instead of an invalid-s
  await handler({method:'POST',headers:{authorization:'Bearer unverified'},query:{action:'search'},body:{}},{setHeader(){},status(code:number){status=code;return this},json(value:any){body=value}});
  assert.equal(status,403);assert.match(body.error,/أكد حسابك/);
 });
+
+test('guest search resolves addresses without identity while route and other actions require a token', async () => {
+ let lookups=0;
+ const handler=createOsmHandler({guestSearchKey:()=> 'guest:hashed-ip',identify:async()=>{throw Error('guest must not authenticate');},lookup:async(kind,input,uid)=>{lookups++;assert.equal(kind,'search');assert.equal(uid,'guest:hashed-ip');return {results:[{display_name:'شارع النخيل'}]};}});
+ for (const [action,status] of [['search',200],['route',401],['other',401]] as const){
+  let code=0;
+  await handler({method:'POST',headers:{},query:{action},body:{query:'شارع النخيل'}},{setHeader(){},status(n:number){code=n;return this},json(){}});
+  assert.equal(code,status);
+ }
+ assert.equal(lookups,1);
+});

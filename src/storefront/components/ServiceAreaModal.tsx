@@ -73,11 +73,6 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
     setResolvedAddress('');
     setDetectedCity('');
     setError('');
-    if (!user || user.isGuest) {
-      setIsResolving(false);
-      setError('سجّل الدخول للبحث عن الشارع، أو اكتب عنوان التوصيل يدويًا.');
-      return;
-    }
     setIsResolving(true);
     reverseTimer.current = setTimeout(async () => {
       const controller = new AbortController();
@@ -196,7 +191,6 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
     searchAbort.current?.abort();
     setSearchResults([]); setShowResultsDropdown(false); setIsSearching(false);
     if (value.trim().length < 3) return;
-    if (!user || user.isGuest) { setError('سجّل الدخول للبحث أو اكتب العنوان يدويًا.'); return; }
     setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       const controller = new AbortController(); searchAbort.current = controller;

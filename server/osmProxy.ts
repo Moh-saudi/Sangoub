@@ -2,11 +2,11 @@
 export class OsmError extends Error { status:number; constructor(status:number,message:string){super(message);this.status=status} }
 type Point={latitude:number;longitude:number};
 export interface OsmConfig { bbox:[number,number,number,number];routeUrl:string;searchUrl:string;userAgent:string;production?:boolean }
-export function osmConfig():OsmConfig {
+export function osmConfig(kind: string = 'route'):OsmConfig {
  const raw=(process.env.OSM_ALLOWED_BBOX||'31.50,29.85,31.95,30.20').split(',').map(Number);
  if(raw.length!==4||raw.some(n=>!Number.isFinite(n))||raw[0]>=raw[2]||raw[1]>=raw[3]||raw[0]<-180||raw[2]>180||raw[1]<-90||raw[3]>90)throw new OsmError(503,'إعداد نطاق الخريطة غير صالح.');
  const production=process.env.NODE_ENV==='production'||process.env.VERCEL_ENV==='production';
- if(production&&(!process.env.OSRM_URL||!process.env.NOMINATIM_URL||!process.env.NOMINATIM_USER_AGENT))throw new OsmError(503,'مزود الخرائط الإنتاجي يحتاج إعدادًا من الإدارة.');
+ if(production&&((kind!=='search'&&!process.env.OSRM_URL)||!process.env.NOMINATIM_URL||!process.env.NOMINATIM_USER_AGENT))throw new OsmError(503,'مزود الخرائط الإنتاجي يحتاج إعدادًا من الإدارة.');
  return {bbox:raw as OsmConfig['bbox'],routeUrl:process.env.OSRM_URL||'https://router.project-osrm.org/route/v1/driving',searchUrl:process.env.NOMINATIM_URL||'https://nominatim.openstreetmap.org',userAgent:process.env.NOMINATIM_USER_AGENT||'Sangoub-development/1.0',production};
 }
 export function createOsmService(config:OsmConfig,deps:{fetch?:typeof fetch;now?:()=>number}={}){
@@ -48,11 +48,18 @@ export function createOsmService(config:OsmConfig,deps:{fetch?:typeof fetch;now?
   cache.set(key,{until:now()+(kind==='route'?300000:30000),value});trim();return value;
  };
 }
-export function createOsmHandler(deps:{identify:(token:string)=>Promise<string>;lookup:(kind:string,input:any,uid:string)=>Promise<any>}){
+export function createOsmHandler(deps:{identify:(token:string)=>Promise<string>;lookup:(kind:string,input:any,uid:string)=>Promise<any>;guestSearchKey?:(req:any)=>string}){
  return async(req:any,res:any)=>{
   res.setHeader('Cache-Control','no-store');if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});
-  const token=req.headers?.authorization?.match(/^Bearer (.+)$/)?.[1];if(!token)return res.status(401).json({error:'سجل الدخول لاستخدام البحث والمسار.'});
-  let uid:string;try{uid=await deps.identify(token);if(!uid)throw Error();}catch(e){if(e instanceof OsmError)return res.status(e.status).json({error:e.message});return res.status(401).json({error:'جلسة الدخول غير صالحة، أعد تسجيل الدخول.'})}
+  const kind = req.query?.action || req.params?.action;
+  const token=req.headers?.authorization?.match(/^Bearer (.+)$/)?.[1];
+  let uid:string;
+  if (kind === 'search' && deps.guestSearchKey) {
+    uid = deps.guestSearchKey(req);
+  } else {
+    if(!token)return res.status(401).json({error:'سجل الدخول لاستخدام المسار.'});
+    try{uid=await deps.identify(token);if(!uid)throw Error();}catch(e){if(e instanceof OsmError)return res.status(e.status).json({error:e.message});return res.status(401).json({error:'جلسة الدخول غير صالحة، أعد تسجيل الدخول.'})}
+  }
   try{return res.status(200).json(await deps.lookup(req.query?.action||req.params?.action,req.body,uid));}catch(e){if(e instanceof OsmError){if(e.status===429)res.setHeader('Retry-After','1');return res.status(e.status).json({error:e.message})}return res.status(503).json({error:'خدمة الخرائط غير متاحة مؤقتًا.'})}
  };
 }

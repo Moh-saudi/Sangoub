@@ -1,6 +1,6 @@
 // Keep this bootstrap free of SDK imports so module-load failures remain
 // diagnosable even when a serverless runtime cannot load a dependency.
-export function serverEntry(load) {
+export function serverEntry(load, { requireAuth = true } = {}) {
   return async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     const origin = req.headers?.origin;
@@ -13,7 +13,7 @@ export function serverEntry(load) {
     }
     if (req.method === 'OPTIONS') return res.status(native ? 204 : 403).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-    if (!req.headers?.authorization?.match(/^Bearer (.+)$/)) return res.status(401).json({ error: 'يرجى تسجيل الدخول.' });
+    if (requireAuth && !req.headers?.authorization?.match(/^Bearer (.+)$/)) return res.status(401).json({ error: 'يرجى تسجيل الدخول.' });
     let stage = 'module';
     try {
       const endpoint = await load();
