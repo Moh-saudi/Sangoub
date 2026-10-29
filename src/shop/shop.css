@@ -392,10 +392,15 @@
   text-decoration: underline;
 }
 .shop-receipt {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   max-width: 760px;
   margin: auto;
   display: grid;
   gap: 16px;
+}
+.shop-receipt > * {
+  min-width: 0;
 }
 .shop-receipt dl {
   grid-template-columns: 100px minmax(0, 1fr);

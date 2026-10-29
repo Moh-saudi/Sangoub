@@ -2635,3 +2635,133 @@ Date:   Thu Oct 29 07:13:33 2026 +0000
 86f559a سجل rename فقط بسبب pathspec ملف حُذف؛ a830104 أضاف بقية التغييرات فورًا، دون force-push أو إخفاء السجل. لا حذف لفرع GPS قبل حفظ كامل تعديلاته في main ونجاح الفحص.
 
 جاهز للمراجعة
+
+## Branches-receipt — PASS
+
+CI40835424898 أثبت تجاوز عطل ساعة GPS وبقاء overflow receipt عند shop-web:22. أصلحت intrinsic grid minimum دون تكرار CSS أو إخفاء محتوى. الاختبار الحالي نفسه يحافظ على عرض320/390/768/1100/1440؛ قياس محلي على OrderInvoice الحقيقي أكد scrollWidth=viewport للجميع. بانتظار CI النهائي قبل main.
+
+### Command
+```sh
+npm run lint
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+```
+
+### Command
+```sh
+npm test
+```
+```text
+[truncated]
+✔ two orders share one GPS and one Wake Lock but each filters/writes its own heartbeat and stops independently (4.49621ms)
+✔ retry uses 2s/5s/10s backoff, survives transient failure, stops after three continuous failure minutes (4.421764ms)
+✔ visibility stops foreground publishing and reacquires one watch/lock; no stale point republished before a fresh fix (1.015598ms)
+✔ unacknowledged offline write cannot keep GPS or Wake Lock alive indefinitely (0.645391ms)
+✔ heartbeats stop claiming a live position after 120s without a reliable GPS fix (0.865342ms)
+✔ checkout acknowledgment cannot erase quantities or new lines added during the request (1.3858ms)
+✔ mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities (1.537186ms)
+✔ InstaPay is a requested payment method and never a paid confirmation (0.359379ms)
+✔ incomplete customer details, invalid quantities and unknown menu items cannot produce a sendable request (0.501907ms)
+✔ Arabic and Persian quantity digits are accepted while fractional quantities are rejected (0.483882ms)
+✔ supermarket request combines packs from every section without breakfast items or payment claims (0.548517ms)
+✔ campaign scheduling uses Cairo rather than the execution host timezone (19.065558ms)
+✔ catalog monitoring counts delivered snapshots and excludes cancelled orders (1.447429ms)
+✔ editing archived items cannot silently make them available (21.302979ms)
+✔ catalog editor rejects invalid discounts, unsafe URLs and nonnumeric prices (1.232219ms)
+✔ calculateCartSubtotal correctly sums prices with quantities and options (0.984871ms)
+✔ applyCouponDiscount handles minOrder thresholds and discount calculation (0.468706ms)
+✔ calculateOrderTotal applies discount, delivery fee, and tip properly (0.141383ms)
+✔ getNextOrderStatus advances status correctly (0.248437ms)
+✔ validateEmployeeProfile validates name, Egyptian phone, ministry and floor (0.616723ms)
+✔ updateCourierMilestone updates checklist and advances to delivered when completed (0.244843ms)
+✔ currency formatting preserves cents charged by the payment gateway (16.121787ms)
+✔ calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission (0.436644ms)
+✔ generateMerchantJournalEntries creates balanced double-entry accounting records (0.888223ms)
+✔ calculateTopSellingProducts ranks products correctly by volume and share (0.892447ms)
+✔ calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest (0.617252ms)
+✔ Flutter summary records preserve totals and normalize Firestore timestamps (2.180522ms)
+✔ one kitchen cannot mark a multi-store order globally ready (0.548239ms)
+✔ daily metrics use Cairo date and actual delivery time across midnight (18.663151ms)
+✔ offers exclude invalid discounts, archived stock, and closed or missing stores (1.776584ms)
+✔ price and store availability changes immediately update offer eligibility (0.202974ms)
+✔ campaign tags and referrer domains classify sources without accepting spoofed hosts or collecting raw values (1.408466ms)
+ℹ tests 85
+ℹ suites 0
+ℹ pass 85
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1309.555583
+```
+
+### Command
+```sh
+npm run build
+```
+```text
+[truncated]
+rendering chunks...
+computing gzip size...
+dist/build-info.json                         0.08 kB │ gzip:   0.09 kB
+dist/registerSW.js                           0.13 kB
+dist/manifest.webmanifest                    0.50 kB
+dist/index.html                              3.16 kB │ gzip:   1.12 kB
+dist/assets/CourierApp-objfHoLw.css          2.49 kB │ gzip:   0.85 kB
+dist/assets/MerchantApp-BTOjdwri.css        10.25 kB │ gzip:   2.57 kB
+dist/assets/ShopFront-Bpi2N2qu.css          10.48 kB │ gzip:   2.62 kB
+dist/assets/useOsmRoute-vh-t_kPv.css        15.09 kB │ gzip:   6.36 kB
+dist/assets/AdminApp-EWhne2zZ.css           49.46 kB │ gzip:   9.88 kB
+dist/assets/index-qn0S2sR_.css             250.65 kB │ gzip:  39.95 kB
+dist/assets/operationsApi-DfLln63v.js        0.09 kB │ gzip:   0.10 kB
+dist/assets/adminPresentation-Bc0jKY_r.js    0.19 kB │ gzip:   0.17 kB
+dist/assets/orderDelivery-CduKpJsZ.js        0.49 kB │ gzip:   0.39 kB
+dist/assets/DataStates-B_DC3WKE.js           3.33 kB │ gzip:   1.64 kB
+dist/assets/KitchenDisplay-CDab1-fR.js      12.41 kB │ gzip:   4.62 kB
+dist/assets/CourierApp-CE3rOhcl.js          21.80 kB │ gzip:   7.78 kB
+dist/assets/ShopFront-Byb2cm-Y.js           38.79 kB │ gzip:  11.07 kB
+dist/assets/MerchantApp-BVVZpFU7.js         74.33 kB │ gzip:  18.83 kB
+dist/assets/useOsmRoute-w8e3omTz.js        167.98 kB │ gzip:  50.66 kB
+dist/assets/AdminApp-F6BSCeTe.js           281.44 kB │ gzip:  68.39 kB
+dist/assets/index-CDL8GGmQ.js              370.96 kB │ gzip: 104.89 kB
+dist/assets/firebase-DsZuyFPx.js           604.78 kB │ gzip: 182.98 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/authenticatedApi.ts is dynamically imported by src/lib/firebase.ts but also statically imported by src/components/NotificationCenter.tsx, src/lib/adminApi.ts, src/lib/operationsApi.ts, src/shop/ShopFront.tsx, src/storefront/components/SangoubAuthModal.tsx, dynamic import will not move module into another chunk.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.50s
+
+PWA v2.0.0
+mode      generateSW
+precache  28 entries (2654.59 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-95677aec.js
+```
+
+### Browser clock fix commit
+```text
+commit 5f58eb1bbb0a3d1808cb61c046826b330b20ddde
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Thu Oct 29 07:26:16 2026 +0000
+
+    fix(tracking): bind browser timers and verify real-clock courier startup
+
+ docs/BRANCH_CONSOLIDATION.md    |   6 ++
+ docs/TRACKING_WORKLOG.md        | 200 ++++++++++++++++++++++++++++++++++++++++
+ src/services/trackingSession.ts |   2 +-
+ tests/fixtures/tracking-map.tsx |   2 +
+ tests/shop-web.browser.mjs      |   2 +-
+ tests/tracking-map.browser.mjs  |   2 +-
+ 6 files changed, 211 insertions(+), 3 deletions(-)
+```
+
+جاهز للمراجعة
