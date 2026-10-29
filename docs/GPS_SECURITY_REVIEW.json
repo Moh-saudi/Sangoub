@@ -1,6 +1,6 @@
 {
   "score": 4,
-  "summary": "Static GPS-scope review only. Merchant direct Firestore access remains denied. New server projection rechecks staff/store/account access transactionally and returns only the order courier point. No rules change. Emulator and real-device verification remain blocked/not run; this score is not production certification.",
+  "summary": "Static GPS-scope review with successful demo-only Firestore rules and authenticated browser regression in GitHub Actions run 40836424173 at 4aacebb. Merchant direct parent-order access remains denied; scoped server projection retained. No rules deploy or real-phone/staging verification. This score is not production certification.",
   "findings": [
     {
       "check": "Business Logic vs. Rules",

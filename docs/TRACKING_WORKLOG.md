@@ -2764,4 +2764,57 @@ Date:   Thu Oct 29 07:26:16 2026 +0000
  6 files changed, 211 insertions(+), 3 deletions(-)
 ```
 
+## Final verified consolidation gate — approval blocked
+
+CI40836424173 concluded SUCCESS on4aacebb. This is actual GitHub Node22/Java21 demo-emulator and authenticated browser execution. No firestore.rules change/deploy or real-phone claim. Final changes after4aacebb are documentation only.
+
+Automatic approval review rejected the combined main fast-forward push and GPS branch deletion because explicit user authorization for the combined action and possible automatic main deployment was missing. The entire command was rejected before execution; main remains unchanged and GPS is retained. No bypass. Preview was already deleted safely after proving it is fully contained in main. Concrete pending action: preserve all GPS commits in main by fast-forward and remove redundant branch reference atomically, subject to explicit user approval.
+
+### CI status command output
+```text
+1 Set up job: success
+2 Run actions/checkout@v4: success
+3 Run actions/setup-node@v4: success
+4 Run actions/setup-java@v4: success
+5 Run npm ci: success
+6 Run npm run lint: success
+7 Run npm run lint:server: success
+8 Run npm test: success
+9 Run npm run test:commerce-services: success
+10 Run npm run test:portal-services: success
+11 Run npm run test:account-validation: success
+12 Run npm run test:native-api: success
+13 Run npm run test:compiled-api: success
+14 Run npm run build: success
+15 Run npm run test:auth: success
+16 Run npm run test:operations: success
+17 Run node scripts/check-tests-ci.mjs test:rules: success
+18 Run node scripts/check-tests-ci.mjs test:web-checkout: success
+19 Run node scripts/check-tests-ci.mjs test:commerce-integration: success
+20 Run npx playwright install --with-deps chromium: success
+21 Use installed Playwright Chromium: success
+22 Run npm run test:tracking-map: success
+23 Run node tests/pwa-build.browser.mjs: success
+24 Run npm run test:portal-regression: success
+25 Validate admin, shop, auth and preload browser flows: success
+48 Post Run actions/setup-java@v4: success
+49 Post Run actions/setup-node@v4: success
+50 Post Run actions/checkout@v4: success
+51 Complete job: success
+```
+
+### Receipt fix commit
+```text
+commit 4aacebbfd7eac3425335e0fa416dcead304f73ee
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Thu Oct 29 07:35:33 2026 +0000
+
+    fix(shop): contain receipt grid on narrow mobile screens
+
+ docs/BRANCH_CONSOLIDATION.md |   6 ++
+ docs/TRACKING_WORKLOG.md     | 130 +++++++++++++++++++++++++++++++++++++++++++
+ src/shop/shop.css            |   5 ++
+ 3 files changed, 141 insertions(+)
+```
+
 جاهز للمراجعة
