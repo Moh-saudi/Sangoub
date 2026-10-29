@@ -8,7 +8,7 @@ This log records literal command tails after each task's gates. Git metadata for
 
 Node v24.19.0; Java OpenJDK 21.0.12.1. Node 22 requested but not installed in this workspace; Node 24 is within the allowed test:rules range. Vercel Preview environment isolation, its production Git trigger, Staging project creation and private SDK-file placement outside tools' workspace cannot be verified from this environment. No secrets have been read. Preview deployment must be disabled or isolated before pushing this branch; a branch push may trigger the user's external deployment integration. No remote branch push will be made until that prerequisite is established; draft PR creation will be attempted using the existing remote branch only if safe and callable.
 
-## T0 — IN PROGRESS
+## T0 — initial checkpoint (completed below)
 
 Audit and npm ci/lint/test/build, with demo-only emulator tests where possible.
 
@@ -1410,3 +1410,169 @@ i  hub: Stopping emulator hub
 
 Error: Failed to make request to https://storage.googleapis.com/firebase-preview-drop/emulator/cloud-firestore-emulator-v1.22.0.jar
 ```
+
+### T9 commit
+SHA: d95a82c4f1b65599af4aa4c8557c6db1f1ae89e9
+```text
+commit d95a82c4f1b65599af4aa4c8557c6db1f1ae89e9
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Thu Oct 29 05:52:19 2026 +0000
+
+    test(tracking): cover rule contract and document dependency costs
+
+ docs/TRACKING_RULES_COST.md      |  51 +++++++++++++
+ docs/TRACKING_WORKLOG.md         | 150 +++++++++++++++++++++++++++++++++++++++
+ tests/firestore.security.test.ts |  28 ++++++++
+ 3 files changed, 229 insertions(+)
+```
+
+## External prerequisite update — 2026-10-29
+المستخدم أكد: «عطّلت نشر فرع GPS». بناءً على تأكيده أصبح رفع feature/osm-tracking وفتح Draft PR مسموحًا. لم أفحص لوحة Vercel أو عزل Preview بنفسي. لا نشر ولا دمج في main.
+
+## T10 — PASS
+
+استبدلت ادعاءات MIGRATION غير المثبتة بعقد التنفيذ الفعلي، وحدّثت عقد GPS وأضفت خطة هاتفين منفصلة NOT RUN. نجحت البوابات والـfixture المعزول؛ لا Firebase إنتاجي. precache الأساسي 2663.31 KiB مقابل النهائي 2658.35 KiB: أقل 4.96 KiB (29 عنصرًا في الحالتين)، ليس قياس استهلاك شبكة رحلة.
+
+### Command
+```sh
+npm run lint
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+```
+
+### Command
+```sh
+npm test
+```
+```text
+[truncated]
+✔ eligibility requires both authenticated assigned UID and with_courier (1.551644ms)
+✔ two orders share one GPS and one Wake Lock but each filters/writes its own heartbeat and stops independently (3.977409ms)
+✔ retry uses 2s/5s/10s backoff, survives transient failure, stops after three continuous failure minutes (5.645951ms)
+✔ visibility stops foreground publishing and reacquires one watch/lock; no stale point republished before a fresh fix (1.211376ms)
+✔ unacknowledged offline write cannot keep GPS or Wake Lock alive indefinitely (1.051966ms)
+✔ checkout acknowledgment cannot erase quantities or new lines added during the request (1.44484ms)
+✔ mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities (1.293276ms)
+✔ InstaPay is a requested payment method and never a paid confirmation (0.246623ms)
+✔ incomplete customer details, invalid quantities and unknown menu items cannot produce a sendable request (0.46678ms)
+✔ Arabic and Persian quantity digits are accepted while fractional quantities are rejected (0.368091ms)
+✔ supermarket request combines packs from every section without breakfast items or payment claims (0.375665ms)
+✔ campaign scheduling uses Cairo rather than the execution host timezone (18.286246ms)
+✔ catalog monitoring counts delivered snapshots and excludes cancelled orders (1.501004ms)
+✔ editing archived items cannot silently make them available (25.263985ms)
+✔ catalog editor rejects invalid discounts, unsafe URLs and nonnumeric prices (0.561223ms)
+✔ calculateCartSubtotal correctly sums prices with quantities and options (1.897279ms)
+✔ applyCouponDiscount handles minOrder thresholds and discount calculation (0.410068ms)
+✔ calculateOrderTotal applies discount, delivery fee, and tip properly (0.16266ms)
+✔ getNextOrderStatus advances status correctly (0.123753ms)
+✔ validateEmployeeProfile validates name, Egyptian phone, ministry and floor (0.451026ms)
+✔ updateCourierMilestone updates checklist and advances to delivered when completed (0.263361ms)
+✔ currency formatting preserves cents charged by the payment gateway (16.588614ms)
+✔ calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission (0.711282ms)
+✔ generateMerchantJournalEntries creates balanced double-entry accounting records (0.962493ms)
+✔ calculateTopSellingProducts ranks products correctly by volume and share (0.851557ms)
+✔ calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest (0.746836ms)
+✔ Flutter summary records preserve totals and normalize Firestore timestamps (3.322286ms)
+✔ one kitchen cannot mark a multi-store order globally ready (0.786825ms)
+✔ daily metrics use Cairo date and actual delivery time across midnight (14.996496ms)
+✔ offers exclude invalid discounts, archived stock, and closed or missing stores (3.217893ms)
+✔ price and store availability changes immediately update offer eligibility (0.283358ms)
+✔ campaign tags and referrer domains classify sources without accepting spoofed hosts or collecting raw values (1.123705ms)
+ℹ tests 79
+ℹ suites 0
+ℹ pass 79
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1057.000525
+```
+
+### Command
+```sh
+npm run build
+```
+```text
+[truncated]
+dist/assets/AdminApp-EWhne2zZ.css           49.46 kB │ gzip:   9.88 kB
+dist/assets/index-M54opMIk.css             252.64 kB │ gzip:  40.15 kB
+dist/assets/operationsApi-BpSHorJf.js        0.09 kB │ gzip:   0.10 kB
+dist/assets/adminPresentation-Bc0jKY_r.js    0.19 kB │ gzip:   0.17 kB
+dist/assets/orderDelivery-B4ncxmW0.js        0.49 kB │ gzip:   0.39 kB
+dist/assets/DataStates-URY3AFp4.js           3.33 kB │ gzip:   1.64 kB
+dist/assets/jsx-runtime-CU1iNrZ4.js          9.13 kB │ gzip:   3.53 kB
+dist/assets/KitchenDisplay-Czd7cfBT.js      12.41 kB │ gzip:   4.62 kB
+dist/assets/CourierApp-sV2H3RXG.js          20.77 kB │ gzip:   7.48 kB
+dist/assets/ShopFront-CmrD2-rn.js           38.51 kB │ gzip:  11.01 kB
+dist/assets/MerchantApp-CEJX4Qmj.js         77.94 kB │ gzip:  19.52 kB
+dist/assets/useOsmRoute-D0i9KrNl.js        158.83 kB │ gzip:  47.56 kB
+dist/assets/AdminApp-BcEVoxBI.js           281.42 kB │ gzip:  68.45 kB
+dist/assets/index-DNBS_Csa.js              370.64 kB │ gzip: 104.83 kB
+dist/assets/firebase-CMsVUNFQ.js           604.78 kB │ gzip: 182.98 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/authenticatedApi.ts is dynamically imported by src/lib/firebase.ts but also statically imported by src/components/NotificationCenter.tsx, src/lib/adminApi.ts, src/lib/operationsApi.ts, src/shop/ShopFront.tsx, src/storefront/components/SangoubAuthModal.tsx, dynamic import will not move module into another chunk.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.42s
+
+PWA v2.0.0
+mode      generateSW
+precache  29 entries (2658.35 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-95677aec.js
+[33m[PLUGIN_TIMINGS] [0mJavaScript callbacks ran for 5.2s. The build took 3.4s. Callbacks such as `closeBundle` run after the build ends, so callback time can be more than build time.
+The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - plugin vite-plugin-pwa:build closeBundle (61%, 2.1s, 1 call)
+Additional callback time came from the callbacks below and from callbacks under 1s.
+2 callbacks are listed without a time. Their calls overlapped, so the time inside one call includes work from other calls. To find their cost, profile the build with `node --cpu-prof`:
+  - plugin vite:css transform (10 calls)
+  - plugin @tailwindcss/vite:generate:build transform (9 calls)
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
+
+```
+
+### Command
+```sh
+npm run test:tracking-map
+```
+```text
+
+> react-example@0.0.0 test:tracking-map
+> node tests/tracking-map.browser.mjs
+
+PASS: isolated Leaflet fixture at 320/390/1366px; smooth marker update preserves map DOM, attribution visible, no horizontal overflow. External requests intercepted; no Firebase imported or contacted.
+```
+
+## Final requirement evidence
+
+| Requirement | Implementation evidence | Executed evidence / limitation |
+| --- | --- | --- |
+| T0 baseline | TRACKING_AUDIT.md; full 4b5bfe4 inspected | npm ci/lint/test/build PASS; rules startup BLOCKED |
+| T1 tiles | src/services/osmRouting.ts:20; ServiceAreaModal.tsx | configuration + isolated attribution fixture PASS |
+| T2 proxy | server/osmProxy.ts:12,51; server/handlers/osm.ts | fake-fetch auth, cache, bbox, rate, timeout tests PASS; no deployed endpoint test |
+| T3 routing | src/services/osmRouting.ts:110,148,161 | timeout, point-to-segment deviation and remaining-route tests PASS |
+| T4 publisher | src/services/sharedLocationSource.ts:11; trackingSession.ts:9; useCourierTracking.ts:17 | shared source/filter, retry, visibility, watchdog tests PASS; SDK/emulator E2E NOT RUN |
+| T5 courier | src/components/CourierTracking.tsx:12; TrackingMap.tsx | fixture320/390/1366 PASS; not full authenticated courier browser test |
+| T6 customer | src/services/useOrderTracking.ts:9; trackingObserver.ts:3; OrderMap.tsx; ShopFront GPS section | observer fake-clock tests PASS; real two-phone NOT RUN |
+| T7 supervisor | src/components/CouriersLiveMap.tsx:17,23 | TypeScript/build and shared viewer fixture PASS; multi-user UI E2E NOT RUN |
+| T8 simulator | scripts/simulate-courier.ts + synthetic JSON | pure tests/refusal PASS; actual emulator journey NOT RUN |
+| T9 rules/cost | tests/firestore.security.test.ts; TRACKING_RULES_COST.md | tests added but NOT RUN, emulator jar download blocked twice; rules unchanged |
+| T10 handover | MIGRATION.md; GPS_INTEGRATION_CONTRACT.ar.md; FIELD_TEST_PLAN.md | docs and gates reviewed; no live pricing or staging verification |
+
+## Scope, deviations and unresolved gates
+
+- No diff against seed in firestore.rules, src/CourierApp.tsx, server/portalOrders.ts or locationTrackingFilter.ts. No account/cart/payment logic or Flutter change. ShopFront change is GPS-only; no production access or deployment.
+- D1–D6 are documented in TRACKING_AUDIT.md and the updated contract. Inactive document subscription while with_courier/open is deliberate to receive resume; no fake live state. Existing REST duplicate read remains. Reassignment may show the old point until a new write; server cleanup review required before release.
+- Node24 instead of requested22; Java21 present. Two rule test attempts failed before test execution, not a rule-test pass. No rules deployment. Provider pricing/document pages inaccessible: live pricing NOT VERIFIED.
+- Staging creation/isolation, two real phones, background battery/network behavior, deployed proxy, actual simulator journey and full authenticated page regression: NOT RUN. Mock tests do not replace these gates.
+- Foreground PWA only; no IndexedDB replay, native background service, store coordinate invention or billing/secret changes.
+- Commits touching previously reserved map files: 72c9d71 (tiles/ServiceArea), 53c17c4 (osm/search), 924b4e3 (courier map), 0f71424 (OrderMap/customer modal), 192f744 (CouriersLiveMap). Original filter and tracking rules remain unchanged. Complete stat entries above provide exact file lists.

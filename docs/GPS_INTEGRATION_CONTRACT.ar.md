@@ -1,19 +1,21 @@
-# حدود تكامل GPS المتفق عليها
+# عقد تكامل GPS — الوضع الحالي
 
-ملكية الخرائط والتتبع للمساهم الآخر. لا تعدّل من هذا المسار:
+تاريخ 2026-10-29. طلب المستخدم المرفق اللاحق أجاز تنفيذ GPS على `feature/osm-tracking` فقط، ويحل محل حجز الملفات السابق. لا دمج أو نشر. المستخدم أكد تعطيل نشر الفرع؛ إعداد Vercel لم يُفحص مباشرة.
 
-- `src/components/OrderMap.tsx`
-- `src/components/CouriersLiveMap.tsx`
-- `src/storefront/components/OrderTrackingModal.tsx`
-- `src/storefront/components/ServiceAreaModal.tsx`
-- `src/services/osm*`
-- `src/services/locationTracking*`
-- كتلة `match /tracking` في `firestore.rules`.
+نقطة التكامل هي `<CourierTracking order={order} />` الموجودة في `src/CourierApp.tsx`. لم يتغير موضعها أو هذا الملف؛ `src/components/CourierTracking.tsx` أصبح مكوّنًا فعليًا. الخصائص تبقى `id`, `orderStatus`, `courierId`, `profileId`, `coordinates` من `Order` دون تغيير الأسماء أو شكلها. `server/portalOrders.ts` لم يتغير؛ pickupPoints لا تعطي إحداثيات المتجر، لذلك لا نعرض نقطة متجر تخمينية.
 
-نقطة التكامل الوحيدة في بوابة المندوب: `<CourierTracking order={order} />` داخل بطاقة المهمة النشطة. `src/components/CourierTracking.tsx` حاليًا مكوّن فارغ يعيد null، دون أي قراءة موقع أو كتابة أو مراقبة شبكة؛ يملأه مساهم GPS. نوع الخصائص `CourierTrackingOrder` يحدد `id`, `orderStatus`, `courierId`, `profileId`, `coordinates` بأسمائها وأنواعها الحالية من `Order`.
+المندوب المعيّن فقط، بحالة `with_courier`، يبدأ جلسة لكل طلب. مصدر watchPosition وWake Lock واحد مشترك في الصفحة؛ filter مستقل لكل طلب. الكاتب الوحيد الجديد داخل hook GPS يرسل `coordinates`, `active`, `updatedAt: serverTimestamp()` إلى `tracking/{orderId}`. لا توسيع saveRecord أو admin-data. لا معرفات أو speed/accuracy إضافية في الوثيقة.
 
-استجابة الطلب النشط في `server/portalOrders.ts` أضيف إليها `courierId` و`profileId` من المصدر، بعد إبلاغ المستخدم؛ كانتا غير ممررتين في الإسقاط السابق. لا تغيير للقيم في قاعدة البيانات أو `orderStatus` أو `coordinates`. سجل التوصيل يظل ملخصًا ولا يحتاج بيانات التتبع. اختبار الإسقاط يثبت تطابق الحقول الأربعة مع المصدر.
+العميل والمشرف يقرآن وثائق منفردة ضمن الصلاحيات الحالية؛ لا collection listener شامل. الواجهة لا تعتبر cached snapshot حيًا، ولا تستعمل ساعة الخادم لقياس freshness. آخر وصول محلي أقدم من 120s يعني انقطاعًا؛ animation لا يعني وصول GPS. تتوقف الاشتراكات عند إغلاق المكوّن أو تغيير المستخدم أو الحالة النهائية. للمشرف سقف 50 طلبًا نشطًا ظاهرًا.
 
-لا تنشر `firestore.rules` إلا بعد نجاح `npm run test:rules` ببيئة Java المناسبة. وجود Java وحده أو نجاح ESLint للقواعد ليس بديلًا عن نجاح الاختبار. أي commit يمس الملفات المحجوزة أو القاعدة يجب إبلاغ المستخدم به صراحة، وكذلك تغيير دالة مشتركة تؤثر في صلاحيات التتبع.
+الاستثناءات المعلنة:
+- D1: لا store coordinates في API؛ لم نغيره.
+- D2: saveRecord لا يصلح لهذا المسار؛ helper GPS مستقل.
+- D3: توافق نافذة legacy مع الحقول canonical اختياري، واستبدال قسم GPS فقط في ShopFront، دون تغيير دفع/سلة/حساب.
+- D4: القواعد الحالية تسمح cleanup `active:false` خارج `with_courier`؛ لم نشددها دون اختبار ناجح.
+- D5: اشتراك الوثيقة مستمر أثناء فتح طلب `with_courier` حتى لو inactive، حتى يرى الاستئناف؛ لا عرض حي للوثيقة غير النشطة.
+- D6: قراءة tracking داخل order-status REST باقية في server؛ تكرار معروف لم يُزال خارج نطاق التعديل.
 
-للتاريخ: `3dd2607` و`a43aa1a` عدّلا `firestore.rules` خارج كتلة tracking. الثاني ضيّق قراءة الطلبات الكاملة للتاجر بتغيير `ownerOrder`؛ هذه الدالة تستعملها أيضًا قراءة tracking، لذا له أثر غير مباشر على صلاحيات التاجر في التتبع. لم تُنشر هذه القواعد من جلسة العمل. بقية ملفات الخرائط المذكورة لم تمسها التحديثات بين `22d6864` وهذه الدفعة.
+`firestore.rules` لم تتغير. لا نشر لها قبل نجاح `npm run test:rules`؛ الاختبار لم يبدأ لتعذر تنزيل emulator jar مرتين، رغم Java21. إعادة التعيين تحتاج مراجعة server-side cleanup حتى لا يعرض آخر موقع للمندوب السابق قبل أول كتابة جديدة؛ لا حقل جديد صامتًا. cleanup دون اتصال best-effort.
+
+قائمة commits التي مسّت ملفات الخرائط/الخدمات المحجوزة سابقًا موجودة في `TRACKING_WORKLOG.md` مع SHA وgit show --stat؛ يجب إبلاغ المالك بها عند تسليم PR. المحاكي demo-only، ولا وصول لبيانات Firebase الإنتاجية. الاختبار الميداني وتحقق الصلاحيات على emulator بوابات معلقة، وليسا إنجازًا مثبتًا.
