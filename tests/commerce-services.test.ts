@@ -496,3 +496,20 @@ test('single-character search combines shared and legacy products with their act
  assert.equal(result.items.find((p:any)=>p.id==='shared-tea').imageUrl,'https://images.example/green-tea.jpg');
  assert.equal(result.nextCursor,null);
 });
+
+test('real Firestore SDK accepts Arabic catalog search constraints before any network call',async()=>{
+ const {Firestore,FieldPath}=await import('firebase-admin/firestore');
+ const {catalogSearchQuery}=await import('../server/sharedCatalog.ts');
+ const db=new Firestore({projectId:'demo-catalog-query'});
+ try{
+  for(const collection of ['products','catalogProducts']){
+   for(const term of ['ش','شاي',' شاي ']){
+    const query=catalogSearchQuery(db,collection,term);
+    const expected=db.collection(collection).orderBy('name').orderBy(FieldPath.documentId()).startAt(term.trim()).endAt(term.trim()+'\uf8ff');
+    assert(query.isEqual(expected),'Search must retain name bounds and stable document ordering');
+    assert.doesNotThrow(()=>query.limit(51));
+   }
+   assert(catalogSearchQuery(db,collection,'').isEqual(db.collection(collection).orderBy(FieldPath.documentId())));
+  }
+ }finally{await db.terminate();}
+});

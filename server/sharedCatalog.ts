@@ -29,6 +29,13 @@ function publishedDefinition(product:any){
     description:typeof product.description==='string'?product.description.slice(0,1000):'',
     category:typeof product.category==='string'&&product.category.trim()?product.category.trim().slice(0,120):'غير مصنف'});
 }
+export function catalogSearchQuery(db:any, collection:string, search:string) {
+  const query=db.collection(collection);
+  // Firestore requires every ordering constraint before any cursor bound.
+  return search.trim()
+    ? query.orderBy('name').orderBy(FieldPath.documentId()).startAt(search.trim()).endAt(search.trim()+'\uf8ff')
+    : query.orderBy(FieldPath.documentId());
+}
 export async function sharedCatalogPage(db:any, cursor?:string, search='') {
   if(cursor!==undefined&&(typeof cursor!=='string'||cursor.length>160))throw new AdminError(400,'مؤشر غير صالح.');
   if(typeof search!=='string'||search.length>120)throw new AdminError(400,'بحث غير صالح.');
@@ -38,9 +45,7 @@ export async function sharedCatalogPage(db:any, cursor?:string, search='') {
   // without requiring an empty new collection to be populated manually first.
   const read=async(kind:string,after:string)=>{
     const collection=kind==='catalog'?'catalogProducts':'products';
-    let query=db.collection(collection);
-    if(search.trim())query=query.orderBy('name').startAt(search.trim()).endAt(search.trim()+'\uf8ff').orderBy(FieldPath.documentId());
-    else query=query.orderBy(FieldPath.documentId());
+    let query=catalogSearchQuery(db,collection,search);
     if(after){if(search.trim()){const previous=await db.doc(collection+'/'+after).get();if(!previous.exists)throw new AdminError(400,'أعد البحث لتحديث الصفحة.');query=query.startAfter(previous);}else query=query.startAfter(after);}
     const snapshot=await query.limit(51).get();const docs=snapshot.docs.slice(0,50);
     const eligible=docs.filter((d:any)=>kind==='catalog'?d.data().active===true:d.data().inStock===true&&!d.data().archived&&!d.data().catalogProductId);
