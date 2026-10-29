@@ -41,9 +41,9 @@ jobs:
       - run: npm run build
       - run: npm run test:auth
       - run: npm run test:operations
-      - run: node scripts/check-rules-ci.mjs
-      - run: npm run test:web-checkout
-      - run: npm run test:commerce-integration
+      - run: node scripts/check-tests-ci.mjs test:rules
+      - run: node scripts/check-tests-ci.mjs test:web-checkout
+      - run: node scripts/check-tests-ci.mjs test:commerce-integration
       - run: npx playwright install --with-deps chromium
       - name: Use installed Playwright Chromium
         run: |

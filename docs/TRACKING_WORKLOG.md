@@ -2306,3 +2306,132 @@ Date:   Thu Oct 29 06:54:56 2026 +0000
 ```
 
 جاهز للمراجعة
+
+## Branches-CI-3 — PASS
+
+القواعد نجحت في CI40832754280؛ الفشل التالي checkout القديم يقرأ raw orders للتاجر. جرى تحويل السيناريو لنفس APIs الموجودة بالفعل مع إبقاء اختبار رفض القراءة الخام ومراجعة الأصناف قبل depart. runner واحد لتشخيص suites بدون نسخ مكررة. نتائج checkout الجديدة تنتظر CI، لا ادعاء نجاح قبل التنفيذ.
+
+### Command
+```sh
+npm run lint
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+```
+
+### Command
+```sh
+npm test
+```
+```text
+[truncated]
+✔ two orders share one GPS and one Wake Lock but each filters/writes its own heartbeat and stops independently (3.079755ms)
+✔ retry uses 2s/5s/10s backoff, survives transient failure, stops after three continuous failure minutes (4.702069ms)
+✔ visibility stops foreground publishing and reacquires one watch/lock; no stale point republished before a fresh fix (1.039411ms)
+✔ unacknowledged offline write cannot keep GPS or Wake Lock alive indefinitely (0.710654ms)
+✔ heartbeats stop claiming a live position after 120s without a reliable GPS fix (0.865192ms)
+✔ checkout acknowledgment cannot erase quantities or new lines added during the request (1.473641ms)
+✔ mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities (2.070888ms)
+✔ InstaPay is a requested payment method and never a paid confirmation (0.361881ms)
+✔ incomplete customer details, invalid quantities and unknown menu items cannot produce a sendable request (0.705249ms)
+✔ Arabic and Persian quantity digits are accepted while fractional quantities are rejected (0.449017ms)
+✔ supermarket request combines packs from every section without breakfast items or payment claims (0.492563ms)
+✔ campaign scheduling uses Cairo rather than the execution host timezone (29.458366ms)
+✔ catalog monitoring counts delivered snapshots and excludes cancelled orders (2.046489ms)
+✔ editing archived items cannot silently make them available (27.558838ms)
+✔ catalog editor rejects invalid discounts, unsafe URLs and nonnumeric prices (0.645115ms)
+✔ calculateCartSubtotal correctly sums prices with quantities and options (1.127421ms)
+✔ applyCouponDiscount handles minOrder thresholds and discount calculation (0.34128ms)
+✔ calculateOrderTotal applies discount, delivery fee, and tip properly (0.14865ms)
+✔ getNextOrderStatus advances status correctly (0.12615ms)
+✔ validateEmployeeProfile validates name, Egyptian phone, ministry and floor (0.325032ms)
+✔ updateCourierMilestone updates checklist and advances to delivered when completed (0.287831ms)
+✔ currency formatting preserves cents charged by the payment gateway (15.12657ms)
+✔ calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission (0.460895ms)
+✔ generateMerchantJournalEntries creates balanced double-entry accounting records (0.956432ms)
+✔ calculateTopSellingProducts ranks products correctly by volume and share (0.61788ms)
+✔ calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest (0.434147ms)
+✔ Flutter summary records preserve totals and normalize Firestore timestamps (1.829782ms)
+✔ one kitchen cannot mark a multi-store order globally ready (0.491175ms)
+✔ daily metrics use Cairo date and actual delivery time across midnight (15.621618ms)
+✔ offers exclude invalid discounts, archived stock, and closed or missing stores (1.789869ms)
+✔ price and store availability changes immediately update offer eligibility (0.328572ms)
+✔ campaign tags and referrer domains classify sources without accepting spoofed hosts or collecting raw values (1.050081ms)
+ℹ tests 85
+ℹ suites 0
+ℹ pass 85
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1236.584699
+```
+
+### Command
+```sh
+npm run build
+```
+```text
+[truncated]
+dist/assets/useOsmRoute-vh-t_kPv.css        15.09 kB │ gzip:   6.36 kB
+dist/assets/AdminApp-EWhne2zZ.css           49.46 kB │ gzip:   9.88 kB
+dist/assets/index-qn0S2sR_.css             250.65 kB │ gzip:  39.95 kB
+dist/assets/operationsApi-DfLln63v.js        0.09 kB │ gzip:   0.10 kB
+dist/assets/adminPresentation-Bc0jKY_r.js    0.19 kB │ gzip:   0.17 kB
+dist/assets/orderDelivery-CduKpJsZ.js        0.49 kB │ gzip:   0.39 kB
+dist/assets/DataStates-BJM0_uHh.js           3.33 kB │ gzip:   1.64 kB
+dist/assets/KitchenDisplay-vps22ckD.js      12.41 kB │ gzip:   4.62 kB
+dist/assets/CourierApp-C32HeNlJ.js          21.68 kB │ gzip:   7.74 kB
+dist/assets/ShopFront-CAW1jJCP.js           38.79 kB │ gzip:  11.07 kB
+dist/assets/MerchantApp-BSLjIKvm.js         74.33 kB │ gzip:  18.83 kB
+dist/assets/useOsmRoute-w8e3omTz.js        167.98 kB │ gzip:  50.66 kB
+dist/assets/AdminApp-we9_xEmM.js           281.44 kB │ gzip:  68.39 kB
+dist/assets/index-CyCOG2za.js              370.96 kB │ gzip: 104.90 kB
+dist/assets/firebase-DsZuyFPx.js           604.78 kB │ gzip: 182.98 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/authenticatedApi.ts is dynamically imported by src/lib/firebase.ts but also statically imported by src/components/NotificationCenter.tsx, src/lib/adminApi.ts, src/lib/operationsApi.ts, src/shop/ShopFront.tsx, src/storefront/components/SangoubAuthModal.tsx, dynamic import will not move module into another chunk.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.15s
+
+PWA v2.0.0
+mode      generateSW
+precache  28 entries (2654.40 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-95677aec.js
+[33m[PLUGIN_TIMINGS] [0mJavaScript callbacks ran for 4.7s. The build took 3.1s. Callbacks such as `closeBundle` run after the build ends, so callback time can be more than build time.
+The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - plugin vite-plugin-pwa:build closeBundle (58%, 1.8s, 1 call)
+Additional callback time came from the callbacks below and from callbacks under 1s.
+2 callbacks are listed without a time. Their calls overlapped, so the time inside one call includes work from other calls. To find their cost, profile the build with `node --cpu-prof`:
+  - plugin vite:css transform (10 calls)
+  - plugin @tailwindcss/vite:generate:build transform (9 calls)
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
+
+```
+
+### Previous fixture repair commit
+```text
+commit a074ecbdc6933e61b884a5908a8f575be6ae5dc1
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Thu Oct 29 07:01:13 2026 +0000
+
+    fix(ci): preserve Firestore fixture context and use installed Chromium
+
+ .github/workflows/web-validation.yml |   8 ++
+ docs/BRANCH_CONSOLIDATION.md         |   6 ++
+ docs/TRACKING_WORKLOG.md             | 141 +++++++++++++++++++++++++++++++++++
+ tests/firestore.security.test.ts     |   6 +-
+ tests/tracking-map.browser.mjs       |   2 +-
+ 5 files changed, 159 insertions(+), 4 deletions(-)
+```
+
+جاهز للمراجعة

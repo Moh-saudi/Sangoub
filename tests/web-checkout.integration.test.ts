@@ -1,5 +1,6 @@
 import {getFirestore,connectFirestoreEmulator,doc,updateDoc,setDoc,serverTimestamp,getDocs,collection,query,where} from 'firebase/firestore';
 import adminHandler from '../api/admin-data.ts';
+import operationsHandler from '../api/operations.ts';
 import deliveryHandler from '../api/order-delivery.ts';
 import {test,before,after} from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,18 +23,21 @@ test('quote is server-priced, read-only, and detects price changes before order 
  await services.db.doc('products/web-product').update({price:21});assert.equal((await call({...input,quoteHash:quote.result.quoteHash})).status,409);assert.equal((await services.db.collection('orders').get()).size,0);
  quote=await call({...input,action:'quote'});const created=await call({...input,quoteHash:quote.result.quoteHash,total:0});assert.equal(created.status,200);assert.equal(created.result.order.total,67);assert.equal(created.result.order.paymentStatus,'cash_on_delivery');assert.equal((await call({...input,quoteHash:quote.result.quoteHash})).result.order.id,created.result.order.id);assert.equal((await services.db.collection('orders').get()).size,1);
  assert.equal((await call({action:'order-status',orderId:created.result.order.id})).status,200);assert.equal((await call({action:'order-status',orderId:'someone-elses-order'})).status,404);assert.equal((await call({action:'customer-orders'})).result.orders.length,1);assert.equal((await call({...input,action:'quote'},'')).status,401);
- // These are the same authenticated Firestore actions used by the existing mobile chef/courier.
+ // Use the same scoped operational API as the current merchant/courier portals; raw merchant orders stay private.
  const role=async(name:string,assignment:any)=>{const user=await services.auth.createUser({email:name+'@example.com',password:'TestPassword123!',emailVerified:true});if(assignment.role==='admin')await services.db.doc('admins/'+user.uid).set({enabled:true});else await services.db.doc('staff/'+user.uid).set(assignment);return {uid:user.uid,token:await(await signInWithEmailAndPassword(auth,user.email!,'TestPassword123!')).user.getIdToken()};};
- await role('web-chef',{role:'restaurant',name:'شيف اختبار',phone:'01012345678',storeId:'web-store'});
- assert.equal((await getDocs(query(collection(clientDb,'orders'),where('storeIds','array-contains','web-store')))).size,1);
- await updateDoc(doc(clientDb,'orders',created.result.order.id),{orderStatus:'preparing',kitchenStatus:{'web-store':'preparing'},updatedAt:serverTimestamp()});
+ const chef=await role('web-chef',{role:'restaurant',name:'شيف اختبار',phone:'01012345678',storeId:'web-store'});
+ await assert.rejects(getDocs(query(collection(clientDb,'orders'),where('storeIds','array-contains','web-store'))), (error:any)=>error.code==='permission-denied');
+ const feed=await call({action:'portal-active'},chef.token,operationsHandler);assert.equal(feed.status,200);assert.equal(feed.result.items.length,1);assert.equal(feed.result.items[0].profileId,undefined);assert.equal(feed.result.items[0].coordinates,undefined);
+ assert.equal((await call({action:'legacy-prepare',id:created.result.order.id,next:'preparing'},chef.token,operationsHandler)).status,200);
  assert.equal((await call({action:'order-status',orderId:created.result.order.id})).result.order.orderStatus,'preparing');
- await updateDoc(doc(clientDb,'orders',created.result.order.id),{orderStatus:'ready',kitchenStatus:{'web-store':'ready'},readyAt:serverTimestamp(),updatedAt:serverTimestamp()});
+ assert.equal((await call({action:'legacy-prepare',id:created.result.order.id,next:'ready'},chef.token,operationsHandler)).status,200);
  const courier=await role('web-courier',{role:'courier',name:'مندوب اختبار',phone:'01112345678'});const admin=await role('web-admin',{role:'admin'});
  assert.equal((await call({action:'save',collection:'orders',id:created.result.order.id,data:{courierId:courier.uid}},admin.token,adminHandler)).status,200);
  assert.equal((await services.db.doc('orders/'+created.result.order.id).get()).data()?.orderStatus,'ready','assignment is not physical pickup');
  await signInWithEmailAndPassword(auth,'web-courier@example.com','TestPassword123!');assert.equal((await getDocs(query(collection(clientDb,'orders'),where('courierId','==',courier.uid)))).size,1);
- await updateDoc(doc(clientDb,'orders',created.result.order.id),{orderStatus:'with_courier',updatedAt:serverTimestamp()});
+ assert.equal((await call({action:'courier-depart',orderId:created.result.order.id},courier.token,operationsHandler)).status,409);
+ assert.equal((await call({action:'courier-pickup',orderId:created.result.order.id,confirmed:true},courier.token,operationsHandler)).status,200);
+ assert.equal((await call({action:'courier-depart',orderId:created.result.order.id},courier.token,operationsHandler)).status,200);
  await setDoc(doc(clientDb,'tracking',created.result.order.id),{coordinates:{latitude:30.01,longitude:31.73},active:true,updatedAt:serverTimestamp()});
  assert.equal((await call({action:'order-status',orderId:created.result.order.id})).result.tracking.coordinates.latitude,30.01);
  const secret=await call({action:'code',orderId:created.result.order.id},token,deliveryHandler);assert.equal(secret.status,200);

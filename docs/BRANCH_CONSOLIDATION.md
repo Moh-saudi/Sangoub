@@ -21,3 +21,9 @@ CI أصبح يفحص فرع GPS نفسه، مع npm ci بدل npm install لتج
 تشغيل40832116354 نجح حتى auth وoperations؛ فشل test:rules حدد اختبار operational signals فقط. ظهر خطأ fixture مؤكد في المصدر: destructuring لطريقة context.firestore يفقد this، وطريقة SDK تعتمد على this.emulators/this.getApp. أُعيد الاستدعاء عبر context دون أي تغيير للقواعد. الاختبار القديم للـraw-order listener صُحح في الدفعة السابقة. هذه نتيجة تشخيص فعلية وليست نجاح test:rules بعد.
 
 إعداد متصفح CI أصبح يستخدم chromium.executablePath() للنسخة التي يثبتها Playwright بدل افتراض وجود /usr/bin/chromium في GitHub Runner، مع إضافة fixture GPS إلى CI. لا تغيير لسلوك التطبيق أو قواعد البيانات.
+
+## نتيجة CI الثانية
+
+تشغيل40832754280 أثبت نجاح test:rules فعليًا على GitHub بعد إصلاح السياق. لم تُنشر القواعد ولم تتغير. الفشل التالي test:web-checkout كشف سيناريو اختبار قديمًا آخر يعتمد قراءة التاجر للطلبات الكاملة. جرى تحديثه إلى portal-active وlegacy-prepare وcourier-pickup/courier-depart الفعلية، مع تأكيد رفض القراءة الخام وأن التعيين ليس استلامًا. لا تغيير لتوقع الأسعار أو الدفع أو OTP أو أذونات التطبيق.
+
+وُحد runner تشخيص CI في check-tests-ci.mjs بدل إنشاء wrappers مكررة؛ يدعم suites ثابتة ويحتفظ برمز الفشل وينشر عناوين الاختبارات فقط.
