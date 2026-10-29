@@ -55,7 +55,10 @@ jobs:
       - run: npm run test:tracking-map
       - run: node tests/pwa-build.browser.mjs
       - run: npm run test:portal-regression
-      - run: npm run test:admin-web
-      - run: npm run test:shop-web
-      - run: npm run test:storefront-auth
-      - run: npm run test:preload-recovery
+      - name: Validate admin, shop, auth and preload browser flows
+        run: |
+          browser_failed=0
+          for suite_name in test:admin-web test:shop-web test:storefront-auth test:preload-recovery; do
+            node scripts/check-tests-ci.mjs "$suite_name" || browser_failed=1
+          done
+          exit "$browser_failed"
