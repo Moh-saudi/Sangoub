@@ -1260,3 +1260,153 @@ env -u FIRESTORE_EMULATOR_HOST -u FIREBASE_PROJECT_ID node --import tsx scripts/
 ```text
 Refusing simulator: loopback FIRESTORE_EMULATOR_HOST and project demo-capital-talabat only.
 ```
+
+### T8 commit
+SHA: 057c61f89bf644f472092baab2b5a389c5ce1d47
+
+```text
+commit 057c61f89bf644f472092baab2b5a389c5ce1d47
+Author: Ahmed <tnestgpt01@gmail.com>
+Date:   Wed Oct 28 20:29:04 2026 +0000
+
+    test(tracking): add strictly emulator-only courier simulator
+
+ docs/MIGRATION.md                         |  13 +++
+ docs/TRACKING_WORKLOG.md                  | 138 ++++++++++++++++++++++++++++++
+ package.json                              |   5 +-
+ scripts/fixtures/nac-synthetic-route.json |  11 +++
+ scripts/simulate-courier.test.ts          |   3 +
+ scripts/simulate-courier.ts               |  39 +++++++++
+ 6 files changed, 207 insertions(+), 2 deletions(-)
+```
+
+## T9 — BLOCKED
+
+أضيفت اختبارات عقد الصلاحيات ووثيقة التكلفة. lint و79 اختبارًا والبناء نجحت. اختبار القواعد لم يبدأ: تعذر تنزيل Firestore emulator من المصدر الرسمي في المحاولة الثانية؛ لا محاولة ثالثة، ولا تعديل أو نشر للقواعد.
+
+### Command
+```sh
+npm run lint
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+```
+
+### Command
+```sh
+npm test
+```
+```text
+[truncated]
+✔ eligibility requires both authenticated assigned UID and with_courier (1.03572ms)
+✔ two orders share one GPS and one Wake Lock but each filters/writes its own heartbeat and stops independently (4.748887ms)
+✔ retry uses 2s/5s/10s backoff, survives transient failure, stops after three continuous failure minutes (5.808882ms)
+✔ visibility stops foreground publishing and reacquires one watch/lock; no stale point republished before a fresh fix (0.729818ms)
+✔ unacknowledged offline write cannot keep GPS or Wake Lock alive indefinitely (0.619133ms)
+✔ checkout acknowledgment cannot erase quantities or new lines added during the request (2.394186ms)
+✔ mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities (2.180809ms)
+✔ InstaPay is a requested payment method and never a paid confirmation (2.800388ms)
+✔ incomplete customer details, invalid quantities and unknown menu items cannot produce a sendable request (2.194574ms)
+✔ Arabic and Persian quantity digits are accepted while fractional quantities are rejected (0.656145ms)
+✔ supermarket request combines packs from every section without breakfast items or payment claims (0.882433ms)
+✔ campaign scheduling uses Cairo rather than the execution host timezone (24.432447ms)
+✔ catalog monitoring counts delivered snapshots and excludes cancelled orders (2.339919ms)
+✔ editing archived items cannot silently make them available (60.9177ms)
+✔ catalog editor rejects invalid discounts, unsafe URLs and nonnumeric prices (0.822632ms)
+✔ calculateCartSubtotal correctly sums prices with quantities and options (1.72082ms)
+✔ applyCouponDiscount handles minOrder thresholds and discount calculation (0.477501ms)
+✔ calculateOrderTotal applies discount, delivery fee, and tip properly (0.269064ms)
+✔ getNextOrderStatus advances status correctly (0.18744ms)
+✔ validateEmployeeProfile validates name, Egyptian phone, ministry and floor (0.571542ms)
+✔ updateCourierMilestone updates checklist and advances to delivered when completed (0.566645ms)
+✔ currency formatting preserves cents charged by the payment gateway (24.180654ms)
+✔ calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission (0.530696ms)
+✔ generateMerchantJournalEntries creates balanced double-entry accounting records (1.166029ms)
+✔ calculateTopSellingProducts ranks products correctly by volume and share (0.712952ms)
+✔ calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest (0.807584ms)
+✔ Flutter summary records preserve totals and normalize Firestore timestamps (2.106642ms)
+✔ one kitchen cannot mark a multi-store order globally ready (0.495857ms)
+✔ daily metrics use Cairo date and actual delivery time across midnight (17.389131ms)
+✔ offers exclude invalid discounts, archived stock, and closed or missing stores (1.636503ms)
+✔ price and store availability changes immediately update offer eligibility (0.204914ms)
+✔ campaign tags and referrer domains classify sources without accepting spoofed hosts or collecting raw values (1.427724ms)
+ℹ tests 79
+ℹ suites 0
+ℹ pass 79
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1123.292289
+```
+
+### Command
+```sh
+npm run build
+```
+```text
+[truncated]
+dist/assets/AdminApp-EWhne2zZ.css           49.46 kB │ gzip:   9.88 kB
+dist/assets/index-M54opMIk.css             252.64 kB │ gzip:  40.15 kB
+dist/assets/operationsApi-BpSHorJf.js        0.09 kB │ gzip:   0.10 kB
+dist/assets/adminPresentation-Bc0jKY_r.js    0.19 kB │ gzip:   0.17 kB
+dist/assets/orderDelivery-B4ncxmW0.js        0.49 kB │ gzip:   0.39 kB
+dist/assets/DataStates-DcOG4vQT.js           3.33 kB │ gzip:   1.64 kB
+dist/assets/jsx-runtime-CU1iNrZ4.js          9.13 kB │ gzip:   3.53 kB
+dist/assets/KitchenDisplay-BjcjPrf4.js      12.41 kB │ gzip:   4.63 kB
+dist/assets/CourierApp-B3LEhIA9.js          20.77 kB │ gzip:   7.48 kB
+dist/assets/ShopFront-D_0IpAou.js           38.51 kB │ gzip:  11.01 kB
+dist/assets/MerchantApp-DyFqGQBk.js         77.94 kB │ gzip:  19.52 kB
+dist/assets/useOsmRoute-D0i9KrNl.js        158.83 kB │ gzip:  47.56 kB
+dist/assets/AdminApp-TOqI2f2g.js           281.42 kB │ gzip:  68.45 kB
+dist/assets/index-DQ0kJYAP.js              370.64 kB │ gzip: 104.83 kB
+dist/assets/firebase-CMsVUNFQ.js           604.78 kB │ gzip: 182.98 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/authenticatedApi.ts is dynamically imported by src/lib/firebase.ts but also statically imported by src/components/NotificationCenter.tsx, src/lib/adminApi.ts, src/lib/operationsApi.ts, src/shop/ShopFront.tsx, src/storefront/components/SangoubAuthModal.tsx, dynamic import will not move module into another chunk.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.19s
+
+PWA v2.0.0
+mode      generateSW
+precache  29 entries (2658.35 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-95677aec.js
+[33m[PLUGIN_TIMINGS] [0mJavaScript callbacks ran for 5.0s. The build took 3.2s. Callbacks such as `closeBundle` run after the build ends, so callback time can be more than build time.
+The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - plugin vite-plugin-pwa:build closeBundle (68%, 2.2s, 1 call)
+Additional callback time came from the callbacks below and from callbacks under 1s.
+2 callbacks are listed without a time. Their calls overlapped, so the time inside one call includes work from other calls. To find their cost, profile the build with `node --cpu-prof`:
+  - plugin vite:css transform (10 calls)
+  - plugin @tailwindcss/vite:generate:build transform (9 calls)
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
+
+```
+
+### Command
+```sh
+XDG_CONFIG_HOME=/workspace/.config CI=1 npm run test:rules
+```
+```text
+
+> react-example@0.0.0 test:rules
+> firebase emulators:exec --config firebase.emulators.json --only firestore,auth --project demo-capital-talabat "node --import tsx --test --test-concurrency=1 tests/firestore.security.test.ts tests/order-api.integration.test.ts tests/admin-api.integration.test.ts"
+
+i  emulators: Starting emulators: auth, firestore
+i  emulators: Detected demo project ID "demo-capital-talabat", emulated services will use a demo configuration and attempts to access non-emulated services for this project will fail.
+⚠  It appears you are running in a CI environment. You can avoid downloading the Firestore Emulator repeatedly by caching the /home/agent/.cache/firebase/emulators directory.
+i  firestore: downloading cloud-firestore-emulator-v1.22.0.jar...
+i  emulators: Shutting down emulators.
+i  firestore: Stopping Firestore Emulator
+i  hub: Stopping emulator hub
+
+Error: Failed to make request to https://storage.googleapis.com/firebase-preview-drop/emulator/cloud-firestore-emulator-v1.22.0.jar
+```

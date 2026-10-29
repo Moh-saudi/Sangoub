@@ -458,3 +458,31 @@ test("operational signals isolate stores and courier accounts and forbid client 
   await env.withSecurityRulesDisabled(async ({firestore})=>{await firestore().doc('staff/restaurant').delete();});
   await assertFails(db('restaurant').doc('storeOrderSignals/s1/orders/o1').get());
 });
+
+test('tracking contract: assigned courier only, active publishing only with_courier, owner/admin read, no extra fields',async()=>{
+ await env.withSecurityRulesDisabled(async context=>{await context.firestore().doc('staff/second-courier').set({role:'courier'});});
+ const record={coordinates:{latitude:30.0131,longitude:31.7346},active:true,updatedAt:timestamp()};
+ await assertSucceeds(db('courier').doc('tracking/o1').set(record));
+ await assertFails(db('second-courier').doc('tracking/o1').set(record));
+ await assertSucceeds(db('customer').doc('tracking/o1').get());
+ await assertSucceeds(db('admin').doc('tracking/o1').get());
+ await assertFails(db('stranger').doc('tracking/o1').get());
+ for(const field of ['speed','accuracy','courierId','profileId','orderStatus'])await assertFails(db('courier').doc('tracking/o1').set({...record,[field]:field}));
+ await assertFails(db('courier').doc('tracking/o1').set({...record,coordinates:{...record.coordinates,accuracy:5}}));
+ await assertFails(db('courier').doc('tracking/o1').set({...record,coordinates:{latitude:91,longitude:31.7}}));
+ await assertFails(db('courier').doc('tracking/o1').set({...record,coordinates:{latitude:'30',longitude:31.7}}));
+ await assertFails(db('courier').doc('tracking/o1').set({...record,updatedAt:new Date(0)}));
+ await assertFails(db('courier').doc('tracking/o1').delete());
+ for(const status of ['received','preparing','ready','delivered','cancelled']){
+  await env.withSecurityRulesDisabled(context=>context.firestore().doc('orders/o1').update({orderStatus:status}));
+  await assertFails(db('courier').doc('tracking/o1').set(record));
+  // Existing explicit rule permits inactive cleanup after a transition; D4, not active publishing.
+  await assertSucceeds(db('courier').doc('tracking/o1').set({...record,active:false}));
+ }
+});
+test('reassigned courier cannot keep writing or reading a previous tracking assignment',async()=>{
+ await env.withSecurityRulesDisabled(async context=>{await context.firestore().doc('staff/second-courier').set({role:'courier'});await context.firestore().doc('orders/o1').update({courierId:'second-courier'});await context.firestore().doc('tracking/o1').set({coordinates:{latitude:30,longitude:31.7},active:true});});
+ await assertFails(db('courier').doc('tracking/o1').get());
+ await assertFails(db('courier').doc('tracking/o1').set({coordinates:{latitude:30,longitude:31.7},active:false,updatedAt:timestamp()}));
+ await assertSucceeds(db('second-courier').doc('tracking/o1').set({coordinates:{latitude:30,longitude:31.7},active:true,updatedAt:timestamp()}));
+});
