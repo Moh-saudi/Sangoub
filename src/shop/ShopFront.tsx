@@ -924,9 +924,9 @@ function Checkout() {
   if (!shop.profile) return <CustomerLogin />;
   return <CheckoutForm key={shop.profile.id} />;
 }
-function OrderReceipt() {
+function OrderReceipt({trackingId}: {trackingId?: string} = {}) {
   const shop = useShop();
-  const id = new URLSearchParams(location.search).get("orderId") || "";
+  const id = trackingId || new URLSearchParams(location.search).get("orderId") || "";
   const [order, setOrder] = useState<Order | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -1304,6 +1304,8 @@ export default function ShopFront() {
         <Cart />
       ) : path === "/checkout" ? (
         <Checkout />
+      ) : path === "/track" || path === "/order-tracking" || path.startsWith("/order-tracking/") ? (
+        (new URLSearchParams(location.search).get("orderId") || path.startsWith("/order-tracking/")) ? <OrderReceipt trackingId={path.startsWith("/order-tracking/") ? path.split("/")[2] : undefined}/> : <MyOrders />
       ) : path === "/my-orders" ? (
         <MyOrders />
       ) : path === "/checkout/success" ? (

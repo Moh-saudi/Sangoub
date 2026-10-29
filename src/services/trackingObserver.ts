@@ -8,12 +8,13 @@ export function startTrackingObserver(options:{orderStatus:string;listen:(data:(
  const stop=options.listen((data,cached=false)=>{
   if(!alive)return;
   const p=data?.coordinates;active=data?.active===true&&p&&Number.isFinite(p.latitude)&&Number.isFinite(p.longitude)&&Math.abs(p.latitude)<=90&&Math.abs(p.longitude)<=180;
-  if(!data){emit({status:'waiting',point:null});return;}
-  if(!active){emit({status:'inactive'});return;}
+  if(!data){revision='';active=false;emit({status:'waiting',point:null,lastArrivalAt:null});return;}
+  if(!active){revision='';emit({status:'inactive',point:null,lastArrivalAt:null});return;}
   if(cached){emit({status:'disconnected',point:{latitude:p.latitude,longitude:p.longitude}});return;}
-  const timestamp=data.updatedAt;const next=timestamp?.toMillis?.()??(timestamp?.seconds!==undefined?`${timestamp.seconds}:${timestamp.nanoseconds}`:JSON.stringify([p.latitude,p.longitude,data.active]));
-  if(state.lastArrivalAt===null||String(next)!==revision){revision=String(next);emit({status:'tracking',point:{latitude:p.latitude,longitude:p.longitude},lastArrivalAt:now()});}
- },()=>emit({status:'unavailable'}));
+  const timestamp=data.updatedAt;const next=typeof timestamp==='number'?timestamp:timestamp?.toMillis?.()??(timestamp?.seconds!==undefined?`${timestamp.seconds}:${timestamp.nanoseconds}`:JSON.stringify([p.latitude,p.longitude,data.active]));
+  if(!revision){revision=String(next);emit({status:'disconnected',point:{latitude:p.latitude,longitude:p.longitude},lastArrivalAt:null});return;}
+  if(String(next)!==revision){revision=String(next);emit({status:'tracking',point:{latitude:p.latitude,longitude:p.longitude},lastArrivalAt:now()});}
+ },()=>{active=false;revision='';emit({status:'unavailable',point:null,lastArrivalAt:null})});
  const timer=every(()=>{if(active&&state.lastArrivalAt!==null&&now()-state.lastArrivalAt>120000)emit({status:'disconnected'})},5000);
  return()=>{alive=false;stop();clear(timer)};
 }

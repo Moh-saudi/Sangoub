@@ -1,3 +1,4 @@
+import {merchantTracking} from '../merchantTracking.ts';
 import { courierApprovalError } from '../../src/validation/accounts.ts';
 import { portalOrderActions, portalOrders } from '../portalOrders.ts';
 import { writeOrderSignals } from '../orderSignals.ts';
@@ -23,6 +24,7 @@ export default async function handler(req: any, res: any) {
     destination: role === 'admin' ? 'admin_web' : role === 'restaurant' ? 'store_preparation' : role === 'courier' ? 'courier_tasks' : 'customer_home',
     capabilities: ['operations_v2'], rolloutReady: rolloutReady(), requiresStoreAssignment: role === 'restaurant' && !store });
   }
+  if(input.action==='merchant-tracking')return res.status(200).json(await merchantTracking(input,context));
   if(portalOrderActions.includes(input.action))return res.status(200).json(await portalOrders(input,context));
   if(merchantActions.includes(input.action))return res.status(200).json(await merchantAction(input,context));
   if(input.action==='cancel'){

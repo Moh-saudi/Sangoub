@@ -1,3 +1,4 @@
+import {OrderMap} from './OrderMap';
 import { EmptyState } from './ui/DataStates';
 import { cairoDay } from "../utils/orderIntegration";
 import { KitchenDisplay } from "./KitchenDisplay";
@@ -40,7 +41,6 @@ import {
   calculateMerchantAccountingSummary,
   generateMerchantJournalEntries,
   calculateTopSellingProducts,
-  rankCouriersForStore,
 } from "../utils/orderCalculations.ts";
 import { SmartImage } from "./SmartImage.tsx";
 
@@ -85,6 +85,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 }) => {
   const userStore = stores.find((s) => s.id === currentProfile.storeId);
 
+  const [trackingOrderId,setTrackingOrderId] = useState("");
   const [activeTab, setActiveTab] = useState<"kitchen" | "menu" | "accounting" | "radar">("kitchen");
 
   // New item modal state
@@ -145,16 +146,6 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   const topSellingItems = useMemo(() => {
     return calculateTopSellingProducts(orders, userStore?.id || "", 6);
   }, [orders, userStore?.id, userStore?.commissionRate]);
-
-  // Couriers Radar computation
-  const defaultCouriersList = useMemo(() => {
-    return couriers || [];
-  }, [couriers]);
-
-  const storeLocation = userStore?.coordinates || { latitude: 30.0131, longitude: 31.7346 };
-  const rankedCouriers = useMemo(() => {
-    return rankCouriersForStore(storeLocation, defaultCouriersList);
-  }, [storeLocation, defaultCouriersList]);
 
   const handleSavePrice = async (productId: string) => {
     if (tempPrice > 0) {
@@ -834,104 +825,16 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
           4. تبويب رادار المناديب الأقرب والأسرع (APPLE FIND MY + RADAR PULSE)
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "radar" && (
-        <section
-          className="bg-slate-950 text-white rounded-[32px] p-6 sm:p-8 shadow-2xl border border-slate-800 space-y-6 relative overflow-hidden"
-          aria-label="رادار المناديب الأقرب والأسرع"
-        >
-          {/* Subtle Radar Ring Waves in background */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-slate-800/40 rounded-full pointer-events-none" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] border border-slate-800/60 rounded-full pointer-events-none" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] border border-emerald-500/10 rounded-full pointer-events-none" />
-
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-5">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-                </span>
-                <span className="text-[11px] bg-emerald-500/10 text-emerald-400 font-bold px-3 py-1 rounded-full border border-emerald-500/20">
-                  نظام التتبع والرادار الميداني الحي
-                </span>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-black text-white mt-2 flex items-center gap-2 tracking-tight">
-                <Navigation size={22} className="text-orange-500 animate-pulse" />
-                رادار مناديب التوصيل المحيطين بالمتجر
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                فرز دقيق للمناديب حسب المسافة الحقيقية بالكيلومتر من موقع المتجر مع تمييز الكابتن الأسرع
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 bg-slate-900/90 px-3.5 py-2 rounded-2xl border border-slate-800 text-xs">
-              <MapPin size={14} className="text-rose-400" />
-              <span>موقع الفرع: {userStore.locationInDistrict}</span>
-            </div>
-          </div>
-
-          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {rankedCouriers.map((courier) => (
-              <div
-                key={courier.id}
-                className={`p-5 rounded-3xl border transition-all flex flex-col justify-between ${
-                  courier.isFastest
-                    ? "bg-slate-900/90 border-amber-500/60 ring-2 ring-amber-500/20 shadow-xl"
-                    : "bg-slate-900/40 border-slate-800 hover:bg-slate-900/80"
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-13 h-13 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
-                      <Bike size={22} className="text-orange-400" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h5 className="font-black text-sm text-white tracking-tight">{courier.name}</h5>
-                        {courier.isFastest && (
-                          <span className="bg-amber-400/20 text-amber-300 text-[10px] px-2.5 py-0.5 rounded-full font-black border border-amber-400/40 flex items-center gap-1 shadow-xs">
-                            <Zap size={10} className="fill-amber-300" /> المندوب الأسرع
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-1.5 font-medium">
-                        <span className="flex items-center gap-1 text-emerald-400 font-bold">
-                          <MapPin size={12} /> يبعد {courier.distanceKm} كم
-                        </span>
-                        <span>★ {courier.rating}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-left">
-                    <span className="text-base font-mono font-black text-amber-300 block">
-                      ~ {courier.avgDeliveryMinutes} د
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-bold">زمن الوصول</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 mt-5 pt-3.5 border-t border-slate-800/80">
-                  <a
-                    href={`tel:${courier.phone}`}
-                    className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
-                  >
-                    <Phone size={13} /> اتصال ({courier.phone})
-                  </a>
-                  <button
-                    onClick={() => {
-                      alert(`تم إرسال إشعار فوري لاستدعاء الكابتن ${courier.name} للفرع`);
-                    }}
-                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition active:scale-95 shadow-md"
-                  >
-                    <ShieldCheck size={14} /> استدعاء للفرع
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+        <section className="rounded-2xl border bg-white p-4 space-y-4" aria-label="تتبع طلبات المتجر">
+          <h3 className="text-lg font-bold">تتبع توصيل طلبات متجرك</h3>
+          <p className="text-sm text-slate-600">موقع المندوب الذي يوصّل طلبًا من متجرك فقط. تُراجع البيانات كل 10 ثوانٍ أثناء فتح الخريطة؛ لا نعرض مواقع مناديب غير مرتبطين بطلباتك أو عنوان العميل.</p>
+          {orders.filter(order=>order.storeIds?.includes(userStore.id)&&order.orderStatus==='with_courier').length===0&&<p>لا توجد طلبات من متجرك قيد التوصيل الآن.</p>}
+          {orders.filter(order=>order.storeIds?.includes(userStore.id)&&order.orderStatus==='with_courier').slice(0,50).map(order=><MerchantOrderTracking key={order.id} order={order} open={trackingOrderId===order.id} onToggle={open=>setTrackingOrderId(current=>open?order.id:current===order.id?"":current)}/>)}
         </section>
       )}
     </div>
   );
 };
 
+
+function MerchantOrderTracking({order,open,onToggle}:{order:Order;open:boolean;onToggle:(open:boolean)=>void}){return <details open={open} className="rounded-xl border p-3" onToggle={e=>onToggle(e.currentTarget.open)}><summary>طلب {order.orderNumber} · {order.courierName||'المندوب المسند'}</summary>{open&&<OrderMap merchant order={{id:order.id,orderStatus:order.orderStatus,coordinates:undefined}}/>}</details>;}

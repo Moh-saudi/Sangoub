@@ -9,14 +9,15 @@ import type { CourierTrackingOrder } from '../components/CourierTracking';
 export function useCourierTracking(order:CourierTrackingOrder){
  const [uid,setUid]=useState(auth.currentUser?.uid),[state,setState]=useState<TrackingState|null>(null);
  useEffect(()=>onAuthStateChanged(auth,u=>setUid(u?.uid)),[]);
+ const [revision,setRevision]=useState(0);
  const eligible=canTrackOrder(order,uid);
  useEffect(()=>{
   setState(null);if(!eligible)return;let mounted=true;
   const session=startTrackingSession({source:browserLocationSource(),notify:s=>{if(mounted)setState(s)},write:async payload=>{
-   if(auth.currentUser?.uid!==order.courierId)return;
+   if(auth.currentUser?.uid!==order.courierId)throw Error('انتهت جلسة المندوب.');
    await setDoc(doc(db,'tracking',order.id),{coordinates:payload.coordinates,active:payload.active,updatedAt:serverTimestamp()});
   }});
   return()=>{mounted=false;session.stop()};
- },[eligible,uid,order.id,order.courierId]);
- return {eligible,state};
+ },[eligible,uid,order.id,order.courierId,revision]);
+ return {eligible,state,restart:()=>setRevision(value=>value+1)};
 }

@@ -1750,3 +1750,225 @@ Draft PR: **BLOCKED**؛ GitHub GraphQL Forbidden عند الإنشاء وعند 
 ملخص صادق: اكتمل كود GPS foreground والاختبارات المحلية والخريطة المعزولة والتوثيق؛ 79/79، lint/build PASS. precache النهائي 2658.35 KiB مقابل2663.31 KiB أساسًا. قواعد الأمان ومحاكي الرحلة الفعلي لم تُختبر؛ لا staging أو هاتفين أو نشر. لا موافقة إطلاق إنتاج. تبقى قواعد emulator، مراجعة إعادة التعيين وقراءة REST المكررة ومزود الإنتاج والاختبار الميداني قبل الاعتماد. تأكيد المستخدم بتعطيل نشر الفرع هو أساس الرفع؛ لم نغيّر إعداد نشر أو main أو أسرار أو billing.
 
 جاهز للمراجعة
+
+## GPS-followup — PASS
+
+طلب توحيد GPS وإصلاح سجل Vercel بتاريخ 2026-10-29. راجع GPS_FOLLOWUP_2026-10-29.md: shared viewer وmerchant projection مع ACL transaction وpolling10s (لا ندّعي أنه listener)، track routes، baseline revision safety وGPS freshness120s، عرض accuracy وإعادة تشغيل، وتنظيف tracking عند تغيير المندوب. عُزل إعداد serverless عن Vite types واختبر compiled emit مع noCheck:false. لا rules أو شكل Order أو filter أو Flutter. test:rules والجهازان وdeploy NOT RUN؛ لا ادعاء بتفعيل إنتاج.
+
+### Command
+```sh
+npm run lint
+```
+```text
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+```
+
+### Command
+```sh
+npm run lint:server
+```
+```text
+
+> react-example@0.0.0 lint:server
+> tsc --noEmit -p api/tsconfig.json
+
+```
+
+### Command
+```sh
+npm test
+```
+```text
+[truncated]
+✔ two orders share one GPS and one Wake Lock but each filters/writes its own heartbeat and stops independently (3.200811ms)
+✔ retry uses 2s/5s/10s backoff, survives transient failure, stops after three continuous failure minutes (5.17831ms)
+✔ visibility stops foreground publishing and reacquires one watch/lock; no stale point republished before a fresh fix (1.604417ms)
+✔ unacknowledged offline write cannot keep GPS or Wake Lock alive indefinitely (0.862222ms)
+✔ heartbeats stop claiming a live position after 120s without a reliable GPS fix (0.84927ms)
+✔ checkout acknowledgment cannot erase quantities or new lines added during the request (1.603437ms)
+✔ mixed breakfast retains sandwiches and meals in the WhatsApp request with exact quantities (1.217046ms)
+✔ InstaPay is a requested payment method and never a paid confirmation (0.206658ms)
+✔ incomplete customer details, invalid quantities and unknown menu items cannot produce a sendable request (0.532201ms)
+✔ Arabic and Persian quantity digits are accepted while fractional quantities are rejected (0.365434ms)
+✔ supermarket request combines packs from every section without breakfast items or payment claims (0.375992ms)
+✔ campaign scheduling uses Cairo rather than the execution host timezone (20.763789ms)
+✔ catalog monitoring counts delivered snapshots and excludes cancelled orders (2.063035ms)
+✔ editing archived items cannot silently make them available (30.937705ms)
+✔ catalog editor rejects invalid discounts, unsafe URLs and nonnumeric prices (0.755419ms)
+✔ calculateCartSubtotal correctly sums prices with quantities and options (1.809162ms)
+✔ applyCouponDiscount handles minOrder thresholds and discount calculation (1.498268ms)
+✔ calculateOrderTotal applies discount, delivery fee, and tip properly (0.485909ms)
+✔ getNextOrderStatus advances status correctly (0.227877ms)
+✔ validateEmployeeProfile validates name, Egyptian phone, ministry and floor (0.644792ms)
+✔ updateCourierMilestone updates checklist and advances to delivered when completed (0.402557ms)
+✔ currency formatting preserves cents charged by the payment gateway (25.759413ms)
+✔ calculateMerchantAccountingSummary accurately aggregates sales, payments, and platform commission (0.61583ms)
+✔ generateMerchantJournalEntries creates balanced double-entry accounting records (0.948572ms)
+✔ calculateTopSellingProducts ranks products correctly by volume and share (0.90023ms)
+✔ calculateDistanceKm and rankCouriersForStore find closest courier and highlight fastest (0.604582ms)
+✔ Flutter summary records preserve totals and normalize Firestore timestamps (2.727549ms)
+✔ one kitchen cannot mark a multi-store order globally ready (0.695909ms)
+✔ daily metrics use Cairo date and actual delivery time across midnight (16.990312ms)
+✔ offers exclude invalid discounts, archived stock, and closed or missing stores (1.876527ms)
+✔ price and store availability changes immediately update offer eligibility (0.249655ms)
+✔ campaign tags and referrer domains classify sources without accepting spoofed hosts or collecting raw values (1.52556ms)
+ℹ tests 85
+ℹ suites 0
+ℹ pass 85
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1393.464037
+```
+
+### Command
+```sh
+npm run test:native-api
+```
+```text
+
+> react-example@0.0.0 test:native-api
+> node --test tests/server-native.test.mjs
+
+Server entry failure {
+  incidentId: 'mvt5iesi-k09xi0c',
+  stage: 'module',
+  code: 'ERR_MODULE_NOT_FOUND',
+  message: 'example-internal-path'
+}
+✔ native ESM loads orders and rejects unauthenticated requests before cloud access (1.063864ms)
+✔ native ESM loads images and rejects unauthenticated requests before cloud access (0.126775ms)
+✔ native ESM loads delivery and rejects unauthenticated requests before cloud access (0.086679ms)
+✔ native ESM loads assistant and rejects unauthenticated requests before cloud access (0.402236ms)
+✔ native ESM loads users and rejects unauthenticated requests before cloud access (0.110182ms)
+✔ native ESM loads data and rejects unauthenticated requests before cloud access (0.084298ms)
+✔ native ESM loads operations and rejects unauthenticated requests before cloud access (0.069174ms)
+✔ native ESM loads appContent and rejects unauthenticated requests before cloud access (15.595095ms)
+✔ native ESM loads osm and rejects unauthenticated requests before cloud access (0.143655ms)
+✔ server entry reports an import incident without exposing its raw message (1.564318ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 463.158201
+```
+
+### Command
+```sh
+npm run test:compiled-api
+```
+```text
+
+> react-example@0.0.0 test:compiled-api
+> node --test tests/server-compiled.test.mjs
+
+✔ compiled serverless JavaScript loads the real handlers without TypeScript loaders (942.949903ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1018.753788
+```
+
+### Command
+```sh
+npm run test:portal-services
+```
+```text
+
+> react-example@0.0.0 test:portal-services
+> node --import tsx --test tests/portal-orders.test.ts
+
+✔ merchant projection excludes every other store and customer/provider/contract metadata (2.746782ms)
+✔ atomic signals contain identifiers and status only and revoke old courier on reassignment/closure (1.200178ms)
+✔ active API constrains canonical query by verified identity, skips history, bootstraps without signal loops (17.986853ms)
+✔ legacy courier transitions require assignment, pickup and payment; duplicate confirmation is safe (4.711342ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 630.155851
+```
+
+### Command
+```sh
+npm run build
+```
+```text
+[truncated]
+rendering chunks...
+computing gzip size...
+dist/build-info.json                         0.08 kB │ gzip:   0.09 kB
+dist/registerSW.js                           0.13 kB
+dist/manifest.webmanifest                    0.50 kB
+dist/index.html                              3.16 kB │ gzip:   1.11 kB
+dist/assets/CourierApp-objfHoLw.css          2.49 kB │ gzip:   0.85 kB
+dist/assets/MerchantApp-BTOjdwri.css        10.25 kB │ gzip:   2.57 kB
+dist/assets/ShopFront-RYKMbjBy.css          10.40 kB │ gzip:   2.60 kB
+dist/assets/useOsmRoute-vh-t_kPv.css        15.09 kB │ gzip:   6.36 kB
+dist/assets/AdminApp-EWhne2zZ.css           49.46 kB │ gzip:   9.88 kB
+dist/assets/index-qn0S2sR_.css             250.65 kB │ gzip:  39.95 kB
+dist/assets/operationsApi-DfLln63v.js        0.09 kB │ gzip:   0.10 kB
+dist/assets/adminPresentation-Bc0jKY_r.js    0.19 kB │ gzip:   0.17 kB
+dist/assets/orderDelivery-CduKpJsZ.js        0.49 kB │ gzip:   0.39 kB
+dist/assets/DataStates-C8_NFdKL.js           3.33 kB │ gzip:   1.64 kB
+dist/assets/KitchenDisplay-DO-eGr6j.js      12.41 kB │ gzip:   4.62 kB
+dist/assets/CourierApp-CKqFS-wk.js          21.68 kB │ gzip:   7.75 kB
+dist/assets/ShopFront-CI1l7kV0.js           38.79 kB │ gzip:  11.07 kB
+dist/assets/MerchantApp-CWrblnKn.js         74.33 kB │ gzip:  18.83 kB
+dist/assets/useOsmRoute-w8e3omTz.js        167.98 kB │ gzip:  50.66 kB
+dist/assets/AdminApp-C3NM3LGX.js           281.44 kB │ gzip:  68.39 kB
+dist/assets/index-BiQ4q30c.js              370.96 kB │ gzip: 104.89 kB
+dist/assets/firebase-DsZuyFPx.js           604.78 kB │ gzip: 182.98 kB
+
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/authenticatedApi.ts is dynamically imported by src/lib/firebase.ts but also statically imported by src/components/NotificationCenter.tsx, src/lib/adminApi.ts, src/lib/operationsApi.ts, src/shop/ShopFront.tsx, src/storefront/components/SangoubAuthModal.tsx, dynamic import will not move module into another chunk.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.46s
+
+PWA v2.0.0
+mode      generateSW
+precache  28 entries (2654.40 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-95677aec.js
+```
+
+### Command
+```sh
+npm run test:tracking-map
+```
+```text
+
+> react-example@0.0.0 test:tracking-map
+> node tests/tracking-map.browser.mjs
+
+PASS: isolated Leaflet fixture at 320/390/1366px; smooth marker update preserves map DOM, attribution visible, no horizontal overflow. External requests intercepted; no Firebase imported or contacted.
+```
+
+### Follow-up review notes
+
+المحاولة الأولى بعد إضافة reliable-GPS timeout كشفت regression في العودة من الخلفية: اختبار visibility توقع عدم نشر قديم، لكنه وجد inactive إضافية (3 بدل2). السبب بقاء lastReliableAt قبل الإخفاء. أُصلح بإعادة ضبط freshness عند العودة وانتظار fix جديد، وليس بتخفيف الاختبار. حفظت مخرجات الفشل في /tmp/gps-followup-tests-attempt1.log، والبوابات النهائية أعلاه85/85. فحص server بأنواع Node وحدها وlib ES2022 فقط كشف اختلاف نوع Response.json عن إعداد المشروع؛ أبقينا lib المشروع الموروثة، مع استبعاد أنواع Vite فقط. لا تعديل لمنطق integrations أو إخفاء TypeScript بـnoCheck.
+
+Commit هذه الدفعة يمس OrderMap وCouriersLiveMap وOrderTracking observer وosm وGPS session/Service hooks والخريطة المشتركة؛ أُبلغ المستخدم بالتوحيد والدقة وإزالة البيانات القديمة. لا تغيير لlocationTrackingFilter أوfirestore.rules أوserver/portalOrders أوCourierApp. خريطة التاجر الجديدة authorized في الطلب الحالي؛ لا توسيع لقراءة وثائق الطلبات الكاملة.
+
+السجل السابق ينتهي بعلامة مراجعة تخص9b3c18c؛ هذا الملحق هو أحدث تسليم. الوثائق محدثة لتفريق كود منفذ عن نشر/اختبار ميداني غير منفذ. SHA/stat هذه الدفعة تسجل في commit توثيق تالٍ لأن commit لا يحتوي SHA نفسه. لا نشر يدوي أو دمج main؛ رفع feature ضمن الإذن السابق، وإعداد Vercel الفعلي غير مفحوص.
+
+جاهز للمراجعة

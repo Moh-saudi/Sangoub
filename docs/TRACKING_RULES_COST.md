@@ -1,5 +1,7 @@
 # Tracking rules: dependency reads and cost review
 
+> تحديث 2026-10-29: [GPS_FOLLOWUP_2026-10-29.md](GPS_FOLLOWUP_2026-10-29.md) يوثق إضافة خريطة التاجر وإصلاح تجهيز Vercel ومنع الموقع القديم. تفاصيل التسليم السابق أدناه تاريخية حيث تتعارض مع التحديث.
+
 ## Evidence and status
 
 Static analysis of the unchanged rules: `firestore.rules:4-21`, tracking block `:115-124`. Contract tests: `tests/firestore.security.test.ts` (tracking contract and reassignment tests). Emulator execution is **NOT RUN / BLOCKED**: two startup attempts (T0 and T9) failed downloading the official Firestore jar before tests ran. No rule change or deploy was made; no test-discovered rule defect is claimed.

@@ -120,6 +120,7 @@ export default async function handler(req:any,res:any){
         if(!allowed[before.orderStatus]?.includes(after.orderStatus))bad('انتقال حالة الطلب غير مسموح.');
         if(after.orderStatus==='with_courier'||'courierId'in patch){
           after.courierName=resolvedCourier.name;after.courierPhone=resolvedCourier.phone;
+          if('courierId'in patch&&before.courierId!==after.courierId)tx.delete(db.doc('tracking/'+id));
           if(before.fulfillmentVersion===2)tx.set(assignmentRef(db,after.courierId,id),{orderId:id,active:true,assignedAt:FieldValue.serverTimestamp()});
         }else if('courierId'in patch)bad('تعيين المندوب متاح للطلبات الجاهزة فقط.');
       }else if(type==='staff'){

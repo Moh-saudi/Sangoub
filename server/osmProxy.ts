@@ -1,5 +1,5 @@
 /** OSM-only gateway: fixed upstreams, bounded geography, no arbitrary URL forwarding. */
-export class OsmError extends Error { constructor(public status:number,message:string){super(message)} }
+export class OsmError extends Error { status:number; constructor(status:number,message:string){super(message);this.status=status} }
 type Point={latitude:number;longitude:number};
 export interface OsmConfig { bbox:[number,number,number,number];routeUrl:string;searchUrl:string;userAgent:string;production?:boolean }
 export function osmConfig():OsmConfig {

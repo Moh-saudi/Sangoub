@@ -1,5 +1,7 @@
 # T0 — Tracking audit (baseline 79deabe)
 
+> تحديث 2026-10-29: [GPS_FOLLOWUP_2026-10-29.md](GPS_FOLLOWUP_2026-10-29.md) يوثق إضافة خريطة التاجر وإصلاح تجهيز Vercel ومنع الموقع القديم. تفاصيل التسليم السابق أدناه تاريخية حيث تتعارض مع التحديث.
+
 ## Verified baseline
 
 - Branch feature/osm-tracking, parent main 4b5bfe4. Full `git show 4b5bfe4` was read, including all five files: contract, API projection, integration seam, CourierApp placement and assertion. Seed 79deabe contains **five** files (two services, two tests, MIGRATION), not four total: `git show --stat 79deabe`.

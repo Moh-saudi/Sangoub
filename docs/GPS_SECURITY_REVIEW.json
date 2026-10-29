@@ -1,0 +1,18 @@
+{
+  "score": 4,
+  "summary": "Static GPS-scope review only. Merchant direct Firestore access remains denied. New server projection rechecks staff/store/account access transactionally and returns only the order courier point. No rules change. Emulator and real-device verification remain blocked/not run; this score is not production certification.",
+  "findings": [
+    {
+      "check": "Business Logic vs. Rules",
+      "severity": "minor",
+      "issue": "Merchant view uses a scoped server projection with 10-second polling; client and administrator use document listeners. The UI explicitly states this delay.",
+      "recommendation": "Measure read volume in isolated staging; retain one open merchant map and do not widen direct rules for convenience."
+    },
+    {
+      "check": "Authority Source",
+      "severity": "minor",
+      "issue": "GPS reports remain courier-device assertions, not cryptographic proof of real location. Browser background and best-effort cleanup limitations persist.",
+      "recommendation": "Validate with two real phones, permission loss and concurrent reassignment; never present absolute accuracy guarantees."
+    }
+  ]
+}

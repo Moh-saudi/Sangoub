@@ -17,7 +17,7 @@ export default function App() {
   const [path,setPath]=useState(location.pathname);
   useEffect(()=>{const change=()=>setPath(location.pathname);window.addEventListener('popstate',change);return()=>window.removeEventListener('popstate',change)},[]);
   if(/^\/courier\/?$/.test(path))return <Suspense fallback={<p role="status" className="p-8" dir="rtl">جارٍ تحميل بوابة المندوب…</p>}><CourierApp/></Suspense>;
-  if(/^\/(stores(?:\/[^/]+)?|cart|checkout(?:\/success)?|my-orders)\/?$/.test(path))return <ShopProvider><Suspense fallback={<p role="status" className="p-8" dir="rtl">جارٍ تحميل التسوق…</p>}><ShopFront key={path}/></Suspense></ShopProvider>;
+  if(/^\/(stores(?:\/[^/]+)?|cart|checkout(?:\/success)?|my-orders|track|order-tracking(?:\/[^/]+)?)\/?$/.test(path))return <ShopProvider><Suspense fallback={<p role="status" className="p-8" dir="rtl">جارٍ تحميل التسوق…</p>}><ShopFront key={path}/></Suspense></ShopProvider>;
 
   if (merchantRoute) {
     return (

@@ -16,10 +16,10 @@ test('compiled serverless JavaScript loads the real handlers without TypeScript 
     await writeFile(
       config,
       JSON.stringify({
-        extends: norm(join(root, 'tsconfig.json')),
+        extends: norm(join(root, 'api/tsconfig.json')),
         compilerOptions: {
           noEmit: false,
-          noCheck: true,
+          noCheck: false,
           rewriteRelativeImportExtensions: true,
           rootDir: norm(root),
           outDir: norm(out),
@@ -54,9 +54,10 @@ test('compiled serverless JavaScript loads the real handlers without TypeScript 
       'catalog-images',
       'operations',
       'app-content',
+      'osm/[action]',
     ]) {
       const implementation = await import(
-        pathToFileURL(join(out, 'server/handlers/' + name + '.js')).href
+        pathToFileURL(join(out, 'server/handlers/' + (name === 'osm/[action]' ? 'osm' : name) + '.js')).href
       );
       assert.equal(typeof implementation.default, 'function');
       const endpoint = await import(pathToFileURL(join(out, 'api/' + name + '.js')).href);
