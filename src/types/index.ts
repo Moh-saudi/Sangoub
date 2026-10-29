@@ -139,6 +139,7 @@ export interface ProductOptionGroup {
 }
 
 export interface Product {
+  catalogProductId?: string;
   archived?: boolean;
   id: string;
   storeId: string;

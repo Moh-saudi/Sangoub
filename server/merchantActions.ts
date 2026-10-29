@@ -1,13 +1,16 @@
+import { sharedCatalogPage, linkCatalogProduct } from './sharedCatalog.ts';
 import { merchantOrderView } from './portalOrders.ts';
 import { writeOrderSignals } from './orderSignals.ts';
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import { AdminError, validId } from "./adminRequest.ts";
 import { auditInTransaction } from "./audit.ts";
 import { paymentReady, type OperationIdentity } from "./operations.ts";
-const text = (v: unknown, max: number) =>
-  typeof v === "string" && v.trim().length > 0 && v.length <= max;
 export const merchantActions = [
   "store-dashboard",
+  "store-products",
+  "shared-catalog",
+  "link-catalog-product",
+  "set-product-archived",
   "save-product",
   "set-product-stock",
   "set-product-price",
@@ -20,15 +23,20 @@ export async function merchantAction(input: any, context: OperationIdentity) {
     throw new AdminError(403, "الحساب غير مرتبط بمتجر معتمد.");
   const storeId = staff.storeId;
   validId(storeId);
+  if(input.action==='shared-catalog')return sharedCatalogPage(db,input.cursor);
+  if(input.action==='link-catalog-product')return linkCatalogProduct(input,context);
   const storeRef = db.doc("stores/" + storeId);
+  const productPage=async(cursor?:string)=>{
+    let query=db.collection('products').where('storeId','==',storeId).orderBy(FieldPath.documentId());
+    if(cursor!==undefined){validId(cursor);query=query.startAfter(cursor);}
+    const snapshot=await query.limit(101).get();const docs=snapshot.docs.slice(0,100);
+    return {products:docs.map(d=>({...d.data(),id:d.id})),productsNextCursor:snapshot.docs.length>100?docs.at(-1)!.id:null};
+  };
+  if(input.action==='store-products')return productPage(input.cursor);
   if (input.action === "store-dashboard") {
     const [store, products, orders, contract] = await Promise.all([
       storeRef.get(),
-      db
-        .collection("products")
-        .where("storeId", "==", storeId)
-        .limit(100)
-        .get(),
+      productPage(),
       input.includeOrders===false ? Promise.resolve({docs:[]}) : db
         .collection("orders")
         .where("storeIds", "array-contains", storeId)
@@ -48,7 +56,7 @@ export async function merchantAction(input: any, context: OperationIdentity) {
             : {}),
         },
       ],
-      products: products.docs.map((d) => ({ ...d.data(), id: d.id })),
+      ...products,
       orders: orders.docs
         .filter((d) => d.data().fulfillmentVersion !== 2)
         .map((d) => {
@@ -144,6 +152,9 @@ export async function merchantAction(input: any, context: OperationIdentity) {
       if (!["open", "closed", "busy"].includes(input.status))
         throw new AdminError(400, "حالة متجر غير صالحة.");
       patch = { status: input.status };
+    } else if (input.action === "set-product-archived") {
+      if(!before||typeof input.archived!=='boolean')throw new AdminError(400,'حالة الأرشفة غير صالحة.');
+      patch={archived:input.archived,inStock:false};
     } else if (input.action === "set-product-stock") {
       if (!before || typeof input.inStock !== "boolean" || before.archived)
         throw new AdminError(400, "المنتج غير متاح للتعديل.");
@@ -163,42 +174,7 @@ export async function merchantAction(input: any, context: OperationIdentity) {
       )
         patch.originalPrice = FieldValue.delete();
     } else if (input.action === "save-product") {
-      if (before) throw new AdminError(409, "معرف المنتج مستخدم بالفعل.");
-      const p = input.product;
-      if (
-        !p ||
-        !text(p.name, 120) ||
-        !text(p.description, 1000) ||
-        !text(p.category, 120) ||
-        !Number.isFinite(p.price) ||
-        p.price < 0 ||
-        p.price > 100000
-      )
-        throw new AdminError(400, "راجع بيانات المنتج.");
-      let imageUrl = "";
-      if (p.imageUrl) {
-        try {
-          const u = new URL(p.imageUrl);
-          if (u.protocol !== "https:" || u.username || u.password)
-            throw Error();
-          imageUrl = u.href;
-        } catch {
-          throw new AdminError(400, "رابط الصورة غير صالح.");
-        }
-      }
-      patch = {
-        id,
-        storeId,
-        storeName: store.data()!.name,
-        name: p.name.trim(),
-        description: p.description.trim(),
-        category: p.category,
-        price: p.price,
-        inStock: true,
-        archived: false,
-        imageType: "foul",
-        ...(imageUrl ? { imageUrl } : {}),
-      };
+      throw new AdminError(409,'اختر المنتج من الكتالوج العام بدل إنشاء نسخة جديدة.');
     } else throw new AdminError(400, "عملية غير صالحة.");
     const after = { ...patch, updatedAt: FieldValue.serverTimestamp() };
     tx.set(ref, after, { merge: true });

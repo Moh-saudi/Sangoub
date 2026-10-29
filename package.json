@@ -33,6 +33,7 @@
     "test:portal-services": "node --import tsx --test tests/portal-orders.test.ts",
     "test:portal-regression": "node tests/portal-regression.browser.mjs",
     "test:account-validation": "node --import tsx --test tests/account-validation.test.ts",
+    "test:shared-catalog": "node tests/shared-catalog.browser.mjs",
     "test:delivery-address": "node tests/delivery-address.browser.mjs",
     "test:tracking-map": "node tests/tracking-map.browser.mjs",
     "simulate:courier": "node --import tsx scripts/simulate-courier.ts",

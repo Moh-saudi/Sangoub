@@ -65,6 +65,8 @@ export default function MerchantApp() {
   const [stores, setStores] = useState<Store[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [productsNextCursor,setProductsNextCursor]=useState<string|null>(null);
+  const catalogPages=useRef(1);
   const [couriers, setCouriers] = useState<any[]>([]);
   const [connected, setConnected] = useState(true);
 
@@ -95,9 +97,12 @@ export default function MerchantApp() {
     },e=>{generation++;setProfile(null);setAccess('denied');setError(customerMessage(e,'تعذر التحقق من صلاحية المتجر.'))});return()=>{generation++;stop()};
   },[identity,revision]);
   useEffect(()=>{
-    setStores([]);setOrders([]);setProducts([]);setCouriers([]);setConnected(false);setCatalogLoading(true);
+    setStores([]);setOrders([]);setProducts([]);setCouriers([]);setConnected(false);setCatalogLoading(true);setProductsNextCursor(null);catalogPages.current=1;
     if(access!=='merchant'||!profile)return;let active=true,inflight=false;
-    const load=async()=>{if(inflight)return;inflight=true;try{const result=await operationsApi('operations',{action:'store-dashboard',includeOrders:false});if(active){setStores(result.stores);setProducts(result.products);setConnected(true);setError('');}}catch(e){if(active){setConnected(false);setError(customerMessage(e,'تعذر تحميل بيانات متجرك.'));}}finally{inflight=false;if(active)setCatalogLoading(false);}};
+    const load=async()=>{if(inflight)return;inflight=true;try{const result=await operationsApi('operations',{action:'store-dashboard',includeOrders:false});
+      let catalog=result.products,cursor=result.productsNextCursor;
+      for(let page=1;page<catalogPages.current&&cursor;page++){const next=await operationsApi('operations',{action:'store-products',cursor});catalog=[...catalog,...next.products];cursor=next.productsNextCursor;}
+      if(active){setStores(result.stores);setProducts([...new Map(catalog.map((p:Product)=>[p.id,p])).values()] as Product[]);setProductsNextCursor(cursor);setConnected(true);setError('');}}catch(e){if(active){setConnected(false);setError(customerMessage(e,'تعذر تحميل بيانات متجرك.'));}}finally{inflight=false;if(active)setCatalogLoading(false);}};
     refreshMerchant.current=load;void load();const timer=setInterval(()=>{if(!document.hidden)void load()},15000);return()=>{active=false;clearInterval(timer);refreshMerchant.current=async()=>{}};
   },[access,profile?.id,profile?.storeId]);
 
@@ -155,7 +160,8 @@ export default function MerchantApp() {
   async function handleUpdateOrderStatus(_id:string,_status:Order['orderStatus']){setError('حالة التوصيل يحدّثها المندوب، والتحضير من أزرار المطبخ.');}
   async function handleUpdateProductStock(id:string,inStock:boolean){try{await merchantMutation({action:'set-product-stock',id,inStock})}catch{}}
   async function handleUpdateProductPrice(id:string,price:number){await merchantMutation({action:'set-product-price',id,price});}
-  async function handleAddProduct(product:Product){await merchantMutation({action:'save-product',id:product.id,product});}
+  async function handleLinkProduct(catalogProductId:string,price:number,existingProductId?:string){await merchantMutation({action:'link-catalog-product',catalogProductId,price,...(existingProductId?{existingProductId}:{})});}
+  async function handleArchiveProduct(id:string,archived:boolean){await merchantMutation({action:'set-product-archived',id,archived});}
   async function handleToggleStoreStatus(_storeId:string){const store=stores.find(s=>s.id===profile?.storeId);if(!store)return;try{await merchantMutation({action:'set-store-status',status:store.status==='open'?'closed':'open'})}catch{}}
 
   // RENDER: 1. Loading State
@@ -281,7 +287,11 @@ export default function MerchantApp() {
             onUpdateOrderStatus={handleUpdateOrderStatus}
             onUpdateProductStock={handleUpdateProductStock}
             onUpdateProductPrice={handleUpdateProductPrice}
-            onAddProduct={handleAddProduct}
+            productsNextCursor={productsNextCursor}
+            productsLoading={catalogLoading}
+            onLoadMoreProducts={()=>{if(catalogLoading)return;catalogPages.current++;setCatalogLoading(true);void refreshMerchant.current();}}
+            onLinkProduct={handleLinkProduct}
+            onArchiveProduct={handleArchiveProduct}
             onToggleStoreStatus={handleToggleStoreStatus}
           />}
         </main>
@@ -497,7 +507,7 @@ function SangoubHelpModal({ onClose }: { onClose: () => void }) {
             <div>
               <div className="inline-flex items-center gap-1 bg-white/20 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold mb-1">
                 <Sparkles size={11} />
-                <span>دعم شركاء سنجوب 24/7</span>
+                <span>دعم شركاء سنجوب</span>
               </div>
               <h3 className="text-base font-black">أهلاً بك يا شريكنا العزيز!</h3>
               <p className="text-[11px] text-orange-100 mt-0.5">
@@ -526,21 +536,21 @@ function SangoubHelpModal({ onClose }: { onClose: () => void }) {
                 </div>
                 <div>
                   <span className="block text-xs font-black text-emerald-900">واتساب العمليات</span>
-                  <span className="block text-[10px] text-emerald-700">رد فوري خلال دقائق</span>
+                  <span className="block text-[10px] text-emerald-700">تواصل مع فريق الدعم</span>
                 </div>
               </a>
 
               {/* Direct Hotline */}
               <a
-                href="tel:01012345678"
+                href={whatsappUrl}
                 className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-950 font-bold transition-all group"
               >
                 <div className="w-9 h-9 rounded-lg bg-amber-600 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <Phone size={17} />
                 </div>
                 <div>
-                  <span className="block text-xs font-black text-amber-900">طوارئ المطبخ والطلبات</span>
-                  <span className="block text-[10px] text-amber-700">اتصال هاتفي مباشر</span>
+                  <span className="block text-xs font-black text-amber-900">مساعدة المطبخ والطلبات</span>
+                  <span className="block text-[10px] text-amber-700">التواصل عبر قناة الدعم</span>
                 </div>
               </a>
             </div>

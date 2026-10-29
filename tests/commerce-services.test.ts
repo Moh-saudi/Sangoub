@@ -30,13 +30,16 @@ class MemoryDb {
   collection(path: string): any {
     const filters: any[] = [];
     let max = Infinity;
+    let cursor = '';
+    let ordered=false;
     const q: any = {
       doc: (id = randomUUID()) => this.doc(path + "/" + id),
       where: (key: string, op: string, value: any) => {
         filters.push([key, op, value]);
         return q;
       },
-      orderBy: () => q,
+      orderBy: () => {ordered=true;return q;},
+      startAfter: (value:string) => {cursor=value;return q;},
       limit: (n: number) => {
         max = n;
         return q;
@@ -56,6 +59,8 @@ class MemoryDb {
                 : d.data()[k] === v,
             ),
           )
+          .filter(d=>(d.id || '')>cursor)
+          .sort((a,b)=>ordered?(a.id || '').localeCompare(b.id || '','en'):0)
           .slice(0, max);
         return { docs, size: docs.length };
       },
@@ -364,4 +369,74 @@ test("checkout bridge retains identity/options, rejects mixed merchants, consume
   assert.equal(remaining[0].quantity, 1);
   assert.equal(remaining[1].id, "added");
   delete (globalThis as any).localStorage;
+});
+
+test('shared catalog publication reuses the source offer and repeated concurrent merchant selection cannot duplicate products', async () => {
+ const {publishCatalogProduct,catalogOfferKey}=await import('../server/sharedCatalog.ts');
+ const c=setup();c.db.data.set('admins/admin',{});
+ const source={...c.db.data.get('products/a-item'),name:'مياه',description:'عبوة مياه',category:'مشروبات',imageType:'water',optionGroups:[{id:'size',title:'الحجم',required:true,options:[{name:'صغير',price:0}]}]};
+ c.db.data.set('products/a-item',source);
+ const admin={db:c.db,actor:{uid:'admin',auth_time:100}};
+ await publishCatalogProduct('a-item',admin);await publishCatalogProduct('a-item',admin);
+ assert.equal([...c.db.data.keys()].filter(k=>k.startsWith('catalogProducts/')).length,1);
+ assert.equal(c.db.data.get('products/a-item').catalogProductId,'a-item');
+ assert.equal(c.db.data.get('catalogProducts/a-item').price,undefined);
+ const listed:any=await merchantAction({action:'shared-catalog'},c);
+ assert.equal(listed.items[0].name,'مياه');assert.equal(listed.items[0].storeId,undefined);assert.equal(listed.items[0].price,undefined);
+ const same:any=await merchantAction({action:'link-catalog-product',catalogProductId:'a-item',price:99},c);
+ assert.equal(same.id,'a-item');assert.equal(same.alreadyLinked,true);assert.equal(c.db.data.get('products/a-item').price,10);
+ c.db.data.set('staff/merchant',{role:'restaurant',storeId:'b',duty:'manager'});
+ const b={...c,staff:{storeId:'b'}};
+ const results:any[]=await Promise.all(Array.from({length:5},()=>merchantAction({action:'link-catalog-product',catalogProductId:'a-item',price:25,storeId:'a'},b)));
+ assert.equal(new Set(results.map(r=>r.id)).size,1);
+ const offer=c.db.data.get('products/'+results[0].id);
+ assert.equal(offer.storeId,'b');assert.equal(offer.catalogProductId,'a-item');assert.equal(offer.name,'مياه');assert.equal(offer.price,25);assert.equal(offer.inStock,false);
+ assert.deepEqual(offer.optionGroups,source.optionGroups);
+ assert.equal(c.db.data.get('catalogOffers/'+catalogOfferKey('b','a-item')).productId,results[0].id);
+ await merchantAction({action:'set-product-price',id:results[0].id,price:30},b);
+ assert.equal(c.db.data.get('products/a-item').price,10);
+ assert.equal(c.db.data.get('catalogProducts/a-item').price,undefined);
+ await merchantAction({action:'set-product-stock',id:results[0].id,inStock:true},b);
+ await merchantAction({action:'set-product-archived',id:results[0].id,archived:true},b);
+ await merchantAction({action:'set-product-archived',id:results[0].id,archived:false},b);
+ assert.equal(c.db.data.get('products/'+results[0].id).inStock,false);
+});
+
+test('shared catalog rejects unpublished products, revoked managers and direct product creation', async () => {
+ const c=setup();
+ await assert.rejects(()=>merchantAction({action:'save-product',id:'new',product:{}},c),/الكتالوج العام/);
+ await assert.rejects(()=>merchantAction({action:'link-catalog-product',catalogProductId:'a-item',price:1},c),/غير متاح/);
+ c.db.data.set('catalogProducts/a-item',{active:true,name:'مياه',description:'مياه',category:'مشروبات'});
+ c.db.data.set('staff/merchant',{role:'restaurant',storeId:'a',duty:'preparer'});
+ await assert.rejects(()=>merchantAction({action:'link-catalog-product',catalogProductId:'a-item',price:1},c),/مديره/);
+ c.db.data.set('staff/merchant',{role:'restaurant',storeId:'a',duty:'manager'});c.db.data.set('accountAccess/merchant',{disabled:true});
+ await assert.rejects(()=>merchantAction({action:'link-catalog-product',catalogProductId:'a-item',price:1},c),/مديره/);
+ assert.equal([...c.db.data.keys()].filter(k=>k.startsWith('catalogOffers/')).length,0);
+});
+
+test('merchant catalog paginates all offers without mixing another store or dropping archived products', async () => {
+ const c=setup();
+ for(let i=0;i<105;i++)c.db.data.set('products/item-'+String(i).padStart(3,'0'),{storeId:'a',name:'منتج',archived:i===104});
+ const first:any=await merchantAction({action:'store-dashboard',includeOrders:false},c);
+ assert.equal(first.products.length,100);assert(first.productsNextCursor);
+ const next:any=await merchantAction({action:'store-products',cursor:first.productsNextCursor,storeId:'b'},c);
+ assert.equal(next.productsNextCursor,null);
+ const ids=[...first.products,...next.products].map(p=>p.id);
+ assert.equal(ids.length,106);assert.equal(new Set(ids).size,106);assert(!ids.includes('b-item'));
+ assert(next.products.some((p:any)=>p.archived));
+});
+
+test('adopting an existing merchant product preserves its ID, price and availability without creating a second offer', async () => {
+ const c=setup();c.db.data.set('catalogProducts/shared',{active:true,name:'مياه',description:'عبوة مياه',category:'مشروبات'});
+ const before=[...c.db.data.keys()].filter(k=>k.startsWith('products/')).length;
+ for(let attempt=0;attempt<2;attempt++){
+  const result:any=await merchantAction({action:'link-catalog-product',catalogProductId:'shared',existingProductId:'a-item',price:999},c);
+  assert.equal(result.id,'a-item');
+ }
+ assert.equal([...c.db.data.keys()].filter(k=>k.startsWith('products/')).length,before);
+ assert.equal(c.db.data.get('products/a-item').price,10);assert.equal(c.db.data.get('products/a-item').inStock,true);
+ assert.equal(c.db.data.get('products/a-item').catalogProductId,'shared');
+ c.db.data.set('catalogProducts/another',{active:true,name:'قهوة',description:'قهوة',category:'مشروبات'});
+ await assert.rejects(()=>merchantAction({action:'link-catalog-product',catalogProductId:'another',existingProductId:'b-item',price:1},c),/متجرك/);
+ await assert.rejects(()=>merchantAction({action:'link-catalog-product',catalogProductId:'another',existingProductId:'a-item',price:1},c),/تعريف عام آخر/);
 });

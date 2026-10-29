@@ -1,3 +1,5 @@
+import { MerchantCatalogPicker } from './MerchantCatalogPicker';
+import { productCategories } from '../utils/catalogManagement';
 import {OrderMap} from './OrderMap';
 import { EmptyState } from './ui/DataStates';
 import { cairoDay } from "../utils/orderIntegration";
@@ -64,7 +66,11 @@ interface RestaurantPortalProps {
   onUpdateOrderStatus: (orderId: string, status: Order["orderStatus"]) => void;
   onUpdateProductStock: (productId: string, inStock: boolean) => void;
   onUpdateProductPrice: (productId: string, newPrice: number) => Promise<void>;
-  onAddProduct: (product: Product) => Promise<void>;
+  onLinkProduct: (catalogId: string, price: number, existingProductId?:string) => Promise<void>;
+  onArchiveProduct: (id: string, archived: boolean) => Promise<void>;
+  productsNextCursor?: string | null;
+  onLoadMoreProducts?: () => void;
+  productsLoading?: boolean;
   onToggleStoreStatus: (storeId: string) => void;
 }
 
@@ -80,7 +86,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   onUpdateOrderStatus,
   onUpdateProductStock,
   onUpdateProductPrice,
-  onAddProduct,
+  onLinkProduct, onArchiveProduct, productsNextCursor, onLoadMoreProducts, productsLoading,
   onToggleStoreStatus,
 }) => {
   const userStore = stores.find((s) => s.id === currentProfile.storeId);
@@ -90,17 +96,9 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 
   // New item modal state
   const [isAddingItem, setIsAddingItem] = useState(false);
-  const [newItemName, setNewItemName] = useState("");
-  const [newItemPrice, setNewItemPrice] = useState(0);
-  const [newItemCost, setNewItemCost] = useState(0);
-  const [menuError, setMenuError] = useState("");
-  const [menuBusy, setMenuBusy] = useState(false);
-  const [newItemDesc, setNewItemDesc] = useState("");
-  const [newItemCategory, setNewItemCategory] = useState<
-    "فطور" | "سندوتشات" | "مشروبات" | "وجبات خفيفة"
-  >("فطور");
-  const [newItemImage, setNewItemImage] = useState("");
-
+  const [menuError, setMenuError] = useState('');
+  const [inventoryView, setInventoryView] = useState('active');
+  const canManage=(currentProfile.duty || 'manager')==='manager';
   // Product filter and search
   const [productSearch, setProductSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -121,7 +119,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
     (o) => o.orderStatus === "received" || o.orderStatus === "preparing"
   );
 
-  const storeProducts = products.filter((p) => p.storeId === userStore?.id && !p.archived);
+  const storeProducts = products.filter((p) => p.storeId === userStore?.id );
 
   const filteredProducts = useMemo(() => {
     return storeProducts.filter((p) => {
@@ -130,9 +128,9 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
         !productSearch.trim() ||
         p.name.toLowerCase().includes(productSearch.toLowerCase().trim()) ||
         p.description?.toLowerCase().includes(productSearch.toLowerCase().trim());
-      return matchCat && matchQuery;
+      return matchCat && matchQuery && (inventoryView === "archived" ? p.archived : !p.archived);
     });
-  }, [storeProducts, selectedCategory, productSearch]);
+  }, [storeProducts, selectedCategory, productSearch, inventoryView]);
 
   // Accounting and Financial Computations
   const accountingSummary = useMemo(() => {
@@ -148,53 +146,12 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   }, [orders, userStore?.id, userStore?.commissionRate]);
 
   const handleSavePrice = async (productId: string) => {
-    if (tempPrice > 0) {
+    if (Number.isFinite(tempPrice) && tempPrice >= 0) {
       try { await onUpdateProductPrice(productId, tempPrice); } catch (error) { setMenuError((error as Error).message); return; }
       setPriceSuccessId(productId);
       setEditingPriceId(null);
       setTimeout(() => setPriceSuccessId(null), 2500);
     }
-  };
-
-  const handleCreateProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userStore) return;
-    if (!newItemName.trim()) return;
-
-    if (!newItemImage.startsWith("https://") || !newItemDesc.trim() || newItemPrice <= 0) {
-      setMenuError("يرجى إدخال اسم ووصف وسعر صحيح مع رابط صورة HTTPS.");
-      return;
-    }
-    const newProd: Product = {
-      id: crypto.randomUUID(),
-      storeId: userStore.id,
-      storeName: userStore.name,
-      name: newItemName,
-      description: newItemDesc,
-      price: Number(newItemPrice),
-      category: newItemCategory,
-      imageType: "foul",
-      imageUrl: newItemImage,
-      inStock: true,
-      badge: "جديد بالمنيو",
-    };
-
-    setMenuBusy(true);
-    setMenuError("");
-    try {
-      await onAddProduct(newProd);
-    } catch (error) {
-      setMenuError((error as Error).message);
-      return;
-    } finally {
-      setMenuBusy(false);
-    }
-    setIsAddingItem(false);
-    setNewItemName("");
-    setNewItemDesc("");
-    setNewItemPrice(0);
-    setNewItemCost(0);
-    setNewItemImage("");
   };
 
   if (!userStore) {
@@ -227,6 +184,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                 </span>
 
                 <button
+                  disabled={!canManage || !connected}
                   onClick={() => onToggleStoreStatus(userStore.id)}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
                     userStore.status === "open"
@@ -344,9 +302,9 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 
           <div className="bg-slate-50/70 rounded-xl p-3 border border-slate-200/80 flex items-center justify-between">
             <div>
-              <span className="text-[11px] font-bold text-slate-500 block">صافي أرباح التاجر</span>
+              <span className="text-[11px] font-bold text-slate-500 block">صافي تقديري للطلبات المحملة</span>
               <span className="text-base font-black text-emerald-700 font-mono mt-0.5 block">
-                {formatEGP(accountingSummary.netPayout)}
+                {userStore.commissionRate === undefined ? 'نسبة التعاقد غير متاحة' : formatEGP(accountingSummary.netPayout)}
               </span>
             </div>
             <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
@@ -408,11 +366,12 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             </div>
 
             <button
+              disabled={!canManage || !connected}
               onClick={() => setIsAddingItem(true)}
               className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
             >
               <Plus size={16} />
-              <span>إضافة صنف جديد</span>
+              <span>اختيار من الكتالوج العام</span>
             </button>
           </div>
 
@@ -430,7 +389,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             </div>
 
             <div className="flex flex-wrap gap-1.5 self-start sm:self-auto text-xs font-bold">
-              {["all", "فطور", "سندوتشات", "مشروبات", "وجبات خفيفة"].map((cat) => (
+              {["all", ...productCategories].map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
@@ -446,115 +405,14 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             </div>
           </div>
 
-          {/* New Item Modal / Card Form */}
-          {isAddingItem && (
-            <form
-              onSubmit={handleCreateProduct}
-              className="bg-white/95 backdrop-blur-2xl border-2 border-orange-500/30 rounded-3xl p-6 shadow-xl space-y-4 animate-in slide-in-from-top-4 duration-200"
-            >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                  <Sparkles className="text-orange-500" size={16} />
-                  إضافة صنف جديد لمنيو {userStore.name}
-                </h4>
-                <span className="text-[10px] text-slate-400 font-bold">سيظهر الصنف فورياً في تطبيق العملاء</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">اسم الصنف:</label>
-                  <input
-                    type="text"
-                    required
-                    value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
-                    placeholder="مثال: سندوتش بيض بالبسطرمة"
-                    className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-900 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">سعر البيع (ج.م):</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    value={newItemPrice || ""}
-                    onChange={(e) => setNewItemPrice(Number(e.target.value))}
-                    placeholder="سعر البيع"
-                    className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-900 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">التكلفة (ج.م):</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={newItemCost || ""}
-                    onChange={(e) => setNewItemCost(Number(e.target.value))}
-                    placeholder="التكلفة الداخلية"
-                    className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-900 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">القسم:</label>
-                  <select
-                    value={newItemCategory}
-                    onChange={(e) => setNewItemCategory(e.target.value as any)}
-                    className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-900 focus:bg-white"
-                  >
-                    <option value="فطور">فطور</option>
-                    <option value="سندوتشات">سندوتشات</option>
-                    <option value="مشروبات">مشروبات</option>
-                    <option value="وجبات خفيفة">وجبات خفيفة</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">الوصف والمكونات:</label>
-                <input
-                  type="text"
-                  value={newItemDesc}
-                  onChange={(e) => setNewItemDesc(e.target.value)}
-                  placeholder="مكونات الوجبة وطريقة التحضير بدقة..."
-                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-900 focus:bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">رابط صورة الوجبة (HTTPS Image Link):</label>
-                <input
-                  type="url"
-                  value={newItemImage}
-                  onChange={(e) => setNewItemImage(e.target.value)}
-                  placeholder="https://images.unsplash.com/photo-..."
-                  className="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-900 font-mono focus:bg-white"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsAddingItem(false)}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
-                >
-                  إلغاء
-                </button>
-                <button
-                  disabled={menuBusy}
-                  type="submit"
-                  className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-black rounded-xl shadow-md transition active:scale-95 disabled:opacity-50"
-                >
-                  {menuBusy ? "جارٍ الحفظ والرفع..." : "حفظ ونشر بالمنيو"}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {filteredProducts.length===0&&<EmptyState message={productSearch?"لا توجد أصناف تطابق البحث؛ جرّب اسمًا آخر.":"لا توجد أصناف في هذه القائمة. يمكن لمدير المتجر إضافة صنف جديد."}/>}
+          <div className="flex flex-wrap gap-3 text-sm">
+            <button onClick={()=>setInventoryView('active')} aria-pressed={inventoryView==='active'}>المنتجات الحالية</button>
+            <button onClick={()=>setInventoryView('archived')} aria-pressed={inventoryView==='archived'}>المؤرشفة</button>
+            {productsNextCursor&&<button disabled={productsLoading} onClick={onLoadMoreProducts}>{productsLoading?'جارٍ التحميل…':'تحميل المزيد من منتجات المتجر'}</button>}
+          </div>
+          {menuError&&<p role="alert" className="text-red-700">{menuError}</p>}
+          {isAddingItem&&canManage&&<MerchantCatalogPicker products={storeProducts} onLink={onLinkProduct} onClose={()=>setIsAddingItem(false)}/>}
+          {filteredProducts.length===0&&<EmptyState message={productSearch?"لا توجد أصناف تطابق البحث؛ جرّب اسمًا آخر.":"لا توجد أصناف في هذه القائمة. اختر منتجات موجودة من الكتالوج العام."}/>}
           {/* Product Items Cards (Apple Minimalist Grid) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredProducts.map((prod) => (
@@ -617,6 +475,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                             setTempPrice(prod.price);
                           }}
                           className="w-7 h-7 rounded-lg bg-slate-50 hover:bg-orange-50 text-slate-400 hover:text-orange-600 flex items-center justify-center transition"
+                          disabled={!canManage || !connected || prod.archived}
                           title="تعديل السعر المباشر"
                         >
                           <Edit2 size={13} />
@@ -631,8 +490,11 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                     </p>
                   )}
 
+                  {prod.catalogProductId&&<p className="text-xs text-slate-500">مرتبط بمنتج من كتالوج سنجوب العام</p>}
+                  <button disabled={!canManage||!connected} className="text-sm underline" onClick={async()=>{setMenuError('');try{await onArchiveProduct(prod.id,!prod.archived)}catch(e){setMenuError((e as Error).message)}}}>{prod.archived?'استعادة بحالة غير متاح':'أرشفة عرض المتجر'}</button>
                   {/* Stock Availability Toggle (iOS Switch Style) */}
                   <button
+                    disabled={!canManage || !connected || prod.archived}
                     onClick={() => onUpdateProductStock(prod.id, !prod.inStock)}
                     className={`w-full py-2 px-3 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
                       prod.inStock
@@ -664,14 +526,14 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
                 <span className="text-xs uppercase font-bold tracking-widest text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                  محفظة ومستحقات المتجر
+                  ملخص مبيعات تقديري
                 </span>
-                <p className="text-xs text-slate-400 mt-3">الصافي الجاهز للتحويل لحساب التاجر البنكي</p>
+                <p className="text-xs text-slate-400 mt-3">تقدير للطلبات المحملة؛ لا يمثل رصيدًا جاهزًا للتحويل</p>
                 <h3 className="text-3xl sm:text-4xl font-black text-white font-mono mt-1 tracking-tight">
-                  {formatEGP(accountingSummary.netPayout)}
+                  {userStore.commissionRate === undefined ? 'نسبة التعاقد غير متاحة' : formatEGP(accountingSummary.netPayout)}
                 </h3>
                 <span className="text-[11px] text-slate-400 mt-1 block">
-                  تقدير حسب نسبة التعاقد المسجلة؛ التسوية النهائية تراجعها الإدارة
+                  ليس كشف تسويات أو إثبات دفع؛ المستحق النهائي يعتمد على السجلات المالية المعتمدة
                 </span>
               </div>
 
@@ -686,7 +548,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                 <div>
                   <span className="text-[11px] text-slate-400 block font-bold">عمولة المنصة</span>
                   <span className="text-base font-black font-mono text-rose-300 mt-0.5 block">
-                    - {formatEGP(accountingSummary.platformCommission)}
+                    - {userStore.commissionRate === undefined ? 'غير متاحة' : formatEGP(accountingSummary.platformCommission)}
                   </span>
                 </div>
               </div>
@@ -697,7 +559,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
               <div>
-                <span className="text-xs font-bold text-slate-400 block">تحصيل كاش (عهدة المناديب)</span>
+                <span className="text-xs font-bold text-slate-400 block">طلبات مسجلة بالدفع النقدي</span>
                 <h4 className="text-xl font-black text-amber-600 font-mono mt-1">
                   {formatEGP(accountingSummary.byPaymentMethod.cash)}
                 </h4>
@@ -710,11 +572,11 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 
             <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
               <div>
-                <span className="text-xs font-bold text-slate-400 block">تحصيل شبكة وبطاقات (Geidea)</span>
+                <span className="text-xs font-bold text-slate-400 block">طلبات مسجلة بالدفع الإلكتروني</span>
                 <h4 className="text-xl font-black text-purple-600 font-mono mt-1">
                   {formatEGP(accountingSummary.byPaymentMethod.geidea)}
                 </h4>
-                <span className="text-[10px] text-slate-400">مدفوعات إلكترونية مباشرة</span>
+                <span className="text-[10px] text-slate-400">حسب طريقة الدفع المسجلة، دون إثبات تحويل</span>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
                 <CreditCard size={22} />
@@ -723,11 +585,11 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 
             <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
               <div>
-                <span className="text-xs font-bold text-slate-400 block">تحصيل إنستاباي ومحفظة</span>
+                <span className="text-xs font-bold text-slate-400 block">طلبات تاريخية مسجلة كتحويل</span>
                 <h4 className="text-xl font-black text-blue-600 font-mono mt-1">
                   {formatEGP(accountingSummary.byPaymentMethod.instapay)}
                 </h4>
-                <span className="text-[10px] text-slate-400">تحويلات بنكية ومحافظ رقمية</span>
+                <span className="text-[10px] text-slate-400">لا يثبت هذا العرض تنفيذ تحويلات مالية</span>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
                 <Wallet size={22} />
@@ -779,15 +641,15 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
                   <BookOpen className="text-indigo-600" size={18} />
-                  دفتر القيود المحاسبية اليومية (Double-Entry Ledger)
+                  تفصيل حسابي تقديري للطلبات المحملة
                 </h4>
                 <span className="text-[11px] bg-indigo-50 text-indigo-700 font-bold px-2.5 py-0.5 rounded-full">
-                  ترحيل آلي معتمد
+                  حساب تقديري — غير معتمد محاسبيًا
                 </span>
               </div>
 
               {journalEntries.length === 0 ? (
-                <p className="text-center text-xs text-slate-400 py-10">تُسجل القيود اليومية آلياً فور تسليم أي طلب</p>
+                <p className="text-center text-xs text-slate-400 py-10">لا توجد طلبات مسلّمة محملة لحساب التقدير</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-right text-xs">

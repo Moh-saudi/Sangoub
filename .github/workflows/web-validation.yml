@@ -52,6 +52,7 @@ jobs:
           import {appendFileSync} from 'node:fs';
           appendFileSync(process.env.GITHUB_ENV, 'CHROMIUM_PATH=' + chromium.executablePath() + '\n');
           NODE
+      - run: npm run test:shared-catalog
       - run: npm run test:delivery-address
       - run: npm run test:tracking-map
       - run: node tests/pwa-build.browser.mjs

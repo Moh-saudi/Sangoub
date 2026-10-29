@@ -111,25 +111,18 @@ test("real emulator: scoped merchant catalog/preparation, settlement claims, not
         name: "private product",
         price: 10,
       });
-    assert.equal(
-      (
-        await call(
-          operations,
-          {
-            action: "save-product",
-            id: "contract-product",
-            product: {
-              name: "Product",
-              description: "Test product",
-              category: "فطور",
-              price: 100,
-            },
-          },
-          merchant.token,
-        )
-      ).status,
-      200,
-    );
+    await service.db.doc('products/contract-product').set({id:'contract-product',storeId:'contract-store',name:'Product',description:'Test product',category:'فطور',price:100,inStock:true});
+    assert.equal((await call(data,{action:'catalog-publish',id:'contract-product'},admin.token)).status,200);
+    const globalCatalog=await call(operations,{action:'shared-catalog'},merchant.token);
+    assert.equal(globalCatalog.status,200);
+    assert(globalCatalog.result.items.some((p:any)=>p.id==='contract-product'));
+    const countBefore=(await service.db.collection('products').get()).size;
+    for(let retry=0;retry<2;retry++){
+      const selected=await call(operations,{action:'link-catalog-product',catalogProductId:'contract-product',price:100},merchant.token);
+      assert.equal(selected.status,200);assert.equal(selected.result.id,'contract-product');
+    }
+    assert.equal((await service.db.collection('products').get()).size,countBefore);
+    assert.equal((await call(operations,{action:'save-product',id:'unlinked-copy',product:{name:'Product'}},merchant.token)).status,409);
     assert.equal(
       (await call(operations, { action: "store-dashboard" }, merchant.token))
         .result.products.length,

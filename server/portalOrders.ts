@@ -17,7 +17,7 @@ export function merchantOrderView(id: string, order: any, storeId: string) {
   // Explicit allowlist: never spread the parent order, other snapshots or financial metadata.
   return auditSafe({
     id,
-    ...fields(order, ['orderNumber', 'orderStatus', 'fulfillmentVersion', 'createdAt', 'updatedAt', 'readyAt', 'deliveredAt']),
+    ...fields(order, ['orderNumber', 'orderStatus', 'fulfillmentVersion', 'createdAt', 'updatedAt', 'readyAt', 'deliveredAt', 'paymentMethod']),
     items,
     storeIds: [storeId],
     kitchenStatus: {

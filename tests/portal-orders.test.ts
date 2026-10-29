@@ -136,6 +136,7 @@ test('merchant projection excludes every other store and customer/provider/contr
   const view = merchantOrderView('o', order(), 's1');
   assert.equal(view.items.length, 1);
   assert.equal(view.total, 40);
+  assert.equal(view.paymentMethod, 'cash');
   for (const value of ['private-product', 'secret-account', 'private-customer', 'اسم العميل', '01000000000', 'internalCost', 'geideaTransaction']) assert(!JSON.stringify(view).includes(value), value);
   const courier = courierOrderView('o', order());
   assert.equal(courier.amountToCollect, 100);
