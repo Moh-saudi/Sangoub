@@ -20,8 +20,13 @@ __pycache__/
 # Private Android signing keys
 *.keystore
 *.jks
- 
+
 # Client credentials and secrets
 client_secret*.json
 *.pem
 *.key
+
+# Private migration artifacts
+migration-artifacts/
+*.ndjson
+*private-import.sql

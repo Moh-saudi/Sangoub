@@ -1,3 +1,5 @@
+import {readQuery} from './data/firestoreQueries.ts';
+import {queryPlans} from '../src/data/queryPlans.ts';
 import {
   FieldValue,
   Timestamp,
@@ -37,7 +39,7 @@ export async function customerOrderHistory(db: Firestore, uid: string) {
     await batch.commit();
   }
   const ids = (
-    await history.orderBy("createdAt", "desc").limit(30).get()
+    await readQuery(db,queryPlans.customerHistory(uid))
   ).docs.map((doc) => doc.id);
   if (!ids.length) return [];
   return (await db.getAll(...ids.map((id) => db.doc("orders/" + id))))

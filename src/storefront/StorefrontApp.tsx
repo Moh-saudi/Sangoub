@@ -33,10 +33,7 @@ function useIsMobile() {
 
 const StorefrontRouter: React.FC = () => {
   const { currentPath, navigate, cartItems, serviceArea, catalogError } = useStore();
-  const [areaModalOpen, setAreaModalOpen] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return !localStorage.getItem('sangoub_location_confirmed');
-  });
+  const [areaModalOpen, setAreaModalOpen] = useState(false);
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [trackingModalOpen, setTrackingModalOpen] = useState(false);

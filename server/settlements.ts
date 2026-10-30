@@ -1,3 +1,5 @@
+import {readQuery} from './data/firestoreQueries.ts';
+import {queryPlans} from '../src/data/queryPlans.ts';
 import { createHash } from "node:crypto";
 import { FieldValue } from "firebase-admin/firestore";
 import { AdminError, validId } from "./adminRequest.ts";
@@ -46,11 +48,7 @@ export function settlementAmounts(order: Order, storeId: string, rate: number) {
 export async function settlementAction(input: any, context: any) {
   const { db, actor } = context;
   if (input.action === "settlement-list") {
-    const records = await db
-      .collection("merchantSettlements")
-      .orderBy("createdAt", "desc")
-      .limit(100)
-      .get();
+    const records = await readQuery(db,queryPlans.adminSettlements());
     return {
       records: records.docs.map((d: any) => ({
         ...d.data(),

@@ -1,9 +1,8 @@
+import { placeAddress, uniqueAddress, usableDeliveryAddress } from '../../services/deliveryAddress';
 import { searchOsm } from '../../services/osmClient';
 import { OSM_CONFIG } from '../../services/osmRouting';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore, type ServiceArea } from '../context/StoreContext';
-import { cleanDisplayAddress } from '../../utils/orderCalculations';
-import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -28,25 +27,36 @@ interface SearchResult {
   lat: string;
   lon: string;
   type?: string;
+  address?: Record<string,string>;
 }
 
 export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onClose }) => {
-  const { serviceArea, setServiceArea } = useStore();
+  const { serviceArea, saveDeliveryLocation, user } = useStore();
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
   // Dynamic Location State
   const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number }>({
-    lat: serviceArea.latitude || 30.0444,
-    lng: serviceArea.longitude || 31.2357,
+    lat: serviceArea.latitude ?? 30.025,
+    lng: serviceArea.longitude ?? 31.725,
   });
+  const [pointSelected, setPointSelected] = useState(serviceArea.latitude !== undefined && serviceArea.longitude !== undefined);
   const [resolvedAddress, setResolvedAddress] = useState<string>(
     serviceArea.id !== 'default_map' ? serviceArea.name : ''
   );
   const [detectedCity, setDetectedCity] = useState<string>(serviceArea.city || '');
   const [isResolving, setIsResolving] = useState<boolean>(false);
-  const [extraBuildingDetails, setExtraBuildingDetails] = useState<string>('');
+  const [extraBuildingDetails, setExtraBuildingDetails] = useState<string>(serviceArea.details || '');
+  const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const selectedPlace = useRef<{lat:number;lng:number} | null>(null);
+  const manualAddress = useRef(false);
+  const reverseRequest = useRef(0);
+  const searchRequest = useRef(0);
+  const reverseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const reverseAbort = useRef<AbortController | null>(null);
+  const searchAbort = useRef<AbortController | null>(null);
 
   // Live Map Search State
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -56,45 +66,52 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
   const [isLocatingUser, setIsLocatingUser] = useState<boolean>(false);
   const searchTimeoutRef = useRef<any>(null);
 
-  // Reverse Geocode: coordinates -> Arabic Street/City Name
-  const reverseGeocode = useCallback(async (lat: number, lng: number) => {
+  const reverseGeocode = useCallback((lat: number, lng: number) => {
+    const request = ++reverseRequest.current;
+    clearTimeout(reverseTimer.current);
+    reverseAbort.current?.abort();
+    setResolvedAddress('');
+    setDetectedCity('');
+    setError('');
     setIsResolving(true);
-    try {
-      const response=await searchOsm({coordinates:{latitude:lat,longitude:lng}});
-      const data=response.results?.[0];
-      if(!data)throw Error('No result');
-
-      if (data && data.address) {
-        const addr = data.address;
-        const street =
-          addr.road ||
-          addr.pedestrian ||
-          addr.suburb ||
-          addr.neighbourhood ||
-          addr.commercial ||
-          '';
-        const district = addr.city_district || addr.suburb || addr.quarter || '';
-        const city = addr.city || addr.town || addr.governorate || addr.state || '';
-
-        // Clean, readable Arabic street & area
-        const parts = [street, district, city].filter(Boolean);
-        const readableName = parts.length > 0 ? parts.join('، ') : data.display_name.split(',').slice(0, 3).join('، ');
-
-        setResolvedAddress(readableName);
-        setDetectedCity(city || 'مصر');
-      } else if (data.display_name) {
-        const cleanName = data.display_name.split(',').slice(0, 3).join('، ');
-        setResolvedAddress(cleanName);
-        setDetectedCity('');
+    reverseTimer.current = setTimeout(async () => {
+      const controller = new AbortController();
+      reverseAbort.current = controller;
+      try {
+        const response = await searchOsm({coordinates:{latitude:lat,longitude:lng}}, { signal: controller.signal });
+        if (request !== reverseRequest.current) return;
+        const place = response.results?.[0];
+        const address = place && placeAddress(place);
+        if (!address) throw new Error('لم يُعثر على اسم الشارع؛ اكتب عنوان التوصيل يدويًا.');
+        setResolvedAddress(address);
+        setDetectedCity(place.address?.city || place.address?.town || place.address?.state || '');
+      } catch (err) {
+        if (request === reverseRequest.current) setError(err instanceof Error ? err.message : 'تعذر قراءة العنوان؛ اكتبه يدويًا.');
+      } finally {
+        if (request === reverseRequest.current) setIsResolving(false);
       }
-    } catch {
-      if (!resolvedAddress) {
-        setResolvedAddress('موقع محدد على الخريطة');
-      }
-    } finally {
-      setIsResolving(false);
-    }
-  }, [resolvedAddress]);
+    }, 1100);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setPointSelected(serviceArea.latitude !== undefined && serviceArea.longitude !== undefined);
+    setCurrentCoords({lat: serviceArea.latitude ?? 30.025, lng: serviceArea.longitude ?? 31.725});
+    setResolvedAddress(serviceArea.id === 'default_map' ? '' : serviceArea.name);
+    setExtraBuildingDetails(serviceArea.details || '');
+    setDetectedCity(serviceArea.city || '');
+    setError('');
+    manualAddress.current = false;
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowResultsDropdown(false);
+    return () => {
+      reverseRequest.current++; searchRequest.current++;
+      clearTimeout(reverseTimer.current); clearTimeout(searchTimeoutRef.current);
+      reverseAbort.current?.abort(); searchAbort.current?.abort();
+      setIsResolving(false); setIsSearching(false);
+    };
+  }, [isOpen, user?.id]);
 
   // Initialize Interactive Leaflet Map
   useEffect(() => {
@@ -109,8 +126,8 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
         mapInstanceRef.current = null;
       }
 
-      const initialLat = currentCoords.lat;
-      const initialLng = currentCoords.lng;
+      const initialLat = serviceArea.latitude ?? 30.025;
+      const initialLng = serviceArea.longitude ?? 31.725;
 
       const map = L.map(mapContainerRef.current, {
         center: [initialLat, initialLng],
@@ -127,13 +144,20 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
       L.control.zoom({ position: 'bottomright' }).addTo(map);
 
       // Force size invalidation so tiles render fully
-      map.invalidateSize();
-      setTimeout(() => map.invalidateSize(), 300);
+      map.invalidateSize({pan:false});
+      setTimeout(() => map.invalidateSize({pan:false}), 300);
 
       // Listen to map pan/drag end
+      let lastCenter = {lat: initialLat, lng: initialLng};
       map.on('moveend', () => {
         const center = map.getCenter();
+        if (Math.abs(center.lat-lastCenter.lat) < 0.000001 && Math.abs(center.lng-lastCenter.lng) < 0.000001) return;
+        lastCenter = {lat:center.lat,lng:center.lng};
+        manualAddress.current = false;
+        setPointSelected(true);
         setCurrentCoords({ lat: center.lat, lng: center.lng });
+        if (selectedPlace.current && Math.abs(center.lat-selectedPlace.current.lat)<0.000001 && Math.abs(center.lng-selectedPlace.current.lng)<0.000001) { selectedPlace.current=null; return; }
+        selectedPlace.current=null;
         reverseGeocode(center.lat, center.lng);
       });
 
@@ -145,7 +169,7 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
       mapInstanceRef.current = map;
 
       // Initial reverse geocode if empty
-      if (!resolvedAddress || serviceArea.id === 'default_map') {
+      if (!manualAddress.current && (!resolvedAddress || serviceArea.id === 'default_map')) {
         reverseGeocode(initialLat, initialLng);
       }
     }, 100);
@@ -157,32 +181,29 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
         mapInstanceRef.current = null;
       }
     };
-  }, [isOpen]);
+  }, [isOpen, user?.id]);
 
   // Handle Search Input Change with Debounce
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-
-    if (value.trim().length < 2) {
-      setSearchResults([]);
-      setShowResultsDropdown(false);
-      return;
-    }
-
+    const request = ++searchRequest.current;
+    clearTimeout(searchTimeoutRef.current);
+    searchAbort.current?.abort();
+    setSearchResults([]); setShowResultsDropdown(false); setIsSearching(false);
+    if (value.trim().length < 3) return;
     setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
+      const controller = new AbortController(); searchAbort.current = controller;
       try {
-        const response=await searchOsm({query:value.trim()});
-        const data:SearchResult[]=response.results||[];
-        setSearchResults(data);
-        setShowResultsDropdown(data.length > 0);
-      } catch {
-        setSearchResults([]);setResolvedAddress('تعذر البحث؛ سجّل الدخول وتحقق من نطاق الخدمة أو حدد الموقع على الخريطة.');
-      } finally {
-        setIsSearching(false);
-      }
-    }, 450);
+        const response = await searchOsm({query:value.trim()}, {signal:controller.signal});
+        if (request !== searchRequest.current) return;
+        const data: SearchResult[] = response.results || [];
+        setSearchResults(data); setShowResultsDropdown(data.length > 0);
+        setError(data.length ? '' : 'لا توجد نتائج داخل نطاق الخدمة؛ اكتب عنوانك يدويًا.');
+      } catch (err) {
+        if (request === searchRequest.current) setError(err instanceof Error ? err.message : 'تعذر البحث؛ اكتب العنوان يدويًا.');
+      } finally { if (request === searchRequest.current) setIsSearching(false); }
+    }, 1100);
   };
 
   // Select Search Result & Pan Map
@@ -190,40 +211,48 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
     const lat = parseFloat(result.lat);
     const lon = parseFloat(result.lon);
 
+    setPointSelected(true);
     setCurrentCoords({ lat, lng: lon });
     setShowResultsDropdown(false);
     setSearchQuery('');
 
-    const cleanName = result.display_name.split(',').slice(0, 3).join('، ');
-    setResolvedAddress(cleanName);
+    reverseRequest.current++; clearTimeout(reverseTimer.current); reverseAbort.current?.abort();
+    searchRequest.current++; clearTimeout(searchTimeoutRef.current); searchAbort.current?.abort();
+    setIsResolving(false); setIsSearching(false);
+    selectedPlace.current={lat,lng:lon};
+    setResolvedAddress(placeAddress(result));
+    setDetectedCity(result.address?.city || result.address?.town || result.address?.state || '');
+    setError('');
 
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo([lat, lon], 16, { duration: 1.2 });
       setTimeout(() => {
-        mapInstanceRef.current?.invalidateSize();
+        mapInstanceRef.current?.invalidateSize({pan:false});
       }, 500);
     }
   };
 
   // Current GPS Location Finder (Direct Fly-to)
   const handleFlyToCurrentLocation = () => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) { setError('الجهاز لا يدعم GPS؛ حدد النقطة على الخريطة.'); return; }
     setIsLocatingUser(true);
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setIsLocatingUser(false);
         const { latitude, longitude } = pos.coords;
+        setPointSelected(true);
         setCurrentCoords({ lat: latitude, lng: longitude });
 
         if (mapInstanceRef.current) {
           mapInstanceRef.current.flyTo([latitude, longitude], 16, { duration: 1 });
           setTimeout(() => {
-            mapInstanceRef.current?.invalidateSize();
+            mapInstanceRef.current?.invalidateSize({pan:false});
           }, 300);
         }
       },
       () => {
+        setError('تعذر الوصول إلى GPS؛ اسمح بالموقع أو حدد النقطة على الخريطة.');
         setIsLocatingUser(false);
       },
       { timeout: 8000, enableHighAccuracy: true }
@@ -231,25 +260,22 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
   };
 
   // Confirm Location Submission
-  const handleConfirmLocation = () => {
-    const baseAddr = cleanDisplayAddress(resolvedAddress);
-    const finalAddress = extraBuildingDetails.trim()
-      ? `${baseAddr} (${extraBuildingDetails.trim()})`
-      : baseAddr;
-
-    const dynamicArea: ServiceArea = {
-      id: `map_${Date.now()}`,
-      name: finalAddress,
-      deliveryTime: LAUNCH_CONFIG.showEta ? '20-30 دقيقة' : '',
-      active: true,
-      latitude: currentCoords.lat,
-      longitude: currentCoords.lng,
-      city: detectedCity,
-    };
-
-    setServiceArea(dynamicArea);
-    localStorage.setItem('sangoub_location_confirmed', 'true');
-    onClose();
+  const handleConfirmLocation = async () => {
+    if (isSaving || !usableDeliveryAddress(resolvedAddress)) return;
+    setIsSaving(true); setError('');
+    try {
+      const baseAddr = uniqueAddress([resolvedAddress]);
+      const details = extraBuildingDetails.trim();
+      const finalAddress = details && !baseAddr.includes(details) ? `${baseAddr} (${details})` : baseAddr;
+      await saveDeliveryLocation({
+        id: user ? `account_${user.id}` : 'guest_location', name: finalAddress,
+        deliveryTime: '', active: true,
+        ...(pointSelected ? {latitude: currentCoords.lat, longitude: currentCoords.lng} : {}),
+        city: detectedCity, details,
+      });
+      onClose();
+    } catch (err) { setError(err instanceof Error ? err.message : 'تعذر حفظ العنوان؛ حاول مجددًا.'); }
+    finally { setIsSaving(false); }
   };
 
   if (!isOpen) return null;
@@ -257,9 +283,9 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
   return (
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-xs select-none"
-      dir="rtl"
+      dir="rtl" role="dialog" aria-modal="true" aria-label="عنوان التوصيل"
     >
-      <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-[#E7E9EE] relative animate-in fade-in zoom-in-95 duration-150 max-h-[94vh] flex flex-col font-['Cairo',sans-serif] overflow-hidden">
+      <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-[#E7E9EE] relative animate-in fade-in zoom-in-95 duration-150 max-h-[94dvh] overflow-y-auto flex flex-col font-['Cairo',sans-serif] overflow-hidden">
         
         {/* Modal Top Bar */}
         <div className="p-3.5 sm:p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-white shrink-0 z-20">
@@ -269,10 +295,10 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
             </div>
             <div>
               <h3 className="font-black text-sm sm:text-base text-[#111827]">
-                حدد موقعك بدقة من الخريطة 🗺️
+                حدد عنوان التوصيل
               </h3>
               <p className="text-[10px] text-[#6B7280]">
-                حرك الخريطة أو ابحث عن أي مدينة أو شارع لتحديد نقطة انطلاق التوصيل
+                اختر نقطة التوصيل وأكمل اسم الشارع ورقم المبنى
               </p>
             </div>
           </div>
@@ -321,13 +347,13 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
         </div>
 
         {/* Interactive Map Canvas with Floating Center Pin */}
-        <div className="relative flex-1 w-full bg-[#E5E7EB] overflow-hidden" style={{ minHeight: '300px' }}>
+        <div className="relative flex-1 w-full bg-[#E5E7EB] overflow-hidden" style={{ minHeight: '220px' }}>
           
           {/* Explicitly Sized Map Container */}
           <div
             ref={mapContainerRef}
             id="sangoub-leaflet-map"
-            style={{ width: '100%', height: '300px', zIndex: 10 }}
+            style={{ width: '100%', height: '220px', zIndex: 10 }}
             className="w-full"
           />
 
@@ -372,7 +398,7 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black text-[#9A3412]">
-                  العنوان المستخرج ديناميكياً من الخريطة:
+                  عنوان التوصيل:
                 </p>
                 {detectedCity && (
                   <span className="text-[9px] bg-white text-[#FF5900] font-black px-1.5 py-0.5 rounded-md border border-[#FFD4C2]">
@@ -393,11 +419,19 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
             </div>
           </div>
 
+          {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
+          <label className="block text-xs font-bold">
+            الشارع والمنطقة أو أقرب علامة مميزة
+            <input aria-label="الشارع والمنطقة أو أقرب علامة مميزة" value={resolvedAddress} maxLength={350}
+              onChange={e => { manualAddress.current = true; reverseRequest.current++; clearTimeout(reverseTimer.current); reverseAbort.current?.abort(); setIsResolving(false); setResolvedAddress(e.target.value); }}
+              className="w-full border rounded-xl p-2 mt-1" placeholder="اسم الشارع، المنطقة، وأقرب علامة مميزة" />
+          </label>
           {/* Optional Extra Building Details Input */}
           <div className="relative">
             <Building size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
             <input
               type="text"
+              maxLength={100}
               value={extraBuildingDetails}
               onChange={(e) => setExtraBuildingDetails(e.target.value)}
               placeholder="رقم المبنى / الدور / رقم الشقة أو المكتب (اختياري)..."
@@ -409,11 +443,11 @@ export const ServiceAreaModal: React.FC<ServiceAreaModalProps> = ({ isOpen, onCl
           <button
             type="button"
             onClick={handleConfirmLocation}
-            disabled={isResolving || !resolvedAddress}
+            disabled={isSaving || isResolving || !usableDeliveryAddress(resolvedAddress)}
             className="w-full h-11 bg-[#FF5900] hover:bg-[#E04E00] active:scale-98 disabled:opacity-50 text-white text-xs font-black rounded-xl sm:rounded-2xl transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
           >
             <Check size={15} strokeWidth={2.5} />
-            <span>تأكيد هذا العنوان واعتماده للتوصيل</span>
+            <span>{isSaving ? 'جاري حفظ العنوان...' : 'تأكيد وحفظ عنوان التوصيل'}</span>
           </button>
         </div>
 

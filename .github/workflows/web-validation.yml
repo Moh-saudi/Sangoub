@@ -30,6 +30,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run lint:server
+      - run: npm run test:migration
+      - run: npm run test:queries
       - run: npm test
       - run: npm run test:commerce-services
       - run: npm run test:portal-services
@@ -52,6 +54,8 @@ jobs:
           import {appendFileSync} from 'node:fs';
           appendFileSync(process.env.GITHUB_ENV, 'CHROMIUM_PATH=' + chromium.executablePath() + '\n');
           NODE
+      - run: npm run test:shared-catalog
+      - run: npm run test:delivery-address
       - run: npm run test:tracking-map
       - run: node tests/pwa-build.browser.mjs
       - run: npm run test:portal-regression

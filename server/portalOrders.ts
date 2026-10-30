@@ -1,5 +1,7 @@
+import {readQuery} from './data/firestoreQueries.ts';
+import {queryPlans} from '../src/data/queryPlans.ts';
 import { courierApprovalError } from '../src/validation/accounts.ts';
-import { FieldPath, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import { AdminError, validId } from './adminRequest.ts';
 import { activeOrderStatuses, writeOrderSignals } from './orderSignals.ts';
 import { auditSafe, auditInTransaction } from './audit.ts';
@@ -17,7 +19,7 @@ export function merchantOrderView(id: string, order: any, storeId: string) {
   // Explicit allowlist: never spread the parent order, other snapshots or financial metadata.
   return auditSafe({
     id,
-    ...fields(order, ['orderNumber', 'orderStatus', 'fulfillmentVersion', 'createdAt', 'updatedAt', 'readyAt', 'deliveredAt']),
+    ...fields(order, ['orderNumber', 'orderStatus', 'fulfillmentVersion', 'createdAt', 'updatedAt', 'readyAt', 'deliveredAt', 'paymentMethod']),
     items,
     storeIds: [storeId],
     kitchenStatus: {
@@ -58,13 +60,11 @@ export async function portalOrders(input: any, context: OperationIdentity) {
   if (role === 'restaurant') validId(staff?.storeId);
   if (input.action === 'portal-active' || input.action === 'portal-history') {
     const history = input.action === 'portal-history';
-    let q = db.collection('orders').where(role === 'restaurant' ? 'storeIds' : 'courierId', role === 'restaurant' ? 'array-contains' : '==', role === 'restaurant' ? staff!.storeId : actor.uid).where('orderStatus', 'in', history ? ['delivered', 'cancelled'] : activeOrderStatuses).orderBy(FieldPath.documentId()).limit(history ? 21 : 51);
     if (input.cursor) {
       if (!history) throw new AdminError(400, 'المؤشر للسجل فقط.');
       validId(input.cursor);
-      q = q.startAfter(input.cursor);
     }
-    const snapshot = await q.get(),
+    const snapshot = await readQuery(db,queryPlans.portalOrders(role==='restaurant'?'store':'courier',role==='restaurant'?staff!.storeId:actor.uid,history?['delivered','cancelled']:activeOrderStatuses,history),input.cursor||undefined),
       docs = snapshot.docs.slice(0, history ? 20 : 50);
     const items = [];
     const storeCache = new Map<string, Promise<any>>();

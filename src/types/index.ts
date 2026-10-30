@@ -66,6 +66,7 @@ export interface CourierProfileData {
 }
 
 export interface Profile extends CourierProfileData {
+  defaultAddress?: { fullAddress: string; city?: string; details?: string; coordinates?: Coordinates };
   coordinates?: Coordinates;
   id: string;
   fullName: string;
@@ -154,6 +155,7 @@ export interface Category {
 }
 
 export interface Product {
+  catalogProductId?: string;
   archived?: boolean;
   id: string;
   storeId: string;

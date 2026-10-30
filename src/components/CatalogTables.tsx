@@ -123,6 +123,15 @@ export function CatalogProductTable({
                         أرشفة
                       </button>
                     )}
+                    {!product.archived && onPublish && (
+                      <button
+                        disabled={busy || Boolean(product.catalogProductId)}
+                        onClick={() => onPublish(product)}
+                        className="compact-row-action btn btn-outline-secondary"
+                      >
+                        {product.catalogProductId ? 'معتمد بالكتالوج العام' : 'اعتماد بالكتالوج العام'}
+                      </button>
+                    )}
                     {product.archived && onDelete && (
                       <button
                         disabled={busy}

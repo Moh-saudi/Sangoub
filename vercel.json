@@ -4,6 +4,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/osm/:action",
+      "destination": "/api/operations?osmAction=:action"
+    },
+    {
       "source": "/courier",
       "destination": "/index.html"
     },

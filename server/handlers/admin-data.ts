@@ -1,8 +1,11 @@
+import {readQuery} from '../data/firestoreQueries.ts';
+import {queryPlans} from '../../src/data/queryPlans.ts';
+import { publishCatalogProduct, catalogDefinition } from '../sharedCatalog.ts';
 import { courierApprovalError } from '../../src/validation/accounts.ts';
 import { writeOrderSignals } from '../orderSignals.ts';
 import {settlementAction} from '../settlements.ts';
 import { adminSangoubRequests } from '../sangoubRequests.ts';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import { requireAdmin, AdminError, adminError, validId } from '../adminRequest.ts';
 import { auditInTransaction, auditSafe, auditRecord } from '../audit.ts';
 import { nextKitchenUpdate, normalizeOrder } from '../../src/utils/orderIntegration.ts';
@@ -36,6 +39,7 @@ export default async function handler(req:any,res:any){
   let context: Awaited<ReturnType<typeof requireAdmin>>|undefined;
   try{
     const {db,auth,actor}=context=await requireAdmin(req);const input=req.body||{};
+    if(input.action==='catalog-publish')return res.status(200).json(await publishCatalogProduct(input.id,context));
     if(input.action==='contract-list'){const records=await db.collection('merchantContracts').limit(500).get();return res.status(200).json({contracts:records.docs.map(d=>({...d.data(),id:d.id}))});}
     if(['settlement-list','settlement-preview','settlement-save'].includes(input.action))return res.status(200).json(await settlementAction(input,context));
     if(['sangoub-list','sangoub-update'].includes(input.action)) return res.status(200).json(await adminSangoubRequests(input,context));
@@ -49,13 +53,13 @@ export default async function handler(req:any,res:any){
       return res.status(200).json({ok:true});
     }
     if(input.action==='audit'){
-      let q:any=db.collection('auditLogs');
-      if(input.filterValue){if(!['actorUid','actorEmail','action','entityType','status','entityId'].includes(input.filterBy)||!str(input.filterValue,256))bad();q=q.where(input.filterBy,'==',input.filterValue);}
-      if(input.from){const date=new Date(input.from);if(!Number.isFinite(date.getTime()))bad();q=q.where('createdAt','>=',Timestamp.fromDate(date));}
-      if(input.to){const date=new Date(input.to);if(!Number.isFinite(date.getTime()))bad();q=q.where('createdAt','<=',Timestamp.fromDate(date));}
-      q=q.orderBy('createdAt','desc');
-      if(input.cursor){validId(input.cursor);const cursor=await db.doc('auditLogs/'+input.cursor).get();if(!cursor.exists)bad('مؤشر الصفحة غير موجود.');q=q.startAfter(cursor);}
-      const snapshot=await q.limit(51).get();const docs=snapshot.docs.slice(0,50);
+      let filter:{field:string;value:string}|undefined;const range:{from?:unknown;to?:unknown}={};
+      if(input.filterValue){if(!['actorUid','actorEmail','action','entityType','status','entityId'].includes(input.filterBy)||!str(input.filterValue,256))bad();filter={field:input.filterBy,value:input.filterValue};}
+      if(input.from){const date=new Date(input.from);if(!Number.isFinite(date.getTime()))bad();range.from=date;}
+      if(input.to){const date=new Date(input.to);if(!Number.isFinite(date.getTime()))bad();range.to=date;}
+      let cursor;
+      if(input.cursor){validId(input.cursor);cursor=await db.doc('auditLogs/'+input.cursor).get();if(!cursor.exists)bad('مؤشر الصفحة غير موجود.');}
+      const snapshot=await readQuery(db,queryPlans.audit(filter,range),cursor);const docs=snapshot.docs.slice(0,50);
       return res.status(200).json({events:docs.map((doc:any)=>({id:doc.id,...auditSafe(doc.data())})),nextCursor:snapshot.size>50?docs.at(-1)?.id:null});
     }
     if(!['save','delete','kitchen','approve'].includes(input.action))bad();
@@ -163,6 +167,7 @@ export default async function handler(req:any,res:any){
         tx.update(db.doc('users/'+id),{...profileChange,updatedAt:FieldValue.serverTimestamp()});
         auditInTransaction(db,tx,actor,'users.role.sync','users',id,user.data(),{...user.data(),...profileChange});
       }else if(type==='products'){
+        if(before?.catalogProductId && Object.keys(catalogDefinition(patch)).length)bad('تعريف المنتج العام معتمد وثابت؛ عدّل سعر العرض وتوفره فقط.');
         // If the product is being restored or was archived, allow assigning or reassigning the store
         if(before?.storeId&&before.storeId!==after.storeId&&!before.archived){
           const oldStore=await tx.get(db.doc('stores/'+before.storeId));

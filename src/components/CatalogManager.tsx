@@ -1,3 +1,4 @@
+import { adminApi } from '../lib/adminApi';
 import { CatalogProductTable, CatalogStoreTable } from "./CatalogTables";
 import { customerMessage } from "../utils/customerMessage";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -133,7 +134,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
       if (editor.kind === "products") {
         const previous = selectedProduct;
         if (editor.id && !previous) throw new Error("الصنف لم يعد موجودًا. حدّث القائمة.");
-        if (mode === "offers") {
+        if (mode === "offers" || previous?.catalogProductId) {
           if (!previous) throw new Error("اختر منتجًا موجودًا لإضافة العرض.");
           const price = Number(data.get("price"));
           const original = String(data.get("originalPrice") || "").trim();
@@ -312,10 +313,16 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
 
     {tab === "products" && !stores.length && <div className="catalog-first-store"><StoreIcon size={21} /><div><strong>ابدأ بإضافة متجرك</strong><p>بعد حفظ بيانات المتجر، أضف أصنافه وأسعاره وصوره.</p></div><button className="admin-primary btn btn-primary" onClick={() => open("stores")}>إضافة أول متجر</button></div>}
     {view === "table" && resultCount > 0 && <p className="catalog-scroll-hint">اسحب الجدول أفقيًا لعرض بقية الأعمدة.</p>}
-
-    {view === "table" && resultCount > 0 ? (
+{view === "table" && resultCount > 0 ? (
       tab === "products" ? (
         <CatalogProductTable
+          onPublish={product => {
+            if (window.confirm(`اعتماد تعريف «${product.name}» في الكتالوج العام ليختاره التجار؟ سيصبح تعريفه ثابتًا مع بقاء أسعار المتاجر مستقلة.`)) {
+              void perform(async () => {
+                await adminApi("data", { action: "catalog-publish", id: product.id });
+              }, "اعتمد المنتج في الكتالوج العام دون إنشاء عرض جديد.");
+            }
+          }}
           products={visibleProducts}
           stores={stores}
           performance={performance}
@@ -354,7 +361,22 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
       const stats = performance.get(product.id);
       return <article key={product.id} className={`bg-white rounded-2xl border overflow-hidden ${product.archived ? 'border-amber-200 bg-amber-50/20' : 'border-slate-200'}`}><div className="flex gap-3 p-4"><div className="relative w-20 h-20 shrink-0 bg-slate-100 rounded-xl overflow-hidden"><ImageIcon className="absolute m-6 text-slate-300" />{product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="relative w-full h-full object-cover" onLoad={(e) => { e.currentTarget.style.visibility = "visible"; }} onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} /> : null}</div><div className="min-w-0"><h2 className={`font-bold break-words ${product.archived ? 'line-through text-slate-500' : ''}`}>{product.name}</h2><p className="text-xs text-slate-500 mt-1">{stores.find((store) => store.id === product.storeId)?.name || product.storeName} · {product.category}</p><strong className="block text-orange-700 mt-2">{formatEGP(product.price)}</strong></div></div>
         <p className="px-4 text-xs text-slate-500 line-clamp-2 min-h-8">{product.description}</p><div className="grid grid-cols-3 text-center text-xs m-4 p-3 rounded-xl bg-slate-50 gap-2"><span><strong className="block">{stats?.sold || 0}</strong>قطعة مسلّمة</span><span><strong className="block">{stats?.pending || 0}</strong>قيد التنفيذ</span><span><strong className="block">{formatEGP(stats?.revenue || 0)}</strong>قيمة الأصناف</span></div>
-        <div className="flex flex-wrap gap-2 border-t p-3">
+<div className="flex flex-wrap gap-2 border-t p-3">
+          {!product.archived && (
+            <button
+              disabled={busy || Boolean(product.catalogProductId)}
+              onClick={() => {
+                if (window.confirm(`اعتماد «${product.name}» بالكتالوج العام؟`)) {
+                  void perform(async () => {
+                    await adminApi("data", { action: "catalog-publish", id: product.id });
+                  }, "اعتمد المنتج بالكتالوج العام.");
+                }
+              }}
+              className={button}
+            >
+              {product.catalogProductId ? "معتمد بالكتالوج العام" : "اعتماد بالكتالوج العام"}
+            </button>
+          )}
           <button disabled={busy} onClick={() => open("products", product.id)} className={button}><Pencil size={14} className="inline ml-1" />تعديل</button>
           {!product.archived && <button disabled={busy} onClick={() => changeAvailability(product)} className={`${button} ${product.inStock ? "text-emerald-700 bg-emerald-50" : "text-amber-700 bg-amber-50"}`}>{product.inStock ? "متاح — إيقاف" : "غير متاح — تفعيل"}</button>}
           {product.archived ? (
@@ -458,7 +480,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
     {editor && (mode === "offers" || editor.kind === "stores") && <Editor key={`${editor.kind}-${editor.id || "new"}`} compact={mode === "offers"} title={mode === "offers" ? "تعديل عرض المنتج" : editor.id ? "تعديل المتجر" : "إضافة متجر"} busy={busy} onClose={() => { setEditor(null); setError(""); }}>
       <form onSubmit={submit} className="catalog-editor-form"><fieldset disabled={busy} className="catalog-editor-fields min-w-0">
         {selectedProduct && !selectedProduct.storeId && <p className="ops-warning alert alert-warning">هذا المنتج غير مرتبط بمتجر. اختر المتجر المسؤول عنه ليتمكن العملاء من طلبه.</p>}
-        {mode === "offers" ? <>
+        {(mode === "offers" || selectedProduct?.catalogProductId) ? <>
           <div className="catalog-offer-summary"><strong>{selectedProduct?.name}</strong><p>{stores.find(store => store.id === selectedProduct?.storeId)?.name || selectedProduct?.storeName}</p></div>
           {!selectedProduct?.storeId && <Field label="المتجر المسؤول عن العرض"><select name="storeId" aria-label="متجر العرض" required defaultValue="" className={input}><option value="" disabled>اختر المتجر</option>{stores.map(store => <option key={store.id} value={store.id}>{store.name}</option>)}</select></Field>}
           <div className="offer-price-fields"><Field label="سعر العرض بالجنيه"><input type="number" name="price" aria-label="سعر المنتج" min="0" max="100000" step="0.01" defaultValue={selectedProduct?.price} required className={input} /></Field>

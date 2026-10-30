@@ -44,6 +44,19 @@ test('compiled serverless JavaScript loads the real handlers without TypeScript 
     assert.equal(compile.status, 0, compile.stdout + '\n' + compile.stderr);
     await writeFile(join(out, 'package.json'), JSON.stringify({ type: 'module' }));
     await symlink(join(root, 'node_modules'), join(out, 'node_modules'), 'junction');
+    const osm = await import(pathToFileURL(join(out, 'server/handlers/osm.js')).href);
+    assert.equal(typeof osm.default, 'function');
+    const { createOperationsEntry } = await import(pathToFileURL(join(out, 'server/operationsEntry.js')).href);
+    const shared = createOperationsEntry(
+      async () => ({ default: (_req, res) => res.json('operations') }),
+      async () => ({ default: (req, res) => res.json(req.query.action) }),
+    );
+    let routed;
+    await shared(
+      { method: 'POST', headers: { authorization: 'Bearer test' }, query: { osmAction: 'route' } },
+      { setHeader() {}, json(value) { routed = value; } },
+    );
+    assert.equal(routed, 'route');
     for (const name of [
       'admin-data',
       'admin-users',
@@ -52,10 +65,9 @@ test('compiled serverless JavaScript loads the real handlers without TypeScript 
       'catalog-images',
       'operations',
       'app-content',
-      'osm/[action]',
     ]) {
       const implementation = await import(
-        pathToFileURL(join(out, 'server/handlers/' + (name === 'osm/[action]' ? 'osm' : name) + '.js')).href
+        pathToFileURL(join(out, 'server/handlers/' + name + '.js')).href
       );
       assert.equal(typeof implementation.default, 'function');
       const endpoint = await import(pathToFileURL(join(out, 'api/' + name + '.js')).href);
