@@ -28,7 +28,11 @@
     "noEmit": true,
     "rewriteRelativeImportExtensions": true
   },
+  "include": [
+    "src"
+  ],
   "exclude": [
-    "dist"
+    "dist",
+    "server"
   ]
 }

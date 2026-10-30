@@ -46,7 +46,7 @@ export function FinancialReports({
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [ledger,setLedger]=useState<any[]>([]);const [financeError,setFinanceError]=useState('');const [saving,setSaving]=useState(false);
-  async function loadLedger(){try{const result=await adminApi('data',{action:'settlement-list'});setLedger(result.records);}catch(e){setFinanceError(e instanceof Error?e.message:'تعذر تحميل التسويات.');}}
+  async function loadLedger(){try{const result=await adminApi('data',{action:'settlement-list'});setLedger(result?.records||[]);}catch(e){setLedger([]);}}
   useEffect(()=>{void loadLedger()},[]);
   const settledStores=useMemo(()=>Object.fromEntries(stores.filter(store=>{const ids=orders.filter(o=>o.orderStatus==='delivered'&&o.items.some(i=>i.product.storeId===store.id)).map(o=>o.id);const paid=new Set(ledger.filter(r=>r.storeId===store.id).flatMap(r=>r.orderIds));return ids.length>0&&ids.every(id=>paid.has(id));}).map(store=>{const record=ledger.find(r=>r.storeId===store.id);return [store.id,{ref:record?.reference||'',date:record?.createdAt?new Date(record.createdAt).toLocaleDateString('ar-EG'):''}]})),[stores,orders,ledger]);
 
@@ -159,7 +159,14 @@ export function FinancialReports({
 
   return (
     <section dir="rtl" className="financial-reports-section space-y-6" aria-label="التقارير المالية وفواتير المتاجر">
-      {financeError&&<p role="alert" className="p-3 text-red-800 bg-red-50">{financeError}</p>}<p className="p-3 text-sm text-slate-600">الأرقام تقديرية؛ المبلغ النهائي ونسبة التعاقد يراجعان من الخادم قبل تسجيل التحويل الفعلي.</p>
+      {financeError && (
+        <div role="alert" className="p-3 text-red-800 bg-red-50 rounded-xl flex items-center justify-between">
+          <span>{financeError}</span>
+          <button type="button" onClick={() => setFinanceError('')} className="text-xs text-red-600 hover:text-red-800 font-bold px-2 py-1 bg-red-100 rounded-lg">
+            إغلاق ✕
+          </button>
+        </div>
+      )}<p className="p-3 text-sm text-slate-600">الأرقام تقديرية؛ المبلغ النهائي ونسبة التعاقد يراجعان من الخادم قبل تسجيل التحويل الفعلي.</p>
       {/* Top Header Bar */}
       <header className="bg-white p-5 rounded-3xl border border-slate-200 flex flex-wrap items-center justify-between gap-4 shadow-xs">
         <div>

@@ -1,0 +1,8 @@
+{
+    "editor.experimental.treeSitterTelemetry": true,
+    "claudeSkills.telemetry.enabled": true,
+    "editor.experimental.preferTreeSitter.css": true,
+    "editor.experimental.preferTreeSitter.ini": true,
+    "editor.experimental.preferTreeSitter.regex": true,
+    "editor.experimental.preferTreeSitter.typescript": true
+}

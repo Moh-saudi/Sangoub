@@ -2,7 +2,7 @@
 name: "frontend-design"
 description: "Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthetic direction, typography, and making choices that don't read as templated defaults."
 applyTo: "**/*"
-deployedAt: "2026-10-27T07:54:07.360Z"
+deployedAt: "2026-10-30T13:12:15.637Z"
 ---
 
 # frontend-design

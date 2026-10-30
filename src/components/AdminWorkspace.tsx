@@ -13,10 +13,11 @@ import { CouponManager } from "./CouponManager";
 import type { AdminTabType } from "./AdminDashboard";
 import { type AdminStaff } from "./AdminSetupPanel";
 import { CatalogManager } from "./CatalogManager";
+import { CategoryManager } from "./CategoryManager";
 import { CouriersLiveMap } from "./CouriersLiveMap";
 import { FinancialReports } from "./FinancialReports";
 import { NotificationCenter } from "./NotificationCenter";
-import { LayoutDashboard, ChefHat, ClipboardList, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog, PanelRightClose, PanelRightOpen, Store as StoreIcon, Package, Tag, TicketPercent, Handshake, Briefcase, PanelsTopLeft, Bike, Banknote, Bell } from "lucide-react";
+import { LayoutDashboard, ChefHat, ClipboardList, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog, PanelRightClose, PanelRightOpen, Store as StoreIcon, Package, Tag, TicketPercent, Handshake, Briefcase, PanelsTopLeft, Bike, Banknote, Bell, FolderTree } from "lucide-react";
 
 const sections = [
   { id: "operations", group: "التشغيل اليومي", label: "مركز العمليات", hint: "ملخص اليوم ومؤشرات التشغيل", icon: LayoutDashboard },
@@ -26,6 +27,7 @@ const sections = [
   { id: "orders", label: "الطلبات", hint: "المتابعة وتعيين المندوب", icon: ClipboardList },
   { id: "kitchen", label: "متابعة التحضير", hint: "جاهزية المطاعم والسوبر ماركت", icon: ChefHat },
   { id: "stores", group: "المتاجر والمنتجات", label: "المتاجر", hint: "البيانات والتوافر والتوصيل", icon: StoreIcon },
+  { id: "categories", label: "شجرة الأقسام والتصنيفات", hint: "الهيكل الهرمي للأقسام ومطابقة الـ POS", icon: FolderTree },
   { id: "products", label: "المنتجات", hint: "المنيو والأسعار والصور", icon: Package },
   { id: "notifications", group: "التسويق", label: "مركز الإشعارات الموحد", hint: "إرسال وتتبع إشعارات الموبايل والويب", icon: Bell },
   { id: "offers", label: "عروض المنتجات", hint: "المنتجات المخفّضة على الموقع", icon: Tag },
@@ -37,10 +39,32 @@ const sections = [
   { id: "jobs", label: "طلبات التوظيف", hint: "المتقدمون والمقابلات", icon: Briefcase },
   { id: "audit", group: "الرقابة", label: "سجل التدقيق", hint: "التغييرات والمنفّذون", icon: ScrollText },
 ];
+
 const legacySections: Record<string, string> = { management: "orders", catalog: "products", settings: "users" };
+
 function resolveSection(id: string) {
   const target = legacySections[id] || id;
   return sections.some(section => section.id === target) ? target : "operations";
+}
+
+function getInitialSection(): string {
+  if (typeof window === "undefined") return "operations";
+  const path = window.location.pathname;
+  const match = path.match(/^\/admin\/([a-zA-Z0-9_-]+)/);
+  if (match) return resolveSection(match[1]);
+  if (path === "/kitchen") return "kitchen";
+
+  // Backward compatibility: upgrade legacy hash (#finance) to clean URL (/admin/finance)
+  if (window.location.hash) {
+    const hashTarget = resolveSection(window.location.hash.replace(/^#/, ""));
+    const cleanPath = hashTarget === "operations" ? "/admin" : `/admin/${hashTarget}`;
+    if (window.history.replaceState) {
+      window.history.replaceState(null, "", cleanPath);
+    }
+    return hashTarget;
+  }
+
+  return "operations";
 }
 
 export function AdminWorkspace({ orders, stores, products, couriers, staff, coupons, initialManagementTab, connected, onError, children }: {
@@ -48,20 +72,48 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
   staff: AdminStaff[]; coupons: Coupon[]; initialManagementTab?: string;
   onError: (error: unknown) => void; children: ReactNode;
 }) {
-  const [tab, setTab] = useState(() => window.location.hash ? resolveSection(window.location.hash.slice(1)) : window.location.pathname === "/kitchen" ? "kitchen" : "operations");
+  const [tab, setTab] = useState(getInitialSection);
+
   useEffect(() => {
-    const sync = () => { setTab(resolveSection(window.location.hash.slice(1))); setMenuOpen(false); };
+    const sync = () => {
+      setTab(getInitialSection());
+      setMenuOpen(false);
+    };
+    window.addEventListener("popstate", sync);
     window.addEventListener("hashchange", sync);
-    return () => window.removeEventListener("hashchange", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("hashchange", sync);
+    };
   }, []);
-  const [collapsed,setCollapsed]=useState(()=>localStorage.getItem('capital-admin-sidebar')==='collapsed');
-  const [orderRequest,setOrderRequest]=useState<{term:string;key:number}|undefined>();
-  const [catalogRequest,setCatalogRequest]=useState<{term:string;kind:'products'|'stores';key:number}|undefined>();
-  function toggleSidebar(){setCollapsed(value=>{const next=!value;localStorage.setItem('capital-admin-sidebar',next?'collapsed':'expanded');return next;});}
+
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('capital-admin-sidebar') === 'collapsed');
+  const [orderRequest, setOrderRequest] = useState<{ term: string; key: number } | undefined>();
+  const [catalogRequest, setCatalogRequest] = useState<{ term: string; kind: 'products' | 'stores'; key: number } | undefined>();
+
+  function toggleSidebar() {
+    setCollapsed(value => {
+      const next = !value;
+      localStorage.setItem('capital-admin-sidebar', next ? 'collapsed' : 'expanded');
+      return next;
+    });
+  }
+
   const [menuOpen, setMenuOpen] = useState(false);
   const sidebar = useRef<HTMLElement>(null);
   const menuTrigger = useRef<HTMLButtonElement>(null);
-  function navigate(id: string) { const target = resolveSection(id); setTab(target); setMenuOpen(false); if (window.location.hash !== `#${target}`) window.location.hash = target; window.scrollTo({ top: 0 }); }
+
+  function navigate(id: string) {
+    const target = resolveSection(id);
+    setTab(target);
+    setMenuOpen(false);
+    const newPath = target === "operations" ? "/admin" : `/admin/${target}`;
+    if (window.location.pathname !== newPath || window.location.hash) {
+      window.history.pushState(null, "", newPath);
+    }
+    window.scrollTo({ top: 0 });
+  }
+
   useEffect(() => {
     if (!menuOpen) return;
     const focusable = () => Array.from(sidebar.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]') || []).filter(element => element.getClientRects().length > 0);
@@ -87,40 +139,117 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
       menuTrigger.current?.focus();
     };
   }, [menuOpen]);
+
   const current = sections.find(section => section.id === tab)!;
   const pending = orders.filter(order => order.orderStatus === "received").length;
-  useEffect(() => { if (initialManagementTab && initialManagementTab !== "orders") setTab(resolveSection(initialManagementTab)); }, [initialManagementTab]);
-  return <div className={`admin-layout compact-workspace ${collapsed ? "sidebar-collapsed" : ""}`} dir="rtl">
-    {document.getElementById('admin-header-search')&&createPortal(<AdminQuickSearch orders={orders} products={products} stores={stores} sections={sections} onSelect={(kind,id,label)=>{
-      if(kind==='section')navigate(id);
-      else if(kind==='order'){setOrderRequest({term:label,key:Date.now()});navigate('orders');}
-      else{setCatalogRequest({term:label,kind:kind==='store'?'stores':'products',key:Date.now()});navigate(kind === 'store' ? 'stores' : 'products');}
-    }}/>,document.getElementById('admin-header-search')!)}
-    <div className="admin-mobile-bar"><button ref={menuTrigger} aria-expanded={menuOpen} aria-controls="admin-navigation" onClick={() => setMenuOpen(!menuOpen)}><Menu size={20} />أقسام الإدارة</button><span>{current.label}</span></div>
-    {menuOpen && <button className="admin-menu-backdrop" aria-label="إغلاق قائمة الإدارة" onClick={() => setMenuOpen(false)} />}
-    <aside ref={sidebar} role={menuOpen ? "dialog" : undefined} aria-modal={menuOpen || undefined} className={`admin-sidebar ${menuOpen ? "is-open" : ""}`} id="admin-navigation" aria-label="قائمة الإدارة">
-      <div className="admin-sidebar-heading"><span>إدارة سنجوب</span><button className="admin-collapse-toggle" aria-label={collapsed?"توسيع القائمة الجانبية":"طي القائمة الجانبية"} aria-expanded={!collapsed} onClick={toggleSidebar}>{collapsed?<PanelRightOpen size={18}/>:<PanelRightClose size={18}/>}</button><button className="admin-menu-close" aria-label="إغلاق القائمة" onClick={() => setMenuOpen(false)}><X size={18} /></button></div>
-      <nav aria-label="أقسام إدارة التشغيل">{sections.map(({id, label, hint, group, icon: Icon}) => <div key={id} className="admin-nav-item">{group && <p className="admin-nav-group">{group}</p>}<button title={label} aria-label={label} aria-pressed={id === tab} aria-current={id === tab ? "page" : undefined} onClick={() => navigate(id)}><Icon size={20} /><span><strong>{label}</strong><small>{hint}</small></span>{id === "orders" && pending > 0 ? <b className="admin-nav-count">{pending}</b> : id === tab ? <ChevronLeft size={15} /> : null}</button></div>)}</nav>
-      <div className="admin-sidebar-location"><MapPin size={17} /><div><strong>الحي الحكومي</strong><small>العاصمة الإدارية الجديدة</small></div></div>
-      <a className="admin-public-link" href="/">عرض الموقع الرئيسي <ArrowUpRight size={16} /></a>
-      <div className={`admin-connection ${connected ? "is-connected" : ""}`} role="status"><Radio size={16} /><span>{connected ? "متصل بالطلبات الحية" : "جارٍ تأكيد اتصال الطلبات"}</span></div>
-    </aside>
-    <main className="admin-content" id="admin-content" tabIndex={-1}>
-      <nav className="admin-breadcrumb breadcrumb" aria-label="مسار الصفحة"><button onClick={() => navigate("operations")}>لوحة الإدارة</button><ChevronLeft size={13} /><strong>{current.label}</strong><span className="admin-cairo-date">{new Intl.DateTimeFormat("ar-EG", { timeZone: "Africa/Cairo", weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span></nav>
-    {tab === "operations" && <OperationsDashboard orders={orders} stores={stores} couriers={couriers} connected={connected} onNavigate={navigate} />}
-    {tab === "couriers-map" && <CouriersLiveMap orders={orders} stores={stores} couriers={couriers} connected={connected} />}
-    {tab === "finance" && <FinancialReports orders={orders} stores={stores} />}
-    {tab === "kitchen" && <PreparationMonitor orders={orders} stores={stores} connected={connected} />}
-    {["stores", "products", "offers"].includes(tab) && <CatalogManager key={tab} mode={tab as "stores" | "products" | "offers"} stores={stores} products={products} orders={orders} searchRequest={catalogRequest?.kind === tab ? catalogRequest : undefined} />}
-    {tab === "sangoub" && <SangoubRequests />}
-    {tab === "visitors" && <VisitorStats />}
-    {tab === "notifications" && <NotificationCenter stores={stores} />}
-    {tab === "content" && <AppContentManager stores={stores} products={products} />}
-    {tab === "coupons" && <CouponManager coupons={coupons} />}
-    {["orders", "partners", "jobs"].includes(tab) && (isValidElement(children) ? cloneElement(children as ReactElement<{ initialAdminTab: AdminTabType; orderSearchRequest?: {term:string;key:number} }>, { initialAdminTab: tab as AdminTabType, orderSearchRequest: tab === "orders" ? orderRequest : undefined }) : children)}
-    {tab === "users" && <UserManagement stores={stores} />}
-    {tab === "audit" && <AuditLog />}
-      <footer className="admin-footer">© 2026 جميع الحقوق محفوظة لشركة ميسك للتكنولوجيا. <span className="admin-build-label" dir="ltr">{String(import.meta.env.VITE_BUILD_ID || "local").slice(0,8)}</span></footer>
-    </main>
-  </div>;
+
+  useEffect(() => {
+    if (initialManagementTab && initialManagementTab !== "orders") {
+      navigate(initialManagementTab);
+    }
+  }, [initialManagementTab]);
+
+  return (
+    <div className={`admin-layout compact-workspace ${collapsed ? "sidebar-collapsed" : ""}`} dir="rtl">
+      {document.getElementById('admin-header-search') && createPortal(
+        <AdminQuickSearch
+          orders={orders}
+          products={products}
+          stores={stores}
+          sections={sections}
+          onSelect={(kind, id, label) => {
+            if (kind === 'section') navigate(id);
+            else if (kind === 'order') { setOrderRequest({ term: label, key: Date.now() }); navigate('orders'); }
+            else { setCatalogRequest({ term: label, kind: kind === 'store' ? 'stores' : 'products', key: Date.now() }); navigate(kind === 'store' ? 'stores' : 'products'); }
+          }}
+        />,
+        document.getElementById('admin-header-search')!
+      )}
+      <div className="admin-mobile-bar">
+        <button ref={menuTrigger} aria-expanded={menuOpen} aria-controls="admin-navigation" onClick={() => setMenuOpen(!menuOpen)}>
+          <Menu size={20} />أقسام الإدارة
+        </button>
+        <span>{current.label}</span>
+      </div>
+      {menuOpen && <button className="admin-menu-backdrop" aria-label="إغلاق قائمة الإدارة" onClick={() => setMenuOpen(false)} />}
+      <aside ref={sidebar} role={menuOpen ? "dialog" : undefined} aria-modal={menuOpen || undefined} className={`admin-sidebar ${menuOpen ? "is-open" : ""}`} id="admin-navigation" aria-label="قائمة الإدارة">
+        <div className="admin-sidebar-heading">
+          <span>إدارة سنجوب</span>
+          <button className="admin-collapse-toggle" aria-label={collapsed ? "توسيع القائمة الجانبية" : "طي القائمة الجانبية"} aria-expanded={!collapsed} onClick={toggleSidebar}>
+            {collapsed ? <PanelRightOpen size={18} /> : <PanelRightClose size={18} />}
+          </button>
+          <button className="admin-menu-close" aria-label="إغلاق القائمة" onClick={() => setMenuOpen(false)}>
+            <X size={18} />
+          </button>
+        </div>
+        <nav aria-label="أقسام إدارة التشغيل">
+          {sections.map(({ id, label, hint, group, icon: Icon }) => (
+            <div key={id} className="admin-nav-item">
+              {group && <p className="admin-nav-group">{group}</p>}
+              <button
+                title={label}
+                aria-label={label}
+                aria-pressed={id === tab}
+                aria-current={id === tab ? "page" : undefined}
+                onClick={() => navigate(id)}
+              >
+                <Icon size={20} />
+                <span><strong>{label}</strong><small>{hint}</small></span>
+                {id === "orders" && pending > 0 ? <b className="admin-nav-count">{pending}</b> : id === tab ? <ChevronLeft size={15} /> : null}
+              </button>
+            </div>
+          ))}
+        </nav>
+        <div className="admin-sidebar-location"><MapPin size={17} /><div><strong>الحي الحكومي</strong><small>العاصمة الإدارية الجديدة</small></div></div>
+        <a className="admin-public-link" href="/">عرض الموقع الرئيسي <ArrowUpRight size={16} /></a>
+        <div className={`admin-connection ${connected ? "is-connected" : ""}`} role="status">
+          <Radio size={16} />
+          <span>{connected ? "متصل بالطلبات الحية" : "جارٍ تأكيد اتصال الطلبات"}</span>
+        </div>
+      </aside>
+      <main className="admin-content" id="admin-content" tabIndex={-1}>
+        <nav className="admin-breadcrumb breadcrumb" aria-label="مسار الصفحة">
+          <button onClick={() => navigate("operations")}>لوحة الإدارة</button>
+          <ChevronLeft size={13} />
+          <strong>{current.label}</strong>
+          <span className="admin-cairo-date">
+            {new Intl.DateTimeFormat("ar-EG", { timeZone: "Africa/Cairo", weekday: "long", day: "numeric", month: "long" }).format(new Date())}
+          </span>
+        </nav>
+        {tab === "operations" && <OperationsDashboard orders={orders} stores={stores} couriers={couriers} connected={connected} onNavigate={navigate} />}
+        {tab === "couriers-map" && <CouriersLiveMap orders={orders} stores={stores} couriers={couriers} connected={connected} />}
+        {tab === "finance" && <FinancialReports orders={orders} stores={stores} />}
+        {tab === "kitchen" && <PreparationMonitor orders={orders} stores={stores} connected={connected} />}
+        {tab === "categories" && <CategoryManager />}
+        {["stores", "products", "offers"].includes(tab) && (
+          <CatalogManager
+            key={tab}
+            mode={tab as "stores" | "products" | "offers"}
+            stores={stores}
+            products={products}
+            orders={orders}
+            searchRequest={catalogRequest?.kind === tab ? catalogRequest : undefined}
+          />
+        )}
+        {tab === "sangoub" && <SangoubRequests />}
+        {tab === "visitors" && <VisitorStats />}
+        {tab === "notifications" && <NotificationCenter stores={stores} />}
+        {tab === "content" && <AppContentManager stores={stores} products={products} />}
+        {tab === "coupons" && <CouponManager coupons={coupons} />}
+        {["orders", "partners", "jobs"].includes(tab) && (
+          isValidElement(children)
+            ? cloneElement(children as ReactElement<{ initialAdminTab: AdminTabType; orderSearchRequest?: { term: string; key: number } }>, {
+                initialAdminTab: tab as AdminTabType,
+                orderSearchRequest: tab === "orders" ? orderRequest : undefined,
+              })
+            : children
+        )}
+        {tab === "users" && <UserManagement stores={stores} />}
+        {tab === "audit" && <AuditLog />}
+        <footer className="admin-footer">
+          © 2026 جميع الحقوق محفوظة لشركة ميسك للتكنولوجيا. <span className="admin-build-label" dir="ltr">{String(import.meta.env.VITE_BUILD_ID || "local").slice(0, 8)}</span>
+        </footer>
+      </main>
+    </div>
+  );
 }

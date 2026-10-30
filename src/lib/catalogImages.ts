@@ -1,17 +1,5 @@
-import { auth, saveRecord } from "./firebase";
-import { apiUrl } from "./apiUrl";
-
-async function imageRequest(body: object) {
-  const token = await auth.currentUser?.getIdToken();
-  if (!token) throw new Error("يرجى تسجيل الدخول.");
-  const response = await fetch(apiUrl("/api/catalog-images"), {
-    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-  });
-  const result = await response.json().catch(() => ({ error: "خدمة الصور غير متاحة." }));
-  if (!response.ok) throw new Error(result.error || "تعذر رفع الصورة.");
-  return result;
-}
+import { supabase } from "./supabase";
+import { authenticatedApi } from "./authenticatedApi";
 
 export function validateCatalogImage(file: File) {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
@@ -20,41 +8,79 @@ export function validateCatalogImage(file: File) {
     throw new Error("حجم الصورة يجب ألا يتجاوز 5 ميجابايت.");
 }
 
-export async function uploadCatalogImage(collection: "stores" | "products", id: string, file: File) {
+export async function uploadCatalogImage(
+  collection: "stores" | "products",
+  id: string,
+  file: File
+): Promise<{ key: string; url: string }> {
   validateCatalogImage(file);
-  const target = await imageRequest({ action: "upload", collection, id, contentType: file.type, size: file.size });
+
+  // 1. Try Cloudflare R2 first via /api/catalog-images
   try {
-    const response = await fetch(target.uploadUrl, { method: "PUT", body: file, headers: {
-      "Content-Type": file.type, "Cache-Control": "public, max-age=31536000, immutable",
-    }});
-    if (!response.ok) throw new Error("تعذر رفع الصورة. يرجى المحاولة مرة أخرى.");
-    return { key: target.key as string, url: target.publicUrl as string };
-  } catch (error) {
-    await imageRequest({ action: "delete", key: target.key }).catch(() => {});
-    throw error;
+    const target = await authenticatedApi("/api/catalog-images", {
+      action: "upload",
+      collection,
+      id,
+      contentType: file.type,
+      size: file.size,
+    });
+
+    if (target?.uploadUrl && target?.publicUrl) {
+      const response = await fetch(target.uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type,
+          "Cache-Control": "public, max-age=31536000, immutable",
+        },
+      });
+
+      if (response.ok) {
+        return { key: target.key as string, url: target.publicUrl as string };
+      }
+    }
+  } catch (err) {
+    console.warn("Cloudflare R2 not configured or unavailable, using Supabase Storage fallback:", err);
   }
+
+  // 2. High-speed Fallback: Supabase Storage Bucket 'catalog-images'
+  const fileExt = file.type.split("/")[1] || "jpg";
+  const filePath = `catalog/${collection}/${id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${fileExt}`;
+
+  const { data, error } = await supabase.storage
+    .from("catalog-images")
+    .upload(filePath, file, {
+      cacheControl: "31536000",
+      upsert: true,
+      contentType: file.type,
+    });
+
+  if (error) {
+    console.error("Storage upload error:", error);
+    throw new Error("تعذر رفع الصورة. تحقق من اتصال الإنترنت وحجم الملف.");
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("catalog-images").getPublicUrl(data.path);
+
+  return { key: data.path, url: publicUrl };
 }
 
 export async function saveCatalogWithImages(
   collection: "stores" | "products",
   id: string,
   data: Record<string, unknown>,
-  images: { field: string; file: File | null }[],
+  images: { field: string; file: File | null }[]
 ) {
   const selected = images.filter((image) => image.file && image.file.size > 0);
   for (const image of selected) validateCatalogImage(image.file!);
-  const uploaded: string[] = [];
-  try {
-    for (const image of selected) {
-      const file = image.file!;
-      const target = await uploadCatalogImage(collection, id, file);
-      uploaded.push(target.key);
-      data[image.field] = target.url;
-      if (collection === "stores" && image.field === "bannerUrl") data.imageUrl = target.url;
-    }
-    await saveRecord(collection, id, data);
-  } catch (error) {
-    await Promise.allSettled(uploaded.map((key) => imageRequest({ action: "delete", key })));
-    throw error;
+
+  const updates: Record<string, string> = {};
+  for (const image of selected) {
+    const target = await uploadCatalogImage(collection, id, image.file!);
+    updates[image.field] = target.url;
   }
+
+  return { ...data, ...updates };
 }

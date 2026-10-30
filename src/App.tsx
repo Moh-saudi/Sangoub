@@ -7,19 +7,34 @@ const AdminApp = lazy(() => import("./AdminApp"));
 const CourierApp = lazy(() => import("./CourierApp"));
 const MerchantApp = lazy(() => import("./MerchantApp"));
 
-const adminRoute = /^\/(admin|kitchen)\/?$/.test(window.location.pathname);
-const merchantRoute =
-  /^\/merchant(\/.*)?$/.test(window.location.pathname) ||
-  window.location.hash.startsWith("#merchant") ||
-  new URLSearchParams(window.location.search).get("tab") === "restaurant";
-
 export default function App() {
-  const [path,setPath]=useState(location.pathname);
-  useEffect(()=>{const change=()=>setPath(location.pathname);window.addEventListener('popstate',change);return()=>window.removeEventListener('popstate',change)},[]);
-  if(/^\/courier\/?$/.test(path))return <Suspense fallback={<p role="status" className="p-8" dir="rtl">جارٍ تحميل بوابة المندوب…</p>}><CourierApp/></Suspense>;
-  if(/^\/(stores(?:\/[^/]+)?|cart|checkout(?:\/success)?|my-orders|track|order-tracking(?:\/[^/]+)?)\/?$/.test(path))return <ShopProvider><Suspense fallback={<p role="status" className="p-8" dir="rtl">جارٍ تحميل التسوق…</p>}><ShopFront key={path}/></Suspense></ShopProvider>;
+  const [path, setPath] = useState(location.pathname);
 
-  if (merchantRoute) {
+  useEffect(() => {
+    const change = () => setPath(location.pathname);
+    window.addEventListener("popstate", change);
+    return () => window.removeEventListener("popstate", change);
+  }, []);
+
+  if (/^\/courier(\/.*)?$/.test(path)) {
+    return (
+      <Suspense fallback={<p role="status" className="p-8" dir="rtl">جارٍ تحميل بوابة المندوب…</p>}>
+        <CourierApp />
+      </Suspense>
+    );
+  }
+
+  if (/^\/(stores(?:\/[^/]+)?|cart|checkout(?:\/success)?|my-orders|track|order-tracking(?:\/[^/]+)?)\/?$/.test(path)) {
+    return (
+      <ShopProvider>
+        <Suspense fallback={<p role="status" className="p-8" dir="rtl">جارٍ تحميل التسوق…</p>}>
+          <ShopFront key={path} />
+        </Suspense>
+      </ShopProvider>
+    );
+  }
+
+  if (/^\/merchant(\/.*)?$/.test(path) || location.hash.startsWith("#merchant") || new URLSearchParams(location.search).get("tab") === "restaurant") {
     return (
       <Suspense
         fallback={
@@ -35,11 +50,13 @@ export default function App() {
     );
   }
 
-  return adminRoute ? (
-    <Suspense fallback={<p role="status" className="p-12 text-center" dir="rtl">جارٍ تحميل بوابة الإدارة…</p>}>
-      <AdminApp />
-    </Suspense>
-  ) : (
-    <StorefrontApp />
-  );
+  if (/^\/(admin|kitchen)(\/.*)?$/.test(path)) {
+    return (
+      <Suspense fallback={<p role="status" className="p-12 text-center" dir="rtl">جارٍ تحميل بوابة الإدارة…</p>}>
+        <AdminApp />
+      </Suspense>
+    );
+  }
+
+  return <StorefrontApp />;
 }

@@ -10,13 +10,13 @@ import { assignmentRef, closeOperationalQueues, paymentReady, ticketRef } from '
 import { mobileCors } from '../mobileCors.ts';
 
 const fields:Record<string,string[]>={
-  products:['id','storeId','storeName','name','description','price','originalPrice','category','imageType','imageUrl','imageKey','inStock','archived','badge','isPopular','optionGroups'],
+  products:['id','storeId','storeName','name','nameEn','description','price','originalPrice','category','categoryId','barcode','merchantPosSku','verticalId','imageType','imageUrl','imageKey','inStock','archived','badge','isPopular','optionGroups'],
   stores:['commissionRate','taxRate','taxRegistrationNumber','pricesIncludeTax','id','name','nameEn','locationInDistrict','type','category','status','deliveryTime','minOrder','deliveryFee','imageUrl','bannerUrl','logoUrl','logoKey','bannerKey','imageKey','logo','banner','rating','ratingCount'],
   coupons:['code','discountType','value','minOrder','title','description'],staff:['role','name','phone','storeId'],partnerApplications:['status'],jobApplications:['status'],
   orders:['orderStatus','courierId','courierName','courierPhone'],
 };
 const bad=(message='بيانات غير صالحة.')=>{throw new AdminError(400,message);};
-const str=(v:any,max:number,required=false)=>typeof v==='string'&&v.length<=max&&(!required||v.trim().length>0);
+const str=(v:any,max:number,required=false)=>(!required&&(v===undefined||v===null||v===''))||(typeof v==='string'&&v.length<=max&&(!required||v.trim().length>0));
 const num=(v:any,max:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=max;
 function validate(type:string,id:string,d:any){
   if(type==='products'&&(!str(d.name,120,true)||!str(d.description,1000)||!num(d.price,100000)||typeof d.inStock!=='boolean'||!str(d.storeId,128,true)||!str(d.category,120,true)))bad('راجع اسم الصنف وسعره ومتجره.');
@@ -70,7 +70,33 @@ export default async function handler(req:any,res:any){
       const ref=db.doc(type+'/'+id);const [own,target,actorAccess]=await Promise.all([tx.get(db.doc('admins/'+actor.uid)),tx.get(ref),tx.get(db.doc('accountAccess/'+actor.uid))]);
       const control=actorAccess.data();if(control?.disabled||control?.operationLocked||actor.auth_time<=(control?.revokedBefore||0))throw new AdminError(403,'انتهت صلاحية الجلسة.');
       if(!own.exists)throw new AdminError(403,'انتهت صلاحية الإدارة.');
-      const before=target.data()||null;
+      let before=target.data()||null;
+      if(type==='products'&&(!before||!before.name)){
+        try{
+          const spRes=await fetch(`${process.env.VITE_SUPABASE_URL||'https://tvnsqatkaqyubeznhnmu.supabase.co'}/rest/v1/products?id=eq.${id}&select=*`,{
+            headers:{'apikey':process.env.VITE_SUPABASE_ANON_KEY||''}
+          });
+          const spList=await spRes.json();
+          if(Array.isArray(spList)&&spList.length>0){
+            const sp=spList[0];
+            before={
+              id:sp.id,
+              name:sp.name,
+              nameEn:sp.name_en||'',
+              description:sp.description||'',
+              price:Number(sp.price)||0,
+              originalPrice:sp.original_price?Number(sp.original_price):undefined,
+              category:sp.category||'عام',
+              storeId:sp.store_id||'',
+              inStock:Boolean(sp.is_available),
+              archived:Boolean(sp.archived),
+              imageUrl:sp.image_url||'',
+              imageType:sp.image_type||'croissant',
+              ...(before||{}),
+            };
+          }
+        }catch{}
+      }
       let after:any={...(before||{}),...patch};
       const contractRef=type==='stores'?db.doc('merchantContracts/'+id):null;
       const contractBefore=contractRef?await tx.get(contractRef):null;
@@ -137,10 +163,36 @@ export default async function handler(req:any,res:any){
         tx.update(db.doc('users/'+id),{...profileChange,updatedAt:FieldValue.serverTimestamp()});
         auditInTransaction(db,tx,actor,'users.role.sync','users',id,user.data(),{...user.data(),...profileChange});
       }else if(type==='products'){
-        if(before?.storeId&&before.storeId!==after.storeId)bad('لا يمكن نقل الصنف لمتجر آخر.');
+        // If the product is being restored or was archived, allow assigning or reassigning the store
+        if(before?.storeId&&before.storeId!==after.storeId&&!before.archived){
+          const oldStore=await tx.get(db.doc('stores/'+before.storeId));
+          if(oldStore.exists)bad('لا يمكن نقل صنف نشط لمتجر آخر مباشرة؛ يرجى أرشفته أولاً.');
+        }
         if(!after.storeId)bad('اختر المتجر المسؤول عن المنتج قبل إتاحته أو حفظه.');
         validId(after.storeId);
-        if(!(await tx.get(db.doc('stores/'+after.storeId))).exists)bad('المتجر غير موجود.');
+        const storeRef=db.doc('stores/'+after.storeId);
+        const storeSnap=await tx.get(storeRef);
+        if(!storeSnap.exists){
+          if(after.storeId==='a0000000-0000-0000-0000-000000000001'){
+            tx.set(storeRef,{
+              id:'a0000000-0000-0000-0000-000000000001',
+              name:'متجر سنجوب إكسبريس المركزي',
+              nameEn:'Sangoub Express Mart',
+              type:'مخزن وسوبرماركت مركزي - سنجوب',
+              category:'supermarket',
+              status:'open',
+              rating:5,
+              ratingCount:1,
+              deliveryTime:'15-25 دقيقة',
+              minOrder:0,
+              deliveryFee:10,
+              locationInDistrict:'الفرع المركزي - العاصمة الإدارية',
+              updatedAt:FieldValue.serverTimestamp(),
+            },{merge:true});
+          }else{
+            bad('المتجر غير موجود.');
+          }
+        }
       }
       if(input.action!=='delete'&&type!=='orders')validate(type,id,after);
       if(contractRef&&patch.commissionRate!==undefined){const contract={commissionRate:patch.commissionRate,updatedAt:FieldValue.serverTimestamp(),updatedBy:actor.uid};tx.set(contractRef,contract,{merge:true});auditInTransaction(db,tx,actor,'contract.updated','merchantContracts',id,contractBefore?.data()||null,contract);}

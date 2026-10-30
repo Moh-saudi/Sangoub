@@ -1,7 +1,25 @@
-import type { Order, Product } from "../types";
+import type { Order, Product, StoreCategory } from "../types";
 
-export const productCategories: Product["category"][] = ["فطور", "سندوتشات", "سوبر ماركت بالقطعة", "مشروبات", "وجبات خفيفة", "حلويات"];
-export const storeCategories = [["breakfast", "فطور"], ["sandwiches", "مطعم وسندوتشات"], ["supermarket", "سوبر ماركت"], ["cafe", "كافيه"], ["desserts", "حلويات"]];
+export const productCategories: Product["category"][] = [
+  "فطور",
+  "سندوتشات",
+  "سوبر ماركت بالقطعة",
+  "مشروبات",
+  "وجبات خفيفة",
+  "حلويات",
+  "أدوية وصيدلية",
+  "مستلزمات طبية",
+  "منظفات وعناية بالمنزل",
+];
+
+export const storeCategories: [StoreCategory, string][] = [
+  ["breakfast", "فطور"],
+  ["sandwiches", "مطعم وسندوتشات"],
+  ["supermarket", "سوبر ماركت"],
+  ["cafe", "كافيه"],
+  ["desserts", "حلويات"],
+  ["pharmacy", "صيدلية وعناية طبية"],
+];
 
 export function catalogPerformance(orders: Order[]) {
   const result = new Map<string, { sold: number; revenue: number; pending: number }>();

@@ -90,7 +90,8 @@ export type StoreCategory =
   | "sandwiches"
   | "supermarket"
   | "cafe"
-  | "desserts";
+  | "desserts"
+  | "pharmacy";
 
 export interface Store {
   /** Enriched by authenticated APIs only; stored privately in merchantContracts. */
@@ -137,34 +138,38 @@ export interface ProductOptionGroup {
   options: ProductOption[];
 }
 
+export interface Category {
+  id: string;
+  vertical_id: string;
+  parent_id?: string | null;
+  name_ar: string;
+  name_en?: string | null;
+  slug: string;
+  icon?: string | null;
+  image_url?: string | null;
+  display_order: number;
+  is_active: boolean;
+  children?: Category[];
+  product_count?: number;
+}
+
 export interface Product {
   archived?: boolean;
   id: string;
   storeId: string;
   storeName: string;
   name: string;
+  nameEn?: string;
   description: string;
   price: number;
   originalPrice?: number;
-  category:
-    | "فطور"
-    | "سندوتشات"
-    | "سوبر ماركت بالقطعة"
-    | "مشروبات"
-    | "وجبات خفيفة"
-    | "حلويات";
-  badge?: string; // e.g. "الأكثر طلباً", "عرض خاص"
-  imageType:
-    | "foul"
-    | "falafel"
-    | "water"
-    | "chips"
-    | "coffee"
-    | "croissant"
-    | "juice"
-    | "cheddar"
-    | "tea"
-    | "hawawshi";
+  categoryId?: string;
+  category: string;
+  barcode?: string;
+  merchantPosSku?: string;
+  verticalId?: string;
+  badge?: string;
+  imageType?: string;
   imageUrl?: string;
   isPopular?: boolean;
   inStock: boolean;

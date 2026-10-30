@@ -2,7 +2,7 @@
 name: "web-artifacts-builder"
 description: "Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex artifacts requiring state management, routing, or shadcn/ui components - not for simple single-file HTML/JSX artifacts."
 applyTo: "**/*"
-deployedAt: "2026-10-27T07:54:07.476Z"
+deployedAt: "2026-10-30T13:12:15.855Z"
 ---
 
 # web-artifacts-builder
