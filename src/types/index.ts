@@ -175,6 +175,14 @@ export interface Product {
   imageUrl?: string;
   isPopular?: boolean;
   inStock: boolean;
+  stockQuantity?: number;
+  minStockAlert?: number;
+  maxPerOrder?: number;
+  offerTitle?: string;
+  isOccasion?: boolean;
+  occasionName?: string;
+  offerStartDate?: string;
+  offerEndDate?: string;
   optionGroups?: ProductOptionGroup[];
 }
 

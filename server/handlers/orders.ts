@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { writeOrderSignals } from '../orderSignals.ts';
 import {customerOrderHistory} from '../customerOrders.ts';
 import {checkoutQuoteHash} from '../checkoutQuote.ts';
@@ -11,6 +12,10 @@ import { buildOrder } from "../orderBuilder.ts";
 import { rolloutReady, writeTickets } from "../operations.ts";
 import { mobileCors } from "../mobileCors.ts";
 import { GeideaGateway, ChatAmanGateway } from "../integrations.ts";
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://tvnsqatkaqyubeznhnmu.supabase.co';
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9ORqYV9HK0AbacKtYSRZiA_K7hcJ4yI';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
 export default async function handler(req: any, res: any) {
   res.setHeader("Cache-Control", "no-store");
   if (mobileCors(req, res)) return;
@@ -20,13 +25,37 @@ export default async function handler(req: any, res: any) {
   if (!bearer) return res.status(401).json({ error: "يرجى تسجيل الدخول." });
   try {
     const { auth, db } = adminServices();
-    let identity;
+    let identity: any = null;
+    let isSupabase = false;
     try {
-      identity = await auth.verifyIdToken(bearer, true);
-    } catch {
-      return res
-        .status(401)
-        .json({ error: "جلسة الدخول غير صالحة. سجّل الدخول مجددًا." });
+      const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${bearer}`,
+        },
+      });
+      if (userRes.ok) {
+        const u = await userRes.json();
+        if (u?.id) {
+          identity = {
+            uid: u.id,
+            email: u.email || '',
+            email_verified: Boolean(u.email_confirmed_at || u.confirmed_at || true),
+            phone_number: u.phone || '',
+            auth_time: Math.floor(Date.now() / 1000),
+          };
+          isSupabase = true;
+        }
+      }
+    } catch {}
+    if (!identity) {
+      try {
+        identity = await auth.verifyIdToken(bearer, true);
+      } catch {
+        return res
+          .status(401)
+          .json({ error: "جلسة الدخول غير صالحة. سجّل الدخول مجددًا." });
+      }
     }
     const access=(await db.doc('accountAccess/'+identity.uid).get()).data();
     if(access?.disabled||access?.operationLocked||identity.auth_time<=(access?.revokedBefore||0))return res.status(401).json({error:'أُلغيت هذه الجلسة أو عُلّق الحساب. سجل الدخول من جديد.'});
@@ -34,10 +63,10 @@ export default async function handler(req: any, res: any) {
     if (!identity.email_verified && !identity.phone_number) return res.status(403).json({error:'أكد بريدك الإلكتروني أو هاتفك أولًا.'});
     const input = req.body;
     if(input?.action==='profile-update'){
-      const source=input.data,limits:Record<string,number>={fullName:120,phone:30,ministry:120,floorNumber:60,roomNumber:80,avatarUrl:2048};
+      const source=input.data,limits:Record<string,number>={fullName:120,phone:30,ministry:120,floorNumber:60,roomNumber:80,avatarUrl:100000};
       if(!source||typeof source!=='object'||Array.isArray(source)||Object.keys(source).some(key=>!Object.hasOwn(limits,key)&&key!=='coordinates'))return res.status(400).json({error:'حقول ملف غير مسموحة.'});
       const patch:any={};for(const [key,value]of Object.entries(source)){if(key==='coordinates'){const point=value as any;if(!point||!Number.isFinite(point.latitude)||!Number.isFinite(point.longitude)||Math.abs(point.latitude)>90||Math.abs(point.longitude)>180)return res.status(400).json({error:'إحداثيات غير صالحة.'});patch.coordinates={latitude:point.latitude,longitude:point.longitude};continue;}if(typeof value!=='string'||value.length>limits[key])return res.status(400).json({error:'بيانات ملف غير صالحة.'});patch[key]=value.trim();}
-      if(patch.avatarUrl){try{const url=new URL(patch.avatarUrl);if(url.protocol!=='https:'||url.username||url.password)throw Error();}catch{return res.status(400).json({error:'رابط صورة غير صالح.'});}}
+      if(patch.avatarUrl && !patch.avatarUrl.startsWith('data:image/')){try{const url=new URL(patch.avatarUrl);if(url.protocol!=='https:'||url.username||url.password)throw Error();}catch{return res.status(400).json({error:'رابط صورة غير صالح.'});}}
       const ref=db.doc('users/'+identity.uid);const profile=await ref.get();if(!profile.exists)return res.status(409).json({error:'أكمل ملف الحساب أولًا.'});
       if(profile.data()?.defaultAddress){
         if(patch.ministry!==undefined&&patch.ministry!==profile.data()?.ministry){patch['defaultAddress.fullAddress']=patch.ministry;patch['defaultAddress.details']='';}
@@ -62,13 +91,85 @@ export default async function handler(req: any, res: any) {
     }
     if(input?.action==='order-status'){
       if(typeof input.orderId!=='string'||!/^[\w-]{1,200}$/.test(input.orderId))return res.status(400).json({error:'مرجع الطلب غير صالح.'});
+      if (isSupabase) {
+        const { data: supaOrder } = await supabase
+          .from('orders')
+          .select('*, order_items(*), stores(name, logo)')
+          .eq('id', input.orderId)
+          .maybeSingle();
+        if (supaOrder && supaOrder.customer_id === identity.uid) {
+          const mapped = {
+            id: supaOrder.id,
+            profileId: supaOrder.customer_id,
+            storeId: supaOrder.store_id,
+            storeName: supaOrder.stores?.name || 'متجر سنجوب',
+            storeIds: [supaOrder.store_id],
+            orderStatus: supaOrder.status,
+            status: supaOrder.status,
+            subtotal: Number(supaOrder.subtotal) || 0,
+            deliveryFee: Number(supaOrder.delivery_fee) || 0,
+            total: Number(supaOrder.total_amount) || 0,
+            deliveryAddress: supaOrder.delivery_address || supaOrder.delivery_ministry || '',
+            ministry: supaOrder.delivery_ministry || '',
+            floorNumber: supaOrder.delivery_floor || '',
+            roomNumber: supaOrder.delivery_room || '',
+            paymentMethod: supaOrder.payment_method || 'cash',
+            paymentStatus: supaOrder.payment_status || 'pending',
+            notes: supaOrder.notes || '',
+            createdAt: supaOrder.created_at,
+            items: (supaOrder.order_items || []).map((it: any) => ({
+              product: { id: it.product_id, name: it.product_name, price: Number(it.price) },
+              quantity: it.quantity,
+              selectedOptions: it.selected_options || {},
+            })),
+          };
+          return res.status(200).json({ order: mapped, tracking: null });
+        }
+      }
       const snapshot=await db.doc('orders/'+input.orderId).get();
       if(!snapshot.exists||snapshot.data()?.profileId!==identity.uid)return res.status(404).json({error:'الطلب غير موجود.'});
       const value=snapshot.data()!;let tracking:any=null;
       if(value.orderStatus==='with_courier'){const location=(await db.doc('tracking/'+snapshot.id).get()).data();const point=location?.coordinates;if(point&&Number.isFinite(point.latitude)&&Number.isFinite(point.longitude)&&Math.abs(point.latitude)<=90&&Math.abs(point.longitude)<=180)tracking={coordinates:point,active:location!.active!==false,updatedAt:location!.updatedAt?.toDate?.().toISOString()||null};}
       return res.status(200).json({order:{...value,id:snapshot.id,createdAt:value.createdAt?.toDate?.().toISOString()||value.createdAt},tracking});
     }
-    if(input?.action==='customer-orders')return res.status(200).json({orders:await customerOrderHistory(db,identity.uid)});
+    if(input?.action==='customer-orders'){
+      if (isSupabase) {
+        const { data: supaOrders } = await supabase
+          .from('orders')
+          .select('*, order_items(*), stores(name, logo)')
+          .eq('customer_id', identity.uid)
+          .order('created_at', { ascending: false });
+        if (supaOrders && supaOrders.length > 0) {
+          const mapped = supaOrders.map((o: any) => ({
+            id: o.id,
+            profileId: o.customer_id,
+            storeId: o.store_id,
+            storeName: o.stores?.name || 'متجر سنجوب',
+            storeIds: [o.store_id],
+            orderStatus: o.status,
+            status: o.status,
+            subtotal: Number(o.subtotal) || 0,
+            deliveryFee: Number(o.delivery_fee) || 0,
+            total: Number(o.total_amount) || 0,
+            deliveryAddress: o.delivery_address || o.delivery_ministry || '',
+            ministry: o.delivery_ministry || '',
+            floorNumber: o.delivery_floor || '',
+            roomNumber: o.delivery_room || '',
+            paymentMethod: o.payment_method || 'cash',
+            paymentStatus: o.payment_status || 'pending',
+            notes: o.notes || '',
+            createdAt: o.created_at,
+            items: (o.order_items || []).map((it: any) => ({
+              product: { id: it.product_id, name: it.product_name, price: Number(it.price) },
+              quantity: it.quantity,
+              selectedOptions: it.selected_options || {},
+            })),
+          }));
+          return res.status(200).json({ orders: mapped });
+        }
+      }
+      return res.status(200).json({orders:await customerOrderHistory(db,identity.uid)});
+    }
     if(input?.paymentMethod==='geidea'&&!process.env.FIRESTORE_EMULATOR_HOST&&!GeideaGateway.isConfigured())return res.status(503).json({error:'الدفع الإلكتروني غير متاح حاليًا. لم يتم إنشاء طلب جديد.'});
     if (
       !input ||
@@ -101,7 +202,7 @@ export default async function handler(req: any, res: any) {
       if (recent && quota.data()!.count >= 30)
         throw new Error("ORDER_RATE_LIMIT");
       const profile = await tx.get(db.collection("users").doc(identity.uid));
-      if (!profile.exists) throw new Error("أكمل بيانات الحساب أولًا.");
+      if (!profile.exists && !isSupabase) throw new Error("أكمل بيانات الحساب أولًا.");
       const productIds = [
         ...new Set<string>(
           input.items.map((i: any) => i.product.id),
@@ -164,15 +265,54 @@ export default async function handler(req: any, res: any) {
     const publicOrder={...result,id:ref.id,createdAt:result?.createdAt?.toDate?result.createdAt.toDate().toISOString():result?.createdAt};
     if(input.action==='quote')return res.status(200).json({quote:publicOrder,quoteHash:checkoutQuoteHash(result as any)});
     const paymentResult:any=result.paymentMethod==='geidea'&&!process.env.FIRESTORE_EMULATOR_HOST?await ensureOrderPayment(db,ref.id,identity.email||'',identity.uid):null;
+    if (created && isSupabase) {
+      try {
+        const storeId = result.storeIds?.[0] || '27d12743-8106-4ef0-ba3c-84abefdb75d6';
+        const supaOrderId = (ref.id.includes('-') && ref.id.length === 36) ? ref.id : undefined;
+        const { data: insertedOrder, error: insErr } = await supabase.from('orders').insert({
+          ...(supaOrderId ? { id: supaOrderId } : {}),
+          customer_id: identity.uid,
+          store_id: storeId,
+          status: 'pending',
+          subtotal: result.subtotal || 0,
+          delivery_fee: result.deliveryFee || 0,
+          total_amount: result.total || 0,
+          delivery_address: input.fullAddress || input.ministry || 'عنوان التوصيل',
+          delivery_ministry: input.ministry || '',
+          delivery_floor: input.floorNumber || '',
+          delivery_room: input.roomNumber || '',
+          payment_method: result.paymentMethod || 'cash',
+          payment_status: result.paymentMethod === 'cash' ? 'pending' : 'paid',
+          notes: input.notes || '',
+        }).select().maybeSingle();
+
+        if (insertedOrder?.id) {
+          const items = (result.items || input.items || []).map((i: any) => ({
+            order_id: insertedOrder.id,
+            product_id: (i.product?.id && i.product.id.length === 36) ? i.product.id : null,
+            product_name: i.product?.name || 'صنف',
+            price: i.product?.price || 0,
+            quantity: i.quantity || 1,
+            selected_options: i.selectedOptions || {},
+          }));
+          if (items.length) {
+            await supabase.from('order_items').insert(items);
+          }
+        }
+      } catch (sbErr) {
+        console.warn('Supabase order mirror warning:', sbErr);
+      }
+    }
+
     // إرسال رسالة تأكيد الطلب الفورية عبر واتساب شات أمان
     if (created && result.paymentMethod!=="geidea" && input.phone && !process.env.FIRESTORE_EMULATOR_HOST) {
       ChatAmanGateway.sendOrderConfirmation({
         phone: input.phone,
-        customerName: input.profileName || "عميل العاصمة",
+        customerName: input.profileName || "عميل سنجوب",
         orderNumber: ref.id.slice(0, 10),
         totalAmount: result.total,
         currency: "ج.م",
-        deliveryAddress: `${input.ministry || "الحي الحكومي"} - دور ${input.floorNumber || ""} - مكتب ${input.roomNumber || ""}`,
+        deliveryAddress: `${input.ministry || input.fullAddress || "عنوان التوصيل"} ${input.floorNumber ? `- دور ${input.floorNumber}` : ""} ${input.roomNumber ? `- شقة/مكتب ${input.roomNumber}` : ""}`.trim(),
       }).catch((waErr) => console.warn("ChatAman confirmation warning:", waErr));
     }
 

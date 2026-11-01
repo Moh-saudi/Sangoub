@@ -18,6 +18,9 @@ import {
   FileSpreadsheet,
   RotateCcw,
   Trash2,
+  Clock,
+  Tag,
+  Check,
 } from "lucide-react";
 import type { Order, Product, Store, Category } from "../types";
 import { saveRecord, deleteRecord } from "../lib/firebase";
@@ -43,7 +46,23 @@ function Editor({ title, busy, onClose, children, compact = false }: { title: st
   </dialog>;
 }
 
-export function CatalogManager({ products, stores, orders, searchRequest, mode }: { products: Product[]; stores: Store[]; orders: Order[]; mode?: "products" | "stores" | "offers"; searchRequest?:{term:string;kind:"products"|"stores";key:number} }) {
+const SLUG_TO_UUID: Record<string, string> = {
+  'store-foul-hind': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
+  'store-supermarket-capital': '54a6c2f6-6c29-4177-ac65-32fadddea83d',
+  'store-ministry-coffee': '55508f0e-f818-452e-b946-ab803fe9d637',
+  'store-karam-elsham': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
+  'store-taza-bakery': '55508f0e-f818-452e-b946-ab803fe9d637',
+};
+
+function matchStoreId(a?: string, b?: string): boolean {
+  if (!a || !b) return true;
+  if (a === b) return true;
+  const uuidA = SLUG_TO_UUID[a] || a;
+  const uuidB = SLUG_TO_UUID[b] || b;
+  return uuidA === uuidB;
+}
+
+export function CatalogManager({ products, stores, orders, searchRequest, mode, fixedStoreId }: { products: Product[]; stores: Store[]; orders: Order[]; mode?: "products" | "stores" | "offers"; searchRequest?:{term:string;kind:"products"|"stores";key:number}; fixedStoreId?: string }) {
   const [offerPicker, setOfferPicker] = useState(false);
   const [assignStoreModal, setAssignStoreModal] = useState<{ product: Product; selectedStoreId: string } | null>(null);
   const [view, setView] = useState<"table" | "cards">("table");
@@ -62,6 +81,27 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [showStoppageLogs, setShowStoppageLogs] = useState(false);
+  const [adminStoppageLogs, setAdminStoppageLogs] = useState<any[]>([]);
+  const [offerModalProduct, setOfferModalProduct] = useState<Product | null>(null);
+  const [isNewOfferPickerOpen, setIsNewOfferPickerOpen] = useState(false);
+  const [offerPickerSearch, setOfferPickerSearch] = useState("");
+  const [offerOrigPrice, setOfferOrigPrice] = useState<number | string>("");
+  const [offerPrice, setOfferPrice] = useState<number | string>("");
+  const [offerTitle, setOfferTitle] = useState("");
+  const [isOccasion, setIsOccasion] = useState(false);
+  const [occasionName, setOccasionName] = useState("");
+  const [offerBadge, setOfferBadge] = useState("");
+  const [offerStartDate, setOfferStartDate] = useState("");
+  const [offerEndDate, setOfferEndDate] = useState("");
+  const [offerMaxPerOrder, setOfferMaxPerOrder] = useState<number | string>(3);
+
+  useEffect(() => {
+    try {
+      const logs = localStorage.getItem('sangoub_all_stores_stoppages_log');
+      if (logs) setAdminStoppageLogs(JSON.parse(logs));
+    } catch {}
+  }, [showStoppageLogs, stores]);
   const performance = useMemo(() => catalogPerformance(orders), [orders]);
 
   // Load hierarchical categories from Supabase for Bulk Importer
@@ -76,14 +116,17 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
     }
     void loadCats();
   }, []);
-  const active = products.filter((item) => !item.archived);
+  const scopedProducts = fixedStoreId ? products.filter((item) => matchStoreId(item.storeId, fixedStoreId)) : products;
+  const active = scopedProducts.filter((item) => !item.archived);
   const discounted = active.filter(hasProductOffer);
   const metrics: [string, number][] = mode === "stores"
     ? [["متاجر مسجلة", stores.length], ["مفتوحة", stores.filter(store => store.status === "open").length], ["مشغولة", stores.filter(store => store.status === "busy").length], ["مغلقة", stores.filter(store => store.status === "closed").length]]
     : mode === "offers"
-      ? [["عروض على المنتجات", discounted.length], ["ظاهرة للزوار", availableOffers(products, stores).length], ["منتجات العرض غير المتاحة", discounted.filter(product => !product.inStock).length], ["متاجر لديها عروض", new Set(discounted.map(product => product.storeId)).size]]
-      : [["منتجات نشطة", active.length], ["متاحة بالمنيو", active.filter(item => item.inStock).length], ["غير متاحة", active.filter(item => !item.inStock).length], ["مؤرشفة", products.filter(item => item.archived).length]];
-  const filtered = products.filter((item) => {
+      ? (fixedStoreId 
+          ? [["عروض المتجر النشطة", discounted.length], ["ظاهرة لعملاء الحي", availableOffers(scopedProducts, stores).length], ["أصناف العرض غير المتاحة", discounted.filter(product => !product.inStock).length], ["إجمالي أصناف المتجر", active.length]]
+          : [["عروض على المنتجات", discounted.length], ["ظاهرة للزوار", availableOffers(products, stores).length], ["منتجات العرض غير المتاحة", discounted.filter(product => !product.inStock).length], ["متاجر لديها عروض", new Set(discounted.map(product => product.storeId)).size]])
+      : [["منتجات نشطة", active.length], ["متاحة بالمنيو", active.filter(item => item.inStock).length], ["غير متاحة", active.filter(item => !item.inStock).length], ["مؤرشفة", scopedProducts.filter(item => item.archived).length]];
+  const filtered = scopedProducts.filter((item) => {
     const text = `${item.name} ${item.storeName} ${item.description}`.toLocaleLowerCase("ar");
     return (mode !== "offers" || hasProductOffer(item)) && text.includes(search.trim().toLocaleLowerCase("ar")) && (!storeFilter || item.storeId === storeFilter) && (!category || item.category === category) &&
       (availability === "archived" ? item.archived : !item.archived && (availability === "available" ? item.inStock : availability === "unavailable" ? !item.inStock : true));
@@ -210,11 +253,11 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
         )}
         <button
           disabled={busy || (tab === "products" && !stores.length) || (mode === "offers" && !active.length)}
-          onClick={() => mode === "offers" ? setOfferPicker(true) : open(tab)}
+          onClick={() => mode === "offers" ? setIsNewOfferPickerOpen(true) : open(tab)}
           className="admin-primary btn btn-primary flex items-center gap-1.5"
         >
           <Plus size={18} />
-          {mode === "offers" ? "إضافة عرض على منتج" : tab === "products" ? "إضافة منتج" : "إضافة متجر"}
+          {mode === "offers" ? "+ إضافة وتفعيل عرض جديد" : tab === "products" ? "إضافة منتج" : "إضافة متجر"}
         </button>
       </div>
     </header>
@@ -261,7 +304,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
     {error && !editor && <p role="alert" className="bg-red-50 text-red-700 rounded-xl p-3">{error}</p>}{message && <p role="status" className="bg-emerald-50 text-emerald-800 rounded-xl p-3">{message}</p>}
 
     <div className="catalog-filters"><label className="relative min-w-0"><Search className="absolute right-3 top-3.5 text-slate-400" size={16} /><input aria-label="بحث الكتالوج" className={`${input} pr-9`} placeholder="ابحث بالاسم أو المتجر" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
-      {tab === "products" && <><select aria-label="تصفية حسب المتجر" className={input} value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}><option value="">كل المتاجر</option>{stores.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><select aria-label="تصفية حسب التصنيف" className={input} value={category} onChange={(e) => setCategory(e.target.value)}><option value="">كل التصنيفات</option>{productCategories.map((item) => <option key={item}>{item}</option>)}</select><select aria-label="تصفية حسب التوافر" className={input} value={availability} onChange={(e) => setAvailability(e.target.value)}><option value="active">كل المنتجات النشطة</option><option value="available">متاحة بالمنيو</option><option value="unavailable">غير متاحة</option><option value="archived">الأرشيف والمؤرشفة 📦</option></select><select aria-label="ترتيب المنتجات" value={sort} onChange={(e) => setSort(e.target.value)} className={input}><option value="name">الاسم</option><option value="price">السعر الأقل</option><option value="sales">الأكثر مبيعًا</option></select></>}
+      {tab === "products" && <>{!fixedStoreId && <select aria-label="تصفية حسب المتجر" className={input} value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}><option value="">كل المتاجر</option>{stores.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}<select aria-label="تصفية حسب التصنيف" className={input} value={category} onChange={(e) => setCategory(e.target.value)}><option value="">كل التصنيفات</option>{productCategories.map((item) => <option key={item}>{item}</option>)}</select><select aria-label="تصفية حسب التوافر" className={input} value={availability} onChange={(e) => setAvailability(e.target.value)}><option value="active">كل المنتجات النشطة</option><option value="available">متاحة بالمنيو</option><option value="unavailable">غير متاحة</option><option value="archived">الأرشيف والمؤرشفة 📦</option></select><select aria-label="ترتيب المنتجات" value={sort} onChange={(e) => setSort(e.target.value)} className={input}><option value="name">الاسم</option><option value="price">السعر الأقل</option><option value="sales">الأكثر مبيعًا</option></select></>}
     </div>
 
     {/* ── Toolbar with Rows-Per-Page Selector ── */}
@@ -347,14 +390,105 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
           onDelete={handleDeleteProduct}
         />
       ) : (
-        <CatalogStoreTable
-          stores={pagedStores}
-          products={products}
-          busy={busy}
-          onEdit={id => open("stores", id)}
-          onStatus={store => perform(() => saveRecord("stores", store.id, {status: store.status === "open" ? "closed" : "open"}), "تم تحديث حالة المتجر.")}
-          onDelete={store => { if (window.confirm(`هل أنت متأكد من حذف متجر "${store.name}" نهائياً من النظام؟`)) { perform(() => deleteRecord("stores", store.id), "تم حذف المتجر نهائياً من النظام."); } }}
-        />
+        <>
+          {/* Stoppages Monitor Header for Stores */}
+          {tab === "stores" && (
+            <div className="mb-4 bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-3 h-3 rounded-full ${stores.some(s => s.status === 'closed') ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+                  <div>
+                    <h3 className="text-xs font-black text-slate-900">مراقبة توقف وتشغيل المتاجر (Store Stoppage Monitor)</h3>
+                    <p className="text-[11px] text-slate-500">
+                      {stores.filter(s => s.status === 'closed').length > 0
+                        ? `يوجد ${stores.filter(s => s.status === 'closed').length} متجر متوقف حالياً عن استقبال الطلبات.`
+                        : 'جميع المتاجر الشريكة تعمل وتستقبل الطلبات بشكل طبيعي.'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowStoppageLogs(v => !v)}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+                >
+                  <Clock size={14} />
+                  <span>{showStoppageLogs ? 'إخفاء سجل التوقفات' : 'عرض سجل توقفات المتاجر'}</span>
+                </button>
+              </div>
+
+              {/* Expandable Stoppages History Log */}
+              {showStoppageLogs && (
+                <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                  <h4 className="text-[11px] font-bold text-slate-700">سجل فترات التوقف السابقة المسجلة من لوحة التاجر والإدارة:</h4>
+                  {adminStoppageLogs.length === 0 ? (
+                    <div className="text-center py-4 text-slate-400 text-xs">
+                      لا توجد فترات توقف مسجلة بعد في النظام.
+                    </div>
+                  ) : (
+                    <div className="max-h-60 overflow-y-auto">
+                      <table className="w-full text-right text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-100 text-slate-400 text-[10px]">
+                            <th className="py-2 font-bold">المتجر</th>
+                            <th className="py-2 font-bold">بداية التوقف</th>
+                            <th className="py-2 font-bold">الاستئناف</th>
+                            <th className="py-2 font-bold">المدة الإجمالية</th>
+                            <th className="py-2 font-bold">المسؤول</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                          {adminStoppageLogs.map((log: any) => (
+                            <tr key={log.id} className="hover:bg-slate-50">
+                              <td className="py-2 font-sans font-bold text-slate-800">{log.storeName || log.storeId}</td>
+                              <td className="py-2 text-slate-600">
+                                {new Date(log.stoppedAt).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })}
+                              </td>
+                              <td className="py-2 text-slate-600">
+                                {log.resumedAt ? new Date(log.resumedAt).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : <span className="text-rose-600 font-bold font-sans">قيد التوقف</span>}
+                              </td>
+                              <td className="py-2">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${log.status === 'closed' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'}`}>
+                                  {log.durationLabel || (log.durationMinutes ? `${log.durationMinutes} دقيقة` : 'جاري الحساب')}
+                                </span>
+                              </td>
+                              <td className="py-2 font-sans text-slate-500">{log.stoppedBy || 'مدير المتجر'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <CatalogStoreTable
+            stores={pagedStores}
+            products={products}
+            busy={busy}
+            onEdit={id => open("stores", id)}
+            onStatus={store => perform(async () => {
+              const nextStatus = store.status === "open" ? "closed" : "open";
+              const now = Date.now();
+              await saveRecord("stores", store.id, { status: nextStatus });
+              try { await supabase.from("stores").update({ status: nextStatus, updated_at: new Date().toISOString() }).eq("id", store.id); } catch {}
+              const stoppageKey = 'sangoub_store_stoppage_' + store.id;
+              const globalLogKey = 'sangoub_all_stores_stoppages_log';
+              if (nextStatus === 'closed') {
+                const rec = { storeId: store.id, storeName: store.name, stoppedAt: now, stoppedBy: 'إدارة المنصة', status: 'closed' };
+                localStorage.setItem(stoppageKey, JSON.stringify(rec));
+                const logs = JSON.parse(localStorage.getItem(globalLogKey) || '[]');
+                logs.unshift({ ...rec, id: 'stop_' + now });
+                localStorage.setItem(globalLogKey, JSON.stringify(logs.slice(0, 50)));
+              } else {
+                localStorage.removeItem(stoppageKey);
+              }
+            }, "تم تحديث حالة المتجر وتوثيق التوقف.")}
+            onDelete={store => { if (window.confirm(`هل أنت متأكد من حذف متجر "${store.name}" نهائياً من النظام؟`)) { perform(() => deleteRecord("stores", store.id), "تم حذف المتجر نهائياً من النظام."); } }}
+          />
+        </>
       )
     ) : <>
     {tab === "products" ? <><p className="text-xs text-slate-500">{filtered.length} منتج · المبيعات من الأصناف المسلّمة في السجلات المتاحة، قبل خصم القسائم ورسوم التوصيل. التوافر يدوي؛ لا يمثل عدد القطع في المخزن.</p><div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">{visibleProducts.map((product) => {
@@ -378,6 +512,50 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
             </button>
           )}
           <button disabled={busy} onClick={() => open("products", product.id)} className={button}><Pencil size={14} className="inline ml-1" />تعديل</button>
+          {mode === "offers" && (
+            <button
+              disabled={busy}
+              onClick={() => {
+                setOfferModalProduct(product);
+                setOfferOrigPrice(product.originalPrice || product.price);
+                setOfferPrice(product.price);
+                setOfferTitle((product as any).offerTitle || `${product.name} - عرض خاص`);
+                setIsOccasion(Boolean((product as any).isOccasion));
+                setOccasionName((product as any).occasionName || "");
+                setOfferBadge(product.badge || "عرض خاص 🔥");
+                setOfferStartDate((product as any).offerStartDate || new Date().toISOString().split('T')[0]);
+                setOfferEndDate((product as any).offerEndDate || "");
+                setOfferMaxPerOrder(product.maxPerOrder || 3);
+              }}
+              className={`${button} bg-orange-50 hover:bg-orange-100 text-orange-800 border-orange-200 font-bold`}
+              title="تعديل نسبة وسعر العرض"
+            >
+              <Tag size={14} className="inline ml-1" />
+              تعديل العرض
+            </button>
+          )}
+          {mode === "offers" && Boolean(product.originalPrice && product.originalPrice > product.price) && (
+            <button
+              disabled={busy}
+              onClick={async () => {
+                const orig = product.originalPrice || product.price;
+                if (window.confirm(`هل أنت متأكد من إلغاء العرض عن "${product.name}" واستعادة السعر الأصلي (${orig} ج.م)؟`)) {
+                  await perform(async () => {
+                    await saveRecord("products", product.id, { price: orig, originalPrice: null });
+                    try {
+                      await supabase.from("products").update({ price: orig, original_price: null }).eq("id", product.id);
+                    } catch (err) {
+                      console.warn("Failed to cancel offer in Supabase:", err);
+                    }
+                  }, "تم إلغاء العرض بنجاح واستعادة السعر الأصلي.");
+                }
+              }}
+              className={`${button} text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-200 font-bold`}
+              title="إلغاء الخصم واستعادة السعر الطبيعي"
+            >
+              إلغاء العرض
+            </button>
+          )}
           {!product.archived && <button disabled={busy} onClick={() => changeAvailability(product)} className={`${button} ${product.inStock ? "text-emerald-700 bg-emerald-50" : "text-amber-700 bg-amber-50"}`}>{product.inStock ? "متاح — إيقاف" : "غير متاح — تفعيل"}</button>}
           {product.archived ? (
             <button
@@ -419,12 +597,384 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode }
           )}
         </div>
       </article>;
-    })}</div>{!filtered.length && <div className="p-10 text-center rounded-2xl border bg-white space-y-3"><Package className="mx-auto text-slate-300" /><p>{mode === "offers" ? "لا توجد عروض في هذا العرض. اختر منتجًا من زر إضافة عرض، أو راجع التصفية." : products.length ? "لا توجد منتجات تطابق البحث." : "لم تُضف منتجات بعد. أضف متجرًا ثم أول منتج حقيقي."}</p><button className={button} onClick={() => { setSearch(""); setCategory(""); setStoreFilter(""); setAvailability("active"); }}>مسح التصفية</button></div>}</> : <div className="grid md:grid-cols-2 gap-4">{pagedStores.map((store) => <article key={store.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden">{(store.imageUrl || store.bannerUrl) && <img src={store.imageUrl || store.bannerUrl} alt={store.name} className="h-36 w-full object-cover" />}<div className="p-5 space-y-3"><div className="flex gap-3 items-center">{store.logoUrl && <img src={store.logoUrl} alt={`شعار ${store.name}`} className="w-12 h-12 rounded-xl object-contain border" />}<div><h2 className="font-bold">{store.name}</h2><p className="text-xs text-slate-500">{store.type}</p></div></div><p className="text-sm text-slate-600">{store.locationInDistrict}</p><p className="text-xs">{active.filter((item) => item.storeId === store.id).length} منتج · الحد الأدنى {formatEGP(store.minOrder)} · التوصيل {formatEGP(store.deliveryFee)}</p><div className="flex gap-2 flex-wrap"><button disabled={busy} onClick={() => open("stores", store.id)} className={button}>تعديل المتجر والصور</button><button disabled={busy} onClick={() => perform(() => saveRecord("stores", store.id, { status: store.status === "open" ? "closed" : "open" }), "تم تحديث حالة المتجر.")} className={`${button} ${store.status === "open" ? "text-emerald-700" : "text-amber-700"}`}>{store.status === "open" ? "مفتوح — إغلاق مؤقت" : "مغلق أو مشغول — فتح"}</button><button disabled={busy} onClick={() => { if (window.confirm(`هل أنت متأكد من حذف متجر "${store.name}" نهائياً من النظام؟`)) { perform(() => deleteRecord("stores", store.id), "تم حذف المتجر نهائياً من النظام."); } }} className={`${button} text-red-600 hover:bg-red-50 border-red-200`}>حذف المتجر</button></div></div></article>)}{!visibleStores.length && <p className="p-8 bg-white border rounded-xl">لا توجد متاجر تطابق البحث. يمكنك إضافة متجر من الزر أعلاه.</p>}</div>}
+    })}</div>{!filtered.length && <div className="p-10 text-center rounded-2xl border bg-white space-y-3"><Package className="mx-auto text-slate-300" /><p>{mode === "offers" ? "لا توجد عروض في هذا العرض. اختر منتجًا من زر إضافة عرض، أو راجع التصفية." : products.length ? "لا توجد منتجات تطابق البحث." : "لم تُضف منتجات بعد. أضف متجرًا ثم أول منتج حقيقي."}</p><button className={button} onClick={() => { setSearch(""); setCategory(""); setStoreFilter(""); setAvailability("active"); }}>مسح التصفية</button></div>}</> : <div className="grid md:grid-cols-2 gap-4">{pagedStores.map((store) => <article key={store.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden">{(store.banner || store.bannerUrl || store.imageUrl) && <img src={store.banner || store.bannerUrl || store.imageUrl} alt={store.name} className="h-36 w-full object-cover" />}<div className="p-5 space-y-3"><div className="flex gap-3 items-center">{(store.logo || store.logoUrl) && <img src={store.logo || store.logoUrl} alt={`شعار ${store.name}`} className="w-12 h-12 rounded-xl object-contain border" />}<div><h2 className="font-bold">{store.name}</h2><p className="text-xs text-slate-500">{store.type}</p></div></div><p className="text-sm text-slate-600">{store.locationInDistrict}</p><p className="text-xs">{active.filter((item) => item.storeId === store.id).length} منتج · الحد الأدنى {formatEGP(store.minOrder)} · التوصيل {formatEGP(store.deliveryFee)}</p><div className="flex gap-2 flex-wrap"><button disabled={busy} onClick={() => open("stores", store.id)} className={button}>تعديل المتجر والصور</button><button disabled={busy} onClick={() => perform(() => saveRecord("stores", store.id, { status: store.status === "open" ? "closed" : "open" }), "تم تحديث حالة المتجر.")} className={`${button} ${store.status === "open" ? "text-emerald-700" : "text-amber-700"}`}>{store.status === "open" ? "مفتوح — إغلاق مؤقت" : "مغلق أو مشغول — فتح"}</button><button disabled={busy} onClick={() => { if (window.confirm(`هل أنت متأكد من حذف متجر "${store.name}" نهائياً من النظام؟`)) { perform(() => deleteRecord("stores", store.id), "تم حذف المتجر نهائياً من النظام."); } }} className={`${button} text-red-600 hover:bg-red-50 border-red-200`}>حذف المتجر</button></div></div></article>)}{!visibleStores.length && <p className="p-8 bg-white border rounded-xl">لا توجد متاجر تطابق البحث. يمكنك إضافة متجر من الزر أعلاه.</p>}</div>}
     </>}
     {tab === "products" && view === "table" && resultCount > 0 && <p className="catalog-data-note">المبيعات من الأصناف المسلّمة. التوافر يحدد إمكانية الطلب ولا يمثل كمية المخزون.</p>}
     {resultCount > pageSize && <nav className="admin-pagination catalog-pagination" aria-label="صفحات الكتالوج"><span>صفحة {currentPage + 1} من {lastPage + 1}</span><div><button className="compact-row-action btn btn-outline-secondary" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}><ChevronRight size={15} />السابق</button><button className="compact-row-action btn btn-outline-secondary" disabled={currentPage >= lastPage} onClick={() => setPage(currentPage + 1)}>التالي<ChevronLeft size={15} /></button></div></nav>}
     {mode === "offers" && <p className="catalog-data-note">لتفعيل عرض، اختر منتجًا وحدد سعر البيع والسعر قبل الخصم. لإلغاء العرض، امسح السعر قبل الخصم. المنتجات المؤرشفة أو غير المتاحة والمتاجر المغلقة لا تظهر في صفحة العروض.</p>}
-    {offerPicker && <Editor compact title="اختيار منتج للعرض" busy={busy} onClose={() => setOfferPicker(false)}><form className="catalog-editor-form" onSubmit={event => { event.preventDefault(); const id = String(new FormData(event.currentTarget).get("productId") || ""); if (active.some(product => product.id === id)) { setOfferPicker(false); open("products", id); } }}><Field label="المنتج"><select name="productId" aria-label="المنتج" required defaultValue="" className={input}><option value="" disabled>اختر منتجًا من الكتالوج</option>{active.map(product => <option key={product.id} value={product.id}>{product.name} · {stores.find(store => store.id === product.storeId)?.name || product.storeName}</option>)}</select></Field><p className="text-sm text-slate-500">سيُحفظ الخصم على المنتج نفسه وتُحدّث صفحة العروض تلقائيًا.</p><button className="admin-primary btn btn-primary">تحديد سعر العرض</button></form></Editor>}
+    {/* 1. Modal: Pick Product for New Offer */}
+    {isNewOfferPickerOpen && (
+      <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" dir="rtl">
+        <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+          <header className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-orange-600 text-white flex items-center justify-center">
+                <Tag size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">اختيار منتج لتفعيل عرض تخفيض</h3>
+                <p className="text-[11px] text-slate-500">اختر المنتج الذي ترغب في إنشاء خصم ترويجي عليه ليظهر في المتجر وصفحة العروض</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setIsNewOfferPickerOpen(false); setOfferPickerSearch(""); }}
+              className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 cursor-pointer"
+            >
+              <X size={15} />
+            </button>
+          </header>
+
+          <div className="p-4 border-b border-slate-100 bg-white">
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+              <input
+                type="search"
+                placeholder="ابحث بالاسم أو المتجر أو التصنيف…"
+                value={offerPickerSearch}
+                onChange={(e) => setOfferPickerSearch(e.target.value)}
+                className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-orange-500"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3 divide-y divide-slate-100">
+            {active
+              .filter(p => !offerPickerSearch.trim() || `${p.name} ${p.storeName} ${p.category}`.toLowerCase().includes(offerPickerSearch.trim().toLowerCase()))
+              .slice(0, 50)
+              .map(p => {
+                const store = stores.find(s => s.id === p.storeId);
+                const hasOffer = Boolean(p.originalPrice && p.originalPrice > p.price);
+
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setIsNewOfferPickerOpen(false);
+                      setOfferPickerSearch("");
+                      setOfferModalProduct(p);
+                      setOfferOrigPrice(p.originalPrice || p.price);
+                      setOfferPrice(hasOffer ? p.price : Math.round(p.price * 0.8));
+                      setOfferTitle((p as any).offerTitle || `${p.name} - عرض ترويجي`);
+                      setIsOccasion(Boolean((p as any).isOccasion));
+                      setOccasionName((p as any).occasionName || "");
+                      setOfferBadge(p.badge || "عرض خاص 🔥");
+                      setOfferStartDate((p as any).offerStartDate || new Date().toISOString().split('T')[0]);
+                      setOfferEndDate((p as any).offerEndDate || "");
+                      setOfferMaxPerOrder(p.maxPerOrder || 3);
+                    }}
+                    className="w-full py-2.5 px-3 rounded-xl hover:bg-orange-50/70 flex items-center justify-between gap-3 text-right transition cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-100">
+                        {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300">📦</div>}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-slate-900 truncate">{p.name}</h4>
+                        <span className="text-[10px] text-slate-500 block truncate">{store?.name || p.storeName} · {p.category}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-left shrink-0">
+                      <strong className="text-xs font-black font-mono text-orange-700 block">{formatEGP(p.price)}</strong>
+                      {hasOffer && <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded">عرض نشط 🔥</span>}
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* 2. Modal: Create / Edit Offer on Selected Product */}
+    {offerModalProduct && (
+      <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" dir="rtl">
+        <div className="bg-white rounded-3xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95">
+          <header className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-orange-600 text-white flex items-center justify-center">
+                <Tag size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">إدارة وتفعيل عرض ترويجي</h3>
+                <p className="text-[11px] text-slate-500">تحديد السعر قبل وبعد الخصم ليظهر في شريط العروض بالمتجر</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOfferModalProduct(null)}
+              className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 cursor-pointer"
+            >
+              <X size={15} />
+            </button>
+          </header>
+
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const orig = Number(offerOrigPrice);
+              const p = Number(offerPrice);
+              if (!Number.isFinite(orig) || !Number.isFinite(p) || p <= 0 || orig <= p) {
+                setError("السعر قبل الخصم يجب أن يكون أكبر من سعر البيع المخفض.");
+                return;
+              }
+              await perform(async () => {
+                const offerPayload = {
+                  price: p,
+                  originalPrice: orig,
+                  offerTitle: offerTitle.trim() || undefined,
+                  isOccasion: Boolean(isOccasion),
+                  occasionName: isOccasion && occasionName.trim() ? occasionName.trim() : undefined,
+                  badge: offerBadge.trim() || (isOccasion ? occasionName.trim() : "عرض خاص 🔥"),
+                  offerStartDate: offerStartDate || undefined,
+                  offerEndDate: offerEndDate || undefined,
+                  maxPerOrder: Number(offerMaxPerOrder) > 0 ? Number(offerMaxPerOrder) : undefined,
+                  inStock: true
+                };
+                await saveRecord("products", offerModalProduct.id, offerPayload);
+                try {
+                  await supabase.from("products").update({
+                    price: p,
+                    original_price: orig,
+                    is_available: true
+                  }).eq("id", offerModalProduct.id);
+                } catch (err) {
+                  console.warn("Failed to sync offer to Supabase:", err);
+                }
+              }, `تم تفعيل وحفظ تفاصيل العرض بنجاح على "${offerModalProduct.name}"!`);
+              setOfferModalProduct(null);
+            }}
+            className="p-5 space-y-3.5 text-xs overflow-y-auto max-h-[75vh]"
+          >
+            {/* Product summary tile */}
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-white overflow-hidden shrink-0 border border-slate-200">
+                {offerModalProduct.imageUrl ? <img src={offerModalProduct.imageUrl} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300">📦</div>}
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-xs font-bold text-slate-900 truncate">{offerModalProduct.name}</h4>
+                <span className="text-[10px] text-slate-500 block">{stores.find(s => s.id === offerModalProduct.storeId)?.name || offerModalProduct.storeName}</span>
+                <span className="text-[10px] font-mono text-slate-600 block mt-0.5">السعر الأساسي الحالي: {formatEGP(offerModalProduct.originalPrice || offerModalProduct.price)}</span>
+              </div>
+            </div>
+
+            {/* Offer Campaign Title */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">اسم العرض / عنوان الحملة الترويجية *</label>
+              <input
+                type="text"
+                required
+                value={offerTitle}
+                onChange={(e) => setOfferTitle(e.target.value)}
+                placeholder="مثال: فطار الصباح بالحي الحكومي، وجبة التوفير العائلية..."
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-orange-500"
+              />
+            </div>
+
+            {/* Occasion / Season Section */}
+            <div className="bg-orange-50/50 p-3 rounded-2xl border border-orange-200/60 space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isOccasion}
+                  onChange={(e) => setIsOccasion(e.target.checked)}
+                  className="rounded text-orange-600 focus:ring-orange-500"
+                />
+                <span className="text-[11px] font-black text-orange-950">هل هذا العرض مرتبط بمناسبة خاصة أو موسم معين؟</span>
+              </label>
+
+              {isOccasion && (
+                <div className="pt-1.5 space-y-2 animate-in fade-in">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">اختر أو اكتب اسم المناسبة:</label>
+                    <div className="flex gap-1.5 flex-wrap mb-1.5">
+                      {["فطار الوزارات والعمل الصباحي", "عروض نهاية الأسبوع", "الجمعة البيضاء", "العودة للعمل والمدارس", "شهر رمضان المبارك"].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setOccasionName(preset)}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition ${
+                            occasionName === preset
+                              ? "bg-orange-600 text-white border-orange-600"
+                              : "bg-white text-slate-700 border-slate-200 hover:bg-orange-50"
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={occasionName}
+                      onChange={(e) => setOccasionName(e.target.value)}
+                      placeholder="اسم المناسبة..."
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Pricing Section */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">السعر الأصلي (قبل الخصم) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  required
+                  value={offerOrigPrice}
+                  onChange={(e) => setOfferOrigPrice(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs font-bold text-slate-900 focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">سعر العرض المخفض (للزبون) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.5"
+                  required
+                  value={offerPrice}
+                  onChange={(e) => setOfferPrice(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-orange-300 rounded-xl font-mono text-xs font-black text-emerald-800 focus:outline-none focus:border-orange-500"
+                />
+              </div>
+            </div>
+
+            {/* Quick discount chips */}
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 block mb-1.5">اختيار نسبة خصم سريعة:</span>
+              <div className="flex gap-1.5 flex-wrap">
+                {[10, 15, 20, 25, 30, 50].map((pct) => {
+                  const orig = Number(offerOrigPrice) || offerModalProduct.price;
+                  return (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => {
+                        setOfferPrice(Math.round(orig * (1 - pct / 100)));
+                      }}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-800 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                    >
+                      خصم {pct}%
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Badge & Max per order */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">الشارة الترويجية (Badge)</label>
+                <input
+                  type="text"
+                  value={offerBadge}
+                  onChange={(e) => setOfferBadge(e.target.value)}
+                  placeholder="مثال: عرض خاص 🔥، وفر أكثر..."
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">الحد الأقصى للطلب الواحد</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={offerMaxPerOrder}
+                  onChange={(e) => setOfferMaxPerOrder(e.target.value)}
+                  placeholder="الافتراضي: 3 قطع"
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900"
+                />
+              </div>
+            </div>
+
+            {/* Dates row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">تاريخ بدء العرض</label>
+                <input
+                  type="date"
+                  value={offerStartDate}
+                  onChange={(e) => setOfferStartDate(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">تاريخ انتهاء العرض (اختياري)</label>
+                <input
+                  type="date"
+                  value={offerEndDate}
+                  onChange={(e) => setOfferEndDate(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Live Preview Badge */}
+            {Number(offerOrigPrice) > Number(offerPrice) && Number(offerPrice) > 0 && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-emerald-800 font-bold">
+                <span className="flex items-center gap-1.5">
+                  <span>🔥</span>
+                  <span>نسبة الخصم: {Math.round((1 - Number(offerPrice) / Number(offerOrigPrice)) * 100)}%</span>
+                </span>
+                <span className="font-mono text-xs">وفرت للعميل {formatEGP(Number(offerOrigPrice) - Number(offerPrice))}</span>
+              </div>
+            )}
+
+            <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-100">
+              {Boolean(offerModalProduct.originalPrice && offerModalProduct.originalPrice > offerModalProduct.price) && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const orig = offerModalProduct.originalPrice || offerModalProduct.price;
+                    if (window.confirm(`هل ترغب في إلغاء العرض والعودة للسعر الأصلي (${orig} ج.م)؟`)) {
+                      await perform(async () => {
+                        await saveRecord("products", offerModalProduct.id, { price: orig, originalPrice: null });
+                        try {
+                          await supabase.from("products").update({ price: orig, original_price: null }).eq("id", offerModalProduct.id);
+                        } catch (err) {
+                          console.warn("Failed to reset offer in Supabase:", err);
+                        }
+                      }, "تم إلغاء العرض بنجاح واستعادة السعر الأصلي.");
+                      setOfferModalProduct(null);
+                    }
+                  }}
+                  className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl font-bold cursor-pointer transition text-xs"
+                >
+                  إلغاء الخصم
+                </button>
+              )}
+
+              <div className="flex items-center gap-2 mr-auto">
+                <button
+                  type="button"
+                  onClick={() => setOfferModalProduct(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Check size={14} />
+                  <span>تفعيل وحفظ العرض</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
     {editor?.kind === "products" && mode !== "offers" && (
       <EnterpriseProductModal
         product={selectedProduct}

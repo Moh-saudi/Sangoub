@@ -468,7 +468,7 @@ export async function searchMatchingCatalog(term: string): Promise<MatchingProdu
 
   // إذا كان الحرف مدخلاً فردياً أو ثنائياً، نعيد الفوري فوراً ونبحث في الخلفية
   try {
-    const promises: Promise<any>[] = [];
+    const promises: PromiseLike<any>[] = [];
 
     // بحث في master_spu بالخادم
     promises.push(

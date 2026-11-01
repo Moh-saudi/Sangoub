@@ -50,7 +50,14 @@ export function productFormData(data: FormData, previous?: Product) {
   if (!Number.isFinite(price) || price < 0 || price > 100000 || !Number.isFinite(originalPrice) || originalPrice < price || originalPrice > 100000)
     throw new Error("راجع السعر؛ السعر قبل الخصم يجب ألا يقل عن سعر البيع.");
   if (!productCategories.includes(category)) throw new Error("اختر تصنيفًا صحيحًا.");
-  if (imageUrl && new URL(imageUrl).protocol !== "https:") throw new Error("رابط الصورة يجب أن يستخدم HTTPS.");
+  if (imageUrl && !imageUrl.startsWith('/') && !imageUrl.startsWith('data:') && !imageUrl.startsWith('photo-')) {
+    try {
+      const u = new URL(imageUrl.startsWith('//') ? 'https:' + imageUrl : imageUrl);
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error();
+    } catch {
+      if (imageUrl.includes(':')) throw new Error("رابط الصورة يجب أن يستخدم HTTPS.");
+    }
+  }
   return {
     name, description, price, originalPrice, category, imageUrl,
     badge: String(data.get("badge") || "").trim().slice(0, 80),

@@ -11,6 +11,7 @@ export function CatalogProductTable({
   onAvailability,
   onArchive,
   onDelete,
+  onPublish,
 }: {
   products: Product[];
   stores: Store[];
@@ -20,6 +21,7 @@ export function CatalogProductTable({
   onAvailability: (product: Product) => void;
   onArchive: (product: Product) => void;
   onDelete?: (product: Product) => void;
+  onPublish?: (product: Product) => void;
 }) {
   return (
     <div className="admin-table-scroll catalog-table-scroll">

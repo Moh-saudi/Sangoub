@@ -1,5 +1,6 @@
 import { OrderReceiptCode } from "./OrderReceiptCode";
 import { OrderMap } from "./OrderMap.tsx";
+import { CustomerPOSReceipt } from "./CustomerPOSReceipt";
 import React, { useState } from "react";
 import {
   PackageCheck,
@@ -16,6 +17,8 @@ import {
   Check,
   Receipt,
   MessageCircle,
+  Printer,
+  X,
 } from "lucide-react";
 import type { Order, OrderStatus } from "../types/index.ts";
 import { formatEGP, getOrderStatusLabel } from "../utils/orderCalculations.ts";
@@ -30,6 +33,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   orders,
   onReorder,
 }) => {
+  const [selectedReceiptOrder, setSelectedReceiptOrder] = useState<Order | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(
     orders.length > 0 ? orders[0].id : null,
   );

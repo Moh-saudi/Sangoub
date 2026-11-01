@@ -6,6 +6,7 @@ import type { Product, Store } from "../types";
 import type { AppSelection } from "./AppPromotionDialog";
 import { availableOffers, productDiscountPercent } from "../utils/productOffers";
 import { formatEGP } from "../utils/orderCalculations";
+import { supabase, getSupabaseStores } from "../lib/supabase";
 
 export default function PublicOffers({ onSelect }: { onSelect: (item: AppSelection) => void }) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -19,9 +20,77 @@ export default function PublicOffers({ onSelect }: { onSelect: (item: AppSelecti
   const [page, setPage] = useState(1);
   useEffect(() => {
     setLoaded({ products: false, stores: false }); setErrors({ products: false, stores: false });
-    const stopProducts = watchCollection<Product>("products", data => { setProducts(data); setLoaded(value => ({ ...value, products: true })); setErrors(value => ({ ...value, products: false })); }, () => setErrors(value => ({ ...value, products: true })), [where("inStock", "==", true)]);
-    const stopStores = watchCollection<Store>("stores", data => { setStores(data); setLoaded(value => ({ ...value, stores: true })); setErrors(value => ({ ...value, stores: false })); }, () => setErrors(value => ({ ...value, stores: true })), [where("status", "==", "open")]);
-    return () => { stopProducts(); stopStores(); };
+    let active = true;
+
+    async function loadFromSupabase() {
+      try {
+        const [spStores, { data: spProds }] = await Promise.all([
+          getSupabaseStores().catch(() => [] as Store[]),
+          supabase.from("products").select("*, stores(name, status)").gt("original_price", 0)
+        ]);
+        if (!active) return;
+        if (spStores && spStores.length) {
+          setStores(prev => {
+            const map = new Map(prev.map(s => [s.id, s]));
+            spStores.forEach(s => map.set(s.id, s));
+            return Array.from(map.values());
+          });
+          setLoaded(v => ({ ...v, stores: true }));
+        }
+        if (spProds && spProds.length) {
+          const mapped: Product[] = spProds.map((r: any) => ({
+            id: r.id,
+            storeId: r.store_id,
+            storeName: r.stores?.name || "متجر سنجوب",
+            name: r.name,
+            nameEn: r.name_en || undefined,
+            description: r.description || "",
+            price: Number(r.price) || 0,
+            originalPrice: Number(r.original_price) || undefined,
+            category: r.category || "عام",
+            categoryId: r.category_id || undefined,
+            barcode: r.barcode || "",
+            merchantPosSku: r.merchant_pos_sku || "",
+            inStock: Boolean(r.is_available),
+            isPopular: Boolean(r.is_popular),
+            imageUrl: r.image_url || "",
+            archived: Boolean(r.archived),
+            imageType: "croissant",
+          }));
+          setProducts(prev => {
+            const map = new Map(prev.map(p => [p.id, p]));
+            mapped.forEach(p => map.set(p.id, p));
+            return Array.from(map.values());
+          });
+          setLoaded(v => ({ ...v, products: true }));
+        }
+      } catch (e) {
+        console.warn("PublicOffers Supabase load error:", e);
+      }
+    }
+    void loadFromSupabase();
+
+    const stopProducts = watchCollection<Product>("products", data => {
+      setProducts(prev => {
+        const map = new Map(prev.map(p => [p.id, p]));
+        data.forEach(p => map.set(p.id, p));
+        return Array.from(map.values());
+      });
+      setLoaded(value => ({ ...value, products: true }));
+      setErrors(value => ({ ...value, products: false }));
+    }, () => setErrors(value => ({ ...value, products: true })), [where("inStock", "==", true)]);
+
+    const stopStores = watchCollection<Store>("stores", data => {
+      setStores(prev => {
+        const map = new Map(prev.map(s => [s.id, s]));
+        data.forEach(s => map.set(s.id, s));
+        return Array.from(map.values());
+      });
+      setLoaded(value => ({ ...value, stores: true }));
+      setErrors(value => ({ ...value, stores: false }));
+    }, () => setErrors(value => ({ ...value, stores: true })), [where("status", "==", "open")]);
+
+    return () => { active = false; stopProducts(); stopStores(); };
   }, [retry]);
   useEffect(() => { setPage(1); }, [search, storeId, sort]);
   const offers = availableOffers(products, stores);

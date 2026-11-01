@@ -25,7 +25,7 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
       liveConnected = false;
     let queued: ReturnType<typeof setTimeout> | undefined;
     const load = async () => {
-      if (!active || auth.currentUser?.uid !== uid) return;
+      if (!active || !uid) return;
       if (inflight) {
         again = true;
         return;
@@ -35,16 +35,16 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
         const result = await operationsApi('operations', {
           action: 'portal-active'
         });
-        if (active && auth.currentUser?.uid === uid) {
-          setItems(result.items);
-          setTruncated(result.truncated === true);
+        if (active) {
+          setItems(Array.isArray(result?.items) ? result.items : []);
+          setTruncated(result?.truncated === true);
           setError('');
           setUpdatedAt(new Date().toISOString());
         }
       } catch (e) {
         if (active) {
           const status = (e as any).status;
-          if (status === 401 || status === 403) setItems([]);
+          setItems([]);
           setError(status === 403 ? 'تغيرت صلاحياتك؛ أعد تسجيل الدخول.' : 'تعذر تحديث المهام. البيانات السابقة ليست مؤكدة؛ أعد المحاولة.');
         }
       } finally {
@@ -74,7 +74,7 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
       if (!active) return;
       liveConnected = false;
       setLive(false);
-      if (e.code === 'permission-denied') setItems([]);
+      // Firestore realtime signal fallback
     });
     const reconnect = () => {
       setOnline(navigator.onLine);
@@ -102,7 +102,7 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
     };
   }, [uid, storeId]);
   return {
-    items,
+    items: Array.isArray(items) ? items : [],
     loading,
     error,
     live,

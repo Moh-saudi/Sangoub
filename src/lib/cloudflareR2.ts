@@ -2,10 +2,10 @@
 // authenticated, scoped catalog endpoint; never return temporary blob URLs.
 import { uploadCatalogImage } from "./catalogImages";
 export const R2_CONFIG = {
-  bucketName: "capitaltalabat",
+  bucketName: "sangoub",
   accountId: "14521cdfec73fa908fbf7e760fae362a",
   region: "EEUR",
-  s3Endpoint: "https://14521cdfec73fa908fbf7e760fae362a.r2.cloudflarestorage.com/capitaltalabat",
+  s3Endpoint: "https://14521cdfec73fa908fbf7e760fae362a.r2.cloudflarestorage.com/sangoub",
   publicBaseUrl: import.meta.env.VITE_R2_PUBLIC_URL || "",
 };
 export function getR2MediaUrl(objectKey: string): string {

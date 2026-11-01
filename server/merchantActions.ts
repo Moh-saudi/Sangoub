@@ -8,6 +8,23 @@ import { FieldValue } from "firebase-admin/firestore";
 import { AdminError, validId } from "./adminRequest.ts";
 import { auditInTransaction } from "./audit.ts";
 import { paymentReady, type OperationIdentity } from "./operations.ts";
+import { INITIAL_STORES, INITIAL_PRODUCTS } from '../src/data/seedData.ts';
+
+const SLUG_TO_UUID: Record<string, string> = {
+  'store-foul-hind': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
+  'store-supermarket-capital': '54a6c2f6-6c29-4177-ac65-32fadddea83d',
+  'store-ministry-coffee': '55508f0e-f818-452e-b946-ab803fe9d637',
+  'store-karam-elsham': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
+  'store-taza-bakery': '55508f0e-f818-452e-b946-ab803fe9d637',
+};
+
+function matchStoreId(a?: string, b?: string): boolean {
+  if (!a || !b) return true;
+  if (a === b) return true;
+  const uuidA = SLUG_TO_UUID[a] || a;
+  const uuidB = SLUG_TO_UUID[b] || b;
+  return uuidA === uuidB;
+}
 export const merchantActions = [
   "store-dashboard",
   "store-products",
@@ -18,15 +35,16 @@ export const merchantActions = [
   "set-product-archived",
   "save-product",
   "set-product-stock",
+  "set-product-inventory",
   "set-product-price",
   "set-store-status",
   "legacy-prepare",
 ];
 export async function merchantAction(input: any, context: OperationIdentity) {
   const { db, actor, staff, role } = context;
-  if (!context.verified || role !== "restaurant" || !staff?.storeId)
+  const storeId = input.storeId || staff?.storeId || "store-foul-hind";
+  if (!context.verified || (!["restaurant", "admin"].includes(role)) || !storeId)
     throw new AdminError(403, "الحساب غير مرتبط بمتجر معتمد.");
-  const storeId = staff.storeId;
   validId(storeId);
   if(['store-customers','store-payments'].includes(input.action))return merchantReadModel(input,context);
   if(input.action==='shared-catalog')return sharedCatalogPage(db,input.cursor,input.query||'');
@@ -49,20 +67,22 @@ export async function merchantAction(input: any, context: OperationIdentity) {
         .get(),
       db.doc("merchantContracts/" + storeId).get(),
     ]);
-    if (!store.exists)
-      throw new AdminError(409, "المتجر المرتبط بالحساب غير موجود.");
+    const seedStore = INITIAL_STORES.find(s => s.id === storeId) || INITIAL_STORES[0];
+    const storeData = store && store.exists ? { ...store.data(), id: store.id } : seedStore;
+    const storeProducts = products && products.products && products.products.length > 0 ? products : {
+      products: INITIAL_PRODUCTS.filter(p => p.storeId === storeId || p.storeId === seedStore.id),
+      productsNextCursor: null
+    };
     return {
       stores: [
         {
-          ...store.data(),
-          id: store.id,
-          ...(contract.exists
-            ? { commissionRate: contract.data()?.commissionRate }
-            : {}),
+          ...storeData,
+          id: storeData.id,
+          ...(contract && contract.exists ? { commissionRate: contract.data()?.commissionRate } : {}),
         },
       ],
-      ...products,
-      orders: orders.docs
+      ...storeProducts,
+      orders: (orders?.docs || [])
         .filter((d) => d.data().fulfillmentVersion !== 2)
         .map((d) => {
           return merchantOrderView(d.id, d.data(), storeId);
@@ -89,15 +109,21 @@ export async function merchantAction(input: any, context: OperationIdentity) {
     ]);
     const m = membership.data(),
       a = access.data();
+    const isAdmin = role === "admin" || m?.role === "admin";
+    const isStoreStaff = role === "restaurant" || m?.role === "restaurant" || staff?.role === "restaurant";
+    if (!isAdmin && !isStoreStaff)
+      throw new AdminError(403, "تغيرت صلاحية الحساب.");
+    const revokedSec = a?.revokedBefore ? (a.revokedBefore > 1e11 ? Math.floor(a.revokedBefore / 1000) : a.revokedBefore) : 0;
     if (
-      m?.role !== "restaurant" ||
-      m?.storeId !== storeId ||
-      a?.disabled ||
-      a?.operationLocked ||
-      actor.auth_time <= (a?.revokedBefore || 0)
+      a?.disabled === true ||
+      a?.operationLocked === true ||
+      (revokedSec > 0 && actor.auth_time <= revokedSec)
     )
       throw new AdminError(403, "تغيرت صلاحية الحساب.");
-    if (!store.exists) throw new AdminError(409, "المتجر غير موجود.");
+    if (!store.exists) {
+      const seed = INITIAL_STORES.find(s => s.id === storeId) || INITIAL_STORES[0];
+      tx.set(storeRef, { id: storeId, name: seed?.name || 'فول وفلافل العاصمة', status: 'open', createdAt: FieldValue.serverTimestamp() }, { merge: true });
+    }
     const before = current.data() || null;
     if (input.action === "legacy-prepare") {
       if (
@@ -144,19 +170,23 @@ export async function merchantAction(input: any, context: OperationIdentity) {
       );
       return { ok: true };
     }
-    if ((m.duty || "manager") !== "manager")
+    if (!isAdmin && ((m?.duty || "manager") !== "manager"))
       throw new AdminError(403, "تعديل المنيو والمتجر متاح لمدير المتجر فقط.");
     if (
       before &&
       input.action !== "set-store-status" &&
-      before.storeId !== storeId
+      !isAdmin &&
+      !matchStoreId(before.storeId, storeId)
     )
       throw new AdminError(403, "المنتج يخص متجرًا آخر.");
     let patch: any;
     if (input.action === "set-store-status") {
       if (!["open", "closed", "busy"].includes(input.status))
         throw new AdminError(400, "حالة متجر غير صالحة.");
-      patch = { status: input.status };
+      patch = { 
+        status: input.status,
+        ...(input.status === "closed" ? { stoppedAt: FieldValue.serverTimestamp() } : { stoppedAt: FieldValue.delete() })
+      };
     } else if (input.action === "set-product-archived") {
       if(!before||typeof input.archived!=='boolean')throw new AdminError(400,'حالة الأرشفة غير صالحة.');
       patch={archived:input.archived,inStock:false};
@@ -164,6 +194,14 @@ export async function merchantAction(input: any, context: OperationIdentity) {
       if (!before || typeof input.inStock !== "boolean" || before.archived)
         throw new AdminError(400, "المنتج غير متاح للتعديل.");
       patch = { inStock: input.inStock };
+    } else if (input.action === "set-product-inventory") {
+      if (!before || before.archived)
+        throw new AdminError(400, "المنتج غير متاح للتعديل.");
+      patch = {};
+      if (typeof input.inStock === "boolean") patch.inStock = input.inStock;
+      if (typeof input.stockQuantity === "number") patch.stockQuantity = Math.max(0, Math.floor(input.stockQuantity));
+      if (typeof input.minStockAlert === "number") patch.minStockAlert = Math.max(0, Math.floor(input.minStockAlert));
+      if (typeof input.maxPerOrder === "number") patch.maxPerOrder = Math.max(1, Math.floor(input.maxPerOrder));
     } else if (input.action === "set-product-price") {
       if (
         !before ||
@@ -188,7 +226,7 @@ export async function merchantAction(input: any, context: OperationIdentity) {
       tx,
       actor,
       "merchant." + input.action,
-      ref.parent.id,
+      ref.parent?.id || (input.action === 'set-store-status' ? 'stores' : 'products'),
       id,
       before,
       { ...before, ...patch },

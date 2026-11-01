@@ -584,7 +584,7 @@ export const CartModal: React.FC<CartModalProps> = ({
                     >
                       <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 shrink-0">
                         <ProductSvg
-                          type={item.product.imageType}
+                          type={item.product.imageType || 'food'}
                           className="w-full h-full object-cover"
                         />
                       </div>

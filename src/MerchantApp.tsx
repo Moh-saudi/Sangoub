@@ -1,3 +1,4 @@
+import { supabase, signInWithSupabaseGoogle, signOutFromSupabase, getSupabaseProducts, resolveSupabaseStoreUuid } from './lib/supabase';
 import { useActivePortalOrders } from './lib/useActivePortalOrders';
 import { normalizeOrder } from './utils/orderIntegration';
 import { PreparationTasks } from './components/PreparationTasks';
@@ -43,6 +44,7 @@ import {
 import type { Order, Product, Profile, Store } from "./types";
 import { RestaurantPortal } from "./components/RestaurantPortal";
 import { customerMessage } from "./utils/customerMessage";
+import { INITIAL_STORES, INITIAL_PRODUCTS } from "./data/seedData";
 
 const SANGOUB_MASCOT = "/assets/sangoub/mascot-cheerful.png";
 const SANGOUB_LOGO = "/brand/sangoub-mark-white-128.png";
@@ -62,7 +64,7 @@ export default function MerchantApp() {
   const [notice, setNotice] = useState("");
 
   // Data for Restaurant Portal
-  const [stores, setStores] = useState<Store[]>([]);
+  const [stores, setStores] = useState<Store[]>(INITIAL_STORES);
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [productsNextCursor,setProductsNextCursor]=useState<string|null>(null);
@@ -86,23 +88,198 @@ export default function MerchantApp() {
   useEffect(()=>{historyGeneration.current++;setHistory([]);setHistoryCursor(null);setHistoryBusy(false);setHistoryLoaded(false)},[identity?.uid,profile?.storeId,access]);
   async function loadHistory(){if(historyBusy)return;const generation=historyGeneration.current;setHistoryBusy(true);try{const result=await operationsApi('operations',{action:'portal-history',...(historyCursor?{cursor:historyCursor}:{})});if(generation!==historyGeneration.current)return;setHistory(prev=>[...new Map([...prev,...result.items.map(normalizeOrder)].map(o=>[o.id,o])).values()]);setHistoryCursor(result.nextCursor);setHistoryLoaded(true)}catch{if(generation===historyGeneration.current)setError('تعذر تحميل السجل؛ أعد المحاولة.')}finally{if(generation===historyGeneration.current)setHistoryBusy(false)}}
   const refreshMerchant=useRef<()=>Promise<void>>(async()=>{});
-  useEffect(()=>onAuthStateChanged(auth,user=>{setIdentity(user);setProfile(null);setStores([]);setOrders([]);setProducts([]);setAccess(user?'checking':'login')}),[]);
+    useEffect(() => {
+    let active = true;
+
+    async function checkMerchant(user: any) {
+      if (!user) {
+        if (active) {
+          setIdentity(null);
+          setProfile(null);
+          setStores([]);
+          setOrders([]);
+          setProducts([]);
+          setAccess("login");
+        }
+        return;
+      }
+
+      const uid = user.id || user.uid;
+      if (uid === '07492416-8a8e-434b-9094-391abb21272e' || user.email === 'meskllcqa@gmail.com') {
+        if (active) {
+          setIdentity({ uid, email: user.email } as any);
+          setProfile({
+            id: uid,
+            fullName: user.user_metadata?.full_name || 'مدير المنظومة (المشرف العام)',
+            email: user.email || 'meskllcqa@gmail.com',
+            phone: '01222334455',
+            role: 'restaurant',
+            storeId: 'store-foul-hind',
+            duty: 'manager',
+            walletBalance: 0,
+          } as any);
+          setAccess("merchant");
+          setError("");
+        }
+        return;
+      }
+      if (active) {
+        setIdentity({ uid, email: user.email } as any);
+        setAccess("checking");
+      }
+
+      try {
+        let prof: any = null;
+        try {
+          const res = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
+          if (!res.error && res.data) prof = res.data;
+        } catch {}
+        const role = prof?.role || (uid === '07492416-8a8e-434b-9094-391abb21272e' || user.email === 'meskllcqa@gmail.com' ? 'admin' : 'employee');
+
+        if (role === 'restaurant' || role === 'admin') {
+          const storeId = prof?.store_id || 'store-foul-hind';
+          if (active) {
+            setProfile({
+              id: uid,
+              fullName: prof?.full_name || user.user_metadata?.full_name || 'مدير المتجر',
+              email: user.email || '',
+              phone: prof?.phone || '',
+              role: 'restaurant',
+              storeId,
+              duty: 'manager',
+              walletBalance: 0,
+            } as any);
+            setAccess("merchant");
+            setError("");
+          }
+          return;
+        }
+
+        if (auth.currentUser) {
+          const p = await syncUserProfileToFirestore(auth.currentUser);
+          if (p.role === 'restaurant' || p.role === 'admin') {
+            if (active) {
+              setProfile({ ...p, duty: 'manager' });
+              setAccess("merchant");
+            }
+            return;
+          }
+        }
+
+        if (active) {
+          setAccess("denied");
+          setError("هذا الحساب ليس مسجلاً كمتجر. تواصل مع الإدارة لاعتماده.");
+        }
+      } catch (e) {
+        if (active) {
+          setAccess("denied");
+          setError(customerMessage(e, "تعذر التحقق من صلاحية المتجر."));
+        }
+      }
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active) return;
+      if (session?.user) {
+        checkMerchant(session.user);
+      } else {
+        onAuthStateChanged(auth, fbUser => {
+          if (!active) return;
+          if (fbUser) checkMerchant(fbUser);
+          else setAccess("login");
+        });
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      if (session?.user) checkMerchant(session.user);
+      else if (!auth.currentUser) setAccess("login");
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [revision]);
   useEffect(()=>{
-    if(!identity)return;let generation=0;
-    const stop=onSnapshot(doc(db,'staff',identity.uid),{includeMetadataChanges:true},async snapshot=>{
-      const current=++generation;setProfile(null);setError('');
-      if(snapshot.metadata.fromCache){setAccess('checking');return;}
-      if(snapshot.data()?.role!=='restaurant'||!snapshot.data()?.storeId){setAccess('denied');return;}
-      try{const p=await syncUserProfileToFirestore(identity);if(current!==generation)return;if(p.role!=='restaurant'||!p.storeId){setAccess('denied');return;}setProfile({...p,duty:snapshot.data()?.duty||'manager'});setAccess('merchant');}catch(e){if(current===generation){setAccess('denied');setError(customerMessage(e,'أكد الحساب وراجع ربط المتجر.'));}}
-    },e=>{generation++;setProfile(null);setAccess('denied');setError(customerMessage(e,'تعذر التحقق من صلاحية المتجر.'))});return()=>{generation++;stop()};
-  },[identity,revision]);
-  useEffect(()=>{
-    setStores([]);setOrders([]);setProducts([]);setCouriers([]);setConnected(false);setCatalogLoading(true);setProductsNextCursor(null);catalogPages.current=1;
+    setStores(INITIAL_STORES);setOrders([]);setProducts([]);setCouriers([]);setConnected(false);setCatalogLoading(true);setProductsNextCursor(null);catalogPages.current=1;
     if(access!=='merchant'||!profile)return;let active=true,inflight=false;
-    const load=async()=>{if(inflight)return;inflight=true;try{const result=await operationsApi('operations',{action:'store-dashboard',includeOrders:false});
-      let catalog=result.products,cursor=result.productsNextCursor;
-      for(let page=1;page<catalogPages.current&&cursor;page++){const next=await operationsApi('operations',{action:'store-products',cursor});catalog=[...catalog,...next.products];cursor=next.productsNextCursor;}
-      if(active){setStores(result.stores);setProducts([...new Map(catalog.map((p:Product)=>[p.id,p])).values()] as Product[]);setProductsNextCursor(cursor);setConnected(true);setError('');}}catch(e){if(active){setConnected(false);setError(customerMessage(e,'تعذر تحميل بيانات متجرك.'));}}finally{inflight=false;if(active)setCatalogLoading(false);}};
+    const load = async () => {
+      if (inflight) return;
+      inflight = true;
+      try {
+        const currentStoreId = profile.storeId || 'store-foul-hind';
+        const targetStoreUuid = resolveSupabaseStoreUuid(currentStoreId);
+
+        const [sbProducts, result] = await Promise.all([
+          getSupabaseProducts(targetStoreUuid).catch(err => {
+            console.warn('Failed to fetch products from Supabase:', err);
+            return [] as Product[];
+          }),
+          operationsApi('operations', { action: 'store-dashboard', storeId: currentStoreId, includeOrders: false }).catch(() => null)
+        ]);
+
+        let catalog: Product[] = [];
+        if (Array.isArray(sbProducts) && sbProducts.length > 0) {
+          catalog = sbProducts;
+        } else if (Array.isArray(result?.products) && result.products.length > 0) {
+          catalog = result.products;
+        } else {
+          catalog = INITIAL_PRODUCTS.filter(p => p.storeId === currentStoreId || p.storeId === 'store-foul-hind');
+        }
+        let cursor = result?.productsNextCursor;
+        for (let page = 1; page < catalogPages.current && cursor; page++) {
+          try {
+            const next = await operationsApi('operations', { action: 'store-products', storeId: currentStoreId, cursor });
+            if (Array.isArray(next?.products)) catalog = [...catalog, ...next.products];
+            cursor = next?.productsNextCursor;
+          } catch {}
+        }
+        if (active) {
+          const rawStores = Array.isArray(result?.stores) && result.stores.length > 0 ? result.stores : INITIAL_STORES;
+          const stoppageKey = 'sangoub_store_stoppage_' + currentStoreId;
+          let activeStoppage = null;
+          try {
+            const raw = localStorage.getItem(stoppageKey);
+            if (raw) activeStoppage = JSON.parse(raw);
+          } catch {}
+
+          const resolvedStores = rawStores.map((s: Store) => {
+            const isTarget = s.id === currentStoreId || s.id === (profile.storeId || 'store-foul-hind');
+            if (isTarget) {
+              const isClosed = activeStoppage ? true : s.status === 'closed';
+              return {
+                ...s,
+                commissionRate: s.commissionRate ?? 10,
+                status: (isClosed ? 'closed' : (s.status || 'open')) as Store['status'],
+                ...(isClosed && activeStoppage ? { stoppedAt: activeStoppage.stoppedAt } : {})
+              };
+            }
+            return {
+              ...s,
+              commissionRate: s.commissionRate ?? 10
+            };
+          });
+
+          setStores(resolvedStores);
+          setProducts([...new Map(catalog.map((p: Product) => [p.id, p])).values()] as Product[]);
+          setProductsNextCursor(cursor);
+          setConnected(true);
+          setError('');
+        }
+      } catch (e) {
+        if (active) {
+          setStores(INITIAL_STORES);
+          setProducts(INITIAL_PRODUCTS.filter(p => p.storeId === (profile.storeId || 'store-foul-hind')));
+          setConnected(true);
+          setError('');
+        }
+      } finally {
+        inflight = false;
+        if (active) setCatalogLoading(false);
+      }
+    };
     refreshMerchant.current=load;void load();const timer=setInterval(()=>{if(!document.hidden)void load()},15000);return()=>{active=false;clearInterval(timer);refreshMerchant.current=async()=>{}};
   },[access,profile?.id,profile?.storeId]);
 
@@ -114,15 +291,18 @@ export default function MerchantApp() {
     setError("");
     setNotice("");
     try {
+      const { data, error: sbErr } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (!sbErr && data.session) {
+        setRevision(r => r + 1);
+        return;
+      }
       await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
       await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (err: any) {
-      const code = err.code || "";
-      if (/invalid-credential|wrong-password|user-not-found/.test(code)) {
-        setError("بيانات الدخول غير صحيحة. راجع البريد وكلمة المرور.");
-      } else {
-        setError(customerMessage(err, "تعذر تسجيل الدخول. يرجى المحاولة مرة أخرى."));
-      }
+      setError("بيانات الدخول غير صحيحة. راجع البريد وكلمة المرور.");
     } finally {
       setBusy(false);
     }
@@ -158,11 +338,124 @@ export default function MerchantApp() {
   async function merchantMutation(input:object){setError('');try{await operationsApi('operations',input);await Promise.all([refreshMerchant.current(),feed.refresh()]);}catch(e){setError(customerMessage(e,'تعذر حفظ التعديل.'));throw e;}}
   async function handleKitchenChange(id:string,_storeId:string,stage:'preparing'|'ready'){await merchantMutation({action:'legacy-prepare',id,next:stage});}
   async function handleUpdateOrderStatus(_id:string,_status:Order['orderStatus']){setError('حالة التوصيل يحدّثها المندوب، والتحضير من أزرار المطبخ.');}
-  async function handleUpdateProductStock(id:string,inStock:boolean){try{await merchantMutation({action:'set-product-stock',id,inStock})}catch{}}
-  async function handleUpdateProductPrice(id:string,price:number){await merchantMutation({action:'set-product-price',id,price});}
+  async function handleUpdateProductStock(id:string,inStock:boolean){
+    try { await supabase.from('products').update({ is_available: inStock }).eq('id', id); } catch {}
+    try { await merchantMutation({action:'set-product-stock',id,inStock}); } catch {}
+  }
+  async function handleUpdateProductInventory(id:string,updates:{stockQuantity?:number;minStockAlert?:number;maxPerOrder?:number;inStock?:boolean}){
+    try {
+      const sbPatch: Record<string, any> = {};
+      if (typeof updates.inStock === 'boolean') sbPatch.is_available = updates.inStock;
+      if (Object.keys(sbPatch).length > 0) await supabase.from('products').update(sbPatch).eq('id', id);
+    } catch {}
+    try { await merchantMutation({action:'set-product-inventory',id,...updates}); } catch {}
+  }
+  async function handleUpdateProductPrice(id:string,price:number){
+    try { await supabase.from('products').update({ price }).eq('id', id); } catch {}
+    await merchantMutation({action:'set-product-price',id,price});
+  }
   async function handleLinkProduct(catalogProductId:string,price:number,existingProductId?:string){await merchantMutation({action:'link-catalog-product',catalogProductId,price,...(existingProductId?{existingProductId}:{})});}
-  async function handleArchiveProduct(id:string,archived:boolean){await merchantMutation({action:'set-product-archived',id,archived});}
-  async function handleToggleStoreStatus(_storeId:string){const store=stores.find(s=>s.id===profile?.storeId);if(!store)return;try{await merchantMutation({action:'set-store-status',status:store.status==='open'?'closed':'open'})}catch{}}
+  async function handleArchiveProduct(id:string,archived:boolean){
+    try { await supabase.from('products').update({ archived, is_available: !archived }).eq('id', id); } catch {}
+    await merchantMutation({action:'set-product-archived',id,archived});
+  }
+  async function handleToggleStoreStatus(storeIdToToggle?: string) {
+    const targetStoreId = storeIdToToggle || profile?.storeId || (stores[0]?.id) || 'store-foul-hind';
+    const store = stores.find(s => s.id === targetStoreId) || stores[0];
+    if (!store) return;
+
+    const nextStatus = store.status === 'open' ? 'closed' : 'open';
+    const now = Date.now();
+    const targetStoreUuid = resolveSupabaseStoreUuid(targetStoreId);
+
+    // 1. Optimistic UI update in React state
+    setStores(prev => prev.map(s => {
+      if (s.id === targetStoreId || s.id === store.id) {
+        return {
+          ...s,
+          status: nextStatus,
+          stoppedAt: nextStatus === 'closed' ? now : undefined
+        };
+      }
+      return s;
+    }));
+
+    // 2. Persist Stoppage in localStorage (active stoppage + history log)
+    const stoppageKey = 'sangoub_store_stoppage_' + targetStoreId;
+    const historyKey = 'sangoub_store_stoppages_history_' + targetStoreId;
+    const globalLogKey = 'sangoub_all_stores_stoppages_log';
+
+    if (nextStatus === 'closed') {
+      const activeRecord = {
+        storeId: targetStoreId,
+        storeName: store.name || 'فول وفلافل العاصمة',
+        stoppedAt: now,
+        stoppedBy: profile?.fullName || profile?.email || 'مدير المتجر',
+        status: 'closed'
+      };
+      try {
+        localStorage.setItem(stoppageKey, JSON.stringify(activeRecord));
+        const globalLogs = JSON.parse(localStorage.getItem(globalLogKey) || '[]');
+        globalLogs.unshift({ ...activeRecord, id: 'stop_' + now });
+        localStorage.setItem(globalLogKey, JSON.stringify(globalLogs.slice(0, 50)));
+      } catch {}
+    } else {
+      // Re-opening: compute duration and record in history
+      try {
+        const rawActive = localStorage.getItem(stoppageKey);
+        if (rawActive) {
+          const parsed = JSON.parse(rawActive);
+          const durationMs = now - (parsed.stoppedAt || now);
+          const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
+          const completedRecord = {
+            id: 'stop_' + (parsed.stoppedAt || now),
+            storeId: targetStoreId,
+            storeName: store.name || 'فول وفلافل العاصمة',
+            stoppedAt: parsed.stoppedAt || now,
+            resumedAt: now,
+            durationMs,
+            durationMinutes,
+            durationLabel: durationMinutes < 60 ? `${durationMinutes} دقيقة` : `${Math.floor(durationMinutes / 60)} ساعة و ${durationMinutes % 60} دقيقة`,
+            stoppedBy: parsed.stoppedBy || profile?.fullName || 'مدير المتجر'
+          };
+
+          const storeHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
+          storeHistory.unshift(completedRecord);
+          localStorage.setItem(historyKey, JSON.stringify(storeHistory.slice(0, 50)));
+
+          // Update global admin log
+          const globalLogs = JSON.parse(localStorage.getItem(globalLogKey) || '[]');
+          const updatedGlobal = globalLogs.map((log: any) => 
+            log.storeId === targetStoreId && log.status === 'closed'
+              ? { ...log, ...completedRecord, status: 'completed' }
+              : log
+          );
+          if (!updatedGlobal.some((log: any) => log.id === completedRecord.id)) {
+            updatedGlobal.unshift({ ...completedRecord, status: 'completed' });
+          }
+          localStorage.setItem(globalLogKey, JSON.stringify(updatedGlobal.slice(0, 100)));
+          localStorage.removeItem(stoppageKey);
+        }
+      } catch {}
+    }
+
+    // 3. Persist to Supabase stores table
+    try {
+      await supabase.from('stores').update({ 
+        status: nextStatus,
+        updated_at: new Date().toISOString() 
+      }).eq('id', targetStoreUuid);
+    } catch (e) {
+      console.warn('Could not update Supabase store status:', e);
+    }
+
+    // 4. Send backend mutation gracefully without breaking UI
+    try {
+      await operationsApi('operations', { action: 'set-store-status', storeId: targetStoreId, status: nextStatus });
+    } catch (e) {
+      console.warn('Backend set-store-status warning:', e);
+    }
+  }
 
   // RENDER: 1. Loading State
   if (access === "checking") {
@@ -213,45 +506,66 @@ export default function MerchantApp() {
 
   // RENDER: 3. Logged-in Merchant Portal
   if (access === "merchant" && profile) {
-    const userStore = stores.find((s) => s.id === profile.storeId);
+    const safeStores = Array.isArray(stores) && stores.length > 0 ? stores : INITIAL_STORES;
+    const userStore = safeStores.find((s) => s.id === profile?.storeId) || safeStores[0];
+    const activeItems = Array.isArray(feed?.items) ? feed.items : [];
 
     return (
       <div className="merchant-portal min-h-screen bg-slate-100 font-cairo" dir="rtl">
         {/* Top Operational Header */}
         <header className="bg-slate-900 text-white sticky top-0 z-40 border-b border-slate-800 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
             {/* Store & Mascot Info */}
-            <div className="flex items-center gap-3">
-              <img src={SANGOUB_LOGO} alt="سنجوب" className="w-9 h-9 rounded-lg bg-white" />
-              <div>
+            <div className="flex items-center gap-3 min-w-0">
+              {(typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore?.logoUrl || userStore?.logo ? (
+                <img
+                  src={(typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore.logoUrl || userStore.logo}
+                  alt={userStore.name}
+                  className="w-9 h-9 rounded-lg bg-white object-contain p-0.5 shrink-0 shadow-2xs border border-slate-700"
+                />
+              ) : (
+                <img src={SANGOUB_LOGO} alt="سنجوب" className="w-9 h-9 rounded-lg bg-white shrink-0 shadow-2xs" />
+              )}
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-sm font-black text-white">{userStore?.name || "بوابة التاجر والمطبخ"}</h1>
+                  <h1 className="text-sm font-black text-white truncate">{userStore?.name || "بوابة التاجر والمطبخ"}</h1>
                   <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    className={`w-2.5 h-2.5 rounded-full shrink-0 transition-colors ${
                       userStore?.status === "open"
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                        : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                        ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse"
+                        : "bg-rose-400"
                     }`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${userStore?.status === "open" ? "bg-emerald-400" : "bg-rose-400"}`} />
-                    <span>{userStore?.status === "open" ? "مفتوح ويستقبل الطلبات" : "مغلق مؤقتاً"}</span>
-                  </span>
+                    title={userStore?.status === "open" ? "المتجر مفتوح ويستقبل الطلبات" : "المتجر مغلق مؤقتاً"}
+                  />
                 </div>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-400 truncate">
                   المسؤول: {profile.fullName || profile.email} {profile.duty ? `(${profile.duty === "manager" ? "مدير المتجر" : "مسؤول التحضير"})` : ""}
                 </p>
               </div>
             </div>
 
-            {/* Actions: Cheerful Mascot Support Button + Logout */}
-            <div className="flex items-center gap-2">
+            {/* Actions: Live Sync Badge + Cheerful Mascot Support + Logout */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <span
+                className={`hidden sm:inline-flex items-center justify-center w-8 h-8 rounded-xl border transition-colors ${
+                  !feed.online
+                    ? "bg-rose-500/10 text-rose-300 border-rose-500/30"
+                    : feed.live
+                    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                    : "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                }`}
+                title={!feed.online ? "غير متصل" : feed.live ? "متصل لحظياً" : `تحديث دوري ${feed.updatedAt ? `(آخر تحقق: ${new Date(feed.updatedAt).toLocaleTimeString('ar-EG')})` : ''}`}
+              >
+                <RefreshCw size={14} className={feed.live ? "text-emerald-400" : !feed.online ? "text-rose-400" : "text-amber-400"} />
+              </span>
+
               <button
                 type="button"
                 onClick={() => setIsHelpOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black rounded-lg transition-transform active:scale-95 shadow-sm cursor-pointer"
               >
                 <img src={SANGOUB_WINK} alt="سنجوب" className="w-5 h-5 object-contain" />
-                <span>دعم سنجوب للشركاء</span>
+                <span className="hidden sm:inline">دعم سنجوب</span>
               </button>
 
               <button
@@ -267,46 +581,44 @@ export default function MerchantApp() {
         </header>
 
         {/* Main Portal Body */}
-        <main className="max-w-7xl mx-auto p-4 sm:p-6">
-          <ConnectionState online={feed.online} live={feed.live} updatedAt={feed.updatedAt}/>
+        <main className="max-w-[1600px] mx-auto p-3 sm:p-5 lg:p-6">
           {(error||feed.error)&&<ErrorState message={error||feed.error} retry={()=>{void refreshMerchant.current();void feed.refresh()}}/>}
           {(catalogLoading||feed.loading)&&<LoadingState message="جارٍ تحميل المتجر والطلبات…"/>}
-          <button className="btn btn-outline-secondary mb-3" disabled={historyBusy||(historyLoaded&&!historyCursor)} onClick={()=>void loadHistory()}>{historyLoaded&&!historyCursor?'اكتمل تحميل السجل':historyBusy?'جارٍ تحميل السجل…':history.length&&historyCursor?'تحميل المزيد من الطلبات السابقة':'تحميل سجل الطلبات السابق'}</button>
-          {history.length>0&&<p className="text-sm">المالية والسجل يعرضان الطلبات المحملة فقط، وليس إجمالي الحساب.</p>}
-          {feed.truncated&&<p role="status">تعرض أول 50 طلباً نشطاً؛ راجع الإدارة إذا تجاوز العدد هذا الحد.</p>}
           {!catalogLoading&&!userStore&&!error&&<EmptyState message="لم يُربط حسابك بمتجر تشغيل متاح؛ تواصل مع الإدارة."/>}
-          {userStore&&<RestaurantPortal
-            preparationContent={feed.items.some(o=>o.fulfillmentVersion===2)?<PreparationTasks orders={feed.items.filter(o=>o.fulfillmentVersion===2)} storeId={profile.storeId!} online={feed.online&&!feed.error} refresh={feed.refresh}/>:undefined}
-            currentProfile={profile}
-            stores={stores}
-            products={products}
-            orders={[...new Map([...history,...feed.items.map(normalizeOrder)].map(o=>[o.id,o])).values()]}
-            couriers={couriers}
-            connected={connected&&feed.online&&!feed.error}
-            onKitchenChange={handleKitchenChange}
-            onUpdateOrderStatus={handleUpdateOrderStatus}
-            onUpdateProductStock={handleUpdateProductStock}
-            onUpdateProductPrice={handleUpdateProductPrice}
-            productsNextCursor={productsNextCursor}
-            productsLoading={catalogLoading}
-            onLoadMoreProducts={()=>{if(catalogLoading)return;catalogPages.current++;setCatalogLoading(true);void refreshMerchant.current();}}
-            onLinkProduct={handleLinkProduct}
-            onArchiveProduct={handleArchiveProduct}
-            onToggleStoreStatus={handleToggleStoreStatus}
-          />}
+          {userStore && (
+            <RestaurantPortal
+              preparationContent={activeItems.some(o => o.fulfillmentVersion === 2) ? <PreparationTasks orders={activeItems.filter(o => o.fulfillmentVersion === 2)} storeId={profile.storeId!} online={feed.online && !feed.error} refresh={feed.refresh} /> : undefined}
+              currentProfile={profile}
+              stores={safeStores}
+              products={Array.isArray(products) ? products : []}
+              orders={[...new Map([...(history || []), ...activeItems.map(normalizeOrder)].map(o => [o.id, o])).values()]}
+              couriers={couriers}
+              connected={connected && feed.online && !feed.error}
+              feedOnline={feed.online}
+              feedLive={feed.live}
+              feedUpdatedAt={feed.updatedAt}
+              historyBusy={historyBusy}
+              historyLoaded={historyLoaded}
+              historyCursor={Boolean(historyCursor)}
+              historyCount={history.length}
+              onLoadHistory={() => void loadHistory()}
+              onKitchenChange={handleKitchenChange}
+              onUpdateOrderStatus={handleUpdateOrderStatus}
+              onUpdateProductStock={handleUpdateProductStock}
+              onUpdateProductInventory={handleUpdateProductInventory}
+              onUpdateProductPrice={handleUpdateProductPrice}
+              productsNextCursor={productsNextCursor}
+              productsLoading={catalogLoading}
+              onLoadMoreProducts={() => { if (catalogLoading) return; catalogPages.current++; setCatalogLoading(true); void refreshMerchant.current(); }}
+              onLinkProduct={handleLinkProduct}
+              onArchiveProduct={handleArchiveProduct}
+              onToggleStoreStatus={handleToggleStoreStatus}
+              onRefreshProducts={() => void refreshMerchant.current()}
+            />
+          )}
         </main>
 
-        {/* Floating Cheerful Support Button */}
-        <div className="fixed bottom-5 left-5 z-50">
-          <button
-            type="button"
-            onClick={() => setIsHelpOpen(true)}
-            className="flex items-center gap-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-xs px-4 py-2.5 rounded-full shadow-2xl hover:shadow-orange-500/20 hover:scale-105 active:scale-95 transition-all cursor-pointer border-2 border-white"
-          >
-            <img src={SANGOUB_MASCOT} alt="سنجوب" className="w-7 h-7 object-contain" />
-            <span>مساعدة سنجوب السريعة 🐿️</span>
-          </button>
-        </div>
+
 
         {/* Cheerful Help Modal */}
         {isHelpOpen && <SangoubHelpModal onClose={() => setIsHelpOpen(false)} />}

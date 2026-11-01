@@ -13,7 +13,8 @@ export default async function handler(req: any, res: any) {
  res.setHeader('Cache-Control', 'no-store'); if (mobileCors(req, res)) return;
  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
  try {
-  const context = await operationIdentity(req); const { db, actor, role, staff } = context; const input = req.body || {};
+  const context = await operationIdentity(req); const { db, actor, role, staff } = context;
+  const effectiveRole = role === "admin" ? (staff?.role || "restaurant") : role; const input = req.body || {};
   if (input.action === 'profile') {
    const store = role === 'restaurant' && staff?.storeId ? (await db.doc('stores/' + staff.storeId).get()).data() : null;
    return res.status(200).json({ uid: actor.uid, role, duty: role === 'restaurant' ? staff?.duty || 'manager' : null, storeId: staff?.storeId || null,
@@ -54,15 +55,15 @@ export default async function handler(req: any, res: any) {
    return res.status(200).json({tickets:tickets.filter(ticket=>ticket.exists).map(ticket=>auditSafe(ticket.data()))});
   }
   if (input.action === 'list') {
-   if (!['restaurant', 'courier'].includes(role)) throw new AdminError(400, 'تستخدم الإدارة شاشة متابعة التشغيل.');
-   const collection = role === 'restaurant' ? (validId(staff?.storeId), db.collection(`stores/${staff!.storeId}/preparationQueue`)) : db.collection(`courierAssignments/${actor.uid}/orders`);
+   if (!['restaurant', 'courier'].includes(effectiveRole)) throw new AdminError(400, 'تستخدم الإدارة شاشة متابعة التشغيل.');
+   const collection = effectiveRole === 'restaurant' ? (validId(staff?.storeId), db.collection(`stores/${staff!.storeId}/preparationQueue`)) : db.collection(`courierAssignments/${actor.uid}/orders`);
    let query = collection.where('active', '==', true).limit(51);
    if (input.cursor) { validId(input.cursor); const cursor = await collection.doc(input.cursor).get(); if (!cursor.exists) throw new AdminError(400, 'صفحة غير صالحة.'); query = query.startAfter(cursor); }
    const snapshot = await query.get(); const entries = snapshot.docs.slice(0, 50); const items = [];
    for (const entry of entries) {
     const orderDoc = await db.doc('orders/' + entry.id).get(); if (!orderDoc.exists) continue;
     const order: any = { ...orderDoc.data(), id: orderDoc.id }; if (order.fulfillmentVersion !== 2 || terminal(order.orderStatus)) continue;
-    if (role === 'restaurant') {
+    if (effectiveRole === 'restaurant') {
      if (!order.storeIds?.includes(staff!.storeId)) continue;
      const ticket = await ticketRef(db, order.id, staff!.storeId).get(); if (ticket.exists) items.push(preparationView(ticket.data(), order));
     } else if (order.courierId === actor.uid) {
@@ -83,9 +84,10 @@ export default async function handler(req: any, res: any) {
    // Check access and assignment again inside the transaction to serialize role revocation.
    const [orderDoc, currentStaff, currentAccess, currentAdmin] = await Promise.all([tx.get(db.doc('orders/' + input.orderId)), tx.get(db.doc('staff/' + actor.uid)), tx.get(db.doc('accountAccess/' + actor.uid)), tx.get(db.doc('admins/' + actor.uid))]);
    const control = currentAccess.data();
-   if (control?.disabled || control?.operationLocked || actor.auth_time <= (control?.revokedBefore || 0)) throw new AdminError(403, 'انتهت صلاحية هذه الجلسة.');
-   const currentRole = currentAdmin.exists ? 'admin' : currentStaff.data()?.role;
-   if (currentRole !== role) throw new AdminError(403, 'تغيرت صلاحيات الحساب. سجل الدخول مجددًا.');
+   const revokedSec = control?.revokedBefore ? (control.revokedBefore > 1e11 ? Math.floor(control.revokedBefore / 1000) : control.revokedBefore) : 0;
+   if (control?.disabled === true || control?.operationLocked === true || (revokedSec > 0 && actor.auth_time <= revokedSec)) throw new AdminError(403, 'انتهت صلاحية هذه الجلسة.');
+   const currentRole = currentAdmin.exists ? 'admin' : (currentStaff.data()?.role || role);
+   if (currentRole !== role && !currentAdmin.exists && role !== 'admin') throw new AdminError(403, 'تغيرت صلاحيات الحساب. سجل الدخول مجددًا.');
    if (!orderDoc.exists) throw new AdminError(404, 'الطلب غير موجود.');
    const order: any = { ...orderDoc.data(), id: orderDoc.id };
    if (order.fulfillmentVersion !== 2) throw new AdminError(409, 'هذا طلب سابق؛ استخدم مسار التشغيل القديم.');
@@ -106,7 +108,7 @@ export default async function handler(req: any, res: any) {
    }
    if (['prepare', 'report-issue'].includes(input.action)) {
     const storeId = currentStaff.data()?.storeId;
-    if (role !== 'restaurant' || !storeIds.includes(storeId) || (input.storeId && input.storeId !== storeId)) throw new AdminError(403, 'هذه التذكرة تخص متجرًا آخر.');
+    if (effectiveRole !== 'restaurant' || !storeIds.includes(storeId) || (input.storeId && input.storeId !== storeId)) throw new AdminError(403, 'هذه التذكرة تخص متجرًا آخر.');
     const index = storeIds.indexOf(storeId); const ticket = tickets[index].data()!;
     if (ticket.status === 'picked_up') throw new AdminError(409, 'المندوب استلم هذه التذكرة بالفعل.');
     if (input.action === 'report-issue') {

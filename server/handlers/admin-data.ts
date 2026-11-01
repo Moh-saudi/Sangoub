@@ -11,9 +11,10 @@ import { auditInTransaction, auditSafe, auditRecord } from '../audit.ts';
 import { nextKitchenUpdate, normalizeOrder } from '../../src/utils/orderIntegration.ts';
 import { assignmentRef, closeOperationalQueues, paymentReady, ticketRef } from '../operations.ts';
 import { mobileCors } from '../mobileCors.ts';
+import { INITIAL_STORES, INITIAL_PRODUCTS } from '../../src/data/seedData.ts';
 
 const fields:Record<string,string[]>={
-  products:['id','storeId','storeName','name','nameEn','description','price','originalPrice','category','categoryId','barcode','merchantPosSku','verticalId','imageType','imageUrl','imageKey','inStock','archived','badge','isPopular','optionGroups'],
+  products:['id','storeId','storeName','name','nameEn','description','price','originalPrice','category','categoryId','barcode','merchantPosSku','verticalId','imageType','imageUrl','imageKey','inStock','archived','badge','isPopular','optionGroups','stockQuantity','minStockAlert','maxPerOrder','catalogProductId','offerTitle','isOccasion','occasionName','offerStartDate','offerEndDate'],
   stores:['commissionRate','taxRate','taxRegistrationNumber','pricesIncludeTax','id','name','nameEn','locationInDistrict','type','category','status','deliveryTime','minOrder','deliveryFee','imageUrl','bannerUrl','logoUrl','logoKey','bannerKey','imageKey','logo','banner','rating','ratingCount'],
   coupons:['code','discountType','value','minOrder','title','description'],staff:['role','name','phone','storeId'],partnerApplications:['status'],jobApplications:['status'],
   orders:['orderStatus','courierId','courierName','courierPhone'],
@@ -23,15 +24,33 @@ const str=(v:any,max:number,required=false)=>(!required&&(v===undefined||v===nul
 const num=(v:any,max:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=max;
 function validate(type:string,id:string,d:any){
   if(type==='products'&&(!str(d.name,120,true)||!str(d.description,1000)||!num(d.price,100000)||typeof d.inStock!=='boolean'||!str(d.storeId,128,true)||!str(d.category,120,true)))bad('راجع اسم الصنف وسعره ومتجره.');
-  if(type==='products'&&d.originalPrice!==undefined&&(!num(d.originalPrice,100000)||d.originalPrice<d.price))bad('السعر قبل الخصم غير صالح.');
+  if(type==='products'&&d.originalPrice!==undefined&&d.originalPrice!==null&&(!num(d.originalPrice,100000)||d.originalPrice<d.price))bad('السعر قبل الخصم غير صالح.');
   if(type==='products'&&d.archived===true&&d.inStock!==false)bad('المنتج المؤرشف لا يمكن إتاحته.');
+  if(type==='products'&&d.stockQuantity!==undefined&&!num(d.stockQuantity,1000000))bad('الكمية بالمخزن غير صالحة.');
+  if(type==='products'&&d.minStockAlert!==undefined&&!num(d.minStockAlert,10000))bad('حد التنبيه غير صالح.');
+  if(type==='products'&&d.maxPerOrder!==undefined&&!num(d.maxPerOrder,1000))bad('الحد الأقصى للطلب غير صالح.');
+  if(type==='products'&&d.catalogProductId!==undefined&&d.catalogProductId!==null&&!str(d.catalogProductId,128))bad('معرف الكتالوج العام غير صالح.');
   if(type==='stores'&&d.commissionRate!==undefined&&!num(d.commissionRate,100))bad('نسبة التعاقد غير صالحة.');
   if(type==='stores'&&(!str(d.name,120,true)||!num(d.minOrder,100000)||!num(d.deliveryFee,1000)||!['open','closed','busy'].includes(d.status)))bad('راجع بيانات المتجر ورسومه.');
   if(type==='stores'&&((d.taxRate!==undefined&&!num(d.taxRate,100))||(d.pricesIncludeTax!==undefined&&typeof d.pricesIncludeTax!=='boolean')||(d.taxRegistrationNumber!==undefined&&!str(d.taxRegistrationNumber,60))||(d.taxRate>0&&!str(d.taxRegistrationNumber,60,true))))bad('راجع نسبة الضريبة ورقم تسجيل المتجر.');
   if(type==='staff'&&(!['restaurant','courier'].includes(d.role)||!str(d.name,120,true)||!str(d.phone,30)))bad('راجع دور الموظف وبياناته.');
   if(type==='coupons'&&(d.code!==id||!['fixed','percent'].includes(d.discountType)||!num(d.value,d.discountType==='percent'?100:10000)||!num(d.minOrder,100000)))bad('راجع قيمة الخصم والحد الأدنى.');
   if(['partnerApplications','jobApplications'].includes(type)&&!['pending','contacted','approved','rejected'].includes(d.status))bad();
-  for(const key of ['imageUrl','bannerUrl','logoUrl'])if(d[key]){try{if(new URL(d[key]).protocol!=='https:')bad();}catch{bad('رابط الصورة يجب أن يستخدم HTTPS.');}}
+  for(const key of ['imageUrl','bannerUrl','logoUrl']) {
+    if(d[key] && typeof d[key] === 'string' && d[key].trim()) {
+      let val = d[key].trim();
+      if(val.startsWith('/') || val.startsWith('data:')) continue;
+      if(val.startsWith('photo-')) { val = 'https://images.unsplash.com/' + val; d[key] = val; }
+      else if(val.startsWith('//')) { val = 'https:' + val; d[key] = val; }
+      try {
+        const u = new URL(val);
+        if(u.protocol !== 'https:' && u.protocol !== 'http:') bad('رابط الصورة يجب أن يستخدم HTTPS.');
+      } catch {
+        if(!val.includes(':')) continue;
+        bad('رابط الصورة يجب أن يستخدم HTTPS.');
+      }
+    }
+  }
 }
 export default async function handler(req:any,res:any){
   res.setHeader('Cache-Control','no-store');if(mobileCors(req,res))return;
@@ -100,6 +119,12 @@ export default async function handler(req:any,res:any){
             };
           }
         }catch{}
+        if(!before||!before.storeId){
+          const seedProd=INITIAL_PRODUCTS.find(p=>p.id===id);
+          if(seedProd){
+            before={...seedProd,...(before||{})};
+          }
+        }
       }
       let after:any={...(before||{}),...patch};
       const contractRef=type==='stores'?db.doc('merchantContracts/'+id):null;
@@ -178,7 +203,19 @@ export default async function handler(req:any,res:any){
         const storeRef=db.doc('stores/'+after.storeId);
         const storeSnap=await tx.get(storeRef);
         if(!storeSnap.exists){
-          if(after.storeId==='a0000000-0000-0000-0000-000000000001'){
+          const UUID_TO_SLUG = {
+            '27d12743-8106-4ef0-ba3c-84abefdb75d6': 'store-foul-hind',
+            '54a6c2f6-6c29-4177-ac65-32fadddea83d': 'store-supermarket-capital',
+            '55508f0e-f818-452e-b946-ab803fe9d637': 'store-ministry-coffee',
+          };
+          const mappedSlug = UUID_TO_SLUG[after.storeId];
+          const seedStore = INITIAL_STORES.find(s => s.id === after.storeId || (mappedSlug && s.id === mappedSlug));
+          if(seedStore){
+            tx.set(storeRef,{
+              ...seedStore,
+              updatedAt:FieldValue.serverTimestamp(),
+            },{merge:true});
+          }else if(after.storeId==='a0000000-0000-0000-0000-000000000001'){
             tx.set(storeRef,{
               id:'a0000000-0000-0000-0000-000000000001',
               name:'متجر سنجوب إكسبريس المركزي',
@@ -192,6 +229,14 @@ export default async function handler(req:any,res:any){
               minOrder:0,
               deliveryFee:10,
               locationInDistrict:'الفرع المركزي - العاصمة الإدارية',
+              updatedAt:FieldValue.serverTimestamp(),
+            },{merge:true});
+          }else if(after.storeName){
+            tx.set(storeRef,{
+              id:after.storeId,
+              name:after.storeName,
+              status:'open',
+              category:after.category||'general',
               updatedAt:FieldValue.serverTimestamp(),
             },{merge:true});
           }else{

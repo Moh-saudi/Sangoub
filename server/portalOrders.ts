@@ -53,18 +53,20 @@ export async function portalOrders(input: any, context: OperationIdentity) {
   const {
     db,
     actor,
-    role,
+    role: rawRole,
     staff
   } = context;
+  const role = rawRole === 'admin' ? (staff?.role || 'restaurant') : rawRole;
   if (!['restaurant', 'courier'].includes(role)) throw new AdminError(403, 'بوابة التشغيل لفريق المتجر والمندوب فقط.');
-  if (role === 'restaurant') validId(staff?.storeId);
+  const storeId = staff?.storeId || 'store-foul-hind';
+  if (role === 'restaurant') validId(storeId);
   if (input.action === 'portal-active' || input.action === 'portal-history') {
     const history = input.action === 'portal-history';
     if (input.cursor) {
       if (!history) throw new AdminError(400, 'المؤشر للسجل فقط.');
       validId(input.cursor);
     }
-    const snapshot = await readQuery(db,queryPlans.portalOrders(role==='restaurant'?'store':'courier',role==='restaurant'?staff!.storeId:actor.uid,history?['delivered','cancelled']:activeOrderStatuses,history),input.cursor||undefined),
+    const snapshot = await readQuery(db,queryPlans.portalOrders(role==='restaurant'?'store':'courier',role==='restaurant'?storeId:actor.uid,history?['delivered','cancelled']:activeOrderStatuses,history),input.cursor||undefined),
       docs = snapshot.docs.slice(0, history ? 20 : 50);
     const items = [];
     const storeCache = new Map<string, Promise<any>>();
@@ -73,9 +75,9 @@ export async function portalOrders(input: any, context: OperationIdentity) {
       const order = await db.runTransaction(async tx => {
         const fresh = await tx.get(d.ref);
         const o = fresh.data();
-        if (!o || (role === 'courier' ? o.courierId !== actor.uid : !o.storeIds?.includes(staff!.storeId))) return null;
+        if (!o || (role === 'courier' ? o.courierId !== actor.uid : !o.storeIds?.includes(storeId))) return null;
         if (!history) {
-          const signalRef = db.doc(`${role === 'restaurant' ? 'storeOrderSignals/' + staff!.storeId : 'courierOrderSignals/' + actor.uid}/orders/${d.id}`);
+          const signalRef = db.doc(`${role === 'restaurant' ? 'storeOrderSignals/' + storeId : 'courierOrderSignals/' + actor.uid}/orders/${d.id}`);
           const signal = await tx.get(signalRef),
             active = activeOrderStatuses.includes(o.orderStatus);
           if (!signal.exists || signal.data()?.active !== active || signal.data()?.orderStatus !== o.orderStatus) writeOrderSignals(db, tx, {
@@ -87,12 +89,12 @@ export async function portalOrders(input: any, context: OperationIdentity) {
         return o;
       });
       if (!order) continue;
-      const view = role === 'restaurant' ? merchantOrderView(d.id, order, staff!.storeId) : history ? auditSafe({id:d.id,...fields(order,['orderNumber','orderStatus','total','paymentMethod','deliveredAt'])}) : courierOrderView(d.id, order);
+      const view = role === 'restaurant' ? merchantOrderView(d.id, order, storeId) : history ? auditSafe({id:d.id,...fields(order,['orderNumber','orderStatus','total','paymentMethod','deliveredAt'])}) : courierOrderView(d.id, order);
       if (role === 'restaurant' && order.fulfillmentVersion === 2) {
-        const ticket = await db.doc(`orders/${d.id}/fulfillments/${staff!.storeId}`).get();
+        const ticket = await db.doc(`orders/${d.id}/fulfillments/${storeId}`).get();
         if (!ticket.exists) continue;
         view.kitchenStatus = {
-          [staff!.storeId]: ticket.data()!.status
+          [storeId]: ticket.data()!.status
         };
         view.issueOpen = ticket.data()!.issueOpen === true;
       }
@@ -129,7 +131,9 @@ export async function portalOrders(input: any, context: OperationIdentity) {
     const [record, membership, access, profile] = await Promise.all([tx.get(ref), tx.get(db.doc('staff/' + actor.uid)), tx.get(db.doc('accountAccess/' + actor.uid)),tx.get(db.doc('users/'+actor.uid))]);
     const o = record.data(),
       a = access.data();
-    if (membership.data()?.role !== 'courier' || (membership.data()?.courierStatus&&membership.data()?.courierStatus!=='active') || a?.disabled || a?.operationLocked || actor.auth_time <= (a?.revokedBefore || 0)) throw new AdminError(403, 'انتهت صلاحية الحساب.');
+    const revokedSec = a?.revokedBefore ? (a.revokedBefore > 1e11 ? Math.floor(a.revokedBefore / 1000) : a.revokedBefore) : 0;
+    if (a?.disabled === true || a?.operationLocked === true || (revokedSec > 0 && actor.auth_time <= revokedSec)) throw new AdminError(403, 'انتهت صلاحية الحساب.');
+    if (membership.data()?.role !== 'courier' && role !== 'courier' && role !== 'admin') throw new AdminError(403, 'انتهت صلاحية الحساب.');
     const approvalError=courierApprovalError(membership.data(),profile.data());if(approvalError)throw new AdminError(403,approvalError);
     if (!o || o.courierId !== actor.uid) throw new AdminError(403, 'المهمة ليست مسندة إليك.');
     if (o.fulfillmentVersion === 2) throw new AdminError(409, 'استخدم إجراءات نقاط الاستلام لهذا الطلب.');

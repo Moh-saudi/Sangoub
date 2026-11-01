@@ -1,21 +1,11 @@
-import {clientQuery} from '../data/firestoreQueries';
-import {queryPlans} from '../data/queryPlans';
 import { pendingDeliveryAddressKey, readPendingDeliveryAddress } from '../services/deliveryAddress';
 import { BRAND } from "../brand";
 import { OrderReceiptCode } from "../components/OrderReceiptCode";
 import { OrderInvoice } from "./OrderInvoice";
 import { OrderMap } from "../components/OrderMap";
 import { goShop } from "./navigation";
+import { supabase, getSupabaseStores, getSupabaseStore, getSupabaseProducts, signOutFromSupabase } from "../lib/supabase";
 import { useEffect, useRef, useState } from "react";
-import {
-  doc,
-  getDoc,
-  getDocs,
-  type DocumentData,
-  type QueryDocumentSnapshot,
-} from "firebase/firestore";
-import { signOut } from "firebase/auth";
-import { auth, db } from "../lib/firebase";
 import { authenticatedApi } from "../lib/authenticatedApi";
 import type { Order, Product, Store } from "../types";
 import { formatEGP, calculateCartSubtotal } from "../utils/orderCalculations";
@@ -48,7 +38,7 @@ function ItemImage({ src, name }: { src?: string; name: string }) {
 }
 function Stores() {
   const [stores, setStores] = useState<Store[]>([]),
-    [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(
+    [cursor, setCursor] = useState<any>(
       null,
     ),
     [more, setMore] = useState(true),
@@ -59,15 +49,9 @@ function Stores() {
     setBusy(true);
     setError("");
     try {
-      const result = await getDocs(
-        clientQuery(db,queryPlans.publicStores(),next&&cursor?cursor:undefined),
-      );
-      const values = result.docs.map(
-        (doc) => ({ ...doc.data(), id: doc.id }) as Store,
-      );
-      setStores((old) => (next ? [...old, ...values] : values));
-      setCursor(result.docs.at(-1) || null);
-      setMore(result.size === 30);
+      const values = await getSupabaseStores();
+      setStores(values);
+      setMore(false);
     } catch {
       setError("تعذر تحميل المتاجر. حاول مرة أخرى.");
     } finally {
@@ -103,6 +87,27 @@ function Stores() {
           <button onClick={() => void load()}>إعادة المحاولة</button>
         </p>
       )}
+
+      {/* Offers Entry Banner on Shopfront */}
+      <a
+        href="/offers"
+        className="mb-6 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white p-4 rounded-2xl flex items-center justify-between gap-3 shadow-sm hover:shadow-md transition active:scale-[0.99] text-decoration-none"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-xl shrink-0">
+            🏷️
+          </div>
+          <div>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-amber-100 block">عروض حصرية مميزة</span>
+            <h3 className="text-sm sm:text-base font-black text-white">تصفح أقوى عروض وتخفيضات متاجر الحي الحكومي</h3>
+          </div>
+        </div>
+        <span className="px-3 py-1.5 bg-white text-orange-700 rounded-xl text-xs font-black shrink-0 flex items-center gap-1 shadow-2xs">
+          <span>عرض التخفيضات</span>
+          <span>←</span>
+        </span>
+      </a>
+
       <div className="shop-store-grid">
         {filtered.map((store) => (
           <a
@@ -158,7 +163,7 @@ function StorePage({ id }: { id: string }) {
   const shop = useShop();
   const [store, setStore] = useState<Store | null>(null),
     [products, setProducts] = useState<Product[]>([]),
-    [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(
+    [cursor, setCursor] = useState<any>(
       null,
     ),
     [more, setMore] = useState(false),
@@ -171,38 +176,43 @@ function StorePage({ id }: { id: string }) {
     setBusy(true);
     setError("");
     try {
-      const [storeDoc, result] = await Promise.all([
-        getDoc(doc(db, "stores", id)),
-        getDocs(
-          clientQuery(db,queryPlans.publicStoreProducts(id),next&&cursor?cursor:undefined),
-        ),
+      const [currentStore, values] = await Promise.all([
+        getSupabaseStore(id),
+        getSupabaseProducts(id),
       ]);
-      if (!storeDoc.exists()) throw new Error("المتجر غير موجود.");
-      const current = { ...storeDoc.data(), id: storeDoc.id } as Store;
-      setStore(current);
-      shop.cacheStores([current]);
-      const values = result.docs.map(
-        (doc) => ({ ...doc.data(), id: doc.id }) as Product,
-      );
-      setProducts((old) => (next ? [...old, ...values] : values));
+      if (!currentStore) throw new Error("المتجر غير موجود.");
+      setStore(currentStore);
+      shop.cacheStores([currentStore]);
+      setProducts(values);
       shop.cacheProducts(values);
-      setCursor(result.docs.at(-1) || null);
-      setMore(result.size === 25);
+      setMore(false);
       if (!next) {
         const target = new URLSearchParams(location.search).get("product");
         if (target && /^[\w-]{1,128}$/.test(target)) {
           let product = values.find((value) => value.id === target);
           if (!product) {
-            const snapshot = await getDoc(doc(db, "products", target));
-            if (snapshot.exists())
-              product = { ...snapshot.data(), id: snapshot.id } as Product;
+            const { data: spProd } = await supabase.from('products').select('*').eq('id', target).maybeSingle();
+            if (spProd) {
+              product = {
+                id: spProd.id,
+                storeId: spProd.store_id,
+                name: spProd.name,
+                price: Number(spProd.price) || 0,
+                description: spProd.description || "",
+                category: spProd.category || "عام",
+                inStock: Boolean(spProd.is_available),
+                archived: Boolean(spProd.archived),
+                imageUrl: spProd.image_url || "",
+                optionGroups: spProd.options || [],
+              } as any;
+            }
           }
           if (
             product &&
             product.storeId === id &&
             !product.archived &&
             product.inStock &&
-            current.status === "open"
+            currentStore.status === "open"
           )
             setSelected(product);
           else setNotice("هذا المنتج غير متاح حاليًا. اختار من منتجات المتجر.");
@@ -223,6 +233,11 @@ function StorePage({ id }: { id: string }) {
       Number.isFinite(product.price) &&
       product.price >= 0 &&
       product.name?.includes(search.trim()),
+  );
+  const storeOffers = visible.filter(
+    (product) =>
+      typeof product.originalPrice === "number" &&
+      product.originalPrice > product.price
   );
   return (
     <>
@@ -273,26 +288,93 @@ function StorePage({ id }: { id: string }) {
           <button onClick={() => void load()}>إعادة المحاولة</button>
         </p>
       )}
-      <div className="shop-products">
-        {visible.map((product) => (
-          <article className="shop-product" key={product.id}>
-            <ItemImage src={product.imageUrl} name={product.name} />
-            <div>
-              <small>{product.category}</small>
-              <h2>{product.name}</h2>
-              <p>{product.description}</p>
-              <strong>{formatEGP(product.price)}</strong>
-              <button
-                className="shop-primary"
-                disabled={store?.status !== "open" || !product.inStock}
-                onClick={() => setSelected(product)}
-                aria-label={"اختيار " + product.name}
-              >
-                {product.inStock ? "اختيار وإضافة" : "غير متاح حاليًا"}
-              </button>
+      {/* Featured Store Offers Section */}
+      {storeOffers.length > 0 && !search.trim() && (
+        <section className="shop-featured-offers mb-6 bg-gradient-to-r from-orange-50/80 via-amber-50/60 to-orange-50/80 border border-orange-200/90 rounded-2xl p-4 shadow-2xs" aria-label="عروض وتخفيضات المتجر">
+          <div className="flex items-center justify-between mb-3 border-b border-orange-200/60 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🔥</span>
+              <h3 className="text-sm font-black text-slate-900">عروض وتخفيضات المتجر الخاصة</h3>
             </div>
-          </article>
-        ))}
+            <span className="text-[11px] font-bold text-orange-800 bg-orange-100/90 px-2 py-0.5 rounded-md border border-orange-200">
+              {storeOffers.length} عرض متاح الآن
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {storeOffers.map((offer) => {
+              const discount = Math.round((1 - offer.price / offer.originalPrice!) * 100);
+              return (
+                <div key={offer.id} className="bg-white rounded-xl border border-orange-200/80 p-3 flex gap-3 items-center justify-between shadow-2xs hover:shadow-xs transition">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-slate-100 bg-slate-50 relative">
+                      <ItemImage src={offer.imageUrl} name={offer.name} />
+                      <span className="absolute top-0 right-0 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-bl">
+                        خصم {discount}%
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 truncate">{offer.name}</h4>
+                      <p className="text-[10px] text-slate-400 line-clamp-1">{offer.description || offer.category}</p>
+                      <div className="flex items-baseline gap-1.5 mt-1">
+                        <strong className="text-xs font-black text-emerald-700 font-mono">{formatEGP(offer.price)}</strong>
+                        <del className="text-[10px] text-slate-400 font-mono">{formatEGP(offer.originalPrice!)}</del>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={store?.status !== "open" || !offer.inStock}
+                    onClick={() => setSelected(offer)}
+                    className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shrink-0 transition active:scale-95 cursor-pointer disabled:opacity-50"
+                  >
+                    أضف +
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <div className="shop-products">
+        {visible.map((product) => {
+          const hasOffer = typeof product.originalPrice === "number" && product.originalPrice > product.price;
+          const discount = hasOffer ? Math.round((1 - product.price / product.originalPrice!) * 100) : 0;
+
+          return (
+            <article className="shop-product" key={product.id}>
+              <div className="relative">
+                <ItemImage src={product.imageUrl} name={product.name} />
+                {hasOffer && (
+                  <span className="absolute top-2 right-2 bg-rose-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                    خصم {discount}%
+                  </span>
+                )}
+              </div>
+              <div>
+                <small>{product.category}</small>
+                <h2>{product.name}</h2>
+                <p>{product.description}</p>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <strong>{formatEGP(product.price)}</strong>
+                  {hasOffer && (
+                    <del className="text-xs text-slate-400 font-mono">{formatEGP(product.originalPrice!)}</del>
+                  )}
+                </div>
+                <button
+                  className="shop-primary"
+                  disabled={store?.status !== "open" || !product.inStock}
+                  onClick={() => setSelected(product)}
+                  aria-label={"اختيار " + product.name}
+                >
+                  {product.inStock ? "اختيار وإضافة" : "غير متاح حاليًا"}
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </div>
       {busy && <p role="status">جارٍ تحميل المنتجات…</p>}
       {!busy && !visible.length && (
@@ -702,7 +784,7 @@ function CheckoutForm() {
               />
             </label>
             <label>
-              الوزارة أو جهة التوصيل
+              عنوان التوصيل (المنطقة / الشارع / المبنى أو الجهة)
               <input
                 required
                 maxLength={120}
@@ -712,7 +794,7 @@ function CheckoutForm() {
             </label>
             <div className="shop-fields-row">
               <label>
-                الدور
+                رقم العقار / الدور
                 <input
                   required
                   maxLength={60}
@@ -721,7 +803,7 @@ function CheckoutForm() {
                 />
               </label>
               <label>
-                رقم المكتب
+                رقم الشقة / المكتب / تفاصيل الوصول
                 <input
                   required
                   maxLength={80}
@@ -1273,7 +1355,7 @@ export default function ShopFront() {
               try {
                 sessionStorage.removeItem("sangoub-checkout-attempt");
               } catch {}
-              void signOut(auth);
+              void signOutFromSupabase();
             }}
           >
             خروج من حساب العميل

@@ -4,7 +4,7 @@ import './admin-login.css';
 export function AdminLoginLayout({ children }: { children: ReactNode }) {
   return <main id="admin-content" tabIndex={-1} className="admin-signin-main">
     <aside className="admin-signin-scene" aria-label="سنجوب للتوصيل في العاصمة الإدارية">
-      <h1>إدارة التوصيل<br /><span>بذكاء</span></h1>
+      <h1>إدارة منظومة التوصيل<br /><span>والتشغيل الشامل</span></h1>
       <p>كل الطلبات، المتاجر، وفريق التوصيل.<br />في مكان واحد.</p>
     </aside>
     <section className="admin-signin-card" aria-label="دخول الإدارة">{children}</section>

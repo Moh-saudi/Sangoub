@@ -13,15 +13,19 @@ import { CouponManager } from "./CouponManager";
 import type { AdminTabType } from "./AdminDashboard";
 import { type AdminStaff } from "./AdminSetupPanel";
 import { CatalogManager } from "./CatalogManager";
+import { OffersManager } from "./OffersManager";
 import { CategoryManager } from "./CategoryManager";
 import { CouriersLiveMap } from "./CouriersLiveMap";
 import { FinancialReports } from "./FinancialReports";
+import { FleetIntelligence } from "./FleetIntelligence";
+import { CustomerAndPriceIntelligence } from "./CustomerAndPriceIntelligence";
 import { NotificationCenter } from "./NotificationCenter";
-import { LayoutDashboard, ChefHat, ClipboardList, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog, PanelRightClose, PanelRightOpen, Store as StoreIcon, Package, Tag, TicketPercent, Handshake, Briefcase, PanelsTopLeft, Bike, Banknote, Bell, FolderTree } from "lucide-react";
+import { LayoutDashboard, ChefHat, ClipboardList, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog, PanelRightClose, PanelRightOpen, Store as StoreIcon, Package, Tag, TicketPercent, Handshake, Briefcase, PanelsTopLeft, Bike, Banknote, Bell, FolderTree, Gauge, Users } from "lucide-react";
 
 const sections = [
   { id: "operations", group: "التشغيل اليومي", label: "مركز العمليات", hint: "ملخص اليوم ومؤشرات التشغيل", icon: LayoutDashboard },
   { id: "couriers-map", label: "خريطة المناديب الحية", hint: "تتبع مواقع المناديب والطلبات النشطة", icon: Bike },
+  { id: "fleet-intelligence", label: "مؤشرات الأسطول والمناديب", hint: "المتصدرون ومعدل الكيلومتر والإنتاجية", icon: Gauge },
   { id: "finance", label: "التقارير المالية والمتاجر", hint: "الإيرادات والعمولات وتسوية الشركاء", icon: Banknote },
   { id: "sangoub", label: "طلبات سنجوب", hint: "فطار وسوبرماركت الموقع", icon: ClipboardList },
   { id: "orders", label: "الطلبات", hint: "المتابعة وتعيين المندوب", icon: ClipboardList },
@@ -37,7 +41,8 @@ const sections = [
   { id: "users", group: "الحسابات والتشغيل", label: "سجل المناديب والتجار والمستخدمين", hint: "الاعتماد والفحص الطبي والجنائي ولوكيشن GPS", icon: UserRoundCog },
   { id: "partners", label: "طلبات الشراكة", hint: "انضمام المتاجر والتعاقد", icon: Handshake },
   { id: "jobs", label: "طلبات التوظيف", hint: "المتقدمون والمقابلات", icon: Briefcase },
-  { id: "audit", group: "الرقابة", label: "سجل التدقيق", hint: "التغييرات والمنفّذون", icon: ScrollText },
+  { id: "customer-intelligence", group: "الرقابة", label: "تحليلات العملاء والأسعار", hint: "كبار العملاء (VIP) ومتابعة الأسعار ودوران المخزون", icon: Users },
+  { id: "audit", label: "سجل التدقيق", hint: "التغييرات والمنفّذون", icon: ScrollText },
 ];
 
 const legacySections: Record<string, string> = { management: "orders", catalog: "products", settings: "users" };
@@ -218,17 +223,25 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
         </nav>
         {tab === "operations" && <OperationsDashboard orders={orders} stores={stores} couriers={couriers} connected={connected} onNavigate={navigate} />}
         {tab === "couriers-map" && <CouriersLiveMap orders={orders} stores={stores} couriers={couriers} connected={connected} />}
-        {tab === "finance" && <FinancialReports orders={orders} stores={stores} />}
+        {tab === "fleet-intelligence" && <FleetIntelligence orders={orders} stores={stores} couriers={couriers} />}
+        {tab === "finance" && <FinancialReports orders={orders} stores={stores} products={products} />}
         {tab === "kitchen" && <PreparationMonitor orders={orders} stores={stores} connected={connected} />}
         {tab === "categories" && <CategoryManager />}
-        {["stores", "products", "offers"].includes(tab) && (
+        {["stores", "products"].includes(tab) && (
           <CatalogManager
             key={tab}
-            mode={tab as "stores" | "products" | "offers"}
+            mode={tab as "stores" | "products"}
             stores={stores}
             products={products}
             orders={orders}
             searchRequest={catalogRequest?.kind === tab ? catalogRequest : undefined}
+          />
+        )}
+        {tab === "offers" && (
+          <OffersManager
+            stores={stores}
+            products={products}
+            orders={orders}
           />
         )}
         {tab === "sangoub" && <SangoubRequests />}
@@ -245,6 +258,7 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
             : children
         )}
         {tab === "users" && <UserManagement stores={stores} />}
+        {tab === "customer-intelligence" && <CustomerAndPriceIntelligence orders={orders} stores={stores} products={products} />}
         {tab === "audit" && <AuditLog />}
         <footer className="admin-footer">
           © 2026 جميع الحقوق محفوظة لشركة ميسك للتكنولوجيا. <span className="admin-build-label" dir="ltr">{String(import.meta.env.VITE_BUILD_ID || "local").slice(0, 8)}</span>

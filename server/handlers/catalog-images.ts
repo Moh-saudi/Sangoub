@@ -1,7 +1,7 @@
 import { auditRecord, attachAuditContext } from "../audit.ts";
 import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { adminServices } from "../firebaseAdmin.ts";
+import { requireAdmin } from "../adminRequest.ts";
 import { mobileCors } from "../mobileCors.ts";
 import { r2Services, imageUploadSpec, validImageKey } from "../r2.ts";
 
@@ -9,19 +9,10 @@ export default async function handler(req: any, res: any) {
   res.setHeader("Cache-Control", "no-store");
   if (mobileCors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
-  if (!token) return res.status(401).json({ error: "يرجى تسجيل الدخول." });
   try {
-    const { auth, db } = adminServices();
-    let identity;
-    try { identity = await auth.verifyIdToken(token, true); }
-    catch { return res.status(401).json({ error: "جلسة الدخول غير صالحة." }); }
-    const access=(await db.doc('accountAccess/'+identity.uid).get()).data();
-    if(access?.disabled||access?.operationLocked||identity.auth_time<=(access?.revokedBefore||0))return res.status(401).json({error:'أُلغيت هذه الجلسة أو عُلّق الحساب. سجل الدخول من جديد.'});
-    attachAuditContext(req,identity);
-    if ((!identity.email_verified && !identity.phone_number) ||
-        !(await db.collection("admins").doc(identity.uid).get()).exists)
-      return res.status(403).json({ error: "رفع الصور متاح للمدير فقط." });
+    const context = await requireAdmin(req);
+    const { auth, db, actor: identity } = context;
+    attachAuditContext(req, identity);
     const input = req.body;
     if (input?.action !== "upload" && input?.action !== "delete")
       return res.status(400).json({ error: "عملية غير صالحة." });

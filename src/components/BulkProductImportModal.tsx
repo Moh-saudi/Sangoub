@@ -1,3 +1,4 @@
+import { getBestAutoImageUrl } from '../utils/productImageFinder';
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
@@ -7,17 +8,30 @@ import { detectCategoryFromName } from '../utils/aiProductGenerator';
 import {
   X,
   FileSpreadsheet,
+  Sparkles,
   Download,
   UploadCloud,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
+  Info,
+  FileDown,
+  Check,
   Loader2,
   RefreshCw,
 } from 'lucide-react';
 
+export interface ImportErrorItem {
+  rowIndex: number;
+  productName: string;
+  errorReason: string;
+  suggestedFix: string;
+}
+
 interface BulkProductImportModalProps {
   stores: Store[];
-  categories: Category[];
+  categories?: Category[];
+  selectedStoreId?: string;
   onClose: () => void;
   onSuccess: (count: number) => void;
 }
@@ -35,6 +49,10 @@ interface ParsedProductRow {
   barcode?: string;
   merchantPosSku?: string;
   description?: string;
+  stockQuantity?: number;
+  minStockAlert?: number;
+  maxPerOrder?: number;
+  catalogProductId?: string;
   inStock: boolean;
   isPopular: boolean;
   imageUrl?: string;
@@ -42,24 +60,63 @@ interface ParsedProductRow {
   error?: string;
 }
 
+const STORE_SLUG_TO_SUPABASE_UUID: Record<string, string> = {
+  'store-foul-hind': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
+  'store-supermarket-capital': '54a6c2f6-6c29-4177-ac65-32fadddea83d',
+  'store-ministry-coffee': '55508f0e-f818-452e-b946-ab803fe9d637',
+  'store-karam-elsham': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
+  'store-taza-bakery': '55508f0e-f818-452e-b946-ab803fe9d637',
+};
+
+function resolveSupabaseStoreUuid(rawId?: string): string {
+  if (!rawId) return '27d12743-8106-4ef0-ba3c-84abefdb75d6';
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawId);
+  if (isUuid) return rawId;
+  return STORE_SLUG_TO_SUPABASE_UUID[rawId] || '27d12743-8106-4ef0-ba3c-84abefdb75d6';
+}
+
+
+function normalizeTextKey(str?: string | null): string {
+  if (!str) return '';
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/[\u064B-\u065F]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
 export function BulkProductImportModal({
   stores,
-  categories,
+  categories = [],
+  selectedStoreId,
   onClose,
   onSuccess,
 }: BulkProductImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<ParsedProductRow[]>([]);
-  const [defaultStoreId, setDefaultStoreId] = useState<string>(stores[0]?.id || '');
+  const targetStore = (selectedStoreId && stores.find(s => s.id === selectedStoreId)) || stores[0];
+  const [defaultStoreId, setDefaultStoreId] = useState<string>(targetStore?.id || '');
   const [parsing, setParsing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [errorMessage, setErrorMessage] = useState('');
+  const [filterOnlyErrors, setFilterOnlyErrors] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    completed: boolean;
+    successCount: number;
+    addedCount: number;
+    updatedCount: number;
+    failedCount: number;
+    errors: ImportErrorItem[];
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 1. Download Sample Excel Template
   function handleDownloadTemplate() {
-    const sampleStore = stores[0]?.name || 'سوبر ماركت العاصمة';
+    const sampleStore = targetStore?.name || 'فول هند - فرع العاصمة';
     const sampleData = [
       {
         'اسم_المنتج_بالعربية': 'شاي ليبتون ناعم أحمر 250 جم',
@@ -175,8 +232,8 @@ export function BulkProductImportModal({
         const matchedStore = stores.find(
           s => s.id === rawStore || s.name.toLowerCase() === rawStore.toLowerCase()
         );
-        const resolvedStoreId = matchedStore?.id || defaultStoreId;
-        const resolvedStoreName = matchedStore?.name || stores.find(s => s.id === defaultStoreId)?.name || '';
+        const resolvedStoreId = selectedStoreId || matchedStore?.id || defaultStoreId;
+        const resolvedStoreName = (selectedStoreId && stores.find(s => s.id === selectedStoreId)?.name) || matchedStore?.name || stores.find(s => s.id === defaultStoreId)?.name || '';
 
         const rawPrice = row['سعر_البيع'] ?? row['السعر'] ?? row['Price'] ?? row['price'];
         const price = parseFloat(String(rawPrice));
@@ -194,6 +251,15 @@ export function BulkProductImportModal({
 
         const popularText = String(row['صنف_مميز'] || row['مميز'] || row['Popular'] || 'لا').toLowerCase();
         const isPopular = popularText === 'نعم' || popularText === 'true' || popularText === '1';
+
+        const rawStockQty = row['الكمية_المتوفرة'] ?? row['الكمية'] ?? row['Stock'] ?? row['stock_qty'];
+        const stockQuantity = rawStockQty !== undefined && !isNaN(parseInt(String(rawStockQty))) ? Math.max(0, parseInt(String(rawStockQty))) : 50;
+
+        const rawMinAlert = row['حد_التنبيه_الأدنى'] ?? row['حد_التنبيه'] ?? row['Min_Alert'];
+        const minStockAlert = rawMinAlert !== undefined && !isNaN(parseInt(String(rawMinAlert))) ? Math.max(0, parseInt(String(rawMinAlert))) : 5;
+
+        const rawMaxOrder = row['أقصى_كمية_للطلب'] ?? row['حد_الطلب_الأقصى'] ?? row['Max_Per_Order'];
+        const maxPerOrder = rawMaxOrder !== undefined && !isNaN(parseInt(String(rawMaxOrder))) ? Math.max(1, parseInt(String(rawMaxOrder))) : 6;
 
         // Detect or match category
         let rawCategory = String(row['التصنيف'] || row['القسم'] || row['Category'] || '').trim();
@@ -242,6 +308,9 @@ export function BulkProductImportModal({
           barcode,
           merchantPosSku,
           description,
+          stockQuantity,
+          minStockAlert,
+          maxPerOrder,
           inStock,
           isPopular,
           imageUrl,
@@ -272,62 +341,277 @@ export function BulkProductImportModal({
     setImportProgress({ current: 0, total: validRows.length });
 
     let successCount = 0;
+    let addedCount = 0;
+    let updatedCount = 0;
+    const failedItems: ImportErrorItem[] = [];
+    let canDirectWriteSb = true;
+
+    // ── Pre-fetch existing store products to prevent duplicate entries ───────
+    const targetStoreUuid = resolveSupabaseStoreUuid(selectedStoreId || validRows[0]?.storeId);
+
+    interface ExistingLookupItem {
+      id: string;
+      name: string;
+      imageUrl?: string;
+      price?: number;
+    }
+    const existingByBarcode = new Map<string, ExistingLookupItem>();
+    const existingBySku = new Map<string, ExistingLookupItem>();
+    const existingByName = new Map<string, ExistingLookupItem>();
+
+    try {
+      const { data: dbProducts } = await supabase
+        .from('products')
+        .select('id, name, barcode, merchant_pos_sku, image_url, price, archived')
+        .eq('store_id', targetStoreUuid);
+
+      if (Array.isArray(dbProducts)) {
+        for (const item of dbProducts) {
+          const entry: ExistingLookupItem = {
+            id: item.id,
+            name: item.name,
+            imageUrl: item.image_url || undefined,
+            price: Number(item.price),
+          };
+          if (item.barcode && String(item.barcode).trim()) {
+            existingByBarcode.set(String(item.barcode).trim().toLowerCase(), entry);
+          }
+          if (item.merchant_pos_sku && String(item.merchant_pos_sku).trim()) {
+            existingBySku.set(String(item.merchant_pos_sku).trim().toLowerCase(), entry);
+          }
+          if (item.name && item.name.trim()) {
+            existingByName.set(normalizeTextKey(item.name), entry);
+          }
+        }
+      }
+    } catch (fetchErr) {
+      console.warn('Could not preload existing products for deduplication:', fetchErr);
+    }
 
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
-      const prodId = crypto.randomUUID();
+
+      // Smart Deduplication: Check if product already exists by barcode, POS SKU, or name
+      let matchedExisting: ExistingLookupItem | undefined;
+
+      if (row.barcode && String(row.barcode).trim()) {
+        matchedExisting = existingByBarcode.get(String(row.barcode).trim().toLowerCase());
+      }
+      if (!matchedExisting && row.merchantPosSku && String(row.merchantPosSku).trim()) {
+        matchedExisting = existingBySku.get(String(row.merchantPosSku).trim().toLowerCase());
+      }
+      if (!matchedExisting && row.name && row.name.trim()) {
+        matchedExisting = existingByName.get(normalizeTextKey(row.name));
+      }
+
+      const isUpdate = Boolean(matchedExisting);
+      // If product exists: reuse existing ID so it updates instead of duplicating!
+      const prodId = matchedExisting ? matchedExisting.id : crypto.randomUUID();
 
       try {
-        // Save to Firebase
-        await saveRecord('products', prodId, {
-          id: prodId,
-          name: row.name,
-          nameEn: row.nameEn || '',
-          storeId: row.storeId,
-          storeName: row.storeName,
-          category: row.category || 'عام',
-          categoryId: row.categoryId || null,
-          price: row.price,
-          originalPrice: row.originalPrice || null,
-          barcode: row.barcode || '',
-          merchantPosSku: row.merchantPosSku || '',
-          description: row.description || '',
-          inStock: row.inStock,
-          isPopular: row.isPopular,
-          imageUrl: row.imageUrl || '',
-          archived: false,
-          imageType: 'croissant',
-        });
+        // Keep existing image if row doesn't specify one
+        let finalImageUrl = row.imageUrl || matchedExisting?.imageUrl || '';
+        let finalName = row.name;
+        let finalNameEn = row.nameEn || '';
+        let catalogProductId: string | null = null;
 
-        // Save to Supabase products table
-        await supabase.from('products').upsert({
-          id: prodId,
-          store_id: row.storeId,
-          name: row.name,
-          name_en: row.nameEn || null,
-          description: row.description || '',
-          price: row.price,
-          original_price: row.originalPrice || null,
-          category: row.category || 'عام',
-          category_id: row.categoryId || null,
-          barcode: row.barcode || null,
-          merchant_pos_sku: row.merchantPosSku || null,
-          is_available: row.inStock,
-          image_url: row.imageUrl || null,
-        });
+        // Smart Master Catalog Match by Barcode (EAN-13)
+        if (row.barcode) {
+          try {
+            const { data: matchedSpu } = await supabase
+              .from('master_spu')
+              .select('id, name_ar, name_en, images, brand_name, category_id')
+              .eq('primary_barcode', row.barcode)
+              .maybeSingle();
 
-        successCount++;
-      } catch (err) {
+            if (matchedSpu) {
+              catalogProductId = matchedSpu.id;
+              if (!finalImageUrl && Array.isArray(matchedSpu.images) && matchedSpu.images.length > 0) {
+                finalImageUrl = matchedSpu.images[0];
+              }
+              if (!finalName && matchedSpu.name_ar) finalName = matchedSpu.name_ar;
+              if (!finalNameEn && matchedSpu.name_en) finalNameEn = matchedSpu.name_en;
+            }
+          } catch {
+            // Non-blocking catalog lookup fallback
+          }
+        }
+
+        // 1. Primary: Save/Upsert to Supabase products table (Single Source of Truth)
+        const safeOrigPrice = (row.originalPrice && Number(row.originalPrice) > Number(row.price)) ? Number(row.originalPrice) : undefined;
+        let sbSaved = false;
+
+        if (canDirectWriteSb) {
+          try {
+            const { error: sbError } = await supabase.from('products').upsert({
+              id: prodId,
+              store_id: targetStoreUuid,
+              name: finalName,
+              name_en: finalNameEn || null,
+              description: row.description || '',
+              price: row.price,
+              original_price: safeOrigPrice || null,
+              category: row.category || 'عام',
+              category_id: row.categoryId || null,
+              barcode: row.barcode || null,
+              merchant_pos_sku: row.merchantPosSku || null,
+              is_available: row.inStock,
+              archived: false,
+              image_url: finalImageUrl || null,
+            });
+
+            if (!sbError) {
+              sbSaved = true;
+            } else {
+              if (sbError.code === '42501' || sbError.code === 'PGRST303') {
+                canDirectWriteSb = false;
+              }
+            }
+          } catch (sbEx) {
+            canDirectWriteSb = false;
+          }
+        }
+
+        // 2. Server-side API Sync via /api/admin-data (Persistent Store Catalog)
+        try {
+          await saveRecord('products', prodId, {
+            id: prodId,
+            name: finalName,
+            nameEn: finalNameEn,
+            storeId: row.storeId,
+            storeName: row.storeName,
+            category: row.category || 'عام',
+            categoryId: row.categoryId || null,
+            price: row.price,
+            ...(safeOrigPrice ? { originalPrice: safeOrigPrice } : {}),
+            barcode: row.barcode || '',
+            merchantPosSku: row.merchantPosSku || '',
+            description: row.description || '',
+            inStock: row.inStock,
+            stockQuantity: row.stockQuantity ?? 50,
+            minStockAlert: row.minStockAlert ?? 5,
+            maxPerOrder: row.maxPerOrder ?? 6,
+            catalogProductId: catalogProductId || undefined,
+            isPopular: row.isPopular,
+            imageUrl: finalImageUrl,
+            archived: false,
+            imageType: 'croissant',
+          });
+          if (isUpdate) {
+            updatedCount++;
+          } else {
+            addedCount++;
+          }
+          successCount++;
+
+          // Register in index maps to prevent duplicate rows within the same file
+          const registeredEntry: ExistingLookupItem = {
+            id: prodId,
+            name: finalName,
+            imageUrl: finalImageUrl,
+            price: Number(row.price),
+          };
+          if (row.barcode && String(row.barcode).trim()) {
+            existingByBarcode.set(String(row.barcode).trim().toLowerCase(), registeredEntry);
+          }
+          if (row.merchantPosSku && String(row.merchantPosSku).trim()) {
+            existingBySku.set(String(row.merchantPosSku).trim().toLowerCase(), registeredEntry);
+          }
+          if (finalName && finalName.trim()) {
+            existingByName.set(normalizeTextKey(finalName), registeredEntry);
+          }
+        } catch (backendErr: any) {
+          if (sbSaved) {
+            if (isUpdate) {
+              updatedCount++;
+            } else {
+              addedCount++;
+            }
+            successCount++;
+
+            const registeredEntry: ExistingLookupItem = {
+              id: prodId,
+              name: finalName,
+              imageUrl: finalImageUrl,
+              price: Number(row.price),
+            };
+            if (row.barcode && String(row.barcode).trim()) {
+              existingByBarcode.set(String(row.barcode).trim().toLowerCase(), registeredEntry);
+            }
+            if (row.merchantPosSku && String(row.merchantPosSku).trim()) {
+              existingBySku.set(String(row.merchantPosSku).trim().toLowerCase(), registeredEntry);
+            }
+            if (finalName && finalName.trim()) {
+              existingByName.set(normalizeTextKey(finalName), registeredEntry);
+            }
+          } else {
+            console.error(`Failed to import row ${row.index}:`, backendErr);
+            let reason = backendErr?.message || 'تعذر حفظ الصنف في قاعدة البيانات';
+            let fix = 'راجع بيانات هذا الصف في ملف الإكسيل.';
+            if (reason.includes('السعر قبل الخصم')) {
+              reason = 'السعر قبل الخصم مساوٍ لسعر البيع أو أصغر منه.';
+              fix = 'اجعل خانة السعر قبل الخصم فارغة، أو اكتب سعراً أكبر من سعر البيع.';
+            } else if (reason.includes('المتجر غير موجود')) {
+              reason = 'المتجر المحدد غير مسجل في النظام.';
+              fix = 'اختر متجرك من القائمة بالأعلى أو تأكد من كتابة اسم المتجر الصحيح.';
+            } else if (reason.includes('JWT') || reason.includes('PGRST303') || reason.includes('Unauthorized')) {
+              reason = 'انتهت صلاحية جلسة الاتصال بقاعدة البيانات.';
+              fix = 'أعد تحميل الصفحة أو قم بتسجيل الدخول مجدداً.';
+            }
+            failedItems.push({
+              rowIndex: row.index,
+              productName: row.name || 'صنف بدون اسم',
+              errorReason: reason,
+              suggestedFix: fix,
+            });
+          }
+        }
+      } catch (err: any) {
         console.error(`Failed to import row ${row.index}:`, err);
+        let reason = err?.message || 'خطأ غير متوقع أثناء الحفظ';
+        let fix = 'راجع بيانات هذا الصف في ملف الإكسيل.';
+        if (reason.includes('السعر قبل الخصم')) {
+          reason = 'السعر قبل الخصم مساوٍ لسعر البيع أو أصغر منه.';
+          fix = 'اجعل خانة السعر قبل الخصم فارغة، أو اكتب سعراً أكبر من سعر البيع.';
+        }
+        failedItems.push({
+          rowIndex: row.index,
+          productName: row.name || 'صنف بدون اسم',
+          errorReason: reason,
+          suggestedFix: fix,
+        });
       }
 
       setImportProgress({ current: i + 1, total: validRows.length });
     }
 
     setImporting(false);
+
+    // Set detailed result with added vs updated statistics
+    setImportResult({
+      completed: true,
+      successCount,
+      addedCount,
+      updatedCount,
+      failedCount: failedItems.length,
+      errors: failedItems,
+    });
     onSuccess(successCount);
-    onClose();
   }
+
+  const handleExportErrorRows = () => {
+    if (!importResult || importResult.errors.length === 0) return;
+    const errorData = importResult.errors.map((err: ImportErrorItem) => ({
+      'رقم_الصف_في_الملف': err.rowIndex + 1,
+      'اسم_المنتج': err.productName,
+      'سبب_الخطأ': err.errorReason,
+      'طريقة_التصحيح': err.suggestedFix,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(errorData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'أخطاء_الاستيراد');
+    XLSX.writeFile(workbook, `أخطاء_استيراد_منتجات_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
 
   const validCount = parsedRows.filter(r => r.isValid).length;
   const invalidCount = parsedRows.length - validCount;
@@ -339,7 +623,7 @@ export function BulkProductImportModal({
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
       dir="rtl"
     >
-      <div className="bg-white rounded-3xl max-w-4xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-3xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <header className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -363,80 +647,142 @@ export function BulkProductImportModal({
         </header>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Step 1: Download Templates */}
-          <div className="grid md:grid-cols-2 gap-3">
-            <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex flex-col justify-between gap-3">
-              <div className="space-y-1">
-                <h4 className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
-                  <FileSpreadsheet size={16} className="text-emerald-700" />
-                  نموذج فارغ لإدخال منتجات جديدة
-                </h4>
-                <p className="text-[11px] text-emerald-800">
-                  ملف إكسيل فارغ يحتوي على أسماء الأعمدة المعتمدة لملئها بأصنافك.
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 text-xs">
+          {importResult?.completed ? (
+            <div className="py-5 px-4 flex flex-col items-center justify-center text-center space-y-3 animate-in fade-in zoom-in-95 duration-200">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                <CheckCircle2 size={26} />
+              </div>
+
+              <div className="space-y-2 max-w-sm w-full">
+                <h3 className="text-base font-black text-slate-900">تم استيراد وتحديث الأصناف بنجاح!</h3>
+                
+                {/* الإحصائية الذكية لمنع التكرار */}
+                <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-2xl text-xs space-y-1.5 text-slate-700 text-right">
+                  <div className="flex items-center justify-between font-bold">
+                    <span>أصناف جديدة تمت إضافتها:</span>
+                    <span className="font-mono text-emerald-800 font-black bg-white px-2 py-0.5 rounded-lg border border-emerald-200">
+                      {importResult.addedCount} صنف جديد
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between font-bold">
+                    <span>أصناف محدثة مسبقاً (دون تكرار):</span>
+                    <span className="font-mono text-sky-800 font-black bg-white px-2 py-0.5 rounded-lg border border-sky-200">
+                      {importResult.updatedCount} تم تحديثها
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between font-bold pt-1.5 border-t border-emerald-200/80 text-slate-900">
+                    <span>إجمالي الأصناف المعالجة:</span>
+                    <span className="font-mono font-black text-emerald-900 text-sm">
+                      {importResult.successCount} صنف
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-500">
+                  تم التعرف على الأصناف الموجودة مسبقاً وتحديث أسعارها وبياناتها آلياً دون إنشاء أي نسخ مكررة.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleDownloadTemplate}
-                className="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
-              >
-                <Download size={15} />
-                تحميل النموذج الفارغ (.xlsx)
-              </button>
-            </div>
 
-            <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl flex flex-col justify-between gap-3">
-              <div className="space-y-1">
-                <h4 className="text-xs font-black text-blue-950 flex items-center gap-1.5">
-                  <FileSpreadsheet size={16} className="text-blue-700" />
-                  كتالوج الأدوية والمستلزمات والمنظفات (520 صنف جاهز)
-                </h4>
-                <p className="text-[11px] text-blue-800">
-                  قاعدة أصناف جاهزة ومرخصة بالأسعار والباركود وأكواد POS والوصف والصور عالية الدقة.
+              {importResult.failedCount > 0 && (
+                <div className="w-full max-w-md p-4 bg-amber-50 border border-amber-200 rounded-2xl text-right space-y-2">
+                  <div className="flex items-center justify-between text-amber-900 font-bold text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                      يوجد {importResult.failedCount} صنف به أخطاء في ملف الإكسيل
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleExportErrorRows}
+                      className="text-amber-800 underline hover:text-amber-950 font-bold text-xs cursor-pointer flex items-center gap-1"
+                    >
+                      <FileDown size={14} />
+                      <span>تحميل ملف الأخطاء (.xlsx)</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-amber-700">
+                    يمكنك تصحيح هذه الصفوف وإعادة رفعها دون التأثير على الأصناف التي تم استيرادها بنجاح.
+                  </p>
+                </div>
+              )}
+
+              <div className="pt-1 w-full max-w-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSuccess(importResult.successCount);
+                    onClose();
+                  }}
+                  className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-black rounded-xl text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Check size={18} />
+                  <span>عرض المنتجات في القائمة ({importResult.successCount} صنف)</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+          {/* Single Template Download Banner */}
+          <div className="flex items-center justify-between p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                <FileSpreadsheet size={16} />
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-xs font-black text-slate-900 truncate">نموذج Excel المعتمد</h4>
+                <p className="text-[10px] text-slate-500 truncate">
+                  حمّل النموذج الفارغ لتعبئته بأصنافك وأسعارك ورفعه مباشرة
                 </p>
               </div>
-              <a
-                href="/pharmacy_and_cleaning_catalog.xlsx"
-                download="pharmacy_and_cleaning_catalog.xlsx"
-                className="w-full py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer text-center"
-              >
-                <Download size={15} />
-                تحميل الكتالوج المعتمد (520 صنف .xlsx)
-              </a>
             </div>
-          </div>
-
-          {/* Default Store Selector */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              المتجر الافتراضي (يُسند تلقائياً لأي صنف لم يُحدد له متجر في الملف):
-            </label>
-            <select
-              value={defaultStoreId}
-              onChange={e => setDefaultStoreId(e.target.value)}
-              disabled={importing}
-              className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white font-medium focus:outline-none focus:border-emerald-600"
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors shrink-0 cursor-pointer"
+              title="تحميل ملف إكسيل فارغ"
             >
-              {stores.map(store => (
-                <option key={store.id} value={store.id}>
-                  {store.name} ({store.locationInDistrict || 'الحي الحكومي'})
-                </option>
-              ))}
-            </select>
+              <Download size={13} />
+              <span>تحميل النموذج (.xlsx)</span>
+            </button>
           </div>
+
+          {/* Store Indicator */}
+          {selectedStoreId ? (
+            <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+              <span className="text-[11px] font-bold text-slate-500">الفرع المستهدف:</span>
+              <span className="font-bold text-slate-800 text-xs">{targetStore?.name || "المتجر الحالي"}</span>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                المتجر المستهدف للاستيراد:
+              </label>
+              <select
+                value={defaultStoreId}
+                onChange={e => setDefaultStoreId(e.target.value)}
+                disabled={importing}
+                className="w-full p-2 border border-slate-200 rounded-xl text-xs bg-white font-bold focus:outline-none focus:border-emerald-600"
+              >
+                {stores.map(store => (
+                  <option key={store.id} value={store.id}>
+                    {store.name} ({store.locationInDistrict || 'الحي الحكومي'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Step 2: Upload Dropzone */}
-          <div className="p-8 bg-slate-50 border-2 border-dashed border-slate-300 rounded-3xl text-center space-y-3 hover:border-emerald-500 transition-colors">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center">
-              <UploadCloud size={24} />
+          <div className="p-4 sm:p-5 bg-slate-50/70 border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl text-center space-y-2 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center">
+              <UploadCloud size={20} />
             </div>
             <div>
-              <h4 className="font-bold text-sm text-slate-900">
-                {file ? file.name : 'اختر ملف إكسيل (.xlsx, .xls) أو CSV من جهازك'}
+              <h4 className="font-bold text-xs text-slate-800">
+                {file ? file.name : 'اختر ملف إكسيل (.xlsx, .xls) أو CSV'}
               </h4>
-              <p className="text-xs text-slate-500 mt-1">
-                تدعم المنصة رفع ملفات الإكسيل التي تحتوي على آلاف الأصناف
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {file ? `${(file.size / 1024).toFixed(1)} كيلوبايت` : 'اسحب الملف هنا أو اضغط للاختيار من جهازك'}
               </p>
             </div>
 
@@ -452,14 +798,14 @@ export function BulkProductImportModal({
 
             <label
               htmlFor="excel-file-upload-input"
-              className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs cursor-pointer shadow-xs transition-all ${
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs cursor-pointer shadow-2xs transition-all ${
                 parsing || importing
                   ? 'bg-slate-200 text-slate-500 pointer-events-none'
                   : 'bg-emerald-700 hover:bg-emerald-800 text-white'
               }`}
             >
-              {parsing ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
-              {parsing ? 'جارٍ قراءة الملف وتحليله…' : file ? 'اختيار ملف آخر' : 'اختيار ملف الإكسيل'}
+              {parsing ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+              <span>{parsing ? 'جارٍ قراءة الملف…' : file ? 'تغيير الملف' : 'اختيار ملف الإكسيل'}</span>
             </label>
           </div>
 
@@ -488,6 +834,20 @@ export function BulkProductImportModal({
                     </span>
                   )}
                 </div>
+
+                {invalidCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterOnlyErrors(!filterOnlyErrors)}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      filterOnlyErrors
+                        ? 'bg-red-600 text-white'
+                        : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                    }`}
+                  >
+                    {filterOnlyErrors ? 'عرض جميع الصفوف' : `عرض الصفوف التي بها أخطاء فقط (${invalidCount})`}
+                  </button>
+                )}
               </div>
 
               {/* Table Preview */}
@@ -505,7 +865,7 @@ export function BulkProductImportModal({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {parsedRows.map(row => (
+                    {(filterOnlyErrors ? parsedRows.filter(r => !r.isValid) : parsedRows).map(row => (
                       <tr key={row.index} className={row.isValid ? 'hover:bg-slate-50' : 'bg-red-50/50'}>
                         <td className="p-2.5 text-slate-400 font-mono">{row.index}</td>
                         <td className="p-2.5 font-bold text-slate-900">{row.name || '—'}</td>
@@ -554,28 +914,59 @@ export function BulkProductImportModal({
               )}
             </div>
           )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        <footer className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={importing}
-            className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-40"
-          >
-            إلغاء
-          </button>
+        <footer className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+          {importResult?.completed ? (
+            <div className="w-full flex items-center justify-between">
+              {importResult.failedCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleExportErrorRows}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
+                >
+                  <FileDown size={15} />
+                  <span>تحميل ملف الأصناف الخاطئة (.xlsx)</span>
+                </button>
+              ) : <div />}
 
-          <button
-            type="button"
-            onClick={handleStartImport}
-            disabled={importing || validCount === 0}
-            className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-40"
-          >
-            {importing ? <Loader2 size={15} className="animate-spin" /> : <FileSpreadsheet size={15} />}
-            {importing ? 'جارٍ الاستيراد…' : `بدء استيراد ${validCount} صنف`}
-          </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onSuccess(importResult.successCount);
+                  onClose();
+                }}
+                className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-black rounded-xl text-xs transition cursor-pointer shadow-sm flex items-center gap-2"
+              >
+                <Check size={16} />
+                <span>إغلاق وعرض الأصناف في القائمة ({importResult.successCount} صنف)</span>
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={importing}
+                className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-40"
+              >
+                إلغاء
+              </button>
+
+              <button
+                type="button"
+                onClick={handleStartImport}
+                disabled={importing || validCount === 0}
+                className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-40"
+              >
+                {importing ? <Loader2 size={15} className="animate-spin" /> : <FileSpreadsheet size={15} />}
+                {importing ? 'جارٍ الاستيراد…' : `بدء استيراد ${validCount} صنف`}
+              </button>
+            </>
+          )}
         </footer>
       </div>
     </div>

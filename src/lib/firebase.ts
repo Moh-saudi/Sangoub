@@ -118,7 +118,7 @@ export async function syncUserProfileToFirestore(
     role,
     ...(data.coordinates ? { coordinates: data.coordinates } : {}),
     ...(assignment?.storeId ? { storeId: assignment.storeId } : {}),
-    ...(user.photoURL ? { avatarUrl: user.photoURL } : {}),
+    ...(data.avatarUrl || user.photoURL ? { avatarUrl: data.avatarUrl || user.photoURL } : {}),
     isGuest: false,
     authProvider: user.providerData.some((p) => p.providerId === "google.com")
       ? "google"
@@ -136,6 +136,7 @@ export async function updateUserLocationInFirestore(
   fullName?: string,
   phone?: string,
   coordinates?: Profile["coordinates"],
+  avatarUrl?: string,
 ) {
   if (auth.currentUser?.uid !== uid) throw new Error("يرجى تسجيل الدخول.");
   const {authenticatedApi}=await import('./authenticatedApi');
@@ -146,6 +147,7 @@ export async function updateUserLocationInFirestore(
     ...(fullName !== undefined ? { fullName } : {}),
     ...(phone !== undefined ? { phone } : {}),
     ...(coordinates ? { coordinates } : {}),
+    ...(avatarUrl !== undefined ? { avatarUrl } : {}),
   }});
 }
 export const cleanData = <T>(data: T): T => JSON.parse(JSON.stringify(data));

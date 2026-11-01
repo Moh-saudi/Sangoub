@@ -21,7 +21,8 @@ export default async function handler(req: any, res: any) {
     try { user = await auth.verifyIdToken(bearer, true); }
     catch { return res.status(401).json({ error: "جلسة الدخول غير صالحة." }); }
     const access=(await db.doc('accountAccess/'+user.uid).get()).data();
-    if(access?.disabled||access?.operationLocked||user.auth_time<=(access?.revokedBefore||0))return res.status(401).json({error:'أُلغيت هذه الجلسة أو عُلّق الحساب. سجل الدخول من جديد.'});
+    const revokedSec1 = access?.revokedBefore ? (access.revokedBefore > 1e11 ? Math.floor(access.revokedBefore / 1000) : access.revokedBefore) : 0;
+    if(access?.disabled===true||access?.operationLocked===true||(revokedSec1 > 0 && user.auth_time<=revokedSec1))return res.status(401).json({error:'أُلغيت هذه الجلسة أو عُلّق الحساب. سجل الدخول من جديد.'});
     attachAuditContext(req,user);
     if (action === "deliver" && !user.email_verified && !user.phone_number) return res.status(403).json({ error: "أكد حسابك أولًا." });
     const orderRef = db.collection("orders").doc(orderId);
@@ -31,7 +32,8 @@ export default async function handler(req: any, res: any) {
         tx.get(orderRef), tx.get(secretRef), tx.get(db.collection("staff").doc(user.uid)), tx.get(db.doc("accountAccess/"+user.uid)), tx.get(db.doc("users/"+user.uid)),
       ]);
       const control=currentAccess.data();
-      if(control?.disabled||control?.operationLocked||user.auth_time<=(control?.revokedBefore||0))return {status:403,body:{error:'انتهت صلاحية الحساب.'}};
+      const revokedSec2 = control?.revokedBefore ? (control.revokedBefore > 1e11 ? Math.floor(control.revokedBefore / 1000) : control.revokedBefore) : 0;
+      if(control?.disabled===true||control?.operationLocked===true||(revokedSec2 > 0 && user.auth_time<=revokedSec2))return {status:403,body:{error:'انتهت صلاحية الحساب.'}};
       if (!orderDoc.exists) return { status: 404, body: { error: "الطلب غير موجود." } };
       const order = orderDoc.data()!;
       if (action === "code") {

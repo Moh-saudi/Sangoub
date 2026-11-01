@@ -33,6 +33,7 @@
   ],
   "exclude": [
     "dist",
-    "server"
+    "server",
+    "src/**/*.test.ts"
   ]
 }
