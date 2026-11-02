@@ -53,3 +53,23 @@
 .animate-fade-in-up {
   animation: fadeInUp 0.25s ease-out forwards;
 }
+
+/* Prevent lateral viewport jitter / horizontal wobble on mobile */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  position: relative;
+}
+
+.sangoub-store {
+  overflow-x: hidden;
+  max-width: 100vw;
+  position: relative;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}

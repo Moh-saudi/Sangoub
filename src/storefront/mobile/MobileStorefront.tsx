@@ -503,7 +503,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           </div>
 
           {/* Smooth Horizontal Touch Scroll of Categories (With Top Padding to prevent badge clipping) */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-3.5 pb-1 -mx-3.5 px-3.5">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-3.5 pb-1 w-full overscroll-x-contain touch-pan-x">
             {TALABAT_MOBILE_SERVICES.filter((serv) =>
               LAUNCH_CONFIG.enabledCategories.length === 0 || LAUNCH_CONFIG.enabledCategories.includes(serv.id)
             ).map((serv) => {
@@ -588,7 +588,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
               </button>
             </div>
 
-            <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-1 -mx-3.5 px-3.5">
+            <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-1 w-full overscroll-x-contain touch-pan-x">
               {flashDeals.map((product) => {
                 const cartItem = cartItems.find((item) => item.product.id === product.id);
                 const qty = cartItem ? cartItem.quantity : 0;
@@ -693,14 +693,18 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
               </h2>
               <a
                 href="/stores"
-                className="text-[11px] font-bold text-[#FF5900] hover:underline flex items-center gap-0.5"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.assign('/stores');
+                }}
+                className="text-[11px] font-bold text-[#FF5900] hover:underline flex items-center gap-0.5 text-decoration-none"
               >
                 <span>كل المتاجر</span>
                 <ChevronLeft size={12} />
               </a>
             </div>
 
-            <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-2 pt-0.5 -mx-3.5 px-3.5">
+            <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-2 pt-0.5 w-full overscroll-x-contain touch-pan-x">
               {stores.map((store) => (
                 <a
                   key={store.id}

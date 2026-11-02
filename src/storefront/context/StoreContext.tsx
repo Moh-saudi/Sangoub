@@ -107,11 +107,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const navigate = (path: string, options?: { replace?: boolean }) => {
+    if (
+      path.startsWith('/stores') ||
+      path.startsWith('/my-orders') ||
+      path.startsWith('/track') ||
+      path.startsWith('/checkout')
+    ) {
+      window.location.assign(path);
+      return;
+    }
     if (options?.replace) {
       window.history.replaceState({}, '', path);
     } else {
       window.history.pushState({}, '', path);
     }
+    window.dispatchEvent(new PopStateEvent('popstate'));
     setCurrentPath(path);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -361,15 +371,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
-    if (banner.targetType === 'store' && banner.targetId) {
-      const store = stores.find(s => s.id === banner.targetId);
-      if (store && callbacks?.onSelectCategory) {
-        callbacks.onSelectCategory(store.type || store.name);
-        const grid = document.getElementById('products-grid') || document.getElementById('mobile-products-grid');
-        if (grid) grid.scrollIntoView({ behavior: 'smooth' });
-        return;
-      }
-      navigate(`/stores/${encodeURIComponent(banner.targetId)}`);
+    if (banner.targetType === 'store') {
+      window.location.assign(banner.targetId ? `/stores/${encodeURIComponent(banner.targetId)}` : '/stores');
       return;
     }
 

@@ -368,7 +368,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
             </div>
 
             {/* Horizontal Scroll Track */}
-            <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 pt-1 -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
+            <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 pt-1 w-full overscroll-x-contain touch-pan-x">
               {flashDeals.map((product) => {
                 const discountPct = product.originalPrice && product.originalPrice > product.price
                   ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
@@ -451,18 +451,21 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                 <StoreIcon size={18} className="text-[#FF5900]" />
                 <span>المطاعم والشركاء ⭐</span>
               </h2>
-              <button
-                type="button"
-                onClick={() => setSelectedCategory('وجبات')}
-                className="text-xs font-bold text-[#FF5900] hover:underline cursor-pointer flex items-center gap-0.5"
+              <a
+                href="/stores"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.assign('/stores');
+                }}
+                className="text-xs font-bold text-[#FF5900] hover:underline cursor-pointer flex items-center gap-0.5 text-decoration-none"
               >
                 <span>جميع الشركاء</span>
                 <ChevronLeft size={13} />
-              </button>
+              </a>
             </div>
 
             {/* Horizontal Stores Scroll */}
-            <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 pt-1 -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
+            <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 pt-1 w-full overscroll-x-contain touch-pan-x">
               {stores.map((store) => (
                 <div
                   key={store.id}
