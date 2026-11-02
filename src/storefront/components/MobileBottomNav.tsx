@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
-import { Home, LayoutGrid, Tag, ShoppingBag, User } from 'lucide-react';
+import { Home, Store, Tag, ShoppingBag, User } from 'lucide-react';
 
 export const MobileBottomNav: React.FC = () => {
   const { currentPath, navigate, cartItems, user } = useStore();
@@ -8,7 +8,7 @@ export const MobileBottomNav: React.FC = () => {
 
   const tabs = [
     { label: 'الرئيسية', path: '/', icon: Home },
-    { label: 'الأقسام',  path: '/categories', icon: LayoutGrid },
+    { label: 'المتاجر',  path: '/stores', icon: Store },
     { label: 'العروض',   path: '/offers',     icon: Tag },
     { label: 'السلة',    path: '/cart',        icon: ShoppingBag, badge: totalCartCount },
     { label: user ? 'حسابي' : 'الدخول', path: user ? '/account' : '/login', icon: User },

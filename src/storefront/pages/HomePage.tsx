@@ -129,6 +129,7 @@ const TALABAT_MAIN_SERVICES = [
 
 export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
   const { 
+    currentPath,
     products, 
     stores, 
     applyCoupon, 
@@ -145,14 +146,15 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
   const [couponCopied, setCouponCopied] = useState(false);
 
   useEffect(() => {
-    if (window.location.pathname === '/offers') {
+    if (currentPath === '/offers' || window.location.pathname === '/offers') {
+      setSelectedCategory(null);
       setActiveFilter('offers');
       setTimeout(() => {
         const grid = document.getElementById('products-grid');
         if (grid) grid.scrollIntoView({ behavior: 'smooth' });
-      }, 200);
+      }, 100);
     }
-  }, []);
+  }, [currentPath]);
 
   const displayedServices = useMemo(() => {
     return TALABAT_MAIN_SERVICES.filter((serv) =>
@@ -182,7 +184,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     }
 
     if (activeFilter === 'offers') {
-      list = list.filter((p) => (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض'));
+      list = list.filter((p) => (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم') || Boolean(p.offerTitle));
     } else if (activeFilter === 'popular') {
       list = list.filter((p) => p.isPopular || p.badge?.includes('طلب') || p.badge?.includes('الأكثر'));
     } else if (activeFilter === 'fast_delivery') {

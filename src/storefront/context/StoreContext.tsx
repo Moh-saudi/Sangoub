@@ -109,7 +109,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const navigate = (path: string, options?: { replace?: boolean }) => {
     if (
-      path.startsWith('/stores') ||
       path.startsWith('/my-orders') ||
       path.startsWith('/track') ||
       path.startsWith('/checkout')
@@ -376,7 +375,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     if (banner.targetType === 'store') {
-      window.location.assign(banner.targetId ? `/stores/${encodeURIComponent(banner.targetId)}` : '/stores');
+      navigate(banner.targetId ? `/stores/${encodeURIComponent(banner.targetId)}` : '/stores');
       return;
     }
 

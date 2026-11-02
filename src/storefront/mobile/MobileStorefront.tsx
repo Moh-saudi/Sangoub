@@ -186,6 +186,13 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
       handleOpenCart();
     } else if (currentPath === '/login' || currentPath === '/register') {
       handleOpenRegister();
+    } else if (currentPath === '/offers') {
+      setActiveFilter('offers');
+      setSelectedCategory(null);
+      setTimeout(() => {
+        const grid = document.getElementById('mobile-products-grid');
+        if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
   }, [currentPath]);
 
@@ -343,7 +350,19 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           MAIN MOBILE BODY
           ══════════════════════════════════════════════════════════════ */}
       <main className="px-3.5 pt-2 space-y-3">
-
+        {isSingleStore ? (
+          <StoreDetailsPage
+            storeId={currentStoreId}
+            onBackToStores={() => navigate('/stores')}
+            isMobile={true}
+          />
+        ) : isStoresList ? (
+          <StoresPage
+            onBackToHome={() => navigate('/')}
+            isMobile={true}
+          />
+        ) : (
+          <>
         {/* 2. DEDICATED MOBILE HERO SLIDER (Compact 120px Height) */}
         {activeSlides.length > 0 && (
           <div
@@ -958,7 +977,8 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
         <div className="text-center py-4 text-[9.5px] text-[#9CA3AF] font-bold">
           {LAUNCH_CONFIG.entityLine}
         </div>
-
+          </>
+        )}
       </main>
 
       {/* ══════════════════════════════════════════════════════════════
@@ -1054,13 +1074,13 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
 
         <button
           type="button"
-          onClick={() => { setSelectedCategory('وجبات'); navigate('/categories'); }}
+          onClick={() => navigate('/stores')}
           className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            currentPath.startsWith('/categories') ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold'
+            currentPath.startsWith('/stores') ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold'
           }`}
         >
-          <LayoutGrid size={20} strokeWidth={currentPath.startsWith('/categories') ? 2.5 : 1.8} />
-          <span className="text-[10px] mt-0.5">الأقسام</span>
+          <StoreIcon size={20} strokeWidth={currentPath.startsWith('/stores') ? 2.5 : 1.8} />
+          <span className="text-[10px] mt-0.5">المتاجر</span>
         </button>
 
         <button

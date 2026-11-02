@@ -95,7 +95,16 @@ const StorefrontRouter: React.FC = () => {
             hasActiveOrder={Boolean(activeOrder)}
           />
           <main className="flex-1">
-            <HomePage onOpenAreaModal={() => setAreaModalOpen(true)} />
+            {isSingleStore ? (
+              <StoreDetailsPage
+                storeId={currentStoreId}
+                onBackToStores={() => navigate('/stores')}
+              />
+            ) : isStoresList ? (
+              <StoresPage onBackToHome={() => navigate('/')} />
+            ) : (
+              <HomePage onOpenAreaModal={() => setAreaModalOpen(true)} />
+            )}
           </main>
           <StoreFooter />
         </div>
