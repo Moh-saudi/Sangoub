@@ -185,8 +185,8 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
 
     try {
       const campaign = {
-        title: String(data.get('title')),
-        subtitle: String(data.get('subtitle')),
+        title: String(data.get('title') || '').trim(),
+        subtitle: String(data.get('subtitle') || '').trim(),
         imageUrl,
         enabled: data.get('enabled') === 'on',
         priority: Number(data.get('priority')),
@@ -541,7 +541,7 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
       {/* ── Modal: Campaign Editor (With Gallery Picker Integration) ── */}
       <dialog
         ref={dialog}
-        className="rounded-3xl p-0 border border-slate-200 shadow-2xl max-w-lg w-full backdrop:bg-black/60 overflow-hidden font-cairo"
+        className="fixed inset-0 m-auto z-50 rounded-3xl p-0 border border-slate-200 shadow-2xl max-w-lg w-full max-h-[92vh] backdrop:bg-black/60 overflow-y-auto font-cairo"
         dir="rtl"
         aria-label="محرر الحملة"
         onCancel={event => { if (busy) event.preventDefault(); else setEditor(null); }}
@@ -558,15 +558,16 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
           <form className="p-5 space-y-3.5" onSubmit={saveCampaign}>
             <fieldset disabled={busy} className="space-y-3">
               
-              {/* Campaign Title */}
+              {/* Campaign Title (Optional) */}
               <div>
-                <label className="block text-xs font-black text-slate-800 mb-1">عنوان الحملة الرئيسي:</label>
+                <label className="block text-xs font-black text-slate-800 mb-1">
+                  عنوان الحملة الرئيسي <span className="text-slate-400 font-normal">(اختياري - اتركه فارغاً إذا كان التصميم يحتوي على نص):</span>
+                </label>
                 <input
                   name="title"
-                  required
                   maxLength={120}
-                  defaultValue={editor.campaign?.title}
-                  placeholder="مثال: سنجوب ماركت وكل طلبات البيت لحد بابك 🛒"
+                  defaultValue={editor.campaign?.title || ''}
+                  placeholder="اختياري: مثال سنجوب ماركت وكل طلبات البيت لحد بابك"
                   className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:bg-white focus:border-orange-500"
                 />
               </div>
@@ -733,7 +734,7 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
       {/* ── Modal: Gallery Picker (Select previous images or upload) ── */}
       <dialog
         ref={galleryDialog}
-        className="rounded-3xl p-0 border border-slate-200 shadow-2xl max-w-2xl w-full backdrop:bg-black/60 overflow-hidden font-cairo"
+        className="fixed inset-0 m-auto z-50 rounded-3xl p-0 border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[88vh] backdrop:bg-black/60 overflow-hidden font-cairo"
         dir="rtl"
         aria-label="معرض صور السلايدر"
         onCancel={() => setIsGalleryModalOpen(false)}

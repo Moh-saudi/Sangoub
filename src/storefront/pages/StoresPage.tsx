@@ -263,3 +263,4 @@ export const StoresPage: React.FC<StoresPageProps> = ({ onBackToHome, isMobile }
     </div>
   );
 };
+

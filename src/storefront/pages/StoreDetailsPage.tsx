@@ -304,3 +304,4 @@ export const StoreDetailsPage: React.FC<StoreDetailsPageProps> = ({
     </div>
   );
 };
+
