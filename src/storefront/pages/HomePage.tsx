@@ -144,6 +144,16 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
   const [couponCopied, setCouponCopied] = useState(false);
 
+  useEffect(() => {
+    if (window.location.pathname === '/offers') {
+      setActiveFilter('offers');
+      setTimeout(() => {
+        const grid = document.getElementById('products-grid');
+        if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+      }, 200);
+    }
+  }, []);
+
   const displayedServices = useMemo(() => {
     return TALABAT_MAIN_SERVICES.filter((serv) =>
       LAUNCH_CONFIG.enabledCategories.length === 0 || LAUNCH_CONFIG.enabledCategories.includes(serv.id)
@@ -456,7 +466,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
               {stores.map((store) => (
                 <div
                   key={store.id}
-                  onClick={() => setSelectedCategory(store.name)}
+                  onClick={() => window.location.assign('/stores/' + encodeURIComponent(store.id))}
                   className="w-[210px] sm:w-[240px] shrink-0 bg-white border border-[#E5E7EB] hover:border-[#FF5900]/40 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between select-none"
                 >
                   {/* Store Banner */}

@@ -32,7 +32,8 @@ import {
   Home,
   LayoutGrid,
   User,
-  ArrowLeft
+  ArrowLeft,
+  Store as StoreIcon
 } from 'lucide-react';
 
 interface MobileStorefrontProps {
@@ -678,6 +679,66 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                   </div>
                 );
               })}
+            </div>
+          </section>
+        )}
+
+                {/* 6.5 POPULAR STORES HORIZONTAL SCROLL (Mobile) */}
+        {stores.length > 0 && (
+          <section aria-labelledby="mobile-stores-heading" className="mb-4">
+            <div className="flex items-center justify-between px-1 mb-2">
+              <h2 id="mobile-stores-heading" className="text-xs font-black text-[#111827] flex items-center gap-1.5">
+                <StoreIcon size={15} className="text-[#FF5900]" />
+                <span>المتاجر والشركاء ⭐</span>
+              </h2>
+              <a
+                href="/stores"
+                className="text-[11px] font-bold text-[#FF5900] hover:underline flex items-center gap-0.5"
+              >
+                <span>كل المتاجر</span>
+                <ChevronLeft size={12} />
+              </a>
+            </div>
+
+            <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-2 pt-0.5 -mx-3.5 px-3.5">
+              {stores.map((store) => (
+                <a
+                  key={store.id}
+                  href={'/stores/' + encodeURIComponent(store.id)}
+                  className="w-[170px] shrink-0 bg-white border border-[#E5E7EB] hover:border-[#FF5900]/40 rounded-2xl overflow-hidden shadow-xs active:scale-98 transition-all flex flex-col justify-between text-decoration-none select-none"
+                >
+                  <div className="relative h-20 w-full bg-[#E5E7EB] overflow-hidden">
+                    <img
+                      src={store.bannerUrl || store.imageUrl || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80'}
+                      alt={store.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                    <span className="absolute bottom-1.5 right-1.5 bg-white/95 text-[#111827] text-[8px] font-black px-1.5 py-0.2 rounded shadow-xs flex items-center gap-0.5">
+                      <Clock size={8} className="text-[#FF5900]" />
+                      <span>{store.deliveryTime || '20-30 دقيقة'}</span>
+                    </span>
+                    <span className="absolute bottom-1.5 left-1.5 bg-[#059669] text-white text-[8px] font-black px-1 py-0.2 rounded shadow-xs">
+                      {store.deliveryFee === 0 ? 'مجاني 🛵' : formatEGP(store.deliveryFee)}
+                    </span>
+                  </div>
+                  <div className="p-2 space-y-0.5">
+                    <div className="flex items-start justify-between gap-1">
+                      <h3 className="text-[11px] font-black text-[#111827] truncate">
+                        {store.name}
+                      </h3>
+                      <div className="flex items-center gap-0.5 bg-[#FFFBEB] text-[#D97706] px-1 py-0.2 rounded text-[8.5px] font-black shrink-0">
+                        <Star size={8} className="fill-[#D97706]" />
+                        <span>{store.rating || 4.8}</span>
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-[#6B7280] truncate">
+                      {store.type || 'متجر معتمد'}
+                    </p>
+                  </div>
+                </a>
+              ))}
             </div>
           </section>
         )}
