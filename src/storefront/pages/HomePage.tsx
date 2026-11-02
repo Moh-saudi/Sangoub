@@ -455,7 +455,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                 href="/stores"
                 onClick={(e) => {
                   e.preventDefault();
-                  window.location.assign('/stores');
+                  navigate('/stores');
                 }}
                 className="text-xs font-bold text-[#FF5900] hover:underline cursor-pointer flex items-center gap-0.5 text-decoration-none"
               >
@@ -469,7 +469,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
               {stores.map((store) => (
                 <div
                   key={store.id}
-                  onClick={() => window.location.assign('/stores/' + encodeURIComponent(store.id))}
+                  onClick={() => navigate('/stores/' + encodeURIComponent(store.id))}
                   className="w-[210px] sm:w-[240px] shrink-0 bg-white border border-[#E5E7EB] hover:border-[#FF5900]/40 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between select-none"
                 >
                   {/* Store Banner */}

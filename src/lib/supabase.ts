@@ -156,11 +156,7 @@ export async function getSupabaseStores(): Promise<Store[]> {
     .select('*')
     .order('rating', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching stores from Supabase:', error);
-    return [];
-  }
-  return (data || []).map((row: any) => ({
+  const fetched: Store[] = (!error && data) ? (data || []).map((row: any) => ({
     id: row.id,
     name: row.name,
     nameEn: row.name_en || '',
@@ -180,7 +176,16 @@ export async function getSupabaseStores(): Promise<Store[]> {
     imageUrl: row.image_url || row.banner || row.banner_url || '',
     commissionRate: row.commission_rate != null ? Number(row.commission_rate) : undefined,
     taxRate: row.tax_rate != null ? Number(row.tax_rate) : undefined,
-  })) as Store[];
+  })) : [];
+
+  // Merge with INITIAL_STORES to ensure authentic Egyptian stores (Hend, Barakat, Kheir Zaman, Hyper One) are always present
+  const merged = [...fetched];
+  for (const s of INITIAL_STORES) {
+    if (!merged.some(m => m.id === s.id || m.name === s.name)) {
+      merged.push(s);
+    }
+  }
+  return merged;
 }
 
 export async function getSupabaseStore(storeId: string): Promise<Store | null> {
@@ -260,7 +265,7 @@ export async function getSupabaseProducts(storeId?: string): Promise<Product[]> 
     console.warn('[Supabase] getSupabaseProducts error:', err);
   }
 
-  // Graceful fallback from INITIAL_PRODUCTS
+  // Graceful fallback and merge with INITIAL_PRODUCTS
   if (storeId) {
     const matched = INITIAL_PRODUCTS.filter(p => p.storeId === storeId);
     if (matched.length > 0) return matched;

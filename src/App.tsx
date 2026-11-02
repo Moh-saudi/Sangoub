@@ -24,7 +24,7 @@ export default function App() {
     );
   }
 
-  if (/^\/(stores(?:\/[^/]+)?|cart|checkout(?:\/success)?|my-orders|track|order-tracking(?:\/[^/]+)?)\/?$/.test(path)) {
+  if (/^\/(my-orders|track|order-tracking(?:\/[^/]+)?)\/?$/.test(path)) {
     return (
       <ShopProvider>
         <Suspense fallback={<p role="status" className="p-8" dir="rtl">جارٍ تحميل التسوق…</p>}>

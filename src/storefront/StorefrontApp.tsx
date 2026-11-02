@@ -9,6 +9,8 @@ import { SangoubAuthModal } from './components/SangoubAuthModal';
 import { OrderTrackingModal, type TrackableOrder } from './components/OrderTrackingModal';
 import { HomePage } from './pages/HomePage';
 import { MobileStorefront } from './mobile/MobileStorefront';
+import { StoresPage } from './pages/StoresPage';
+import { StoreDetailsPage } from './pages/StoreDetailsPage';
 import { LAUNCH_CONFIG } from '../config/launchConfig';
 
 /**
@@ -40,6 +42,9 @@ const StorefrontRouter: React.FC = () => {
   const [activeOrder, setActiveOrder] = useState<TrackableOrder | null>(null);
 
   const isMobile = useIsMobile();
+  const isStoresList = currentPath === '/stores';
+  const isSingleStore = currentPath.startsWith('/stores/');
+  const currentStoreId = isSingleStore ? decodeURIComponent(currentPath.replace(/^\/stores\//, '').replace(/\/$/, '')) : '';
 
   useEffect(() => {
     document.title = 'سنجوب | Sangoub';

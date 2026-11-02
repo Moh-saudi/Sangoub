@@ -92,7 +92,9 @@ export type StoreCategory =
   | "supermarket"
   | "cafe"
   | "desserts"
-  | "pharmacy";
+  | "pharmacy"
+  | "restaurant"
+  | "seafood";
 
 export interface Store {
   /** Enriched by authenticated APIs only; stored privately in merchantContracts. */
@@ -130,11 +132,13 @@ export interface Store {
 export interface ProductOption {
   name: string;
   price: number;
+  priceModifier?: number;
 }
 
 export interface ProductOptionGroup {
   id: string;
   title: string;
+  type?: 'radio' | 'checkbox';
   required?: boolean;
   options: ProductOption[];
 }
@@ -178,6 +182,8 @@ export interface Product {
   stockQuantity?: number;
   minStockAlert?: number;
   maxPerOrder?: number;
+  rating?: number;
+  ratingCount?: number;
   offerTitle?: string;
   isOccasion?: boolean;
   occasionName?: string;

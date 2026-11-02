@@ -6,11 +6,11 @@
         "enabled": true
       },
       {
-        "type": "offers",
+        "type": "stores",
         "enabled": true
       },
       {
-        "type": "stores",
+        "type": "offers",
         "enabled": true
       },
       {
@@ -60,6 +60,18 @@
     }
   ],
   "gallery": [
+    {
+      "id": "gal-1793612123072",
+      "title": "ChatGPT Image Oct 27, 2026, 10_08_09 AM-2",
+      "url": "/api/catalog-images?key=catalog%2Fbanners%2Fslider%2Fffa2aba1-1c6a-45b6-b094-6ecbff668140.png",
+      "addedAt": "2026-11-02T09:35:23.170Z"
+    },
+    {
+      "id": "gal-1793609888628",
+      "title": "ChatGPT Image Oct 27, 2026, 10_08_09 AM-2",
+      "url": "/api/catalog-images?key=catalog%2Fbanners%2Fslider%2F0a199856-6a9a-4530-a730-23246461b5ee.png",
+      "addedAt": "2026-11-02T08:58:08.846Z"
+    },
     {
       "id": "gal-1793607619431",
       "title": "ChatGPT Image Oct 27, 2026, 10_08_14 AM-7",

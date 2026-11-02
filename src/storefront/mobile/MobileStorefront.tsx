@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { ProductModal } from '../components/ProductModal';
+import { StoresPage } from '../pages/StoresPage';
+import { StoreDetailsPage } from '../pages/StoreDetailsPage';
 import { CartCheckoutModal } from '../components/CartCheckoutModal';
 import { SangoubAuthModal } from '../components/SangoubAuthModal';
 import { formatEGP } from '../../utils/orderCalculations';
@@ -157,6 +159,9 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'offers' | 'popular' | 'fast_delivery'>('all');
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
+  const isStoresList = currentPath === '/stores';
+  const isSingleStore = currentPath.startsWith('/stores/');
+  const currentStoreId = isSingleStore ? decodeURIComponent(currentPath.replace(/^\/stores\//, '').replace(/\/$/, '')) : '';
   const [isCartModalOpen, setIsCartModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
@@ -695,7 +700,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                 href="/stores"
                 onClick={(e) => {
                   e.preventDefault();
-                  window.location.assign('/stores');
+                  navigate('/stores');
                 }}
                 className="text-[11px] font-bold text-[#FF5900] hover:underline flex items-center gap-0.5 text-decoration-none"
               >
@@ -708,7 +713,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
               {stores.map((store) => (
                 <a
                   key={store.id}
-                  href={'/stores/' + encodeURIComponent(store.id)}
+                  onClick={(e) => { e.preventDefault(); navigate('/stores/' + encodeURIComponent(store.id)); }}
                   className="w-[170px] shrink-0 bg-white border border-[#E5E7EB] hover:border-[#FF5900]/40 rounded-2xl overflow-hidden shadow-xs active:scale-98 transition-all flex flex-col justify-between text-decoration-none select-none"
                 >
                   <div className="relative h-20 w-full bg-[#E5E7EB] overflow-hidden">
