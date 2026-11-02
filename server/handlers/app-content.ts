@@ -63,6 +63,7 @@ export default async function handler(req: any, res: any) {
       }).sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0));
 
       for (const c of activeCampaigns.slice(0, config.maxSlides || 5)) {
+        const isCleanGraphic = Boolean(c.hideOverlay || (!c.title && !c.subtitle));
         slides.push({
           id: c.id,
           title: c.title,
@@ -70,6 +71,8 @@ export default async function handler(req: any, res: any) {
           imageUrl: c.imageUrl,
           targetType: c.targetType || 'offers',
           targetId: c.targetId || '',
+          hideOverlay: isCleanGraphic,
+          btnText: c.btnText !== undefined ? c.btnText : (isCleanGraphic ? '' : undefined)
         });
       }
 

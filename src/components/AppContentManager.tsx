@@ -526,6 +526,20 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                 </label>
               </div>
 
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={config.showArrows !== false}
+                  disabled={busy}
+                  onChange={event => {
+                    dirty.current = true;
+                    setConfig(previous => ({ ...previous, showArrows: event.target.checked }));
+                  }}
+                  className="rounded text-orange-600"
+                />
+                <span>إظهار أسهم التنقل الجانبية على السلايدر (للكمبيوتر والتابلت)</span>
+              </label>
+
               <button
                 className="mt-3 px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
                 disabled={busy}
@@ -703,6 +717,36 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                     defaultValue={cairoDateInput(editor.campaign?.endsAt || Date.now() + 365 * 86400000)}
                   />
                 </label>
+              </div>
+
+              {/* Clean Image / Hide Overlay Toggle */}
+              <label className="flex items-start gap-2.5 text-xs font-bold text-slate-800 bg-orange-50/70 p-3 rounded-xl border border-orange-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="hideOverlay"
+                  defaultChecked={editor.campaign?.hideOverlay ?? (!editor.campaign?.title && !editor.campaign?.subtitle)}
+                  className="rounded text-orange-600 mt-0.5"
+                />
+                <div>
+                  <span className="text-orange-950 font-black">إخفاء الأزرار والشارات والنصوص فوق الصورة</span>
+                  <p className="text-[11px] text-orange-800/80 font-normal mt-0.5 leading-relaxed">
+                    فعّل هذا الخيار إذا كانت الصورة عبارة عن تصميم إعلاني كامل ومصمم جاهزاً (يحتوي بداخله على النصوص وزر الطلب الخاص به)، ليتم عرض التصميم نظيفاً بدون أي نصوص أو أزرار إضافية فوقه.
+                  </p>
+                </div>
+              </label>
+
+              {/* Custom Button Text */}
+              <div>
+                <label className="block text-xs font-black text-slate-800 mb-1">
+                  نص الزر التلقائي <span className="text-slate-400 font-normal">(اختياري - اتركه فارغاً لإخفاء الزر تماماً):</span>
+                </label>
+                <input
+                  name="btnText"
+                  maxLength={40}
+                  defaultValue={editor.campaign?.btnText || ''}
+                  placeholder="مثال: تصفح العروض، أو اتركه فارغاً بدون زر"
+                  className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:bg-white focus:border-orange-500"
+                />
               </div>
 
               {/* Active Toggle */}

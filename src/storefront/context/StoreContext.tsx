@@ -41,6 +41,7 @@ export interface StoreContextType {
 
   // Dynamic Banners (App Content / Campaigns from Admin)
   banners: StoreBanner[];
+  sliderShowArrows: boolean;
   isLoadingBanners: boolean;
   refreshBanners: () => Promise<void>;
   handleBannerClick: (
@@ -255,6 +256,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // 3.5 Dynamic Banners (Synced with Admin App Content / Campaigns)
   const [banners, setBanners] = useState<StoreBanner[]>(DEFAULT_SANGOUB_BANNERS);
+  const [sliderShowArrows, setSliderShowArrows] = useState(true);
   const [isLoadingBanners, setIsLoadingBanners] = useState(false);
 
   const refreshBanners = async () => {
@@ -264,6 +266,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const res = await fetch('/api/app-content', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
+        if (data && data.config && typeof data.config.showArrows === 'boolean') { setSliderShowArrows(data.config.showArrows); }
         if (data && Array.isArray(data.slides) && data.slides.length > 0) {
           const mapped: StoreBanner[] = data.slides.map((s: any, idx: number) => ({
             id: s.id || `campaign-${idx}`,
@@ -272,8 +275,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             desc: s.subtitle || '',
             imageUrl: s.imageUrl || '',
             image: s.imageUrl || '',
-            tag: s.targetType === 'offers' ? 'أقوى العروض 🎁' : s.targetType === 'product' ? 'خصم وتوفير 🏷️' : s.targetType === 'store' ? 'متجر مميز 🏪' : 'عرض خاص',
-            btnText: s.targetType === 'offers' ? 'تصفح العروض' : s.targetType === 'product' ? 'اطلب الآن' : 'عرض المزيد',
+            hideOverlay: Boolean(s.hideOverlay || (!s.title && !s.subtitle)),
+            tag: (s.hideOverlay || (!s.title && !s.subtitle)) ? '' : (s.targetType === 'offers' ? 'أقوى العروض 🎁' : s.targetType === 'product' ? 'خصم وتوفير 🏷️' : s.targetType === 'store' ? 'متجر مميز 🏪' : 'عرض خاص'),
+            btnText: (s.hideOverlay || (!s.title && !s.subtitle)) ? '' : (s.btnText !== undefined ? s.btnText : (s.targetType === 'offers' ? 'تصفح العروض' : s.targetType === 'product' ? 'اطلب الآن' : 'عرض المزيد')),
             targetType: s.targetType || 'offers',
             targetId: s.targetId || '',
             targetPath: s.targetType === 'offers' ? '/offers' : s.targetType === 'product' ? `/product/${s.targetId}` : s.targetType === 'store' ? `/store/${s.targetId}` : '',
@@ -555,6 +559,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         searchQuery,
         setSearchQuery,
         banners,
+        sliderShowArrows,
         isLoadingBanners,
         refreshBanners,
         handleBannerClick,

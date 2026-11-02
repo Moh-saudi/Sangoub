@@ -19,7 +19,8 @@
       }
     ],
     "sliderMode": "manual",
-    "maxSlides": 5
+    "maxSlides": 5,
+    "showArrows": true
   },
   "campaigns": [
     {
@@ -47,16 +48,18 @@
       "endsAt": "2027-12-31T23:59:59.000Z"
     },
     {
-      "id": "campaign-3",
-      "title": "عروض وخصومات حصرية على المنتجات 🏷️",
-      "subtitle": "وفر أكثر مع أقوى عروض التوفير اليومية في سنجوب.",
-      "imageUrl": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=1200&q=80",
+      "title": "",
+      "subtitle": "",
+      "imageUrl": "/api/catalog-images?key=catalog%2Fbanners%2Fslider%2Fffa2aba1-1c6a-45b6-b094-6ecbff668140.png",
       "enabled": true,
       "priority": 3,
       "targetType": "offers",
       "targetId": "",
       "startsAt": "2026-01-01T00:00:00.000Z",
-      "endsAt": "2027-12-31T23:59:59.000Z"
+      "endsAt": "2027-12-31T23:59:00.000Z",
+      "id": "campaign-3",
+      "hideOverlay": true,
+      "btnText": ""
     }
   ],
   "gallery": [
@@ -65,12 +68,6 @@
       "title": "ChatGPT Image Oct 27, 2026, 10_08_09 AM-2",
       "url": "/api/catalog-images?key=catalog%2Fbanners%2Fslider%2Fffa2aba1-1c6a-45b6-b094-6ecbff668140.png",
       "addedAt": "2026-11-02T09:35:23.170Z"
-    },
-    {
-      "id": "gal-1793609888628",
-      "title": "ChatGPT Image Oct 27, 2026, 10_08_09 AM-2",
-      "url": "/api/catalog-images?key=catalog%2Fbanners%2Fslider%2F0a199856-6a9a-4530-a730-23246461b5ee.png",
-      "addedAt": "2026-11-02T08:58:08.846Z"
     },
     {
       "id": "gal-1793607619431",

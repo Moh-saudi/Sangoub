@@ -16,7 +16,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
   onSelectCategory,
   onSelectOffers,
 }) => {
-  const { banners, handleBannerClick } = useStore();
+  const { banners, handleBannerClick, sliderShowArrows } = useStore();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -92,7 +92,8 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
       <div className="relative w-full h-[135px] sm:h-[175px] md:h-[215px]">
         {activeSlides.map((slide, index) => {
           const isActive = currentSlide === index;
-          const hasImage = Boolean(slide.imageUrl || (slide.image && slide.image.startsWith('http')));
+          const hasImage = Boolean(slide.imageUrl || (slide.image && (slide.image.startsWith('http') || slide.image.startsWith('/'))));
+          const hasTextOverlay = !slide.hideOverlay && Boolean(slide.title || slide.subtitle || (slide.btnText && slide.btnText.trim()) || (slide.tag && slide.tag.trim()));
           const bannerImgUrl = slide.imageUrl || slide.image;
 
           return (
@@ -119,35 +120,41 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
                     }}
                   />
 
-                  {/* Gradient Scrim from RTL start (right to left) to guarantee typography contrast */}
-                  <div className="absolute inset-0 bg-gradient-to-l from-[#0F172A]/90 via-[#0F172A]/60 to-transparent/10 z-10 py-3.5 sm:py-6 pl-4 sm:pl-8 pr-14 sm:pr-18 md:pr-24 flex flex-col justify-center max-w-[85%] sm:max-w-[70%] md:max-w-[65%]">
-                    {slide.tag && (
-                      <span
-                        className="inline-flex items-center gap-1 text-[9px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-full text-white w-fit mb-1 sm:mb-1.5 shadow-xs"
-                        style={{ backgroundColor: slide.badgeColor || '#FF5900' }}
-                      >
-                        <Sparkles size={11} />
-                        <span>{slide.tag}</span>
-                      </span>
-                    )}
+                  {/* Gradient Scrim & text/buttons only rendered when banner is not a clean graphic design */}
+                  {hasTextOverlay && (
+                    <div className="absolute inset-0 bg-gradient-to-l from-[#0F172A]/90 via-[#0F172A]/60 to-transparent/10 z-10 py-3.5 sm:py-6 pl-4 sm:pl-8 pr-14 sm:pr-18 md:pr-24 flex flex-col justify-center max-w-[85%] sm:max-w-[70%] md:max-w-[65%]">
+                      {slide.tag && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[9px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-full text-white w-fit mb-1 sm:mb-1.5 shadow-xs"
+                          style={{ backgroundColor: slide.badgeColor || '#FF5900' }}
+                        >
+                          <Sparkles size={11} />
+                          <span>{slide.tag}</span>
+                        </span>
+                      )}
 
-                    <h2 className="text-xs sm:text-lg md:text-xl font-black text-white leading-tight line-clamp-2 drop-shadow-md">
-                      {slide.title}
-                    </h2>
+                      {slide.title && (
+                        <h2 className="text-xs sm:text-lg md:text-xl font-black text-white leading-tight line-clamp-2 drop-shadow-md">
+                          {slide.title}
+                        </h2>
+                      )}
 
-                    {(slide.subtitle || slide.desc) && (
-                      <p className="text-[10px] sm:text-xs text-gray-200 line-clamp-1 sm:line-clamp-2 mt-0.5 sm:mt-1 drop-shadow-xs font-medium">
-                        {slide.subtitle || slide.desc}
-                      </p>
-                    )}
+                      {(slide.subtitle || slide.desc) && (
+                        <p className="text-[10px] sm:text-xs text-gray-200 line-clamp-1 sm:line-clamp-2 mt-0.5 sm:mt-1 drop-shadow-xs font-medium">
+                          {slide.subtitle || slide.desc}
+                        </p>
+                      )}
 
-                    <div className="pt-1 sm:pt-2.5">
-                      <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 py-0.8 sm:px-3.5 sm:py-1.5 rounded-xl bg-[#FF5900] text-white text-[9.5px] sm:text-xs font-black shadow-md hover:bg-[#E04E00] active:scale-95 transition-all">
-                        <span>{slide.btnText || 'اطلب الآن'}</span>
-                        <ArrowLeft size={12} />
-                      </span>
+                      {slide.btnText && (
+                        <div className="pt-1 sm:pt-2.5">
+                          <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 py-0.8 sm:px-3.5 sm:py-1.5 rounded-xl bg-[#FF5900] text-white text-[9.5px] sm:text-xs font-black shadow-md hover:bg-[#E04E00] active:scale-95 transition-all">
+                            <span>{slide.btnText}</span>
+                            <ArrowLeft size={12} />
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 /* ── Mascot + Gradient Themed Layout (Default Fallback) ── */
@@ -205,7 +212,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
       </div>
 
       {/* Prev/Next arrows strictly hidden on small screens (< 768px), visible on md+ */}
-      {activeSlides.length > 1 && (
+      {sliderShowArrows !== false && activeSlides.length > 1 && (
         <>
           <button
             type="button"

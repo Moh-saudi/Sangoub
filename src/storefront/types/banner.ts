@@ -9,6 +9,8 @@ export interface StoreBanner {
   image?: string;
   tag?: string;
   btnText?: string;
+  hideOverlay?: boolean;
+  hideButton?: boolean;
   targetType?: 'product' | 'store' | 'offers' | 'url' | 'category';
   targetId?: string;
   targetPath?: string;

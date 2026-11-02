@@ -355,7 +355,8 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             <div className="relative w-full h-[120px]">
               {activeSlides.map((slide, index) => {
                 const isActive = currentSlide === index;
-                const hasImage = Boolean(slide.imageUrl || (slide.image && slide.image.startsWith('http')));
+                const hasImage = Boolean(slide.imageUrl || (slide.image && (slide.image.startsWith('http') || slide.image.startsWith('/'))));
+                const hasTextOverlay = !slide.hideOverlay && Boolean(slide.title || slide.subtitle || (slide.btnText && slide.btnText.trim()) || (slide.tag && slide.tag.trim()));
                 const bannerImgUrl = slide.imageUrl || slide.image;
 
                 return (
@@ -392,35 +393,41 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                             (e.currentTarget as HTMLElement).style.display = 'none';
                           }}
                         />
-                        {/* Scrim */}
-                        <div className="absolute inset-0 bg-gradient-to-l from-[#0F172A]/90 via-[#0F172A]/55 to-transparent/10 z-10 py-2.5 px-3.5 pr-7 flex flex-col justify-center max-w-[78%]">
-                          {slide.tag && (
-                            <span
-                              className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.2 rounded-full text-white w-fit mb-1 shadow-2xs"
-                              style={{ backgroundColor: slide.badgeColor || '#FF5900' }}
-                            >
-                              <Sparkles size={8} />
-                              <span>{slide.tag}</span>
-                            </span>
-                          )}
+                        {/* Scrim & text/buttons only rendered when banner is not a clean graphic design */}
+                        {hasTextOverlay && (
+                          <div className="absolute inset-0 bg-gradient-to-l from-[#0F172A]/90 via-[#0F172A]/55 to-transparent/10 z-10 py-2.5 px-3.5 pr-7 flex flex-col justify-center max-w-[78%]">
+                            {slide.tag && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.2 rounded-full text-white w-fit mb-1 shadow-2xs"
+                                style={{ backgroundColor: slide.badgeColor || '#FF5900' }}
+                              >
+                                <Sparkles size={8} />
+                                <span>{slide.tag}</span>
+                              </span>
+                            )}
 
-                          <h2 className="text-[11.5px] font-black text-white leading-tight line-clamp-2 drop-shadow-sm">
-                            {slide.title}
-                          </h2>
+                            {slide.title && (
+                              <h2 className="text-[11.5px] font-black text-white leading-tight line-clamp-2 drop-shadow-sm">
+                                {slide.title}
+                              </h2>
+                            )}
 
-                          {(slide.subtitle || slide.desc) && (
-                            <p className="text-[9px] text-gray-200 line-clamp-1 mt-0.5 font-medium">
-                              {slide.subtitle || slide.desc}
-                            </p>
-                          )}
+                            {(slide.subtitle || slide.desc) && (
+                              <p className="text-[9px] text-gray-200 line-clamp-1 mt-0.5 font-medium">
+                                {slide.subtitle || slide.desc}
+                              </p>
+                            )}
 
-                          <div className="pt-1">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#FF5900] text-white text-[9px] font-black shadow-xs">
-                              <span>{slide.btnText || 'اطلب الآن'}</span>
-                              <ArrowLeft size={9} />
-                            </span>
+                            {slide.btnText && (
+                              <div className="pt-1">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#FF5900] text-white text-[9px] font-black shadow-xs">
+                                  <span>{slide.btnText}</span>
+                                  <ArrowLeft size={9} />
+                                </span>
+                              </div>
+                            )}
                           </div>
-                        </div>
+                        )}
                       </div>
                     ) : (
                       /* Mascot + Gradient Layout */
