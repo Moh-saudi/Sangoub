@@ -24,7 +24,8 @@ function readLocalAppContent() {
       sliderMode: 'manual',
       maxSlides: 5
     },
-    campaigns: []
+    campaigns: [],
+    gallery: []
   };
 }
 
@@ -86,18 +87,29 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({
         config: readHome(local.config),
         campaigns: local.campaigns || [],
+        gallery: local.gallery || [],
         operationsEnabled: true,
         operationsReady: true
       });
     }
 
-    if (!['save-home', 'save-campaign', 'delete-campaign', 'save-operations'].includes(input.action)) {
+    if (!['save-home', 'save-campaign', 'delete-campaign', 'toggle-campaign', 'save-gallery', 'add-to-gallery', 'delete-from-gallery', 'save-operations'].includes(input.action)) {
       throw new AdminError(400, 'عملية غير صالحة.');
     }
 
     if (input.action === 'save-home') {
       local.config = validateHome(input.config);
       writeLocalAppContent(local);
+      return res.status(200).json({ ok: true });
+    }
+
+    if (input.action === 'toggle-campaign') {
+      validId(input.id);
+      const campaign = (local.campaigns || []).find((c: any) => c.id === input.id);
+      if (campaign) {
+        campaign.enabled = !campaign.enabled;
+        writeLocalAppContent(local);
+      }
       return res.status(200).json({ ok: true });
     }
 
@@ -114,6 +126,20 @@ export default async function handler(req: any, res: any) {
         local.campaigns = local.campaigns || [];
         local.campaigns.push({ ...campaign, id: input.id });
       }
+
+      // Also ensure the campaign image is preserved in gallery for future reuse!
+      if (campaign.imageUrl) {
+        local.gallery = local.gallery || [];
+        if (!local.gallery.some((g: any) => g.url === campaign.imageUrl)) {
+          local.gallery.unshift({
+            id: `gal-${Date.now()}`,
+            title: campaign.title || 'صورة حملة',
+            url: campaign.imageUrl,
+            addedAt: new Date().toISOString()
+          });
+        }
+      }
+
       writeLocalAppContent(local);
       return res.status(200).json({ ok: true });
     }
@@ -121,6 +147,26 @@ export default async function handler(req: any, res: any) {
     if (input.action === 'delete-campaign') {
       validId(input.id);
       local.campaigns = (local.campaigns || []).filter((c: any) => c.id !== input.id);
+      writeLocalAppContent(local);
+      return res.status(200).json({ ok: true });
+    }
+
+    if (input.action === 'add-to-gallery') {
+      if (!input.item || !input.item.url) throw new AdminError(400, 'رابط الصورة مطلوب.');
+      local.gallery = local.gallery || [];
+      local.gallery.unshift({
+        id: input.item.id || `gal-${Date.now()}`,
+        title: input.item.title || 'صورة سلايدر',
+        url: input.item.url,
+        addedAt: new Date().toISOString()
+      });
+      writeLocalAppContent(local);
+      return res.status(200).json({ ok: true });
+    }
+
+    if (input.action === 'delete-from-gallery') {
+      validId(input.id);
+      local.gallery = (local.gallery || []).filter((g: any) => g.id !== input.id);
       writeLocalAppContent(local);
       return res.status(200).json({ ok: true });
     }

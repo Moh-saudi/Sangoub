@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 export const maxImageBytes = 5 * 1024 * 1024;
 export function imageUploadSpec(input: any) {
   const extensions: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
-  if (!input || !["stores", "products"].includes(input.collection) ||
+  if (!input || !["stores", "products", "banners", "campaigns"].includes(input.collection) ||
       typeof input.id !== "string" || !/^[\w-]{1,128}$/.test(input.id) ||
       !Object.hasOwn(extensions, input.contentType) ||
       !Number.isInteger(input.size) || input.size <= 0 || input.size > maxImageBytes)
@@ -16,7 +16,7 @@ export function imageUploadSpec(input: any) {
   };
 }
 export function validImageKey(key: unknown): key is string {
-  return typeof key === "string" && /^catalog\/(stores|products)\/[\w-]{1,128}\/[a-f0-9-]{36}\.(jpg|png|webp)$/.test(key);
+  return typeof key === "string" && /^catalog\/(stores|products|banners|campaigns)\/[\w-]{1,128}\/[a-f0-9-]{36}\.(jpg|png|webp)$/.test(key);
 }
 export function r2Services() {
   const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;

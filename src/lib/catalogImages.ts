@@ -9,7 +9,7 @@ export function validateCatalogImage(file: File) {
 }
 
 export async function uploadCatalogImage(
-  collection: "stores" | "products",
+  collection: "stores" | "products" | "banners",
   id: string,
   file: File
 ): Promise<{ key: string; url: string }> {
@@ -60,15 +60,15 @@ export async function uploadCatalogImage(
     throw new Error("تعذر رفع الصورة. تحقق من اتصال الإنترنت وحجم الملف.");
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("catalog-images").getPublicUrl(data.path);
+  const { data: publicData } = supabase.storage
+    .from("catalog-images")
+    .getPublicUrl(filePath);
 
-  return { key: data.path, url: publicUrl };
+  return { key: filePath, url: publicData.publicUrl };
 }
 
 export async function saveCatalogWithImages(
-  collection: "stores" | "products",
+  collection: "stores" | "products" | "banners",
   id: string,
   data: Record<string, unknown>,
   images: { field: string; file: File | null }[]
@@ -83,4 +83,26 @@ export async function saveCatalogWithImages(
   }
 
   return { ...data, ...updates };
+}
+
+export async function deleteCatalogImage(key: string): Promise<void> {
+  if (!key) return;
+
+  // Try Cloudflare R2 delete first
+  try {
+    await authenticatedApi("/api/catalog-images", {
+      action: "delete",
+      key,
+    });
+    return;
+  } catch (err) {
+    console.warn("Cloudflare R2 delete failed, trying Supabase Storage fallback:", err);
+  }
+
+  // Fallback to Supabase Storage
+  try {
+    await supabase.storage.from("catalog-images").remove([key]);
+  } catch (err) {
+    console.error("Failed to delete from Supabase storage:", err);
+  }
 }
