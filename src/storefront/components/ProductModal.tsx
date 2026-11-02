@@ -35,12 +35,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose }) 
     }
   }, [product]);
 
-  if (!product) return null;
-
-  const wishlisted = isWishlisted(product.id);
-
-  // Calculate live total price with selected option price modifiers
+  // Calculate live total price with selected option price modifiers (unconditional hook)
   const totalPrice = useMemo(() => {
+    if (!product) return 0;
     let base = product.price;
     if (product.optionGroups) {
       product.optionGroups.forEach((group) => {
@@ -56,6 +53,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose }) 
     }
     return base * quantity;
   }, [product, selectedOptions, quantity]);
+
+  if (!product) return null;
+
+  const wishlisted = isWishlisted(product.id);
 
   const handleSelectOption = (groupTitle: string, optionName: string) => {
     setSelectedOptions((prev) => ({

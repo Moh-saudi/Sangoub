@@ -120,7 +120,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
                   />
 
                   {/* Gradient Scrim from RTL start (right to left) to guarantee typography contrast */}
-                  <div className="absolute inset-0 bg-gradient-to-l from-[#0F172A]/90 via-[#0F172A]/60 to-transparent/10 z-10 py-3.5 sm:py-6 pl-4 sm:pl-8 pr-12 sm:pr-16 md:pr-20 flex flex-col justify-center max-w-[85%] sm:max-w-[70%] md:max-w-[65%]">
+                  <div className="absolute inset-0 bg-gradient-to-l from-[#0F172A]/90 via-[#0F172A]/60 to-transparent/10 z-10 py-3.5 sm:py-6 pl-4 sm:pl-8 pr-14 sm:pr-18 md:pr-24 flex flex-col justify-center max-w-[85%] sm:max-w-[70%] md:max-w-[65%]">
                     {slide.tag && (
                       <span
                         className="inline-flex items-center gap-1 text-[9px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-full text-white w-fit mb-1 sm:mb-1.5 shadow-xs"
@@ -154,7 +154,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
                 <>
                   <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
-                  <div className="relative z-10 w-full h-full py-2.5 sm:py-5 pl-4 sm:pl-8 pr-12 sm:pr-16 md:pr-20 flex items-center justify-between gap-2.5">
+                  <div className="relative z-10 w-full h-full py-2.5 sm:py-5 pl-4 sm:pl-8 pr-14 sm:pr-18 md:pr-24 flex items-center justify-between gap-2.5">
                     {/* Text Content */}
                     <div className="flex-1 max-w-[66%] sm:max-w-[62%] flex flex-col justify-center space-y-1 sm:space-y-2">
                       {slide.tag && (
