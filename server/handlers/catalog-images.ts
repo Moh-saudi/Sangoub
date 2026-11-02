@@ -1,13 +1,56 @@
 import { auditRecord, attachAuditContext } from "../audit.ts";
-import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { requireAdmin } from "../adminRequest.ts";
 import { mobileCors } from "../mobileCors.ts";
 import { r2Services, imageUploadSpec, validImageKey } from "../r2.ts";
 
 export default async function handler(req: any, res: any) {
-  res.setHeader("Cache-Control", "no-store");
   if (mobileCors(req, res)) return;
+
+  // 1. GET: Stream/serve stored images to web/mobile clients
+  if (req.method === "GET" || req.method === "HEAD") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    
+    let key = req.query?.key;
+    if (!key && req.url) {
+      try {
+        const u = new URL(req.url, 'http://localhost');
+        key = u.searchParams.get('key');
+      } catch {}
+    }
+
+    if (!key || typeof key !== "string") {
+      return res.status(400).json({ error: "Missing image key" });
+    }
+
+    // Clean key if a full URL or leading slash was passed
+    if (key.includes('/catalog/')) {
+      key = key.substring(key.indexOf('catalog/'));
+    }
+    key = key.replace(/^\/+/, '');
+
+    try {
+      const { client, bucket } = r2Services();
+      const data = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      res.setHeader("Content-Type", data.ContentType || "image/png");
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      if (req.method === "HEAD") return res.status(200).end();
+      if (data.ContentLength) {
+        res.setHeader("Content-Length", data.ContentLength.toString());
+      }
+      return (data.Body as any).pipe(res);
+    } catch (err: any) {
+      if (err?.$metadata?.httpStatusCode === 404 || err?.Code === "NoSuchKey") {
+        return res.status(404).json({ error: "Image not found in storage" });
+      }
+      console.error("Error streaming image from R2:", err);
+      return res.status(500).json({ error: "Failed to load image" });
+    }
+  }
+
+  res.setHeader("Cache-Control", "no-store");
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
     const context = await requireAdmin(req);
@@ -36,7 +79,10 @@ export default async function handler(req: any, res: any) {
       ContentLength: spec!.size, CacheControl: "public, max-age=31536000, immutable",
     }), { expiresIn: 120, signableHeaders: new Set(["content-type", "content-length", "cache-control"]) });
     await db.collection("auditLogs").add(auditRecord(identity,"images.upload.authorized","images",spec!.key,null,{key:spec!.key,size:spec!.size,contentType:spec!.contentType}));
-    return res.status(200).json({ key: spec!.key, uploadUrl, publicUrl: `${publicUrl}/${spec!.key}` });
+    
+    // Return reliable streaming URL that works anywhere, without relying on Cloudflare public r2.dev subdomain
+    const streamingUrl = `/api/catalog-images?key=${encodeURIComponent(spec!.key)}`;
+    return res.status(200).json({ key: spec!.key, uploadUrl, publicUrl: streamingUrl });
   } catch {
     return res.status(503).json({ error: "رفع الصور غير متاح حاليًا. يرجى المحاولة لاحقًا." });
   }

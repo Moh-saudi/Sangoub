@@ -25,7 +25,7 @@
     {
       "title": "سنجوب يوصلك لحد باب بيتك أو مكتبك 🐿️",
       "subtitle": "خدمة التوصيل السريع لطلباتك ووجباتك بأعلى جودة وأفضل سرعة.",
-      "imageUrl": "https://pub-39e754c2871845ba91c1ec271a0400e8.r2.dev/catalog/banners/slider/d4260210-8542-485f-ad07-e95f2f99b0ae.png",
+      "imageUrl": "/api/catalog-images?key=catalog%2Fbanners%2Fslider%2Fd4260210-8542-485f-ad07-e95f2f99b0ae.png",
       "enabled": true,
       "priority": 1,
       "targetType": "offers",
@@ -63,7 +63,7 @@
     {
       "id": "gal-1793607619431",
       "title": "ChatGPT Image Oct 27, 2026, 10_08_14 AM-7",
-      "url": "https://pub-39e754c2871845ba91c1ec271a0400e8.r2.dev/catalog/banners/slider/d4260210-8542-485f-ad07-e95f2f99b0ae.png",
+      "url": "/api/catalog-images?key=catalog%2Fbanners%2Fslider%2Fd4260210-8542-485f-ad07-e95f2f99b0ae.png",
       "addedAt": "2026-11-02T08:20:19.639Z"
     },
     {

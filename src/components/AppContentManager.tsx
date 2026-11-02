@@ -26,6 +26,8 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
   const [currentImageUrl, setCurrentImageUrl] = useState('');
   const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [targetCampaignForReplacement, setTargetCampaignForReplacement] = useState<Promotion | null>(null);
+  const [useGalleryItemTarget, setUseGalleryItemTarget] = useState<GalleryItem | null>(null);
   
   const dialog = useRef<HTMLDialogElement>(null);
   const galleryDialog = useRef<HTMLDialogElement>(null);
@@ -137,6 +139,25 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
       setRevision(v => v + 1);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyImageToCampaign(campaign: Promotion, imageUrl: string) {
+    setBusy(true);
+    setError('');
+    try {
+      const updated = { ...campaign, imageUrl };
+      await operationsApi('app-content', { action: 'save-campaign', campaign: updated });
+      setCampaigns(prev => prev.map(c => c.id === campaign.id ? updated : c));
+      setNotice(`تم استبدال صورة الشريحة "${campaign.title}" بنجاح! والصورة القديمة محفوظة في الجاليري.`);
+      setTargetCampaignForReplacement(null);
+      setUseGalleryItemTarget(null);
+      setIsGalleryModalOpen(false);
+      setRevision(v => v + 1);
+    } catch (err: any) {
+      setError(err.message || 'تعذر استبدال الصورة.');
     } finally {
       setBusy(false);
     }
@@ -304,6 +325,19 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             type="button"
+                            className="px-2 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-lg font-bold text-xs flex items-center gap-1 transition cursor-pointer"
+                            disabled={busy}
+                            onClick={() => {
+                              setTargetCampaignForReplacement(campaign);
+                              setIsGalleryModalOpen(true);
+                            }}
+                            title="استبدال صورة هذه الشريحة بصورة من الجاليري مباشرة"
+                          >
+                            <ImageIcon size={12} />
+                            <span>استبدال الصورة</span>
+                          </button>
+                          <button
+                            type="button"
                             className="px-2.5 py-1 bg-slate-100 hover:bg-orange-50 text-slate-700 hover:text-orange-600 rounded-lg font-bold text-xs transition cursor-pointer"
                             disabled={busy}
                             onClick={() => open(campaign)}
@@ -393,24 +427,11 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => {
-                          open({
-                            id: crypto.randomUUID(),
-                            title: item.title,
-                            subtitle: '',
-                            imageUrl: item.url,
-                            enabled: true,
-                            priority: 10,
-                            targetType: 'offers',
-                            targetId: '',
-                            startsAt: new Date().toISOString(),
-                            endsAt: new Date(Date.now() + 365 * 86400000).toISOString()
-                          } as any);
-                        }}
-                        className="p-1 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded text-[9px] font-bold"
-                        title="استخدم هذه الصورة في حملة جديدة"
+                        onClick={() => setUseGalleryItemTarget(item)}
+                        className="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-md text-[10px] font-bold transition shadow-2xs cursor-pointer"
+                        title="استخدم هذه الصورة لاستبدال شريحة حالية أو إنشاء شريحة جديدة"
                       >
-                        استخدم
+                        استخدم الصورة
                       </button>
                       <button
                         type="button"

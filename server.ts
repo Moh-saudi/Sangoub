@@ -46,6 +46,7 @@ async function startServer() {
   app.post("/api/order-delivery", orderDeliveryHandler);
   app.options("/api/order-delivery", orderDeliveryHandler);
   app.post("/api/catalog-images", catalogImagesHandler);
+  app.get("/api/catalog-images", catalogImagesHandler);
   app.options("/api/catalog-images", catalogImagesHandler);
   app.post("/api/geidea/callback", geideaCallbackHandler);
   app.get("/api/geidea/callback", geideaCallbackHandler);
