@@ -388,7 +388,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                           }}
                         />
                         {/* Scrim */}
-                        <div className="absolute inset-0 bg-gradient-to-l from-[#0F172A]/90 via-[#0F172A]/55 to-transparent/10 z-10 p-3 flex flex-col justify-center max-w-[70%]">
+                        <div className="absolute inset-0 bg-gradient-to-l from-[#0F172A]/90 via-[#0F172A]/55 to-transparent/10 z-10 py-2.5 px-3.5 pr-5 flex flex-col justify-center max-w-[75%]">
                           {slide.tag && (
                             <span
                               className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.2 rounded-full text-white w-fit mb-1 shadow-2xs"
