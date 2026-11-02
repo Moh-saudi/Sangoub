@@ -28,7 +28,7 @@ export const StoreFooter: React.FC = () => {
           </div>
           <div className="flex items-center gap-1.5">
             <ShieldCheck size={14} className="text-[#FF5900]" />
-            <span>أصناف ومقاضي طازجة ومختارة بعناية</span>
+            <span>منتجات وطلبات طازجة ومختارة بعناية</span>
           </div>
         </div>
 

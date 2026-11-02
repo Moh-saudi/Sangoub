@@ -118,7 +118,7 @@ export const CartModal: React.FC<CartModalProps> = ({
     },
     {
       id: "afternoon-meeting",
-      label: "02:00 عصراً (وجبة منتصف الدوام والاجتماعات)",
+      label: "02:00 عصراً (وجبة الغداء في العمل)",
       subtitle: "مناسب لاجتماعات الإدارات المركزية بعد الظهر",
     },
     {

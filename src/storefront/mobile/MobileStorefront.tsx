@@ -562,7 +562,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                 <span className="text-[10px] font-black">سنجوب بقالة</span>
                 <span className="text-[8px] bg-white/25 px-1.5 py-0.2 rounded-full font-bold">20 دقيقة ⚡</span>
               </div>
-              <p className="text-[9px] text-white/90">بقالة ومقاضي البيت لحد بابك</p>
+              <p className="text-[9px] text-white/90">بقالة وكل طلبات البيت لحد بابك</p>
             </div>
           </div>
           <span className="text-[10px] font-black bg-white text-[#FF5900] px-2.5 py-1 rounded-xl shrink-0">
@@ -576,7 +576,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             <div className="flex items-center justify-between px-1 mb-2">
               <h2 id="mobile-flash-deals" className="text-xs font-black text-[#111827] flex items-center gap-1">
                 <Flame size={15} className="text-[#FF5900]" />
-                <span>الأكثر طلباً ومقاضي اليوم ⭐</span>
+                <span>الأكثر طلباً واحتياجات اليوم ⭐</span>
               </h2>
               <button
                 type="button"

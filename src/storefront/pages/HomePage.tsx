@@ -51,7 +51,7 @@ const TALABAT_MAIN_SERVICES = [
   {
     id: 'mart',
     name: 'سنجوب بقالة',
-    subtext: 'مقاضي وسوبرماركت',
+    subtext: 'سوبرماركت ومستلزمات',
     badge: 'طازج',
     badgeColor: 'bg-[#059669]',
     bgColor: 'bg-[#ECFDF5]',
@@ -62,7 +62,7 @@ const TALABAT_MAIN_SERVICES = [
   {
     id: 'groceries',
     name: 'سوبرماركت',
-    subtext: 'مقاضي البيت',
+    subtext: 'طلبات ومستلزمات البيت',
     badge: 'عروض',
     badgeColor: 'bg-[#2563EB]',
     bgColor: 'bg-[#EFF6FF]',
@@ -327,7 +327,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                   </span>
                 </div>
                 <h3 className="text-xs sm:text-sm font-black line-clamp-1">
-                  سنجوب بقالة ومقاضي البيت لحد بابك
+                  سنجوب ماركت وكل طلبات البيت لحد بابك
                 </h3>
               </div>
             </div>
@@ -351,7 +351,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
               <div>
                 <h2 id="deals-heading" className="text-sm sm:text-base font-black text-[#111827] flex items-center gap-1.5">
                   <Flame size={18} className="text-[#FF5900]" />
-                  <span>الأكثر طلباً ومقاضي اليوم ⭐</span>
+                  <span>الأكثر طلباً واحتياجات اليوم ⭐</span>
                 </h2>
               </div>
               <button

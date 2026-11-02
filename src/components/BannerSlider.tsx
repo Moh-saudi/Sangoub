@@ -38,7 +38,7 @@ export const BannerSlider: React.FC<BannerSliderProps> = ({ onApplyCoupon }) => 
       badge: 'فول هند & ديوان كافيه',
       imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=1200&q=80',
       bgGradient: 'from-teal-950/90 via-cyan-950/80 to-slate-900/60',
-      tag: 'فطور الدوام الرسمي',
+      tag: 'فطور الصباح والشغل',
     },
   ];
 
