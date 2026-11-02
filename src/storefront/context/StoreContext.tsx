@@ -7,6 +7,7 @@ import { BRAND } from '../../brand';
 import { calculateCartSubtotal, calculateOrderTotal, applyCouponDiscount, cleanDisplayAddress } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import { watchCollection, auth, db, signOutFromFirebase, syncUserProfileToFirestore, isVerifiedIdentity } from '../../lib/firebase';
+import { getSupabaseStores, getSupabaseProducts } from '../../lib/supabase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -171,24 +172,43 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    setIsLoadingCatalog(true);setCatalogError('');
+    setIsLoadingCatalog(true);
+    setCatalogError('');
     let stopProducts = () => {};
     let stopStores = () => {};
 
+    // 1. Instant Direct Load from Supabase (Source of Truth: Real Stores & Products)
+    const loadRealCatalog = async () => {
+      try {
+        const [sbStores, sbProducts] = await Promise.all([
+          getSupabaseStores().catch(() => [] as Store[]),
+          getSupabaseProducts().catch(() => [] as Product[]),
+        ]);
+        if (sbStores && sbStores.length > 0) {
+          setStores(sbStores);
+        }
+        if (sbProducts && sbProducts.length > 0) {
+          setProducts(sbProducts.filter(p => !p.archived && p.inStock));
+        }
+      } catch (err) {
+        console.warn('Initial Supabase catalog fetch error:', err);
+      } finally {
+        setIsLoadingCatalog(false);
+      }
+    };
+    loadRealCatalog();
+
+    // 2. Real-time updates watcher (Firestore sync)
     try {
       stopProducts = watchCollection<Product>(
         'products',
         (liveProducts) => {
           if (liveProducts && liveProducts.length > 0) {
             setProducts(liveProducts.filter(p => !p.archived && p.inStock));
-          } else {
-            setProducts([]);
           }
-          setIsLoadingCatalog(false);
         },
         () => {
-          setProducts([]);setCatalogError('تعذر تحميل المنتجات. تحقق من الاتصال وأعد المحاولة.');
-          setIsLoadingCatalog(false);
+          // Keep existing Supabase products intact without clearing
         },
         queryPlans.homeProducts()
       );
@@ -198,17 +218,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         (liveStores) => {
           if (liveStores && liveStores.length > 0) {
             setStores(liveStores.filter(s => s.status === 'open'));
-          } else {
-            setStores([]);
           }
         },
-        () => {setStores([]);setCatalogError('تعذر تحميل المتاجر. تحقق من الاتصال.');},
+        () => {
+          // Keep existing Supabase stores intact without clearing
+        },
         queryPlans.homeStores()
       );
     } catch {
-      setProducts([]);
-      setStores([]);
-      setIsLoadingCatalog(false);
+      // Keep existing Supabase catalog
     }
 
     return () => {

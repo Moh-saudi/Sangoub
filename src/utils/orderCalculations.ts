@@ -128,7 +128,7 @@ export function getOrderStatusLabel(status: OrderStatus): { text: string; step: 
     case 'ready':
       return { text: 'جاهز للاستلام بالمطعم', step: 3, colorClass: 'text-orange-700 bg-orange-50 border-orange-200' };
     case 'delivered':
-      return { text: 'تم التسليم لمكتب الوزارة بنجاح', step: 5, colorClass: 'text-teal-700 bg-teal-50 border-teal-200' };
+      return { text: 'تم تسليم الطلب بنجاح ✓', step: 5, colorClass: 'text-teal-700 bg-teal-50 border-teal-200' };
     case 'cancelled':
       return { text: 'تم إلغاء الطلب', step: 0, colorClass: 'text-rose-600 bg-rose-50 border-rose-200' };
     default:
@@ -184,23 +184,20 @@ export function updateCourierMilestone(
 /**
  * Validates employee checkout profile
  */
-export function validateEmployeeProfile(profile: Partial<Profile>): { valid: boolean; errors: string[] } {
+export function validateDeliveryProfile(profile: Partial<Profile>): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  if (!profile.fullName || profile.fullName.trim().length < 3) {
-    errors.push('يرجى إدخال الاسم بالكامل');
+  if (!profile.fullName || profile.fullName.trim().length < 2) {
+    errors.push('يرجى إدخال اسم المستلم بالكامل');
   }
 
-  if (!profile.phone || !/^(01[0125][0-9]{8})$/.test(profile.phone.replace(/\s+/g, ''))) {
-    errors.push('يرجى إدخال رقم هاتف مصري صحيح (11 رقم)');
+  if (!profile.phone || profile.phone.trim().length < 10) {
+    errors.push('يرجى إدخال رقم هاتف صحيح للتواصل');
   }
 
-  if (!profile.ministry || profile.ministry.trim().length === 0) {
-    errors.push('يرجى تحديد الوزارة أو الهيئة التابع لها');
-  }
-
-  if (!profile.floorNumber || profile.floorNumber.trim().length === 0) {
-    errors.push('يرجى إدخال رقم الدور بالحي الحكومي');
+  const address = profile.ministry || profile.defaultAddress?.fullAddress;
+  if (!address || address.trim().length === 0) {
+    errors.push('يرجى تحديد عنوان ومكان التوصيل');
   }
 
   return {
@@ -208,6 +205,8 @@ export function validateEmployeeProfile(profile: Partial<Profile>): { valid: boo
     errors,
   };
 }
+
+export const validateEmployeeProfile = validateDeliveryProfile;
 
 /**
  * Calculates financial summary and breakdown by payment method for a merchant/store

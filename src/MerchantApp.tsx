@@ -1,4 +1,4 @@
-import { supabase, signInWithSupabaseGoogle, signOutFromSupabase, getSupabaseProducts, resolveSupabaseStoreUuid } from './lib/supabase';
+import { supabase, signInWithSupabaseGoogle, signOutFromSupabase, getSupabaseStores, getSupabaseProducts, resolveSupabaseStoreUuid } from './lib/supabase';
 import { useActivePortalOrders } from './lib/useActivePortalOrders';
 import { normalizeOrder } from './utils/orderIntegration';
 import { PreparationTasks } from './components/PreparationTasks';
@@ -114,7 +114,7 @@ export default function MerchantApp() {
             email: user.email || 'meskllcqa@gmail.com',
             phone: '01222334455',
             role: 'restaurant',
-            storeId: 'store-foul-hind',
+            storeId: '27d12743-8106-4ef0-ba3c-84abefdb75d6',
             duty: 'manager',
             walletBalance: 0,
           } as any);
@@ -137,7 +137,7 @@ export default function MerchantApp() {
         const role = prof?.role || (uid === '07492416-8a8e-434b-9094-391abb21272e' || user.email === 'meskllcqa@gmail.com' ? 'admin' : 'employee');
 
         if (role === 'restaurant' || role === 'admin') {
-          const storeId = prof?.store_id || 'store-foul-hind';
+          const storeId = resolveSupabaseStoreUuid(prof?.store_id);
           if (active) {
             setProfile({
               id: uid,
@@ -209,10 +209,14 @@ export default function MerchantApp() {
       if (inflight) return;
       inflight = true;
       try {
-        const currentStoreId = profile.storeId || 'store-foul-hind';
+        const currentStoreId = resolveSupabaseStoreUuid(profile.storeId);
         const targetStoreUuid = resolveSupabaseStoreUuid(currentStoreId);
 
-        const [sbProducts, result] = await Promise.all([
+        const [sbStores, sbProducts, result] = await Promise.all([
+          getSupabaseStores().catch(err => {
+            console.warn('Failed to fetch stores from Supabase:', err);
+            return [] as Store[];
+          }),
           getSupabaseProducts(targetStoreUuid).catch(err => {
             console.warn('Failed to fetch products from Supabase:', err);
             return [] as Product[];
@@ -226,7 +230,7 @@ export default function MerchantApp() {
         } else if (Array.isArray(result?.products) && result.products.length > 0) {
           catalog = result.products;
         } else {
-          catalog = INITIAL_PRODUCTS.filter(p => p.storeId === currentStoreId || p.storeId === 'store-foul-hind');
+          catalog = INITIAL_PRODUCTS.filter(p => p.storeId === currentStoreId || p.storeId === '27d12743-8106-4ef0-ba3c-84abefdb75d6');
         }
         let cursor = result?.productsNextCursor;
         for (let page = 1; page < catalogPages.current && cursor; page++) {
@@ -237,7 +241,7 @@ export default function MerchantApp() {
           } catch {}
         }
         if (active) {
-          const rawStores = Array.isArray(result?.stores) && result.stores.length > 0 ? result.stores : INITIAL_STORES;
+          const rawStores = (Array.isArray(sbStores) && sbStores.length > 0) ? sbStores : (Array.isArray(result?.stores) && result.stores.length > 0 ? result.stores : INITIAL_STORES);
           const stoppageKey = 'sangoub_store_stoppage_' + currentStoreId;
           let activeStoppage = null;
           try {
@@ -246,7 +250,7 @@ export default function MerchantApp() {
           } catch {}
 
           const resolvedStores = rawStores.map((s: Store) => {
-            const isTarget = s.id === currentStoreId || s.id === (profile.storeId || 'store-foul-hind');
+            const isTarget = s.id === currentStoreId || s.id === (resolveSupabaseStoreUuid(profile.storeId));
             if (isTarget) {
               const isClosed = activeStoppage ? true : s.status === 'closed';
               return {
@@ -271,7 +275,7 @@ export default function MerchantApp() {
       } catch (e) {
         if (active) {
           setStores(INITIAL_STORES);
-          setProducts(INITIAL_PRODUCTS.filter(p => p.storeId === (profile.storeId || 'store-foul-hind')));
+          setProducts(INITIAL_PRODUCTS.filter(p => p.storeId === (resolveSupabaseStoreUuid(profile.storeId))));
           setConnected(true);
           setError('');
         }
@@ -360,7 +364,7 @@ export default function MerchantApp() {
     await merchantMutation({action:'set-product-archived',id,archived});
   }
   async function handleToggleStoreStatus(storeIdToToggle?: string) {
-    const targetStoreId = storeIdToToggle || profile?.storeId || (stores[0]?.id) || 'store-foul-hind';
+    const targetStoreId = storeIdToToggle || profile?.storeId || (stores[0]?.id) || '27d12743-8106-4ef0-ba3c-84abefdb75d6';
     const store = stores.find(s => s.id === targetStoreId) || stores[0];
     if (!store) return;
 

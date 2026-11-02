@@ -1,20 +1,20 @@
 export const LAUNCH_CONFIG = {
-  // Only grocery service active for soft launch
-  enabledCategories: ['mart'] as string[],
-  // Payment methods enabled for soft launch
-  enabledPaymentMethods: ['cash', 'geidea'] as string[],
-  // Hide delivery time claims (20 min, 15-25 min) during soft launch
-  showEta: false,
-  etaText: 'توصيل حسب جدول المنطقة',
-  // Specific launch area
-  serviceAreaLabel: 'زهرة العاصمة',
+  // All delivery services active across restaurants, mart, groceries, cafe, pharmacy, breakfast, etc.
+  enabledCategories: [] as string[],
+  // Payment methods enabled
+  enabledPaymentMethods: ['cash', 'geidea', 'instapay'] as string[],
+  // Show delivery time claims (20-30 min)
+  showEta: true,
+  etaText: '20-30 دقيقة',
+  // Service area coverage
+  serviceAreaLabel: 'العاصمة وكافة المناطق',
   // Legal / brand entity line
-  entityLine: 'سنجوب لتكنولوجيا التوصيل الذكي - إطلاق تجريبي زهرة العاصمة',
-  // Hide wallet & coupon for soft launch
-  showWallet: false,
-  showCouponField: false,
-  // Enforce zero merchant visibility
-  hideMerchantNames: true,
+  entityLine: 'سنجوب لتكنولوجيا التوصيل والطلب الذكي 🐿️',
+  // Enable wallet & coupon
+  showWallet: true,
+  showCouponField: true,
+  // Show real partner stores & merchants
+  hideMerchantNames: false,
   // Pricing & Delivery (mirrors server calculations)
   minOrder: 0,
   deliveryFee: 15,

@@ -68,7 +68,7 @@ function Stores() {
   return (
     <>
       <header className="shop-page-heading">
-        <span>من متاجر الحي إلى مكتبك</span>
+        <span>أسرع توصيل ذكي إلى بابك</span>
         <h1>تسوق مع سنجوب</h1>
         <p>اختار متجرًا، أضف منتجاتك، وأكمل الطلب من الموقع.</p>
       </header>

@@ -176,7 +176,7 @@ export const SangoubRegisterModal: React.FC<SangoubRegisterModalProps> = ({
                 required
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="اسم الشارع / الحي / الوزارة / المبنى والدور"
+                placeholder="اسم الشارع / الحي / رقم المبنى والدور / الشقة أو المكتب"
                 className="w-full pr-9 pl-3 py-2 text-xs bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827]"
               />
             </div>
@@ -215,7 +215,7 @@ export const SangoubRegisterModal: React.FC<SangoubRegisterModalProps> = ({
         </form>
 
         <p className="text-center text-[10.5px] text-[#6B7280] mt-3">
-          بالمتابعة، أنت توافق على شروط خدمة وتوصيل سنجوب بالعاصمة الإدارية الجديدة 🐿️
+          بالمتابعة، أنت توافق على شروط خدمة وتوصيل سنجوب 🐿️
         </p>
 
       </div>

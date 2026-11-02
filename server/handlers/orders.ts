@@ -217,6 +217,32 @@ export default async function handler(req: any, res: any) {
           .filter((d) => d.exists)
           .map((d) => [d.id, { ...d.data(), id: d.id } as any]),
       );
+      const missingProductIds = productIds.filter(id => !products.has(id));
+      if (missingProductIds.length > 0) {
+        try {
+          const { data: sbProds } = await supabase.from('products').select('*').in('id', missingProductIds);
+          if (sbProds && sbProds.length) {
+            for (const sp of sbProds) {
+              products.set(sp.id, {
+                id: sp.id,
+                storeId: sp.store_id,
+                name: sp.name,
+                nameEn: sp.name_en || '',
+                description: sp.description || '',
+                price: Number(sp.price) || 0,
+                originalPrice: sp.original_price ? Number(sp.original_price) : undefined,
+                category: sp.category || 'عام',
+                inStock: Boolean(sp.is_available),
+                archived: Boolean(sp.archived),
+                imageUrl: sp.image_url || '',
+                optionGroups: sp.options || [],
+              } as any);
+            }
+          }
+        } catch (err) {
+          console.warn('[orders handler] Supabase product fallback notice:', err);
+        }
+      }
       const storeIds = [
         ...new Set<string>(Array.from(products.values()).map((p) => p.storeId)),
       ];
@@ -226,6 +252,31 @@ export default async function handler(req: any, res: any) {
           .filter((d) => d.exists)
           .map((d) => [d.id, { ...d.data(), id: d.id } as any]),
       );
+      const missingStoreIds = storeIds.filter(id => !stores.has(id));
+      if (missingStoreIds.length > 0) {
+        try {
+          const { data: sbStores } = await supabase.from('stores').select('*').in('id', missingStoreIds);
+          if (sbStores && sbStores.length) {
+            for (const st of sbStores) {
+              stores.set(st.id, {
+                id: st.id,
+                name: st.name,
+                nameEn: st.name_en || '',
+                type: st.type || '',
+                category: st.category,
+                status: st.status || 'open',
+                minOrder: Number(st.min_order) || 0,
+                deliveryFee: Number(st.delivery_fee) || 10,
+                locationInDistrict: st.location_in_district || '',
+                commissionRate: Number(st.commission_rate) || 10,
+                taxRate: Number(st.tax_rate) || 14,
+              } as any);
+            }
+          }
+        } catch (err) {
+          console.warn('[orders handler] Supabase store fallback notice:', err);
+        }
+      }
       const coupon = input.couponCode
         ? (await tx.get(db.collection("coupons").doc(input.couponCode))).data()
         : undefined;
@@ -267,9 +318,29 @@ export default async function handler(req: any, res: any) {
     const paymentResult:any=result.paymentMethod==='geidea'&&!process.env.FIRESTORE_EMULATOR_HOST?await ensureOrderPayment(db,ref.id,identity.email||'',identity.uid):null;
     if (created && isSupabase) {
       try {
-        const storeId = result.storeIds?.[0] || '27d12743-8106-4ef0-ba3c-84abefdb75d6';
+        const STORE_SLUG_MAP: Record<string, string> = {
+          'store-foul-hind': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
+          'store-supermarket-capital': '54a6c2f6-6c29-4177-ac65-32fadddea83d',
+          'store-ministry-coffee': '55508f0e-f818-452e-b946-ab803fe9d637',
+          'store-karam-elsham': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
+          'store-taza-bakery': '55508f0e-f818-452e-b946-ab803fe9d637',
+        };
+        const rawStoreId = result.storeIds?.[0];
+        const storeId = (rawStoreId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawStoreId))
+          ? rawStoreId
+          : (STORE_SLUG_MAP[rawStoreId] || '27d12743-8106-4ef0-ba3c-84abefdb75d6');
+
+        const userSupabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${bearer}`,
+              apikey: SUPABASE_KEY,
+            }
+          }
+        });
+
         const supaOrderId = (ref.id.includes('-') && ref.id.length === 36) ? ref.id : undefined;
-        const { data: insertedOrder, error: insErr } = await supabase.from('orders').insert({
+        const { data: insertedOrder, error: insErr } = await userSupabase.from('orders').insert({
           ...(supaOrderId ? { id: supaOrderId } : {}),
           customer_id: identity.uid,
           store_id: storeId,
@@ -286,7 +357,9 @@ export default async function handler(req: any, res: any) {
           notes: input.notes || '',
         }).select().maybeSingle();
 
-        if (insertedOrder?.id) {
+        if (insErr) {
+          console.warn('[Supabase Order Mirror Error]:', insErr);
+        } else if (insertedOrder?.id) {
           const items = (result.items || input.items || []).map((i: any) => ({
             order_id: insertedOrder.id,
             product_id: (i.product?.id && i.product.id.length === 36) ? i.product.id : null,
@@ -296,11 +369,12 @@ export default async function handler(req: any, res: any) {
             selected_options: i.selectedOptions || {},
           }));
           if (items.length) {
-            await supabase.from('order_items').insert(items);
+            const { error: itemsErr } = await userSupabase.from('order_items').insert(items);
+            if (itemsErr) console.warn('[Supabase Order Items Error]:', itemsErr);
           }
         }
       } catch (sbErr) {
-        console.warn('Supabase order mirror warning:', sbErr);
+        console.warn('Supabase order mirror exception:', sbErr);
       }
     }
 

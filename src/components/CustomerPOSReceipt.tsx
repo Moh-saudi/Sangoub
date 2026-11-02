@@ -22,11 +22,11 @@ export function CustomerPOSReceipt({
 }: CustomerPOSReceiptProps) {
   // Extract distinct store IDs from order items
   const storeIdsInOrder = Array.from(
-    new Set(order.items.map((item) => item.product.storeId || 'store-foul-hind'))
+    new Set(order.items.map((item) => item.product.storeId || '27d12743-8106-4ef0-ba3c-84abefdb75d6'))
   );
 
   const [activeStoreId, setActiveStoreId] = useState<string>(
-    initialStoreId || (storeIdsInOrder.length > 1 ? 'all' : storeIdsInOrder[0] || 'store-foul-hind')
+    initialStoreId || (storeIdsInOrder.length > 1 ? 'all' : storeIdsInOrder[0] || '27d12743-8106-4ef0-ba3c-84abefdb75d6')
   );
 
   const [copiedLink, setCopiedLink] = useState(false);
@@ -39,7 +39,7 @@ export function CustomerPOSReceipt({
   // Filter items based on active store tab
   const displayItems = activeStoreId === 'all'
     ? order.items
-    : order.items.filter((item) => (item.product.storeId || 'store-foul-hind') === activeStoreId);
+    : order.items.filter((item) => (item.product.storeId || '27d12743-8106-4ef0-ba3c-84abefdb75d6') === activeStoreId);
 
   // Calculations for current receipt view
   const itemsSubtotal = displayItems.reduce(

@@ -74,7 +74,7 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
         id: `prod-${idx}`,
         name: it.name,
         price: it.price,
-        storeId: it.storeId || 'store-foul-hind',
+        storeId: it.storeId || '27d12743-8106-4ef0-ba3c-84abefdb75d6',
         category: 'طعام ومشروبات',
         is_available: true,
       } as any,
