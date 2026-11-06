@@ -19,8 +19,8 @@ export function validImageKey(key: unknown): key is string {
   return typeof key === "string" && /^catalog\/(stores|products|banners|campaigns)\/[\w-]{1,128}\/[a-f0-9-]{36}\.(jpg|png|webp)$/.test(key);
 }
 export function r2Services() {
-  const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
-  const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
+  const R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID;
+  const R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY;
   const R2_PUBLIC_URL = process.env.CLOUDFLARE_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "https://pub-14521cdfec73fa908fbf7e760fae362a.r2.dev";
   if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_PUBLIC_URL) throw new Error("R2_NOT_CONFIGURED");
   const publicUrl = new URL(R2_PUBLIC_URL);
