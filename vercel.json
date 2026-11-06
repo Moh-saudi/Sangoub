@@ -4,6 +4,18 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/auth/login",
+      "destination": "/api/public?handler=portal-auth"
+    },
+    {
+      "source": "/api/partner-application",
+      "destination": "/api/public?handler=partner-application"
+    },
+    {
+      "source": "/api/user-avatar",
+      "destination": "/api/public?handler=user-avatar"
+    },
+    {
       "source": "/api/osm/:action",
       "destination": "/api/operations?osmAction=:action"
     },
