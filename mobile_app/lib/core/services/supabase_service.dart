@@ -63,9 +63,13 @@ class SupabaseService {
             profileRole == 'restaurant'
         ? profileRole
         : assignedRole ?? 'employee';
-    final storeAssignment = List<Map<String, dynamic>>.from(assignments)
-        .where((row) => row['store_id'] != null)
-        .firstOrNull;
+    Map<String, dynamic>? storeAssignment;
+    for (final assignment in List<Map<String, dynamic>>.from(assignments)) {
+      if (assignment['store_id'] != null) {
+        storeAssignment = assignment;
+        break;
+      }
+    }
 
     String profileText(String key, String metadataKey) =>
         (data[key] ?? metadata[metadataKey] ?? '').toString();

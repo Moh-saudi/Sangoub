@@ -152,7 +152,7 @@ class NotificationService {
     }
   }
 
-  /// جلب رمز الجهاز (FCM Token) وحفظه في ملف المستخدم بـ Firestore
+  /// جلب رمز الجهاز (FCM Token) وربطه بحساب Supabase عبر واجهة الخادم.
   Future<String?> syncTokenWithUser(String uid) async {
     try {
       final token = await _fcm.getToken();

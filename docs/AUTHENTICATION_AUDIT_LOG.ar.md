@@ -1,8 +1,8 @@
 # سجل تدقيق المصادقة والربط التشغيلي الشامل
 # Capital Talabat - Authentication & Integration Audit Log
 
-تاريخ التحديث الأخير: **22 أكتوبر 2026**  
-الحالة العامة: **مكتمل ومفحوص برمجياً بنسبة 100% (Zero Lint Errors - Fully Wired)**  
+تاريخ التحديث الأخير: **6 نوفمبر 2026**
+الحالة العامة: **تم نقل مصادقة تطبيق Flutter إلى Supabase Auth؛ يلزم بناء Flutter والتحقق على جهاز بعد توفر SDK.**
 المستودع: `Moh-saudi/capital-talabat`  
 التطبيق: `mobile_app/` و `capital_talabat_app/` (Flutter) + `src/` (Web Admin Dashboard)
 
@@ -14,7 +14,7 @@
 | :--- | :--- | :--- |
 | **الجمهور المستهدف** | **الإدارة والتشغيل فقط (Admin Portal)** | **الموظف الحكومي (عميل)، الشيف، المندوب** |
 | **الأدوار المسموح بها** | `admin` حصرياً | `employee`، `restaurant` (شيف)، `courier` (مندوب) |
-| **طريقة الدخول** | Firebase Auth (Google أو البريد) + فحص `admins/{uid}` | Firebase Auth (Google أو البريد) + فحص `admins` / `staff` / `users` |
+| **طريقة الدخول** | Supabase Auth + التحقق من أدوار Supabase | Supabase Auth + ملف `profiles` وتكليفات `user_roles` |
 | **إذا دخل المدير في الموبايل** | - | يُمنع ويُحوّل فوراً إلى شاشة [AdminNoticeScreen](file:///d:/Saudi%2017-10-2023/Privit/PayS/Mesk/طلبات%20العاصمة/capital-talabat/mobile_app/lib/screens/admin/admin_notice_screen.dart) مع رابط بوابة الويب |
 | **إذا دخل العميل في الويب** | يُحظر فوراً وتظهر رسالة: "الحساب غير مخوّل للإدارة" | يفتح له الكتالوج، السلة، وتتبع الطلب [ClientHomeScreen](file:///d:/Saudi%2017-10-2023/Privit/PayS/Mesk/طلبات%20العاصمة/capital-talabat/mobile_app/lib/screens/client/client_home_screen.dart) |
 
@@ -24,11 +24,9 @@
 
 ### أولاً: منظومة المصادقة والأدوار (Authentication & Role Verification)
 - [x] **إلغاء أدوار المحاكاة الوهمية:** تم استبعاد أي اختيار يدوي للدور (Mock Roles) أو كلمات مرور تجريبية ثابتة داخل تطبيق Flutter.
-- [x] **اعتماد جلسة Firebase Auth الرسمية:** الربط المباشر مع `FirebaseAuth.instance.currentUser` والتحقق من الـ UID الحقيقي.
-- [x] **الفحص التراتبي للصلاحيات من Firestore:**
-  1. فحص `admins/{uid}`: إذا وجد يُمنح صفة `UserRole.admin`.
-  2. فحص `staff/{uid}`: قراءة الحقل `role` (`restaurant` أو `courier`) مع قراءة `storeId` المخصص للشيف.
-  3. الافتراضي: `UserRole.employee` للعملاء والموظفين مع إنشاء وثيقة تلقائية متوافقة في `users/{uid}`.
+- [x] **اعتماد جلسة Supabase Auth في Flutter:** تسجيل البريد وكلمة المرور وGoogle، وترويسات الخادم تحمل Supabase access token.
+- [x] **قراءة ملف الحساب من `profiles` والتكليف من `user_roles`:** Firebase Auth لم يعد ضمن تبعيات Flutter؛ Firebase Core/Messaging باقٍ لإشعارات FCM فقط.
+- [ ] **التحقق النهائي:** تشغيل `flutter pub get`, `flutter analyze`, وبناء Android على جهاز يحوي Flutter SDK، ثم اختبار تسجيل الدخول والتسجيل واستعادة كلمة المرور وFCM.
 - [x] **فصل لوحة تحكم الويب:** شاشات الويب لا تحتوي على محاكي موبايل أو أدوار تجريبية، ومحصورة على `admins/{uid}` بالتحقق الثنائي `isVerifiedIdentity`.
 
 ### ثانياً: الكتالوج الحي والمتاجر والوسائط (Catalog & Cloudflare R2)

@@ -330,7 +330,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     final auth = Provider.of<AuthProvider>(context, listen: false);
 
     try {
-      await auth.signUpWithEmailAndPassword(
+      final signedIn = await auth.signUpWithEmailAndPassword(
         email: _signUpEmailController.text.trim(),
         password: _signUpPasswordController.text,
         fullName: _fullNameController.text.trim(),
@@ -342,12 +342,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم إنشاء الحساب بنجاح!'),
+        SnackBar(
+          content: Text(signedIn
+              ? 'تم إنشاء الحساب بنجاح!'
+              : 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني لتأكيده ثم سجّل الدخول.'),
           backgroundColor: AppColors.primary,
         ),
       );
-      _routeByRole(UserRole.employee, context);
+      if (signedIn) _routeByRole(UserRole.employee, context);
     } catch (e) {
       if (!mounted) return;
       _showAppleErrorPopup(context, rawError: auth.errorMessage ?? e.toString());

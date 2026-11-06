@@ -36,7 +36,7 @@ deliveredAt?: Timestamp;
 
 ## إنشاء طلب من Flutter
 
-كل API يستخدم HTTPS إلى خادم الويب المنشور، وترويسة `Authorization: Bearer <Firebase ID token>` و`Content-Type: application/json`. لا تضع مفاتيح حساب خدمة أو R2 في التطبيق. لا تُعد السلة ناجحة ولا تمسحها قبل نجاح الاستجابة.
+كل API يستخدم HTTPS إلى خادم الويب المنشور، وترويسة `Authorization: Bearer <Supabase access token>` و`Content-Type: application/json`. لا تضع مفاتيح حساب خدمة أو R2 في التطبيق. لا تُعد السلة ناجحة ولا تمسحها قبل نجاح الاستجابة.
 
 `POST /api/orders`:
 
@@ -62,9 +62,9 @@ deliveredAt?: Timestamp;
 
 | الدور | الاستعلام المسموح |
 | --- | --- |
-| العميل | `orders.where('profileId', isEqualTo: FirebaseAuth.currentUser.uid)` |
+| العميل | `orders.where('profileId', isEqualTo: Supabase.auth.currentUser.id)` |
 | الشيف | `orders.where('storeIds', arrayContains: assignedStoreId)` |
-| المندوب | `orders.where('courierId', isEqualTo: FirebaseAuth.currentUser.uid)` |
+| المندوب | `orders.where('courierId', isEqualTo: Supabase.auth.currentUser.id)` |
 | المدير | `orders` بعد التأكد من وثيقة الإدارة |
 
 تحديث مرحلة المطبخ يتم بمعاملة Firestore: قراءة أحدث طلب، تعديل `kitchenStatus[storeId]` فقط من received إلى preparing ثم ready، وتعيين `orderStatus: preparing` حتى تصبح جميع المطابخ ready، ثم `orderStatus: ready` و`readyAt: serverTimestamp()`. كل تحديث له `updatedAt: serverTimestamp()`؛ راجع `nextKitchenUpdate` و`updateKitchenStage` في الويب كمرجع. تمنع القواعد تعديل مرحلة مطبخ آخر أو اختصار المراحل.

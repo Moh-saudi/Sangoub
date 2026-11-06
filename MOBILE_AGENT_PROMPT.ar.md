@@ -9,22 +9,20 @@
 - ابدأ من آخر `origin/main` واقرأ `SHARED_INTEGRATION_SPEC.md` و`docs/WEB_MOBILE_INTEGRATION.ar.md` و`docs/ADMIN_DASHBOARD.ar.md`، ثم الكود الفعلي في `src/types/index.ts` و`src/lib/firebase.ts` و`src/utils/orderIntegration.ts` و`api/orders.ts` و`api/order-delivery.ts` و`server/orderBuilder.ts` و`firestore.rules`. عند اختلاف نص قديم مع التنفيذ الآمن، لا تُعدّل القواعد لتجاوز الخطأ؛ وضّح الاختلاف واستعمل المسارات الحقيقية الموثقة أدناه.
 - حافظ على عمل الويب وملفاته. لا تستبدل قواعد الأمان أو مسارات API أو متغيرات Vercel أثناء تعديل Flutter، ولا تنفّذ force-push على عمل زميلك.
 
-## Firebase المشترك
+## Firebase للإشعارات فقط
 
 - Project ID: `capital-talabat`؛ قاعدة Firestore: `(default)`.
 - Project Number: `462331103510`.
-- Auth Domain: `capital-talabat.firebaseapp.com`.
-- Web App ID: `1:462331103510:web:b48e42c27667fcdee9e837`.
-- Android App ID: `1:462331103510:android:bbcec7992b9a9b08e9e837`.
+- الهدف أن يقتصر Firebase على Core وMessaging لإشعارات FCM. مصادقة Flutter الآن عبر Supabase Auth؛ ما زالت بعض مواضع قراءة الكتالوج والطلبات في Flutter تستخدم Firestore ولم يكتمل ترحيل بياناتها بعد.
 - Android package: `eg.gov.capital.capital_talabat_app`.
-- عنوان API الإنتاجي: `https://capital-talabat.vercel.app`، واجعله قابلًا للضبط بـ`--dart-define=API_BASE_URL=...`. لا تثبّت رابط Preview داخل التطبيق. تحقّق من نشر وظائف API قبل الاختبار الحي؛ وجود موقع HTML لا يثبت تشغيل الخادم.
+- عنوان API الإنتاجي: `https://sangoub.el7lm.com`، واجعله قابلًا للضبط بـ`--dart-define=API_BASE_URL=...`. لا تثبّت رابط Preview داخل التطبيق. تحقّق من نشر وظائف API قبل الاختبار الحي؛ وجود موقع HTML لا يثبت تشغيل الخادم.
 - راجع تسجيل iOS وبصمات Android وإعداد Google الفعلي؛ لا تستخدم Android App ID كأنه تسجيل iOS معتمد.
 
 ## المصادقة والصلاحيات
 
-استخدم Firebase Auth الحقيقي: Google والبريد/كلمة المرور، والهاتف فقط إذا كان مفعّلًا ومهيأً. لا تمنح الصلاحية بناء على نص البريد أو الهاتف، ولا تعتمد على SharedPreferences أو اختيار المستخدم للدور. أزل `loginAsRole` وأي تسجيل دخول تجريبي، ولا تقبل كلمة مرور شكلية أو هوية `USR_...` أو العميل الثابت `employee_capital`.
+استخدم Supabase Auth للبريد وكلمة المرور وGoogle. لا تمنح الصلاحية بناء على نص البريد أو الهاتف، ولا تعتمد على SharedPreferences أو اختيار المستخدم للدور. أزل `loginAsRole` وأي تسجيل دخول تجريبي، ولا تقبل كلمة مرور شكلية أو هوية `USR_...` أو العميل الثابت `employee_capital`.
 
-الجلسة من FirebaseAuth، وكل معرف مستخدم هو `currentUser.uid`:
+الجلسة من Supabase Auth، وكل معرف مستخدم هو UUID من `currentUser.id`. اقرأ ملف الحساب من `public.profiles` والتكليفات الموثوقة من `public.user_roles` وفق RLS. لا تستخدم Firebase UID أو وثائق `admins` و`staff` لتحديد هوية جلسة الموبايل.
 
 - `users/{uid}`: `uid`, `fullName`, `email`, `phone`, `ministry`, `floorNumber`, `roomNumber`, `role`, `walletBalance`, `createdAt`, `updatedAt`، واختياريًا `avatarUrl`, `coordinates`.
 - عند أول تسجيل حساب موثّق أنشئ ملف الموظف بـ`role: employee` و`walletBalance: 0` ووقتَي `serverTimestamp()`. لا تولّد أسماء أو هواتف أو مكاتب أو رصيدًا ترحيبيًا افتراضيًا. يمكن إكمال بيانات العنوان الحقيقية قبل الطلب.
@@ -84,7 +82,7 @@ R2 Bucket: `capitaltalabat`، Account ID: `14521cdfec73fa908fbf7e760fae362a`. ل
 
 ## إنشاء الطلب عبر الخادم
 
-كل API يستخدم `Authorization: Bearer <Firebase ID token>` و`Content-Type: application/json`. هذا ID token من FirebaseAuth وليس Google OAuth access token.
+كل API يستخدم `Authorization: Bearer <Supabase access token>` و`Content-Type: application/json`. لا ترسل Google OAuth access token ولا Firebase ID token إلى الخادم.
 
 `POST /api/orders`، مثال بنيوي وليست بيانات تشغيل:
 
@@ -195,7 +193,7 @@ updatedAt: serverTimestamp();
 ## شروط الإنجاز
 
 1. أزل قوائم المطاعم والوجبات والطلبات والحسابات التجريبية من مسار التشغيل، وأزل الرصيد والخصومات والعناوين الافتراضية.
-2. اربط providers بمصادقة Firebase واشتراكات Firestore الحقيقية، مع حالات التحميل والفراغ والخطأ وفقد الاتصال. لا تبتلع الأخطاء وتظهر نجاحًا محليًا.
+2. اربط providers بمصادقة Supabase واشتراكات البيانات المعتمدة، مع حالات التحميل والفراغ والخطأ وفقد الاتصال. لا تبتلع الأخطاء وتظهر نجاحًا محليًا.
 3. اختبر على محاكيات Firebase أولًا. أضف حسابًا عاديًا وشيفًا ومندوبًا ومطعمًا آخر للتأكد من العزل. تغيير SharedPreferences أو حقل role لا يمنح صلاحية.
 4. اختبار القبول: الإدارة تضيف متجرًا ومنتجًا فعليًا → يظهران في Flutter → الموظف يطلب → الشيف الصحيح يرى الطلب ويجهزه → ready → الإدارة تكلّف المندوب → تظهر بياناته وموقعه عند المشاركة → العميل يقرأ الرمز → المندوب يؤكد الرمز والتحصيل → يظهر delivered في الويب والموبايل. اختبر الطلب متعدد المطابخ والأرشفة وفشل الحفظ وإعادة الإرسال دون تكرار.
 5. شغّل `flutter analyze` و`flutter test`، ووثّق نتائج الربط ومسار الطلب وإعدادات الأجهزة التي اختُبرت. لا تعتبر سلامة التحليل البرمجي وحدها دليلًا على تشغيل Firebase أو Google أو R2 أو التزامن.
@@ -207,4 +205,4 @@ updatedAt: serverTimestamp();
 إدارة الحسابات والأدوار تتم على الويب من `/api/admin-users`، والتعديلات الإدارية الأخرى من `/api/admin-data`. قواعد Firestore تمنع كتابة عميل المدير مباشرة إلى كتالوج المنصة والفريق والطلبات والخصومات ومراجعات التقديمات. صلاحيات الشيف والمندوب المقيدة تبقى كما هي؛ لا تستخدم واجهات الإدارة بحساباتهم. وثيقة `accountAccess/{uid}` قد تمنع استعمال جلسة ألغتها الإدارة حتى لو ظل ID token مخزنًا؛ أعد المستخدم لتسجيل الدخول عند انتهاء/إلغاء الجلسة. سجل التدقيق الحالي يغطي المسارات المدققة عبر الخادم، ولا يغطي تلقائيًا كتابات Flutter المباشرة. اقرأ `docs/USERS_AND_AUDIT.ar.md` قبل توسيع التغطية؛ لا تكتب أحداث تدقيق موثوقة من العميل.
 
 
-تنفيذ واجهات Node موجود في `server/handlers/`، وملفات `api/*.ts` نقاط دخول خفيفة. Cloudflare R2 ما زال للصور؛ هذه الخطوة لا تنقل Authentication أو Firestore. راجع `docs/HOSTING_AND_STORAGE.ar.md` للتفريق بين الاستضافة والتخزين وتشخيص أخطاء الخادم.
+تنفيذ واجهات Node موجود في `server/handlers/`، وملفات `api/*.ts` نقاط دخول خفيفة. مصادقة Flutter انتقلت إلى Supabase Auth، بينما ترحيل بقية قراءات Firestore في الموبايل ما زال مطلوبًا. Cloudflare R2 هو تخزين الوسائط. راجع `docs/HOSTING_AND_STORAGE.ar.md` للتفريق بين الاستضافة والتخزين وتشخيص أخطاء الخادم.
