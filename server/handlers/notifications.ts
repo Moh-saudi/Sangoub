@@ -5,22 +5,21 @@ import { Timestamp } from "firebase-admin/firestore";
 import { requireAdmin, AdminError, adminError } from "../adminRequest.ts";
 import { mobileCors } from "../mobileCors.ts";
 import { auditRecord } from "../audit.ts";
+import { adminServices } from '../firebaseAdmin.ts';
 
 export default async function handler(req: any, res: any) {
   res.setHeader("Cache-Control", "no-store");
   if (mobileCors(req, res)) return;
 
-  let context: Awaited<ReturnType<typeof requireAdmin>> | undefined;
-
   try {
     if(req.method==='POST'&&req.body?.action==='register-token'){
-      const {db,actor,verified}=await operationIdentity(req);const {token,platform}=req.body;
+      const {actor,verified}=await operationIdentity(req);const {db}=adminServices();const {token,platform}=req.body;
       if(!verified||typeof token!=='string'||token.length<20||token.length>2048||!['android','ios','web'].includes(platform))throw new AdminError(400,'بيانات جهاز غير صالحة.');
       const ref=db.doc('users/'+actor.uid);if(!(await ref.get()).exists)throw new AdminError(409,'أكمل ملف الحساب أولًا.');
       await ref.update({fcmToken:token,fcmPlatform:platform,fcmUpdatedAt:Timestamp.now()});return res.status(200).json({ok:true});
     }
-    context = await requireAdmin(req);
-    const { db, messaging, actor } = context;
+    const {actor} = await requireAdmin(req);
+    const {db,messaging}=adminServices();
 
     if (req.method === "GET" || (req.method === "POST" && req.body?.action === "list")) {
       // جلب سجل الإشعارات السابقة

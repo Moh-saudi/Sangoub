@@ -1,9 +1,6 @@
 import { supabase, signOutFromSupabase } from './lib/supabase';
 import { CourierTracking } from './components/CourierTracking';
 import { useEffect, useRef, useState } from 'react';
-import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { auth, db, isVerifiedIdentity, signOutFromFirebase } from './lib/firebase';
 import { operationsApi } from './lib/operationsApi';
 import { orderDelivery } from './lib/orderDelivery';
 import { useActivePortalOrders } from './lib/useActivePortalOrders';
@@ -29,6 +26,7 @@ export default function CourierApp() {
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [accessMessage, setAccessMessage] = useState(''),
+    [currentEmail, setCurrentEmail] = useState(''),
     [revision, setRevision] = useState(0);
   const [history, setHistory] = useState<any[]>([]),
     [cursor, setCursor] = useState<string | null>(null),
@@ -49,55 +47,30 @@ export default function CourierApp() {
       if (!user) {
         if (active) {
           setUid(undefined);
+          setCurrentEmail('');
           setAccess("login");
         }
         return;
       }
 
       const userId = user.id || user.uid;
-      if (userId === '07492416-8a8e-434b-9094-391abb21272e' || user.email === 'meskllcqa@gmail.com') {
-        if (active) {
-          setUid(userId);
-          setName(user.user_metadata?.full_name || 'مدير المنظومة (المشرف العام)');
-          setAccess('courier');
-          setAccessMessage('');
-          setError('');
-        }
-        return;
-      }
       if (active) {
         setUid(userId);
+        setCurrentEmail(user.email || '');
         setAccess("checking");
       }
 
       try {
-        let prof: any = null;
-        try {
-          const res = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-          if (!res.error && res.data) prof = res.data;
-        } catch {}
-        const role = prof?.role || (userId === '07492416-8a8e-434b-9094-391abb21272e' || user.email === 'meskllcqa@gmail.com' ? 'admin' : 'employee');
-
-        if (role === 'courier' || role === 'admin') {
+        const authority = await operationsApi('operations', { action: 'profile' });
+        if (authority.role === 'courier') {
           if (active) {
-            setName(prof?.full_name || user.user_metadata?.full_name || 'كابتن التوصيل');
+            setName(authority.displayName || user.user_metadata?.full_name || 'كابتن التوصيل');
             setAccess('courier');
             setAccessMessage('');
             setError('');
           }
           return;
         }
-
-        try {
-          const profile = await operationsApi('operations', { action: 'profile' });
-          if (profile.role === 'courier' || profile.role === 'admin') {
-            if (active) {
-              setName(profile.displayName || 'كابتن التوصيل');
-              setAccess('courier');
-              return;
-            }
-          }
-        } catch {}
 
         if (active) {
           setAccessMessage('هذا الحساب ليس مسجلاً كمندوب توصيل. اطلب من الإدارة تفعيل رتبة المندوب لحسابك.');
@@ -116,18 +89,14 @@ export default function CourierApp() {
       if (session?.user) {
         checkCourier(session.user);
       } else {
-        onAuthStateChanged(auth, fbUser => {
-          if (!active) return;
-          if (fbUser) checkCourier(fbUser);
-          else setAccess('login');
-        });
+        setAccess('login');
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
       if (session?.user) checkCourier(session.user);
-      else if (!auth.currentUser) setAccess('login');
+      else setAccess('login');
     });
 
     return () => {
@@ -144,21 +113,40 @@ export default function CourierApp() {
       if (old) tag.setAttribute('href', old);
     };
   }, []);
+  async function handleLogout() {
+    try {
+      await signOutFromSupabase();
+    } catch {}
+    setAccess('login');
+  }
+
   async function login(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanPassword = password;
+
       const { data, error: sbErr } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+        email: cleanEmail,
+        password: cleanPassword,
       });
-      if (!sbErr && data.session) {
+      if (!sbErr && data?.session) {
         setRevision(r => r + 1);
         return;
       }
-      await signInWithEmailAndPassword(auth, email.trim(), password);
-      setPassword('');
+      if (sbErr) {
+        if (sbErr.message?.includes('Invalid login credentials')) {
+          setError('البريد أو كلمة المرور غير صحيحة.');
+          return;
+        }
+        if (sbErr.message?.includes('Email not confirmed')) {
+          setError('يرجى تأكيد البريد الإلكتروني أولاً.');
+          return;
+        }
+      }
+      setError('تعذر الدخول. راجع البريد وكلمة المرور.');
     } catch {
       setError('تعذر الدخول. راجع البريد وكلمة المرور واتصالك.');
     } finally {
@@ -225,29 +213,11 @@ export default function CourierApp() {
     currency: 'EGP'
   }).format(n || 0);
   if (access === 'checking') return <main className="courier-app"><LoadingState message="جارٍ التحقق من حساب المندوب…" /></main>;
-  if (access === 'login' || access === 'denied') return <main className="courier-app courier-auth" dir="rtl"><section className="courier-panel"><a href="/"><img src={BRAND.logo} alt="سنجوب" width="64" height="64" /></a><h1>دخول مندوب سنجوب</h1><p>مهامك المسندة إليك، والاستلام والتسليم بالرمز.</p>{access === 'denied' ? <><ErrorState message={accessMessage||'لم تكتمل مراجعة صلاحية الحساب.'} /><p>البريد الحالي: <strong dir="ltr">{auth.currentUser?.email}</strong></p><p className="text-xs">معرّف الحساب: <span dir="ltr">{uid}</span></p>{auth.currentUser && !isVerifiedIdentity(auth.currentUser) && <button disabled={busy} onClick={async () => {
+  if (access === 'login' || access === 'denied') return <main className="courier-app courier-auth" dir="rtl"><section className="courier-panel"><a href="/"><img src={BRAND.logo} alt="سنجوب" width="64" height="64" /></a><h1>دخول مندوب سنجوب</h1><p>مهامك المسندة إليك، والاستلام والتسليم بالرمز.</p>{access === 'denied' ? <><ErrorState message={accessMessage||'لم تكتمل مراجعة صلاحية الحساب.'} /><p>البريد الحالي: <strong dir="ltr">{currentEmail}</strong></p><p className="text-xs">معرّف الحساب: <span dir="ltr">{uid}</span></p><button onClick={handleLogout}>تسجيل الخروج</button></> : <form onSubmit={login}><label>البريد الإلكتروني<input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} dir="ltr" /></label><label>كلمة المرور<input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} dir="ltr" /></label><button disabled={busy}>{busy ? 'جارٍ الدخول…' : 'دخول المندوب'}</button><button type="button" disabled={busy || !email} onClick={async () => {
           setBusy(true);
           try {
-            await sendEmailVerification(auth.currentUser!);
-            setNotice('أرسلت رسالة التأكيد.');
-          } catch {
-            setError('تعذر إرسال رسالة التأكيد.');
-          } finally {
-            setBusy(false);
-          }
-        }}>إرسال تأكيد البريد</button>}<button onClick={async () => {
-          try {
-            await auth.currentUser?.reload();
-            await auth.currentUser?.getIdToken(true);
-            setRevision(v => v + 1);
-            setAccess('checking');
-          } catch {
-            setError('تعذر إعادة التحقق.');
-          }
-        }}>إعادة التحقق</button><button onClick={() => void signOutFromFirebase()}>تسجيل الخروج</button></> : <form onSubmit={login}><label>البريد الإلكتروني<input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} dir="ltr" /></label><label>كلمة المرور<input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} dir="ltr" /></label><button disabled={busy}>{busy ? 'جارٍ الدخول…' : 'دخول المندوب'}</button><button type="button" disabled={busy || !email} onClick={async () => {
-          setBusy(true);
-          try {
-            await sendPasswordResetEmail(auth, email.trim());
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin + '/courier' });
+            if (resetError) throw resetError;
             setNotice('إذا كان البريد مسجلاً فستصله تعليمات الاستعادة.');
           } catch {
             setError('تعذر إرسال تعليمات الاستعادة.');
@@ -255,7 +225,7 @@ export default function CourierApp() {
             setBusy(false);
           }
         }}>نسيت كلمة المرور؟</button></form>}{error && <ErrorState message={error} />}<p role="status">{notice}</p><a href={BRAND.supportUrl}>التواصل مع الدعم</a></section></main>;
-  return <main className="courier-app" dir="rtl"><header className="courier-header"><img src={BRAND.logo} alt="سنجوب" width="42" height="42" /><div><h1>مهام التوصيل</h1><p>{name}</p></div><button onClick={() => void signOutFromFirebase()}>خروج</button></header><ConnectionState online={feed.online} live={feed.live} updatedAt={feed.updatedAt} /><nav className="courier-tabs" aria-label="طلبات المندوب"><button aria-pressed={tab === 'active'} onClick={() => setTab('active')}>المهام النشطة ({feed.items.length})</button><button aria-pressed={tab === 'history'} onClick={() => {
+  return <main className="courier-app" dir="rtl"><header className="courier-header"><img src={BRAND.logo} alt="سنجوب" width="42" height="42" /><div><h1>مهام التوصيل</h1><p>{name}</p></div><button onClick={handleLogout}>خروج</button></header><ConnectionState online={feed.online} live={feed.live} updatedAt={feed.updatedAt} /><nav className="courier-tabs" aria-label="طلبات المندوب"><button aria-pressed={tab === 'active'} onClick={() => setTab('active')}>المهام النشطة ({feed.items.length})</button><button aria-pressed={tab === 'history'} onClick={() => {
         setTab('history');
         if (!historyLoaded) void historyPage(true);
       }}>سجل التوصيل</button></nav>{(error || feed.error) && <ErrorState message={error || feed.error} retry={() => {

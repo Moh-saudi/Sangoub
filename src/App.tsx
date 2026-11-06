@@ -1,8 +1,5 @@
-import {ShopProvider} from './shop/ShopContext';
 import { lazy, Suspense, useEffect, useState } from "react";
 import StorefrontApp from "./storefront/StorefrontApp";
-
-const ShopFront = lazy(() => import('./shop/ShopFront'));
 const AdminApp = lazy(() => import("./AdminApp"));
 const CourierApp = lazy(() => import("./CourierApp"));
 const MerchantApp = lazy(() => import("./MerchantApp"));
@@ -24,15 +21,6 @@ export default function App() {
     );
   }
 
-  if (/^\/(my-orders|track|order-tracking(?:\/[^/]+)?)\/?$/.test(path)) {
-    return (
-      <ShopProvider>
-        <Suspense fallback={<p role="status" className="p-8" dir="rtl">جارٍ تحميل التسوق…</p>}>
-          <ShopFront key={path} />
-        </Suspense>
-      </ShopProvider>
-    );
-  }
 
   if (/^\/merchant(\/.*)?$/.test(path) || location.hash.startsWith("#merchant") || new URLSearchParams(location.search).get("tab") === "restaurant") {
     return (

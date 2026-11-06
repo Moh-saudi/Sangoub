@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Printer, Share2, Download, Check, MapPin, Store as StoreIcon, ShieldCheck, QrCode } from 'lucide-react';
+import { Printer, Download, Check, MapPin, Store as StoreIcon, ShieldCheck, QrCode } from 'lucide-react';
 import type { Order, Store } from '../types';
 import { formatEGP } from '../utils/orderCalculations';
 import { tafqeetEGP } from '../utils/tafqeet';
-import { INITIAL_STORES } from '../data/seedData';
 
 export interface CustomerPOSReceiptProps {
   order: Order;
@@ -15,7 +14,7 @@ export interface CustomerPOSReceiptProps {
 
 export function CustomerPOSReceipt({
   order,
-  stores = INITIAL_STORES,
+  stores = [],
   selectedStoreId: initialStoreId,
   onClose,
   showTabs = true,
@@ -31,10 +30,21 @@ export function CustomerPOSReceipt({
 
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Active Store Object
-  const currentStore = stores.find((s) => s.id === activeStoreId) ||
+  // Active Store Object with resilient fallback
+  const fallbackStore = {
+    id: activeStoreId || 'sangoub-main',
+    name: (order.items?.[0]?.product as any)?.storeName || 'متجر سنجوب المعتمد',
+    category: 'تسوق عام',
+    imageUrl: '/brand/sangoub-market-logo.jpg',
+    locationInDistrict: 'المنصة الرئيسية - سنجوب',
+    isActive: true,
+  } as unknown as Store;
+
+  const currentStore: Store =
+    stores.find((s) => s.id === activeStoreId) ||
     stores.find((s) => s.id === storeIdsInOrder[0]) ||
-    INITIAL_STORES[0];
+    stores[0] ||
+    fallbackStore;
 
   // Filter items based on active store tab
   const displayItems = activeStoreId === 'all'
@@ -50,61 +60,122 @@ export function CustomerPOSReceipt({
   const isMultiStore = storeIdsInOrder.length > 1;
   const storeCount = storeIdsInOrder.length || 1;
 
-  // Proportional or store-specific delivery fee
-  const deliveryShare = activeStoreId === 'all'
-    ? (order.deliveryFee || 20)
-    : Math.round((order.deliveryFee || 20) / storeCount);
+  // Exact matching total: If order.total is present, receipt MUST strictly match
+  const hasExactOrderTotal = typeof order.total === 'number' && order.total > 0;
+
+  // Proportional or store-specific delivery fee matching order exactly
+  const actualDeliveryFee = typeof order.deliveryFee === 'number'
+    ? order.deliveryFee
+    : hasExactOrderTotal
+    ? Math.max(0, order.total - itemsSubtotal)
+    : 15;
+
+  const deliveryShare = isMultiStore && activeStoreId !== 'all'
+    ? Math.round(actualDeliveryFee / storeCount)
+    : actualDeliveryFee;
 
   // Proportional discount if any
-  const discountShare = activeStoreId === 'all'
-    ? (order.discount || 0)
-    : Math.round((order.discount || 0) / storeCount);
+  const discountShare = isMultiStore && activeStoreId !== 'all'
+    ? Math.round((order.discount || 0) / storeCount)
+    : (order.discount || 0);
 
-  const receiptTotal = Math.max(0, itemsSubtotal + deliveryShare - discountShare);
+  // Exact matching total between tracking and receipt
+  const receiptTotal = hasExactOrderTotal && (activeStoreId === 'all' || !isMultiStore)
+    ? order.total
+    : Math.max(0, itemsSubtotal + deliveryShare - discountShare);
 
+  // Clean 1-page printing isolating the receipt completely from background DOM
   const handlePrint = () => {
+    const printEl = document.getElementById('sangoub-pos-thermal-paper');
+    if (!printEl) {
+      window.print();
+      return;
+    }
+
+    try {
+      let iframe = document.getElementById('sangoub-pos-print-frame') as HTMLIFrameElement;
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'sangoub-pos-print-frame';
+        iframe.style.position = 'fixed';
+        iframe.style.top = '-9999px';
+        iframe.style.left = '-9999px';
+        iframe.style.width = '80mm';
+        iframe.style.height = '100%';
+        iframe.style.border = 'none';
+        document.body.appendChild(iframe);
+      }
+
+      const frameDoc = iframe.contentWindow?.document;
+      if (frameDoc) {
+        frameDoc.open();
+        frameDoc.write(`
+          <!DOCTYPE html>
+          <html dir="rtl">
+          <head>
+            <meta charset="utf-8" />
+            <title>فاتورة سنجوب #${order.orderNumber || order.id}</title>
+            <style>
+              @page {
+                size: 80mm auto;
+                margin: 0;
+              }
+              * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+                font-family: 'Courier New', Courier, monospace, 'Cairo', sans-serif;
+              }
+              body {
+                background: #fff;
+                color: #000;
+                width: 76mm;
+                margin: 0 auto;
+                padding: 3mm 2mm;
+                font-size: 11px;
+                line-height: 1.4;
+              }
+              .text-center { text-align: center; }
+              .flex { display: flex; }
+              .justify-between { justify-content: space-between; }
+              .items-center { align-items: center; }
+              .font-bold { font-weight: bold; }
+              .font-mono { font-family: monospace; }
+              img { max-width: 100%; }
+            </style>
+          </head>
+          <body>
+            ${printEl.outerHTML}
+          </body>
+          </html>
+        `);
+        frameDoc.close();
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        }, 150);
+        return;
+      }
+    } catch {
+      // Fallback to direct print
+    }
     window.print();
-  };
-
-  const handleShareWhatsApp = () => {
-    const storeTitle = activeStoreId === 'all' ? 'سنجوب' : currentStore.name;
-    const text = `🧾 *إيصال طلب ${storeTitle}*\n` +
-      `رقم الفاتورة: #${order.orderNumber || order.id.slice(-6)}\n` +
-      `العميل: ${order.profileName || 'عميل معتمد'}\n` +
-      `المطلوب سداده: ${formatEGP(receiptTotal)}\n` +
-      `طريقة الدفع: ${order.paymentMethod === 'cash' ? 'كاش عند الاستلام' : 'دفع إلكتروني معتمد'}\n` +
-      `وجهة الاستلام: ${order.ministry || (order as any).address || (order as any).destination || 'الحي الحكومي - العاصمة'}\n` +
-      `شكراً لتعاملكم معنا!`;
-
-    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
   };
 
   const isGovMinistry = Boolean(order.ministry || order.floorNumber || order.roomNumber);
 
   return (
     <div className="pos-receipt-wrapper flex flex-col items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200" dir="rtl">
-      {/* 1. Header Toolbar (Hidden on Print) */}
+      {/* 1. Header Toolbar (Hidden on Print - Only POS Print and Close) */}
       <div className="no-print w-full max-w-[360px] flex items-center justify-between gap-2 mb-3 bg-white p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs">
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
-          >
-            <Printer size={14} />
-            <span>طباعة POS</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleShareWhatsApp}
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
-            title="مشاركة الفاتورة عبر واتساب"
-          >
-            <Share2 size={14} />
-            <span>واتساب</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handlePrint}
+          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black transition flex items-center gap-2 shadow-xs cursor-pointer active:scale-95"
+        >
+          <Printer size={15} />
+          <span>طباعة الفاتورة (POS 80mm)</span>
+        </button>
 
         {onClose && (
           <button
@@ -157,6 +228,7 @@ export function CustomerPOSReceipt({
 
       {/* 3. The 80mm Standard Thermal POS Receipt Paper */}
       <article
+        id="sangoub-pos-thermal-paper"
         className="pos-receipt-paper w-full max-w-[80mm] min-w-[280px] bg-white text-slate-900 border border-dashed border-slate-300 p-4 sm:p-5 shadow-sm font-mono text-xs leading-relaxed select-text"
         style={{
           boxShadow: '0 4px 18px rgba(0,0,0,0.06)',
@@ -172,7 +244,7 @@ export function CustomerPOSReceipt({
                 alt="سنجوب"
                 className="w-16 h-16 object-contain mb-1.5 drop-shadow-xs"
               />
-              <h2 className="font-black text-sm text-slate-900 tracking-tight">منصة سنجوب للخدمات اللوجستية</h2>
+              <h2 className="font-black text-sm text-slate-900 tracking-tight">سنجوب لتكنولوجيا التوصيل الذكي 2026</h2>
               <span className="text-[10px] text-slate-600 font-bold">فاتورة طلب مجمع متعدد المتاجر</span>
               <span className="text-[9px] text-slate-500 font-mono mt-0.5">
                 س.ت: 104829 · ب.ض: 492-810-721
@@ -187,13 +259,13 @@ export function CustomerPOSReceipt({
                   alt="سنجوب"
                   className="w-3.5 h-3.5 object-contain"
                 />
-                <span>منصة سنجوب · شريك رسمي معتمد</span>
+                <span>سنجوب لتكنولوجيا التوصيل الذكي 2026 · شريك رسمي</span>
               </div>
 
-              {currentStore.imageUrl ? (
+              {currentStore?.imageUrl ? (
                 <img
                   src={currentStore.imageUrl}
-                  alt={currentStore.name}
+                  alt={currentStore.name || 'متجر'}
                   className="w-14 h-14 rounded-full object-cover border border-slate-300 mb-1.5 shadow-2xs"
                 />
               ) : (
@@ -201,9 +273,9 @@ export function CustomerPOSReceipt({
                   <StoreIcon size={22} />
                 </div>
               )}
-              <h2 className="font-black text-sm text-slate-900 tracking-tight">{currentStore.name}</h2>
+              <h2 className="font-black text-sm text-slate-900 tracking-tight">{currentStore?.name || 'متجر معتمد'}</h2>
               <p className="text-[10px] text-slate-600 mt-0.5">
-                {currentStore.locationInDistrict || 'الحي الحكومي - العاصمة الإدارية'}
+                {currentStore?.locationInDistrict || 'المنصة الرئيسية - سنجوب'}
               </p>
               <span className="text-[9px] text-slate-500 font-bold block mt-0.5">
                 س.ت: 104829 · ب.ض: 492-810-721
@@ -240,16 +312,28 @@ export function CustomerPOSReceipt({
               {order.paymentMethod === 'cash'
                 ? 'نقدًا عند الاستلام (كاش)'
                 : order.paymentMethod === 'instapay'
-                ? 'تحويل إنستاباي معتمد'
-                : 'بطاقة دفع إلكتروني (جيديا)'}
+                ? 'تحويل إنستاباي / محفظة'
+                : 'بطاقة إلكترونية (جيديا)'}
             </strong>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-slate-600">حالة الدفع:</span>
-            <span className={`px-1.5 py-0.2 rounded font-bold text-[10px] ${
-              order.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'
+            <span className="text-slate-600">حالة السداد:</span>
+            <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+              order.paymentStatus === 'paid'
+                ? 'bg-emerald-100 text-emerald-900'
+                : order.paymentMethod === 'cash'
+                ? 'bg-amber-100 text-amber-900'
+                : (order as any).receiptUrl
+                ? 'bg-blue-100 text-blue-900'
+                : 'bg-rose-100 text-rose-900'
             }`}>
-              {order.paymentStatus === 'paid' ? 'مدفوع ومسدد ✓' : 'مطلوب تحصيله عند التسليم'}
+              {order.paymentStatus === 'paid'
+                ? 'مدفوع ومعتمد بنكياً ✓'
+                : order.paymentMethod === 'cash'
+                ? 'معلق للتسديد كاش عند الاستلام'
+                : (order as any).receiptUrl
+                ? 'إيصال التحويل مرفوع (قيد المراجعة ⏳)'
+                : 'بانتظار التحويل ورفع الإيصال ⚠️'}
             </span>
           </div>
         </div>
@@ -379,9 +463,9 @@ export function CustomerPOSReceipt({
             <span className="font-black text-[11px] text-slate-900 tracking-tight">سنجوب Sangoub</span>
           </div>
 
-          <p className="text-[10px] text-slate-700 font-bold">شكراً لطلبكم عبر منصة سنجوب - نسعد بخدمتكم دائماً</p>
+          <p className="text-[10px] text-slate-700 font-bold">سنجوب لتكنولوجيا التوصيل الذكي 2026 - نسعد بخدمتكم دائماً</p>
           <span className="text-[8px] text-slate-500 block mt-0.5">
-            إيصال طلب إلكتروني معتمد لدى التجار والجهات الرسمية بالعاصمة الإدارية
+            إيصال طلب إلكتروني فوري معتمد لدى كافة المتاجر والشركاء
           </span>
         </div>
 
@@ -391,33 +475,46 @@ export function CustomerPOSReceipt({
         </div>
       </article>
 
-      {/* Global Print Styles for POS 80mm */}
+      {/* Global Print Styles for POS 80mm and PDF Export (Strictly 1 Page) */}
       <style>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          .pos-receipt-paper, .pos-receipt-paper * {
-            visibility: visible;
-          }
-          .pos-receipt-paper {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 80mm !important;
-            max-width: 80mm !important;
-            min-width: 80mm !important;
-            margin: 0 !important;
-            padding: 8px !important;
-            border: none !important;
-            box-shadow: none !important;
-          }
-          .no-print {
-            display: none !important;
-          }
           @page {
             size: 80mm auto;
             margin: 0;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            height: 100% !important;
+            max-height: 100% !important;
+            overflow: hidden !important;
+          }
+          body * {
+            visibility: hidden !important;
+          }
+          #sangoub-pos-thermal-paper,
+          #sangoub-pos-thermal-paper * {
+            visibility: visible !important;
+          }
+          #sangoub-pos-thermal-paper {
+            position: fixed !important;
+            left: 0 !important;
+            right: 0 !important;
+            top: 0 !important;
+            width: 78mm !important;
+            max-width: 78mm !important;
+            min-width: 78mm !important;
+            margin: 0 auto !important;
+            padding: 3mm 2mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            page-break-inside: avoid !important;
+            page-break-after: avoid !important;
+            page-break-before: avoid !important;
+          }
+          .no-print {
+            display: none !important;
           }
         }
       `}</style>

@@ -1,4 +1,3 @@
-import {queryPlans} from '../../data/queryPlans';
 import { authenticatedApi } from '../../lib/authenticatedApi';
 import { usableDeliveryAddress, pendingDeliveryAddressKey } from '../../services/deliveryAddress';
 import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
@@ -6,12 +5,15 @@ import type { Product, Store, CartItem, Coupon, Profile } from '../../types';
 import { BRAND } from '../../brand';
 import { calculateCartSubtotal, calculateOrderTotal, applyCouponDiscount, cleanDisplayAddress } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
-import { watchCollection, auth, db, signOutFromFirebase, syncUserProfileToFirestore, isVerifiedIdentity } from '../../lib/firebase';
-import { getSupabaseStores, getSupabaseProducts } from '../../lib/supabase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { getSupabaseStores, getSupabaseProducts, KNOWN_STORE_ASSETS, subscribeToCatalog, supabase } from '../../lib/supabase';
+import { getStoreSlug, matchStoreId } from '../../utils/storeAssets';
 
 import { StoreBanner, DEFAULT_SANGOUB_BANNERS } from '../types/banner';
+import { 
+  SUPERMARKET_CATEGORY_TEMPLATES, 
+  STORE_TYPES, 
+  type StoreTypeDefinition 
+} from '../../constants/taxonomy';
 
 export interface ServiceArea {
   id: string;
@@ -23,6 +25,35 @@ export interface ServiceArea {
   city?: string;
   street?: string;
   details?: string;
+}
+
+export interface MartBannerConfig {
+  enabled: boolean;
+  title: string;
+  badge: string;
+  areaText: string;
+  btnText: string;
+  targetCategory: string;
+  bgGradient?: string;
+}
+
+export const DEFAULT_MART_BANNER: MartBannerConfig = {
+  enabled: true,
+  title: 'سنجوب ماركت وكل طلبات البيت لحد بابك',
+  badge: 'سنجوب بقالة ⚡',
+  areaText: 'العاصمة وكافة المناطق',
+  btnText: 'تسوق الآن',
+  targetCategory: 'سوبرماركت',
+  bgGradient: 'from-[#FF5900] via-[#FF6A1A] to-[#FF4500]'
+};
+
+export interface PendingStoreSwitch {
+  currentStoreName: string;
+  newStoreName: string;
+  product: Product;
+  quantity?: number;
+  selectedOptions?: Record<string, string>;
+  extraPrice?: number;
 }
 
 export interface StoreContextType {
@@ -41,6 +72,19 @@ export interface StoreContextType {
 
   // Dynamic Banners (App Content / Campaigns from Admin)
   banners: StoreBanner[];
+  martBanner: MartBannerConfig;
+  disabledStoreTypes: string[];
+  disabledCategories: string[];
+  categoryOverrides: Record<string, { name_ar?: string; name_en?: string; image?: string; sort_order?: number }>;
+  supermarketCategories: Array<{
+    code: string;
+    name_ar: string;
+    name_en?: string;
+    image: string;
+    sort_order: number;
+    type_code?: string;
+  }>;
+  activeStoreTypes: StoreTypeDefinition[];
   sliderShowArrows: boolean;
   isLoadingBanners: boolean;
   refreshBanners: () => Promise<void>;
@@ -73,10 +117,20 @@ export interface StoreContextType {
   applyCoupon: (code: string) => { success: boolean; message: string };
   removeCoupon: () => void;
 
+  // Multi-Store Switch Confirmation
+  pendingStoreSwitch: PendingStoreSwitch | null;
+  confirmStoreSwitch: () => void;
+  cancelStoreSwitch: () => void;
+
   // Wishlist
   wishlistIds: string[];
   toggleWishlist: (productId: string) => void;
   isWishlisted: (productId: string) => boolean;
+
+  // Previously Ordered Products Tracking
+  orderedProductIds: string[];
+  isProductOrderedBefore: (productId: string, productName?: string) => boolean;
+  markProductAsOrdered: (productId: string, productName?: string) => void;
 
   // User & Profile
   user: Profile | null;
@@ -91,6 +145,7 @@ const StoreContext = createContext<StoreContextType | null>(null);
 const STORAGE_KEYS = {
   CART: 'sangoub_cart_items_v2',
   WISHLIST: 'sangoub_wishlist_ids',
+  ORDERED_PRODUCTS: 'sangoub_ordered_products',
   AREA: 'sangoub_selected_area',
   USER: 'sangoub_user_profile',
 };
@@ -154,94 +209,234 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setServiceArea = (area: ServiceArea) => {
     setServiceAreaState(area);
-    if (auth.currentUser) { try { sessionStorage.removeItem(pendingDeliveryAddressKey); } catch {} }
-    try { localStorage.setItem(auth.currentUser ? `${STORAGE_KEYS.AREA}:${auth.currentUser.uid}` : STORAGE_KEYS.AREA, JSON.stringify(area)); } catch {}
+    if (user?.id) { try { sessionStorage.removeItem(pendingDeliveryAddressKey); } catch {} }
+    try { localStorage.setItem(user?.id ? `${STORAGE_KEYS.AREA}:${user.id}` : STORAGE_KEYS.AREA, JSON.stringify(area)); } catch {}
   };
 
   const saveDeliveryLocation = async (area: ServiceArea) => {
     if (!usableDeliveryAddress(area.name)) throw new Error('اكتب اسم الشارع والمنطقة وتفاصيل التوصيل.');
-    const current = auth.currentUser;
-    if (current) {
-      if (!user || user.isGuest || user.id !== current.uid) throw new Error('انتظر تحميل حسابك وأكد البريد أو الهاتف أولًا.');
+    if (user && !user.isGuest) {
       const address = { fullAddress: area.name, city: area.city || '', details: area.details || '',
         ...(area.latitude !== undefined && area.longitude !== undefined ? { coordinates: { latitude: area.latitude, longitude: area.longitude } } : {}) };
-      await authenticatedApi('/api/orders', { action: 'profile-address', makeDefault: true, address });
-      if (auth.currentUser?.uid !== current.uid) throw new Error('تغيّر الحساب؛ افتح العنوان من حسابك الحالي.');
-      setUser(previous => previous?.id === current.uid ? { ...previous, ministry: area.name.slice(0,120), defaultAddress: address,
+      
+      try {
+        await supabase.from('profiles').update({
+          ministry: area.name.slice(0, 120),
+        }).eq('id', user.id);
+      } catch (err) {
+        console.warn('Supabase address update notice:', err);
+      }
+
+      setUser(previous => previous ? { ...previous, ministry: area.name.slice(0,120), defaultAddress: address,
         coordinates: address.coordinates } : previous);
     }
-    if (!current) { try { sessionStorage.setItem(pendingDeliveryAddressKey, JSON.stringify(area)); } catch {} }
+    if (!user) { try { sessionStorage.setItem(pendingDeliveryAddressKey, JSON.stringify(area)); } catch {} }
     setServiceArea(area);
   };
 
-  // 3. Catalog Products & Stores
-  const [products, setProducts] = useState<Product[]>([]);
-  const [stores, setStores] = useState<Store[]>([]);
+  // 3. Dynamic Admin App Content Controls (Synced with Admin App Content / CategoryManager)
+  const [disabledStoreTypes, setDisabledStoreTypes] = useState<string[]>(['REST', 'CAFE', 'PHARM']);
+  const [disabledCategories, setDisabledCategories] = useState<string[]>([
+    'CAT-PHARMACY',
+    'pharmacy',
+    'صيدلية',
+    'أدوية وصيدلية',
+    'أدوية',
+    'ادوية',
+    'مستلزمات طبية',
+    'علاج'
+  ]);
+  const [categoryOverrides, setCategoryOverrides] = useState<Record<string, { name_ar?: string; name_en?: string; image?: string; sort_order?: number }>>({});
+  const [banners, setBanners] = useState<StoreBanner[]>(DEFAULT_SANGOUB_BANNERS);
+  const [martBanner, setMartBanner] = useState<MartBannerConfig>(DEFAULT_MART_BANNER);
+  const [sliderShowArrows, setSliderShowArrows] = useState(true);
+  const [isLoadingBanners, setIsLoadingBanners] = useState(false);
+
+  // 3.1 Raw Catalog Products & Stores from Database (Supabase)
+  const [rawProducts, setRawProducts] = useState<Product[]>([]);
+  const [rawStores, setRawStores] = useState<Store[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
-  const [catalogError,setCatalogError]=useState('');
+  const [catalogError, setCatalogError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 3.2 Dynamic Active Stores (Filtered 100% dynamically based on disabledStoreTypes)
+  const stores = useMemo(() => {
+    return rawStores.filter((store) => {
+      if (store.status !== 'open') return false;
+      const sType = (store.type || '').toLowerCase();
+      const sCat = (store.category || '').toLowerCase();
+      const sName = (store.name || '').toLowerCase();
+
+      // Check if store matches any disabled store type
+      const isStoreTypeDisabled = disabledStoreTypes.some((code) => {
+        const c = code.toUpperCase();
+        if (c === 'PHARM') {
+          return sType.includes('صيدل') || sCat.includes('pharm') || sName.includes('صيدل');
+        }
+        if (c === 'REST') {
+          return sType.includes('مطعم') || sCat.includes('restaurant') || sType.includes('وجبات');
+        }
+        if (c === 'CAFE') {
+          return sType.includes('كافيه') || sCat.includes('cafe');
+        }
+        return sType.includes(c.toLowerCase()) || sCat.includes(c.toLowerCase());
+      });
+
+      return !isStoreTypeDisabled;
+    });
+  }, [rawStores, disabledStoreTypes]);
+
+  // 3.3 Dynamic Active Products (Filtered 100% dynamically based on disabledCategories & disabledStoreTypes & active stores)
+  const products = useMemo(() => {
+    const activeStoreIds = new Set(stores.map((s) => s.id));
+    const activeStoreNames = new Set(stores.map((s) => s.name));
+
+    return rawProducts.filter((p) => {
+      if (p.archived || !p.inStock) return false;
+
+      // 1. Must belong to an active, enabled store (or Sangoub)
+      const isSangoub = p.storeId === 'a0000000-0000-0000-0000-000000000001' || !p.storeId || p.storeName?.includes('سنجوب');
+      if (!isSangoub) {
+        const storeMatch = (p.storeId && activeStoreIds.has(p.storeId)) || (p.storeName && activeStoreNames.has(p.storeName));
+        if (!storeMatch) return false;
+      }
+
+      const pCat = (p.category || '').toLowerCase();
+      const pCatId = (p.categoryId || '').toLowerCase();
+      const pStoreName = (p.storeName || '').toLowerCase();
+
+      // 2. Filter out products from disabled categories (with full Arabic hamza normalization)
+      const isCategoryDisabled = disabledCategories.some((term) => {
+        const t = term.toLowerCase().replace(/[أإآ]/g, 'ا');
+        const pCatNorm = pCat.replace(/[أإآ]/g, 'ا');
+        const pCatIdNorm = pCatId.replace(/[أإآ]/g, 'ا');
+
+        return (
+          pCatNorm === t ||
+          pCatNorm.includes(t) ||
+          t.includes(pCatNorm) ||
+          pCatIdNorm.includes(t)
+        );
+      });
+      if (isCategoryDisabled) return false;
+
+      // 3. Fallback: If PHARM is in disabledStoreTypes or pharmacy is in disabledCategories, block all pharmacy products
+      if (
+        disabledStoreTypes.includes('PHARM') ||
+        disabledCategories.some((c) => {
+          const norm = c.toLowerCase().replace(/[أإآ]/g, 'ا');
+          return norm.includes('صيدل') || norm.includes('pharm') || norm.includes('ادوي');
+        })
+      ) {
+        const pharmTerms = ['صيدل', 'دواء', 'ادوي', 'أدوي', 'علاج', 'طبي', 'pharm'];
+        const isPharm = pharmTerms.some((term) => {
+          const termNorm = term.replace(/[أإآ]/g, 'ا');
+          const catNorm = pCat.replace(/[أإآ]/g, 'ا');
+          const storeNorm = pStoreName.replace(/[أإآ]/g, 'ا');
+          return catNorm.includes(termNorm) || storeNorm.includes(termNorm);
+        });
+        if (isPharm) return false;
+      }
+
+      return true;
+    });
+  }, [rawProducts, stores, disabledCategories, disabledStoreTypes]);
 
   useEffect(() => {
     setIsLoadingCatalog(true);
     setCatalogError('');
-    let stopProducts = () => {};
-    let stopStores = () => {};
 
-    // 1. Instant Direct Load from Supabase (Source of Truth: Real Stores & Products)
+    // Load from Supabase (Sole Database Source of Truth)
     const loadRealCatalog = async () => {
       try {
         const [sbStores, sbProducts] = await Promise.all([
           getSupabaseStores().catch(() => [] as Store[]),
           getSupabaseProducts().catch(() => [] as Product[]),
         ]);
-        if (sbStores && sbStores.length > 0) {
-          setStores(sbStores);
-        }
+
         if (sbProducts && sbProducts.length > 0) {
-          setProducts(sbProducts.filter(p => !p.archived && p.inStock));
+          setRawProducts(sbProducts);
+        }
+
+        if (sbStores && sbStores.length > 0) {
+          // Ensure "سنجوب ماركت" is always present with official logo & banner
+          const sangoubStore: Store = {
+            id: 'a0000000-0000-0000-0000-000000000001',
+            name: 'سنجوب ماركت',
+            nameEn: 'Sangoub Market',
+            type: 'سوبرماركت ومستلزمات البيت اليومية',
+            category: 'supermarket',
+            logo: '/brand/sangoub-market-logo.jpg',
+            logoUrl: '/brand/sangoub-market-logo.jpg',
+            banner: '/brand/sangoub-market-logo.jpg',
+            bannerUrl: '/brand/sangoub-market-logo.jpg',
+            status: 'open',
+            rating: 5,
+            ratingCount: 1250,
+            deliveryTime: '15-25 دقيقة',
+            minOrder: 20,
+            deliveryFee: 10,
+            locationInDistrict: 'المركز الرئيسي - سنجوب',
+          };
+
+          const enrichedStores: Store[] = sbStores.map((store) => {
+            if (store.id === sangoubStore.id || store.name?.includes('سنجوب')) {
+              return {
+                ...sangoubStore,
+                ...store,
+                logo: store.logo || sangoubStore.logo,
+                logoUrl: store.logoUrl || store.logo || sangoubStore.logoUrl,
+                banner: store.banner || sangoubStore.banner,
+                bannerUrl: store.bannerUrl || store.banner || sangoubStore.bannerUrl,
+              } as Store;
+            }
+            const known =
+              KNOWN_STORE_ASSETS[store.id] ||
+              Object.values(KNOWN_STORE_ASSETS).find(
+                (k) =>
+                  k.name &&
+                  (store.name.includes(k.name) || k.name.includes(store.name))
+              );
+            const logoUrl =
+              store.logoUrl ||
+              (store.logo && store.logo.startsWith('http') ? store.logo : undefined) ||
+              known?.logoUrl;
+            const bannerUrl =
+              store.bannerUrl ||
+              (store.banner && store.banner.startsWith('http') ? store.banner : undefined) ||
+              known?.bannerUrl;
+
+            return {
+              ...store,
+              logoUrl,
+              bannerUrl,
+            } as Store;
+          });
+
+          if (!enrichedStores.some((s) => s.id === sangoubStore.id)) {
+            enrichedStores.unshift(sangoubStore);
+          }
+
+          const otherStores = enrichedStores.filter((s) => s.id !== sangoubStore.id);
+          setRawStores([sangoubStore, ...otherStores]);
         }
       } catch (err) {
-        console.warn('Initial Supabase catalog fetch error:', err);
+        console.warn('[Supabase Catalog] Fetch error:', err);
       } finally {
         setIsLoadingCatalog(false);
       }
     };
+
     loadRealCatalog();
 
-    // 2. Real-time updates watcher (Firestore sync)
-    try {
-      stopProducts = watchCollection<Product>(
-        'products',
-        (liveProducts) => {
-          if (liveProducts && liveProducts.length > 0) {
-            setProducts(liveProducts.filter(p => !p.archived && p.inStock));
-          }
-        },
-        () => {
-          // Keep existing Supabase products intact without clearing
-        },
-        queryPlans.homeProducts()
-      );
-
-      stopStores = watchCollection<Store>(
-        'stores',
-        (liveStores) => {
-          if (liveStores && liveStores.length > 0) {
-            setStores(liveStores.filter(s => s.status === 'open'));
-          }
-        },
-        () => {
-          // Keep existing Supabase stores intact without clearing
-        },
-        queryPlans.homeStores()
-      );
-    } catch {
-      // Keep existing Supabase catalog
-    }
+    // Supabase Realtime Subscription (PostgreSQL live updates, zero Firebase)
+    const unsubscribe = subscribeToCatalog(
+      () => { void loadRealCatalog(); },
+      () => { void loadRealCatalog(); }
+    );
 
     return () => {
-      stopProducts();
-      stopStores();
+      unsubscribe();
     };
   }, []);
 
@@ -253,10 +448,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return Array.from(set);
   }, [products]);
 
-  // 3.5 Dynamic Banners (Synced with Admin App Content / Campaigns)
-  const [banners, setBanners] = useState<StoreBanner[]>(DEFAULT_SANGOUB_BANNERS);
-  const [sliderShowArrows, setSliderShowArrows] = useState(true);
-  const [isLoadingBanners, setIsLoadingBanners] = useState(false);
+  // Dynamic Supermarket Categories (Driven 100% by Admin Dashboard / CategoryManager)
+  const supermarketCategories = useMemo(() => {
+    return SUPERMARKET_CATEGORY_TEMPLATES
+      .filter((cat) => !disabledCategories.includes(cat.code) && !disabledCategories.includes(cat.name_ar))
+      .map((cat) => {
+        const override = categoryOverrides[cat.code];
+        return {
+          code: cat.code,
+          name_ar: override?.name_ar || cat.name_ar,
+          name_en: override?.name_en || cat.name_en,
+          image: override?.image || cat.image,
+          sort_order: override?.sort_order ?? cat.sort_order ?? 99,
+          type_code: cat.type_code
+        };
+      })
+      .sort((a, b) => a.sort_order - b.sort_order);
+  }, [categoryOverrides, disabledCategories]);
+
+  // Dynamic Active Store Types (Driven by Admin toggles)
+  const activeStoreTypes = useMemo(() => {
+    return STORE_TYPES.filter((st) => !disabledStoreTypes.includes(st.code));
+  }, [disabledStoreTypes]);
 
   const refreshBanners = async () => {
     setIsLoadingBanners(true);
@@ -265,6 +478,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const res = await fetch('/api/app-content', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
+        if (data && data.martBanner) {
+          setMartBanner(data.martBanner);
+        }
+        if (data && Array.isArray(data.disabledStoreTypes)) {
+          setDisabledStoreTypes(data.disabledStoreTypes);
+        }
+        if (data && Array.isArray(data.disabledCategories)) {
+          setDisabledCategories(data.disabledCategories);
+        }
+        if (data && data.categoryOverrides && typeof data.categoryOverrides === 'object') {
+          setCategoryOverrides(data.categoryOverrides);
+        }
         if (data && data.config && typeof data.config.showArrows === 'boolean') { setSliderShowArrows(data.config.showArrows); }
         if (data && Array.isArray(data.slides) && data.slides.length > 0) {
           const mapped: StoreBanner[] = data.slides.map((s: any, idx: number) => ({
@@ -279,7 +504,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             btnText: (s.hideOverlay || (!s.title && !s.subtitle)) ? '' : (s.btnText !== undefined ? s.btnText : (s.targetType === 'offers' ? 'تصفح العروض' : s.targetType === 'product' ? 'اطلب الآن' : 'عرض المزيد')),
             targetType: s.targetType || 'offers',
             targetId: s.targetId || '',
-            targetPath: s.targetType === 'offers' ? '/offers' : s.targetType === 'product' ? `/product/${s.targetId}` : s.targetType === 'store' ? `/store/${s.targetId}` : '',
+            targetPath: s.targetType === 'offers' ? '/offers' : s.targetType === 'product' ? `/product/${s.targetId}` : s.targetType === 'store' ? `/stores/${getStoreSlug(s.targetId)}` : '',
             badgeColor: idx % 3 === 0 ? '#FF5900' : idx % 3 === 1 ? '#059669' : '#2563EB',
             bgGradient: idx % 3 === 0 
               ? 'linear-gradient(135deg, #131921 0%, #1F2937 100%)' 
@@ -293,39 +518,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return;
         }
       }
-
-      // 2. Fallback check for mobile app_config/home_sections if rules allow
-      try {
-        const cfgDoc = await getDoc(doc(db, 'app_config', 'home_sections'));
-        if (cfgDoc.exists()) {
-          const cfgData = cfgDoc.data();
-          if (cfgData?.offersBanners && Array.isArray(cfgData.offersBanners) && cfgData.offersBanners.length > 0) {
-            const mappedMobile: StoreBanner[] = cfgData.offersBanners.map((b: any, idx: number) => ({
-              id: b.id || `mobile-banner-${idx}`,
-              title: b.title || '',
-              subtitle: b.subtitle || '',
-              desc: b.subtitle || '',
-              imageUrl: b.imageUrl || (b.image && b.image.startsWith('http') ? b.image : ''),
-              image: b.image || '',
-              tag: b.tag || 'عرض حصري',
-              btnText: b.btnText || 'اطلب الآن',
-              targetType: b.targetType || 'offers',
-              targetId: b.targetId || '',
-              targetPath: b.targetPath || (b.targetType === 'offers' ? '/offers' : ''),
-              badgeColor: '#FF5900',
-              bgGradient: 'linear-gradient(135deg, #131921 0%, #1F2937 100%)',
-              mascotImg: '/assets/sangoub/mascot-cheerful.png'
-            }));
-            setBanners(mappedMobile);
-            setIsLoadingBanners(false);
-            return;
-          }
-        }
-      } catch {
-        // Ignore firestore permission check error if rules block direct read
-      }
-
-      // 3. Fallback to default Sangoub soft launch banners
+      // Fallback to default Sangoub banners if no slides returned
       setBanners(DEFAULT_SANGOUB_BANNERS);
     } catch (err) {
       console.warn('Could not load dynamic banners, using defaults:', err);
@@ -375,7 +568,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     if (banner.targetType === 'store') {
-      navigate(banner.targetId ? `/stores/${encodeURIComponent(banner.targetId)}` : '/stores');
+      navigate(banner.targetId ? `/stores/${getStoreSlug(banner.targetId)}` : '/stores');
       return;
     }
 
@@ -407,6 +600,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [cartItems]);
 
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [pendingStoreSwitch, setPendingStoreSwitch] = useState<PendingStoreSwitch | null>(null);
 
   const subtotal = useMemo(() => calculateCartSubtotal(cartItems), [cartItems]);
   const deliveryFee = cartItems.length > 0 ? LAUNCH_CONFIG.deliveryFee : 0;
@@ -420,6 +614,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     selectedOptions: Record<string, string> = {},
     extraPrice = 0
   ) => {
+    // Check if cart already has items from another store
+    const currentStoreId = cartItems.length > 0 ? cartItems[0]?.product?.storeId : null;
+    if (currentStoreId && !matchStoreId(currentStoreId, product.storeId)) {
+      const currentStore = stores.find(s => matchStoreId(s.id, currentStoreId) || s.id === currentStoreId);
+      const newStore = stores.find(s => matchStoreId(s.id, product.storeId) || s.id === product.storeId);
+      const currentStoreName = currentStore?.name || (currentStoreId.includes('pharmacy') ? 'صيدلية العاصمة المركزية' : currentStoreId.includes('falafel') ? 'فول وفلافل العاصمة' : 'سنجوب ماركت');
+      const newStoreName = newStore?.name || (product.storeId.includes('pharmacy') ? 'صيدلية العاصمة المركزية' : product.storeId.includes('falafel') ? 'فول وفلافل العاصمة' : 'سنجوب ماركت');
+
+      setPendingStoreSwitch({
+        currentStoreName,
+        newStoreName,
+        product,
+        quantity,
+        selectedOptions,
+        extraPrice,
+      });
+      return;
+    }
+
     setCartItems(prev => {
       const existingIndex = prev.findIndex(
         item => item.product.id === product.id && JSON.stringify(item.selectedOptions) === JSON.stringify(selectedOptions)
@@ -443,6 +656,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
       return [...prev, newItem];
     });
+  };
+
+  const confirmStoreSwitch = () => {
+    if (!pendingStoreSwitch) return;
+    const { product, quantity = 1, selectedOptions = {}, extraPrice = 0 } = pendingStoreSwitch;
+    const newItem: CartItem = {
+      id: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      product,
+      quantity,
+      selectedOptions,
+      extraPrice,
+    };
+    setCartItems([newItem]);
+    setPendingStoreSwitch(null);
+  };
+
+  const cancelStoreSwitch = () => {
+    setPendingStoreSwitch(null);
   };
 
   const updateQuantity = (itemId: string, delta: number) => {
@@ -499,16 +730,143 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const isWishlisted = (productId: string) => wishlistIds.includes(productId);
 
-  // 6. User Profile
-  const [user, setUser] = useState<Profile | null>(null);
+  // 5.5 Previously Ordered Products
+  const [orderedProductIds, setOrderedProductIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.ORDERED_PRODUCTS);
+      if (saved) return JSON.parse(saved);
+
+      const collected = new Set<string>();
+      // Scan last placed order
+      const last = localStorage.getItem('sangoub_last_order');
+      if (last) {
+        const parsed = JSON.parse(last);
+        (parsed.items || []).forEach((it: any) => {
+          if (it.id) collected.add(it.id);
+          if (it.productId) collected.add(it.productId);
+          if (it.name) collected.add(it.name.trim());
+        });
+      }
+      // Scan orders history
+      const historyStr = localStorage.getItem('sangoub_orders_history');
+      if (historyStr) {
+        const history = JSON.parse(historyStr);
+        (history || []).forEach((ord: any) => {
+          (ord.items || []).forEach((it: any) => {
+            if (it.id) collected.add(it.id);
+            if (it.productId) collected.add(it.productId);
+            if (it.name) collected.add(it.name.trim());
+          });
+        });
+      }
+      return Array.from(collected);
+    } catch {
+      return [];
+    }
+  });
+
   useEffect(() => {
-    let generation=0;
-    const unsub=onAuthStateChanged(auth, async fbUser=>{
-      const current=++generation;setUser(null);
-      if(!fbUser||!isVerifiedIdentity(fbUser))return;
-      try{const profile=await syncUserProfileToFirestore(fbUser);if(current===generation)setUser(profile);}catch{if(current===generation)setUser(null);}
-    });return()=>{generation++;unsub();};
-  },[]);
+    try {
+      localStorage.setItem(STORAGE_KEYS.ORDERED_PRODUCTS, JSON.stringify(orderedProductIds));
+    } catch {}
+  }, [orderedProductIds]);
+
+  const markProductAsOrdered = (productId: string, productName?: string) => {
+    setOrderedProductIds(prev => {
+      const next = new Set(prev);
+      if (productId) next.add(productId);
+      if (productName) next.add(productName.trim());
+      return Array.from(next);
+    });
+  };
+
+  const isProductOrderedBefore = (productId: string, productName?: string) => {
+    if (!productId && !productName) return false;
+    return orderedProductIds.some(
+      id => (productId && id === productId) || (productName && id === productName.trim())
+    );
+  };
+
+  // 6. User Profile via Supabase Authentication (Sole Source of Truth)
+  const [user, setUser] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const syncUser = async (sbUser: any) => {
+      if (!sbUser) {
+        if (active) setUser(null);
+        return;
+      }
+
+      try {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', sbUser.id)
+          .maybeSingle();
+
+        if (prof) {
+          if (active) {
+            setUser({
+              id: sbUser.id,
+              fullName: prof.full_name || sbUser.user_metadata?.full_name || 'عميل سنجوب',
+              email: prof.email || sbUser.email || '',
+              phone: prof.phone || sbUser.phone || sbUser.user_metadata?.phone || '',
+              ministry: prof.ministry || '',
+              floorNumber: prof.floor_number || '',
+              roomNumber: prof.room_number || '',
+              walletBalance: Number(prof.wallet_balance) || 0,
+              role: 'employee',
+              avatarUrl: prof.avatar_url || sbUser.user_metadata?.avatar_url || sbUser.user_metadata?.picture || '',
+              isGuest: false,
+            } as Profile);
+          }
+        } else {
+          // If profile row doesn't exist yet, insert into public.profiles
+          const newProfile = {
+            id: sbUser.id,
+            full_name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'عميل سنجوب',
+            email: sbUser.email || '',
+            phone: sbUser.phone || sbUser.user_metadata?.phone || '',
+            role: 'employee',
+            wallet_balance: 0,
+          };
+          await supabase.from('profiles').upsert(newProfile);
+          if (active) {
+            setUser({
+              id: sbUser.id,
+              fullName: newProfile.full_name,
+              email: newProfile.email,
+              phone: newProfile.phone,
+              ministry: '',
+              floorNumber: '',
+              roomNumber: '',
+              walletBalance: 0,
+              role: newProfile.role,
+              avatarUrl: sbUser.user_metadata?.avatar_url || sbUser.user_metadata?.picture || '',
+              isGuest: false,
+            } as Profile);
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase auth sync error:', err);
+      }
+    };
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (active) syncUser(session?.user || null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) syncUser(session?.user || null);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const locationAccount = useRef<string | null>(null);
   useEffect(() => {
@@ -540,8 +898,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     throw new Error('إنشاء الحساب يتطلب التسجيل بالبريد أو Google وتأكيد الهوية.');
   };
 
-  const logout = () => {
-    signOutFromFirebase();
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {}
     setUser(null);
   };
 
@@ -558,6 +918,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         searchQuery,
         setSearchQuery,
         banners,
+        martBanner,
+        disabledStoreTypes,
+        disabledCategories,
+        categoryOverrides,
+        supermarketCategories,
+        activeStoreTypes,
         sliderShowArrows,
         isLoadingBanners,
         refreshBanners,
@@ -578,9 +944,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         appliedCoupon,
         applyCoupon,
         removeCoupon,
+        pendingStoreSwitch,
+        confirmStoreSwitch,
+        cancelStoreSwitch,
         wishlistIds,
         toggleWishlist,
         isWishlisted,
+        orderedProductIds,
+        isProductOrderedBefore,
+        markProductAsOrdered,
         user,
         setUser,
         loginAsGuest,

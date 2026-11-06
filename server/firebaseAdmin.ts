@@ -4,7 +4,6 @@ import {
   cert,
   applicationDefault,
 } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 // Server defaults are public identifiers, not credentials. Avoid JSON module
@@ -34,7 +33,6 @@ export function adminServices() {
           : applicationDefault(),
     });
   return {
-    auth: getAuth(app),
     db: getFirestore(
       app,
       process.env.FIREBASE_DATABASE_ID || config.firestoreDatabaseId,

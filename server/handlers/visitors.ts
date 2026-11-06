@@ -1,9 +1,8 @@
+import { createHash } from 'node:crypto';
 import { requireSameOriginJson } from '../publicRequest.ts';
 import { visitorEvents, visitorSources } from '../../src/types/siteAnalytics.ts';
-import { createHash } from 'node:crypto';
-import { FieldValue } from 'firebase-admin/firestore';
-import { adminServices } from '../firebaseAdmin.ts';
 import { requireAdmin, adminError, AdminError } from '../adminRequest.ts';
+import { supabaseAdminClient } from '../supabaseAdmin.ts';
 
 export function cairoVisitorDay(now = new Date()) {
  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
@@ -12,45 +11,34 @@ export function cairoVisitorDay(now = new Date()) {
 export default async function handler(req: any, res: any) {
  res.setHeader('Cache-Control', 'no-store');
  try {
+  const client = supabaseAdminClient();
   if (req.method === 'GET') {
-   const { db } = await requireAdmin(req);
+   await requireAdmin(req);
    const day = cairoVisitorDay();
    const keys = Array.from({ length: 7 }, (_, index) => cairoVisitorDay(new Date(Date.parse(day + 'T12:00:00Z') - (6 - index) * 86400000)));
-   const [summary, ...snapshots] = await db.getAll(db.doc('siteMetrics/summary'), ...keys.map(key => db.doc('siteMetricDays/' + key)));
-   const days = snapshots.map((snapshot, index) => ({ day: keys[index], visitors: snapshot.data()?.visitors || 0, sources: snapshot.data()?.sources || {}, events: snapshot.data()?.events || {} }));
-   return res.status(200).json({ total: summary.data()?.visitors || 0, today: days[6].visitors, day, days, startedAt: summary.data()?.startedAt?.toDate?.().toISOString() || null, analyticsStartedAt: summary.data()?.analyticsStartedAt?.toDate?.().toISOString() || null });
+   const [{ data: totals, error: totalsError }, { data: records, error: daysError }] = await Promise.all([
+    client.from('site_visitor_totals').select('visitors,started_at,analytics_started_at').eq('id', true).maybeSingle(),
+    client.from('site_visitor_days').select('day,visitors,sources,events').in('day', keys),
+   ]);
+   if (totalsError || daysError) throw new AdminError(503, 'تعذر تحميل إحصائيات الزوار من Supabase.');
+   const byDay = new Map((records || []).map((record: any) => [String(record.day).slice(0, 10), record]));
+   const days = keys.map(key => {
+    const record: any = byDay.get(key);
+    return { day: key, visitors: Number(record?.visitors) || 0, sources: record?.sources || {}, events: record?.events || {} };
+   });
+   return res.status(200).json({ total: Number(totals?.visitors) || 0, today: days[6].visitors, day: days[6].day, days, startedAt: totals?.started_at || null, analyticsStartedAt: totals?.analytics_started_at || null });
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  // Browser-only, same-origin JSON endpoint; no public counter reads or CORS access.
   requireSameOriginJson(req);
   const input = req.body;
   if (!input || Object.keys(input).some(key => !['visitorId', 'source', 'event'].includes(key)) || typeof input.visitorId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.visitorId)) throw new AdminError(400, 'معرّف الزيارة غير صالح.');
   if (input.source !== undefined && !visitorSources.includes(input.source) || input.event !== undefined && !visitorEvents.includes(input.event)) throw new AdminError(400, 'نوع الإحصائية غير صالح.');
   if (/bot\b|crawler|spider|facebookexternalhit|WhatsApp|HeadlessChrome/i.test(req.headers['user-agent'] || '')) return res.status(200).json({ ok: true });
-  const { db } = adminServices();
-  const day = cairoVisitorDay();
-  const visitor = db.doc('siteVisitors/' + createHash('sha256').update(input.visitorId.toLowerCase()).digest('hex'));
-  const summary = db.doc('siteMetrics/summary');
-  await db.runTransaction(async tx => {
-   const [previous, totals] = await Promise.all([tx.get(visitor), tx.get(summary)]);
-   const old = previous.data(), sameDay = old?.lastDay === day;
-   const events: string[] = sameDay && Array.isArray(old?.events) ? old.events : [];
-   const newEvent = input.event && !events.includes(input.event);
-   const source = input.source || 'direct';
-   const newSource = !sameDay || !old?.source;
-   if (sameDay && !newEvent && !newSource) return;
-   tx.set(visitor, { lastDay: day, source: newSource ? source : old!.source, events: newEvent ? [...events, input.event] : events });
-   const daily: Record<string, any> = {};
-   if (!sameDay) daily.visitors = FieldValue.increment(1);
-   if (newSource) daily.sources = { [source]: FieldValue.increment(1) };
-   if (newEvent) daily.events = { [input.event]: FieldValue.increment(1) };
-   tx.set(db.doc('siteMetricDays/' + day), daily, { merge: true });
-   const totalsUpdate: Record<string, any> = {};
-   if (!previous.exists) totalsUpdate.visitors = FieldValue.increment(1);
-   if (!totals.exists) totalsUpdate.startedAt = FieldValue.serverTimestamp();
-   if (!totals.data()?.analyticsStartedAt) totalsUpdate.analyticsStartedAt = FieldValue.serverTimestamp();
-   if (Object.keys(totalsUpdate).length) tx.set(summary, totalsUpdate, { merge: true });
+  const visitorHash = createHash('sha256').update(input.visitorId.toLowerCase()).digest('hex');
+  const { error } = await client.rpc('record_sangoub_site_visit', {
+   p_hash: visitorHash, p_day: cairoVisitorDay(), p_source: input.source || 'direct', p_event: input.event || null,
   });
+  if (error) throw new AdminError(503, 'تعذر تسجيل الزيارة في Supabase.');
   return res.status(200).json({ ok: true });
  } catch (error) { return adminError(res, error); }
 }

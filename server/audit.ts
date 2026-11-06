@@ -1,8 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { FieldValue, type Firestore, type Transaction } from 'firebase-admin/firestore';
-import type { DecodedIdToken } from 'firebase-admin/auth';
+type DecodedIdToken = {
+  uid: string;
+  email?: string;
+  role?: string;
+  auth_time?: number;
+  [key: string]: unknown;
+};
 
-export function attachAuditContext(req: any, actor: DecodedIdToken) {
+export function attachAuditContext(req: any, actor: { uid: string; email?: string; auditContext?: Record<string, string> }) {
   actor.auditContext = { requestId: randomUUID(), userAgent: String(req.headers['user-agent'] || '').slice(0,300), ip: String(process.env.VERCEL === '1' ? req.headers['x-vercel-forwarded-for'] || '' : req.socket?.remoteAddress || '').split(',')[0].trim().slice(0,80) };
 }
 const privateField = /password|token|secret|otp|authorization|credential|privatekey|uploadurl|resetlink/i;
@@ -32,8 +37,5 @@ export function auditRecord(actor: Pick<DecodedIdToken,'uid'|'email'>, action: s
   const old = auditSafe(before), next = auditSafe(after);
   return { actorUid: actor.uid, actorEmail: actor.email || '', action, entityType, entityId, before: old, after: next,
     changedFields: auditChangedFields(old,next),
-    request: auditSafe((actor as any).auditContext || {}), reason: reason.slice(0, 500), createdAt: FieldValue.serverTimestamp(), source: 'admin-api', status: 'success' };
-}
-export function auditInTransaction(db: Firestore, tx: Transaction, actor: Pick<DecodedIdToken,'uid'|'email'>, action: string, type: string, id: string, before: any, after: any, reason = '', source = 'admin-api') {
-  tx.create(db.collection('auditLogs').doc(), {...auditRecord(actor, action, type, id, before, after, reason),source});
+    request: auditSafe((actor as any).auditContext || {}), reason: reason.slice(0, 500), createdAt: new Date().toISOString(), source: 'admin-api', status: 'success' };
 }

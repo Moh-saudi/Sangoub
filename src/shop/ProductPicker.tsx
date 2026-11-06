@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { Product } from "../types";
 import { formatEGP } from "../utils/orderCalculations";
+import { getStoreSlug } from "../utils/storeAssets";
 import { useShop } from "./ShopContext";
 export function ProductPicker({
   product,
@@ -89,7 +90,7 @@ export function ProductPicker({
           role="region"
           aria-label="خيارات المنتج"
         >
-          <a href={'/stores/'+encodeURIComponent(product.storeId)} onClick={onClose}>من {product.storeName||'المتجر'} — عرض المتجر</a>
+          <a href={'/stores/' + getStoreSlug(product.storeId)} onClick={onClose}>من {product.storeName||'المتجر'} — عرض المتجر</a>
           <p>{product.description}</p>
           <strong>{formatEGP(product.price)}</strong>
           {error && (

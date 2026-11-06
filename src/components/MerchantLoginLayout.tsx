@@ -1,11 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { getSupabaseStore, resolveSupabaseStoreUuid, supabase } from '../lib/supabase';
 import { MapPin, Headphones, ArrowUpLeft, Store as StoreIcon, Truck, ChartNoAxesCombined } from 'lucide-react';
-import { db } from '../lib/firebase';
 import type { Store } from '../types';
 import './merchant-login.css';
 
-/** Public store branding is presentation only; membership still comes from Firebase. */
+/** Public store branding is presentation only; membership is verified by the server. */
 export function MerchantLoginLayout({ children, onSupport }: { children: ReactNode; onSupport: () => void }) {
   const [store, setStore] = useState<Store | null>(null);
   const [storeState, setStoreState] = useState<'general' | 'loading' | 'ready' | 'missing'>('general');
@@ -16,10 +15,21 @@ export function MerchantLoginLayout({ children, onSupport }: { children: ReactNo
     if (!id) return;
     if (!/^[\w-]{1,200}$/.test(id)) { setStoreState('missing'); return; }
     setStoreState('loading');
-    return onSnapshot(doc(db, 'stores', id), snapshot => {
-      setStore(snapshot.exists() ? { ...snapshot.data(), id: snapshot.id } as Store : null);
-      setStoreState(snapshot.exists() ? 'ready' : 'missing');
-    }, () => { setStore(null); setStoreState('missing'); });
+    let active = true;
+    let storeUuid: string;
+    try { storeUuid = resolveSupabaseStoreUuid(id); }
+    catch { setStoreState('missing'); return; }
+    const load = async () => {
+      const value = await getSupabaseStore(id).catch(() => null);
+      if (!active) return;
+      setStore(value);
+      setStoreState(value ? 'ready' : 'missing');
+    };
+    void load();
+    const channel = supabase.channel(`merchant-brand:${storeUuid}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stores', filter: `id=eq.${storeUuid}` }, () => void load())
+      .subscribe();
+    return () => { active = false; void supabase.removeChannel(channel); };
   }, []);
   const logo = store?.logoUrl && /^https:\/\//i.test(store.logoUrl) ? store.logoUrl : null;
   return <div className="merchant-entry" dir="rtl">

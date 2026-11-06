@@ -35,6 +35,17 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
   const galleryUploadRef = useRef<HTMLInputElement>(null);
   const dirty = useRef(false);
 
+  const [martBanner, setMartBanner] = useState({
+    enabled: true,
+    title: 'سنجوب ماركت وكل طلبات البيت لحد بابك',
+    badge: 'سنجوب بقالة ⚡',
+    areaText: 'العاصمة وكافة المناطق',
+    btnText: 'تسوق الآن',
+    targetCategory: 'سوبرماركت',
+    bgGradient: 'from-[#FF5900] via-[#FF6A1A] to-[#FF4500]'
+  });
+  const [martBannerSaving, setMartBannerSaving] = useState(false);
+
   useEffect(() => {
     let active = true;
     setError('');
@@ -44,6 +55,7 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
         if (!dirty.current) setConfig(result.config);
         setCampaigns(result.campaigns || []);
         setGallery(result.gallery || []);
+        if (result.martBanner) setMartBanner(result.martBanner);
         setReady(result.operationsReady);
         setEnabled(result.operationsEnabled);
         setLoaded(true);
@@ -244,6 +256,132 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
         </div>
       ) : (
         <>
+          {/* ── Fixed Mart Banner Manager (شريط سنجوب ماركت الرئيسي) ── */}
+          <section className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-orange-600"></span>
+                  <span>إدارة شريط سنجوب ماركت (البانر البرتقالي الثابت في الصفحة الرئيسية)</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  تحكم في نصوص وشارة وزر هذا الشريط وظهوره أو إخفائه في واجهة العميل للويب والموبايل.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                  <span>حالة الظهور:</span>
+                  <input
+                    type="checkbox"
+                    className="toggle toggle-primary toggle-sm"
+                    checked={martBanner.enabled}
+                    onChange={(e) => setMartBanner({ ...martBanner, enabled: e.target.checked })}
+                  />
+                  <span className={martBanner.enabled ? 'text-emerald-600 font-black' : 'text-slate-400'}>
+                    {martBanner.enabled ? 'مفعّل ويظهر للعميل' : 'مخفي مؤقتاً'}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Live Visual Preview of the Banner */}
+            <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <p className="text-[11px] font-bold text-slate-400 mb-1.5">معاينة مباشرة للشريط كما يظهر للعميل:</p>
+              <div className={`bg-gradient-to-r from-[#FF5900] via-[#FF6A1A] to-[#FF4500] rounded-2xl p-3 sm:p-4 text-white shadow-xs flex items-center justify-between gap-3 ${!martBanner.enabled ? 'opacity-50 grayscale-50' : ''}`}>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-white text-[#FF5900] flex items-center justify-center shrink-0 shadow-xs font-black">
+                    ⚡
+                  </div>
+                  <div className="leading-tight">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-[9px] bg-white/20 text-white px-2 py-0.2 rounded-full font-black">
+                        {martBanner.badge || 'سنجوب بقالة ⚡'}
+                      </span>
+                      {martBanner.areaText && (
+                        <span className="text-[9px] bg-white text-[#FF5900] px-1.5 py-0.2 rounded-full font-black">
+                          {martBanner.areaText}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-xs sm:text-sm font-black line-clamp-1">
+                      {martBanner.title || 'سنجوب ماركت وكل طلبات البيت لحد بابك'}
+                    </h3>
+                  </div>
+                </div>
+
+                <span className="px-3.5 py-1.5 bg-white text-[#FF5900] rounded-xl text-xs font-black shrink-0 shadow-xs">
+                  {martBanner.btnText || 'تسوق الآن'}
+                </span>
+              </div>
+            </div>
+
+            {/* Form Fields for Editing the Banner */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">العنوان الرئيسي للبانر</label>
+                <input
+                  type="text"
+                  className="w-full p-2 border border-slate-200 rounded-xl focus:border-orange-500 focus:outline-hidden font-bold"
+                  value={martBanner.title}
+                  onChange={(e) => setMartBanner({ ...martBanner, title: e.target.value })}
+                  placeholder="سنجوب ماركت وكل طلبات البيت لحد بابك"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">الشارة الترويجية (Badge)</label>
+                <input
+                  type="text"
+                  className="w-full p-2 border border-slate-200 rounded-xl focus:border-orange-500 focus:outline-hidden font-bold"
+                  value={martBanner.badge}
+                  onChange={(e) => setMartBanner({ ...martBanner, badge: e.target.value })}
+                  placeholder="سنجوب بقالة ⚡"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">نص المنطقة أو التغطية</label>
+                <input
+                  type="text"
+                  className="w-full p-2 border border-slate-200 rounded-xl focus:border-orange-500 focus:outline-hidden font-bold"
+                  value={martBanner.areaText}
+                  onChange={(e) => setMartBanner({ ...martBanner, areaText: e.target.value })}
+                  placeholder="العاصمة وكافة المناطق"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">نص زر الإجراء (Action Button)</label>
+                <input
+                  type="text"
+                  className="w-full p-2 border border-slate-200 rounded-xl focus:border-orange-500 focus:outline-hidden font-bold"
+                  value={martBanner.btnText}
+                  onChange={(e) => setMartBanner({ ...martBanner, btnText: e.target.value })}
+                  placeholder="تسوق الآن"
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-black rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                disabled={martBannerSaving}
+                onClick={async () => {
+                  setMartBannerSaving(true);
+                  try {
+                    await perform({ action: 'save-mart-banner', martBanner }, 'تم حفظ إعدادات شريط سنجوب ماركت بنجاح');
+                  } finally {
+                    setMartBannerSaving(false);
+                  }
+                }}
+              >
+                <span>{martBannerSaving ? 'جارٍ الحفظ…' : 'حفظ تعديلات الشريط'}</span>
+              </button>
+            </div>
+          </section>
+
           {/* ── Active Campaigns Management Table ── */}
           <section className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">

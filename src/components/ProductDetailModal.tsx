@@ -158,13 +158,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* Notes for restaurant */}
           <div className="pt-2 border-t border-slate-100">
             <label className="text-xs font-bold text-slate-900 block mb-1.5">
-              ملاحظات خاصة للمطعم أو التوصيل
+              ملاحظات خاصة للطلب (اختياري)
             </label>
             <input
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="مثال: بدون بصل، زيادة طحينة، وضع العيش منفصلاً..."
+              placeholder="اكتب ملاحظاتك هنا..."
               className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-600"
             />
           </div>

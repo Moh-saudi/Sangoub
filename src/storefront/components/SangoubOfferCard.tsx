@@ -3,6 +3,7 @@ import type { Product } from '../../types';
 import { useStore } from '../context/StoreContext';
 import { BRAND } from '../../brand';
 import { formatEGP } from '../../utils/orderCalculations';
+import { getProductSlug } from '../../utils/storeAssets';
 import { Plus, Check, Tag } from 'lucide-react';
 
 interface SangoubOfferCardProps {
@@ -19,7 +20,7 @@ export const SangoubOfferCard: React.FC<SangoubOfferCardProps> = ({ product }) =
     : null;
 
   const handleCardClick = () => {
-    navigate(`/products/${product.id}`);
+    navigate(`/products/${getProductSlug(product)}`);
   };
 
   const handleAddClick = (e: React.MouseEvent) => {

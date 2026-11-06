@@ -1,10 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
-import { Timestamp } from "firebase-admin/firestore";
-import { adminServices } from "../../server/firebaseAdmin.ts";
 import { mobileCors } from "../../server/mobileCors.ts";
-
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://tvnsqatkaqyubeznhnmu.supabase.co';
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9ORqYV9HK0AbacKtYSRZiA_K7hcJ4yI';
+import { supabaseIdentity } from "../../server/supabaseIdentity.ts";
 
 export default async function handler(req: any, res: any) {
   res.setHeader("Cache-Control", "no-store");
@@ -16,33 +12,15 @@ export default async function handler(req: any, res: any) {
   if (!token)
     return res.status(401).json({ error: "سجّل الدخول لاستخدام المساعد." });
 
-  // 1. Authenticate user (Supabase first, then Firebase)
-  let user: { uid: string; email?: string } | null = null;
-
+  // Verify account and profile with Supabase only.
+  let identity;
   try {
-    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (userRes.ok) {
-      const u = await userRes.json();
-      if (u?.id) user = { uid: u.id, email: u.email };
-    }
+    identity = await supabaseIdentity(token);
   } catch {
-    // ignore
+    return res.status(503).json({ error: "تعذر التحقق من حساب Supabase." });
   }
-
-  if (!user) {
-    try {
-      const { auth } = adminServices();
-      const fbUser = await auth.verifyIdToken(token, true);
-      user = { uid: fbUser.uid, email: fbUser.email };
-    } catch {
-      return res.status(401).json({ error: "جلسة الدخول غير صالحة." });
-    }
-  }
+  if (!identity) return res.status(401).json({ error: "جلسة الدخول غير صالحة." });
+  const user = identity.actor;
 
   const action = req.query?.action || req.params?.action;
   if (!["chat", "maps", "transcribe", "suggest-product"].includes(action))

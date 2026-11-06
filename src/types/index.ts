@@ -98,6 +98,8 @@ export type StoreCategory =
 
 export interface Store {
   /** Enriched by authenticated APIs only; stored privately in merchantContracts. */
+  storeTypeId?: string;
+  storeSubtypeId?: string;
   commissionRate?: number;
   coordinates?: Coordinates;
   taxRate?: number;

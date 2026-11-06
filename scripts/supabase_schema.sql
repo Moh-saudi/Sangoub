@@ -139,10 +139,19 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 9. تفعيل التحديث التلقائي اللحظي (Realtime)
-ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.courier_locations;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+-- 9. تفعيل التحديث التلقائي اللحظي (Realtime) بطريقة آمنة عند إعادة التشغيل
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='orders') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='courier_locations') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.courier_locations;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='notifications') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+  END IF;
+END $$;
 
 -- 10. تفعيل سياسات الأمان (Row Level Security - RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -153,32 +162,60 @@ ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.courier_locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
--- سياسات عامة للقراءة
-CREATE POLICY "Profiles readable by authenticated users" ON public.profiles FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
+-- سياسات أقل صلاحية: بيانات الملف خاصة، والطلبات تنشأ عبر RPC الخادم فقط.
+REVOKE ALL ON public.profiles, public.orders, public.order_items, public.courier_locations, public.notifications FROM anon, authenticated;
+GRANT SELECT ON public.stores, public.products TO anon, authenticated;
+GRANT SELECT ON public.profiles, public.orders, public.order_items, public.courier_locations, public.notifications TO authenticated;
+GRANT UPDATE (full_name, phone, email, ministry, floor_number, room_number, avatar_url, updated_at) ON public.profiles TO authenticated;
+GRANT ALL ON public.profiles, public.orders, public.order_items, public.courier_locations, public.notifications TO service_role;
 
-CREATE POLICY "Stores viewable by everyone" ON public.stores FOR SELECT USING (true);
-CREATE POLICY "Store owners can update their store" ON public.stores FOR UPDATE TO authenticated USING (auth.uid() = owner_id);
+DROP POLICY IF EXISTS "Profiles readable by authenticated users" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Stores viewable by everyone" ON public.stores;
+DROP POLICY IF EXISTS "Store owners can update their store" ON public.stores;
+DROP POLICY IF EXISTS "Products viewable by everyone" ON public.products;
+DROP POLICY IF EXISTS "Store owners can manage products" ON public.products;
+DROP POLICY IF EXISTS "Users can view relevant orders" ON public.orders;
+DROP POLICY IF EXISTS "Users can insert orders" ON public.orders;
+DROP POLICY IF EXISTS "Order items viewable with order" ON public.order_items;
+DROP POLICY IF EXISTS "Courier location readable by all authenticated" ON public.courier_locations;
+DROP POLICY IF EXISTS "Courier can update own location" ON public.courier_locations;
+DROP POLICY IF EXISTS "Users can view own notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Profile owner reads own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Profile owner updates safe fields" ON public.profiles;
+DROP POLICY IF EXISTS "Public reads stores" ON public.stores;
+DROP POLICY IF EXISTS "Public reads products" ON public.products;
+DROP POLICY IF EXISTS "Order participants read orders" ON public.orders;
+DROP POLICY IF EXISTS "Order participants read items" ON public.order_items;
+DROP POLICY IF EXISTS "Customer reads assigned courier location" ON public.courier_locations;
+DROP POLICY IF EXISTS "Owner reads notifications" ON public.notifications;
 
-CREATE POLICY "Products viewable by everyone" ON public.products FOR SELECT USING (true);
-CREATE POLICY "Store owners can manage products" ON public.products FOR ALL TO authenticated 
-  USING (EXISTS (SELECT 1 FROM public.stores WHERE stores.id = products.store_id AND stores.owner_id = auth.uid()));
-
-CREATE POLICY "Users can view relevant orders" ON public.orders FOR SELECT TO authenticated 
-  USING (customer_id = auth.uid() OR courier_id = auth.uid() OR EXISTS (
+CREATE POLICY "Profile owner reads own profile" ON public.profiles FOR SELECT TO authenticated USING (auth.uid() = id);
+CREATE POLICY "Profile owner updates safe fields" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+CREATE POLICY "Public reads stores" ON public.stores FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Public reads products" ON public.products FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Order participants read orders" ON public.orders FOR SELECT TO authenticated USING (
+  customer_id = auth.uid() OR courier_id = auth.uid() OR EXISTS (
     SELECT 1 FROM public.stores WHERE stores.id = orders.store_id AND stores.owner_id = auth.uid()
-  ));
+  )
+);
+CREATE POLICY "Order participants read items" ON public.order_items FOR SELECT TO authenticated USING (
+  EXISTS (SELECT 1 FROM public.orders WHERE orders.id = order_items.order_id AND
+    (orders.customer_id = auth.uid() OR orders.courier_id = auth.uid() OR EXISTS (
+      SELECT 1 FROM public.stores WHERE stores.id = orders.store_id AND stores.owner_id = auth.uid()
+    )))
+);
+CREATE POLICY "Customer reads assigned courier location" ON public.courier_locations FOR SELECT TO authenticated USING (
+  courier_id = auth.uid() OR EXISTS (
+    SELECT 1 FROM public.orders WHERE orders.courier_id = courier_locations.courier_id
+      AND orders.customer_id = auth.uid() AND orders.status = 'with_courier'
+  )
+);
+CREATE POLICY "Owner reads notifications" ON public.notifications FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert orders" ON public.orders FOR INSERT TO authenticated 
-  WITH CHECK (customer_id = auth.uid());
-
-CREATE POLICY "Order items viewable with order" ON public.order_items FOR SELECT TO authenticated 
-  USING (EXISTS (SELECT 1 FROM public.orders WHERE orders.id = order_items.order_id));
-
-CREATE POLICY "Courier location readable by all authenticated" ON public.courier_locations FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Courier can update own location" ON public.courier_locations FOR ALL TO authenticated USING (auth.uid() = courier_id);
-
-CREATE POLICY "Users can view own notifications" ON public.notifications FOR SELECT TO authenticated USING (auth.uid() = user_id);
+-- Direct order and location mutations bypass server-side pricing/authorization checks.
+REVOKE INSERT, UPDATE, DELETE ON public.orders, public.order_items, public.courier_locations FROM anon, authenticated;
+REVOKE INSERT, UPDATE, DELETE ON public.notifications FROM anon, authenticated;
 
 -- 11. دالة ترحيل المستخدم عند التسجيل التلقائي من Supabase Auth إلى جدول profiles
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -190,8 +227,11 @@ BEGIN
     COALESCE(new.raw_user_meta_data->>'full_name', 'مستخدم جديد'),
     new.email,
     new.phone,
-    COALESCE(new.raw_user_meta_data->>'role', 'employee')
-  );
+    'employee'
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    full_name = COALESCE(EXCLUDED.full_name, public.profiles.full_name),
+    email = COALESCE(EXCLUDED.email, public.profiles.email);
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

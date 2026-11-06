@@ -10,7 +10,9 @@ function visitDirectory(directory){
   const file=join(directory,entry.name);if(entry.isDirectory()){visitDirectory(file);continue;}
   if(!/\.[cm]?[jt]sx?$/.test(entry.name)||/\.test\.[cm]?[jt]sx?$/.test(entry.name))continue;
   const name=relative(root,file).replaceAll('\\','/');if(adapters.has(name))continue;
-  const text=readFileSync(file,'utf8'),source=parse(text,{sourceType:'unambiguous',plugins:['typescript','jsx']}).program;
+  const text=readFileSync(file,'utf8');
+  if(!/from\s+['"]firebase(?:-admin)?\/(?:firestore|firestore\/[^'"]+)['"]/.test(text))continue;
+  const source=parse(text,{sourceType:'unambiguous',plugins:['typescript','jsx']}).program;
   const sdkNames=new Set();
   for(const statement of source.body){
    if(statement.type!=='ImportDeclaration'||!statement.source.value.startsWith('firebase/firestore'))continue;

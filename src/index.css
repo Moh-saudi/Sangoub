@@ -75,3 +75,7 @@ img { max-width: 100%; }
 .merchant-portal>header{background:var(--color-ink)}
 .merchant-portal .bg-orange-600{background-color:var(--color-primary);color:var(--color-on-primary)}
 .merchant-portal .text-orange-600{color:var(--color-primary-hover)}
+
+.font-tajawal {
+  font-family: 'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}

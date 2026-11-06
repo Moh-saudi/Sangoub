@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { auth } from './firebase';
 import { apiUrl } from './apiUrl';
 
 /** One authenticated JSON transport for admin and operations actions; mutations are never retried automatically. */
@@ -21,14 +20,6 @@ export async function authenticatedApi(path: string, body: object) {
     }
   } catch {
     // ignore
-  }
-
-  // 2. Fallback to Firebase user token if present (force refresh if needed)
-  if (!token) {
-    const user = auth?.currentUser;
-    if (user) {
-      token = await user.getIdToken(/* forceRefresh */ false).catch(() => user.getIdToken(true));
-    }
   }
 
   if (!token) throw new Error('يرجى تسجيل الدخول.');

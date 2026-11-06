@@ -8,3 +8,4 @@ export default createOsmHandler({
  identify:async token=>{const identity=await operationIdentity({headers:{authorization:'Bearer '+token}});if(!identity.verified)throw new OsmError(403,'أكد حسابك لاستخدام الخرائط.');return identity.actor.uid;},
  lookup:async(kind,input,uid)=>{const config=osmConfig(kind);service??=createOsmService(config);return service(kind,input,uid)},
 });
+

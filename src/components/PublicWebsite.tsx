@@ -15,6 +15,7 @@ import { HeroShowcase } from "./HeroShowcase";
 import { BRAND } from "../brand";
 import { MascotSupport } from "./MascotSupport";
 import { PublicFooter } from "./PublicFooter";
+import { getStoreSlug } from "../utils/storeAssets";
 
 const logo = BRAND.logoSmall;
 const whatsapp = BRAND.supportUrl;
@@ -52,7 +53,7 @@ export function PublicWebsite() {
   const [showApp, setShowApp] = useState(false);
   const [selection, setSelection] = useState<AppSelection | undefined>();
   const openApp = () => { setSelection(undefined); setShowApp(true); };
-  const selectItem = (item: AppSelection) => {if(item.kind==='store'&&item.id){goShop('/stores/'+encodeURIComponent(item.id));return;}if(item.kind==='product'&&item.id&&item.storeId){goShop('/stores/'+encodeURIComponent(item.storeId)+'?product='+encodeURIComponent(item.id));return;}goShop('/stores');};
+  const selectItem = (item: AppSelection) => {if(item.kind==='store'&&item.id){goShop('/stores/'+getStoreSlug(item.id));return;}if(item.kind==='product'&&item.id&&item.storeId){goShop('/stores/'+getStoreSlug(item.storeId)+'?product='+encodeURIComponent(item.id));return;}goShop('/stores');};
   const openPartners = () => document.getElementById("partners")?.scrollIntoView({ behavior: "smooth" });
   const links = () => <><a href="/stores">المتاجر</a><a href="/cart">السلة ({shop.count})</a><a href="/offers" aria-current={offers ? "page" : undefined}>العروض</a><a href="/#how-it-works">كيف تعمل؟</a><a href="/#partners">للمطاعم والمتاجر</a><a href="/careers">الوظائف</a><a href="#contact">تواصل معنا</a></>;
   return <div ref={site} data-careers={careers} className="capital-site min-h-screen text-slate-900" dir="rtl" onClick={event=>{const anchor=(event.target as Element).closest?.('a');if(!anchor||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||anchor.target||anchor.hasAttribute('download'))return;const url=new URL(anchor.href,location.href);if(url.origin!==location.origin||!/^\/(?:stores(?:\/[^/]+)?|cart|checkout(?:\/success)?|my-orders|offers|careers)?\/?$/.test(url.pathname))return;if(url.hash&&url.pathname===location.pathname)return;event.preventDefault();goShop(url.pathname+url.search+url.hash);}}>

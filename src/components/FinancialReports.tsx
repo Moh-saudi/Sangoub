@@ -29,6 +29,7 @@ import {
 import type { Order, Store, Product } from "../types";
 import { formatEGP } from "../utils/orderCalculations";
 import { cairoDay } from "../utils/orderIntegration";
+import { getMerchantPaymentSettings, updateMerchantPaymentSettings, type MerchantPaymentInfo } from "../utils/merchantPaymentSettings";
 
 interface StoreSettlement {
   storeId: string;
@@ -62,6 +63,13 @@ export function FinancialReports({
   const [financeError, setFinanceError] = useState('');
   const [saving, setSaving] = useState(false);
   const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null);
+  const [editingPaymentStore, setEditingPaymentStore] = useState<{
+    storeId: string;
+    storeName: string;
+    instapayHandle: string;
+    walletPhone: string;
+    instapayLink?: string;
+  } | null>(null);
 
   async function loadLedger() {
     try {
@@ -580,7 +588,27 @@ export function FinancialReports({
                           <tr className="hover:bg-slate-50/70 transition-colors">
                             <td className="py-3.5 px-4">
                               <div className="font-black text-slate-900 text-sm">{settlement.storeName}</div>
-                              <span className="text-[10px] text-slate-400">{settlement.category}</span>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] text-slate-400">{settlement.category}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const info = getMerchantPaymentSettings(settlement.storeId);
+                                    setEditingPaymentStore({
+                                      storeId: settlement.storeId,
+                                      storeName: settlement.storeName,
+                                      instapayHandle: info.instapayHandle,
+                                      walletPhone: info.walletPhone,
+                                      instapayLink: info.instapayLink || '',
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-1 text-[10px] text-purple-700 bg-purple-50 hover:bg-purple-100 px-2 py-0.5 rounded-lg border border-purple-200 font-bold transition-colors cursor-pointer"
+                                  title="تعديل حساب إنستاباي والمحفظة لهذا التاجر"
+                                >
+                                  <CreditCard size={10} />
+                                  <span>إنستاباي / محفظة</span>
+                                </button>
+                              </div>
                             </td>
 
                             <td className="py-3.5 px-4 text-center">
@@ -1016,6 +1044,117 @@ export function FinancialReports({
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Merchant Payment Settings Modal */}
+      {editingPaymentStore && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  إعدادات إنستاباي والمحافظ الإلكترونية
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  متجر: <span className="font-bold text-slate-800">{editingPaymentStore.storeName}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingPaymentStore(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1">
+                  معرّف أو حساب إنستاباي (InstaPay Handle)
+                </label>
+                <input
+                  type="text"
+                  dir="ltr"
+                  placeholder="name@instapay"
+                  value={editingPaymentStore.instapayHandle}
+                  onChange={(e) =>
+                    setEditingPaymentStore({
+                      ...editingPaymentStore,
+                      instapayHandle: e.target.value,
+                    })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-mono text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-purple-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1">
+                  رقم محفظة فودافون كاش / كاش فون
+                </label>
+                <input
+                  type="tel"
+                  dir="ltr"
+                  placeholder="010xxxxxxxx"
+                  value={editingPaymentStore.walletPhone}
+                  onChange={(e) =>
+                    setEditingPaymentStore({
+                      ...editingPaymentStore,
+                      walletPhone: e.target.value,
+                    })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-mono text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-purple-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1">
+                  رابط دفع إنستاباي المباشر (Link / URL)
+                </label>
+                <input
+                  type="url"
+                  dir="ltr"
+                  placeholder="https://ipn.eg/..."
+                  value={editingPaymentStore.instapayLink || ""}
+                  onChange={(e) =>
+                    setEditingPaymentStore({
+                      ...editingPaymentStore,
+                      instapayLink: e.target.value,
+                    })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-mono text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-purple-500/20"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  هذا الرابط سيفتحه العميل مباشرة في تبويب جديد للدفع فور اختيار إنستاباي وتأكيد الطلب.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditingPaymentStore(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  updateMerchantPaymentSettings(editingPaymentStore.storeId, {
+                    instapayHandle: editingPaymentStore.instapayHandle,
+                    walletPhone: editingPaymentStore.walletPhone,
+                    instapayLink: editingPaymentStore.instapayLink || "https://ipn.eg/",
+                  });
+                  setEditingPaymentStore(null);
+                }}
+                className="px-5 py-2 rounded-xl text-xs font-black bg-purple-700 hover:bg-purple-800 text-white shadow-xs transition-colors cursor-pointer"
+              >
+                حفظ التعديلات
+              </button>
             </div>
           </div>
         </div>

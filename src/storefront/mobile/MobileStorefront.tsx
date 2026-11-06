@@ -3,11 +3,20 @@ import { useStore } from '../context/StoreContext';
 import { ProductModal } from '../components/ProductModal';
 import { StoresPage } from '../pages/StoresPage';
 import { StoreDetailsPage } from '../pages/StoreDetailsPage';
+import { ProductDetailsPage } from '../pages/ProductDetailsPage';
+import { OrdersPage } from '../pages/OrdersPage';
+import { AccountPage } from '../pages/AccountPage';
 import { CartCheckoutModal } from '../components/CartCheckoutModal';
 import { SangoubAuthModal } from '../components/SangoubAuthModal';
+import { MerchantLogoCard } from '../components/MerchantLogoCard';
 import { formatEGP } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import type { Product } from '../../types';
+import { 
+  matchProductToCategory, 
+  getCategoryProductCount, 
+  getCategoryMerchants 
+} from '../../utils/categoryMatching';
 import {
   MapPin,
   Search,
@@ -38,97 +47,20 @@ import {
   Store as StoreIcon
 } from 'lucide-react';
 
+import { 
+  STORE_TYPES, 
+  SUPERMARKET_CATEGORY_TEMPLATES, 
+  getActiveStoreTypes, 
+  getSupermarketCategories 
+} from '../../constants/taxonomy';
+
 interface MobileStorefrontProps {
   onOpenAreaModal: () => void;
   onOpenCartModal?: () => void;
   onOpenRegisterModal?: () => void;
-  onOpenTrackingModal?: () => void;
+  onOpenTrackingModal?: (order?: any) => void;
   activeOrder?: any;
 }
-
-// 8 Core Talabat Mobile Services
-const TALABAT_MOBILE_SERVICES = [
-  {
-    id: 'food',
-    name: 'مطاعم',
-    badge: 'خصم 50%',
-    badgeColor: 'bg-[#FF5900]',
-    bgColor: 'bg-[#FFF2EC]',
-    textColor: 'text-[#FF5900]',
-    icon: UtensilsCrossed,
-    query: 'وجبات',
-  },
-  {
-    id: 'mart',
-    name: 'سنجوب بقالة',
-    badge: 'طازج',
-    badgeColor: 'bg-[#059669]',
-    bgColor: 'bg-[#ECFDF5]',
-    textColor: 'text-[#059669]',
-    icon: Zap,
-    query: 'سوبرماركت',
-  },
-  {
-    id: 'groceries',
-    name: 'سوبرماركت',
-    badge: 'عروض',
-    badgeColor: 'bg-[#2563EB]',
-    bgColor: 'bg-[#EFF6FF]',
-    textColor: 'text-[#2563EB]',
-    icon: Milk,
-    query: 'سوبرماركت وبقالة',
-  },
-  {
-    id: 'coffee',
-    name: 'كافيهات',
-    badge: 'طازج',
-    badgeColor: 'bg-[#9333EA]',
-    bgColor: 'bg-[#FAF5FF]',
-    textColor: 'text-[#9333EA]',
-    icon: Coffee,
-    query: 'مشروبات وكافيهات',
-  },
-  {
-    id: 'pharmacy',
-    name: 'صيدلية',
-    badge: '24/7',
-    badgeColor: 'bg-[#E11D48]',
-    bgColor: 'bg-[#FFF1F2]',
-    textColor: 'text-[#E11D48]',
-    icon: HeartPulse,
-    query: 'صيدلية وعناية',
-  },
-  {
-    id: 'breakfast',
-    name: 'فطور',
-    badge: 'صباحي',
-    badgeColor: 'bg-[#D97706]',
-    bgColor: 'bg-[#FFFBEB]',
-    textColor: 'text-[#D97706]',
-    icon: Sandwich,
-    query: 'فطور ومخبوزات',
-  },
-  {
-    id: 'sandwiches',
-    name: 'سندوتشات',
-    badge: 'سريع',
-    badgeColor: 'bg-[#EA580C]',
-    bgColor: 'bg-[#FFF7ED]',
-    textColor: 'text-[#EA580C]',
-    icon: Pizza,
-    query: 'سندوتشات وشاورما',
-  },
-  {
-    id: 'fruits',
-    name: 'خضار وفواكه',
-    badge: 'طازج',
-    badgeColor: 'bg-[#16A34A]',
-    bgColor: 'bg-[#F0FDF4]',
-    textColor: 'text-[#16A34A]',
-    icon: Apple,
-    query: 'خضار وفواكه',
-  },
-];
 
 export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
   onOpenAreaModal,
@@ -140,6 +72,8 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
   const {
     products,
     stores,
+    supermarketCategories,
+    activeStoreTypes,
     cartItems,
     addToCart,
     updateQuantity,
@@ -153,6 +87,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     currentPath,
     user,
     banners,
+    martBanner,
     handleBannerClick
   } = useStore();
 
@@ -161,7 +96,11 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
   const isStoresList = currentPath === '/stores';
   const isSingleStore = currentPath.startsWith('/stores/');
+  const isSingleProduct = currentPath.startsWith('/products/') || currentPath.startsWith('/product/');
+  const isOrdersPage = currentPath === '/my-orders' || currentPath === '/orders' || currentPath === '/track';
+  const isAccountPage = currentPath === '/account' || currentPath === '/profile' || currentPath === '/settings' || currentPath === '/addresses';
   const currentStoreId = isSingleStore ? decodeURIComponent(currentPath.replace(/^\/stores\//, '').replace(/\/$/, '')) : '';
+  const currentProductId = isSingleProduct ? decodeURIComponent(currentPath.replace(/^\/(products|product)\//, '').replace(/\/$/, '')) : '';
   const [isCartModalOpen, setIsCartModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
@@ -251,11 +190,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     }
 
     if (selectedCategory) {
-      const target = selectedCategory.toLowerCase();
-      list = list.filter((p) => {
-        const cat = (p.category || '').toLowerCase();
-        return cat.includes(target) || target.includes(cat);
-      });
+      list = list.filter((p) => matchProductToCategory(p, selectedCategory));
     }
 
     if (activeFilter === 'offers') {
@@ -269,6 +204,21 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     return list;
   }, [products, searchQuery, selectedCategory, activeFilter]);
 
+  // Dynamic product count per category
+  const categoryProductCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    supermarketCategories.forEach((c) => {
+      counts[c.code] = getCategoryProductCount(products, c.code, c.name_ar);
+    });
+    return counts;
+  }, [products, supermarketCategories]);
+
+  // Merchants available for the selected category
+  const categoryMerchants = useMemo(() => {
+    if (!selectedCategory) return [];
+    return getCategoryMerchants(products, selectedCategory, stores);
+  }, [selectedCategory, products, stores]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const el = document.getElementById('mobile-products-grid');
@@ -279,50 +229,60 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     <div className="min-h-screen bg-[#F7F7F8] text-[#1F2937] pb-24 font-['Cairo',sans-serif] select-none" dir="rtl">
       
       {/* ══════════════════════════════════════════════════════════════
-          1. TALABAT MOBILE NATIVE APP BAR
+          1. TALABAT MOBILE NATIVE APP BAR (STICKY FIXED)
           ══════════════════════════════════════════════════════════════ */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#F0F1F3] px-3.5 pt-2 pb-2.5 shadow-2xs">
+      <header
+        className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#F0F1F3] px-3.5 pt-2 pb-2.5 shadow-xs w-full sangoub-sticky-header"
+        style={{ position: 'sticky', top: 0, zIndex: 50 }}
+      >
         
-        {/* Top Mini Row: Location & Brand */}
+        {/* Top Mini Row: Brand (Right in RTL) & Location (Left in RTL) */}
         <div className="flex items-center justify-between gap-2 mb-2">
           
-          {/* Location Picker (1 Tap to switch) */}
+          {/* 1. Sangoub Avatar & Brand (Right side in RTL - Click to Home) */}
           <button
             type="button"
-            onClick={onOpenAreaModal}
-            className="flex items-center gap-1.5 text-right active:opacity-75 transition-opacity"
-            aria-label="تغيير موقع التوصيل"
+            onClick={() => { setSelectedCategory(null); setActiveFilter('all'); navigate('/'); }}
+            className="flex items-center gap-2 cursor-pointer active:scale-95 transition-transform shrink-0"
+            aria-label="الرئيسية - سنجوب"
+            title="الرئيسية"
           >
-            <div className="w-7 h-7 rounded-full bg-[#FFF2EC] text-[#FF5900] flex items-center justify-center shrink-0">
-              <MapPin size={15} />
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-[10px] text-[#6B7280] font-bold">التوصيل إلى</span>
-              <span className="text-xs font-black text-[#111827] flex items-center gap-1 max-w-[190px] truncate">
-                <span>{serviceArea.name || 'حدد موقعك على الخريطة'}</span>
-                <ChevronDown size={12} className="text-[#FF5900] shrink-0" />
-              </span>
-            </div>
-          </button>
-
-          {/* Sangoub Avatar & Brand */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex flex-col items-end leading-none">
-              <span className="text-xs font-black text-[#FF5900] tracking-tight">سنجوب</span>
-              <span className="text-[8px] font-bold text-[#6B7280] tracking-wider uppercase">Sangoub</span>
-            </div>
-            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center overflow-hidden">
+            <div className="w-8 h-8 rounded-xl bg-white border border-[#E5E7EB] flex items-center justify-center overflow-hidden shadow-2xs">
               <img 
                 src="/brand/sangoub-mark-white-128.png"
                 alt="سنجوب Sangoub" 
                 className="w-full h-full object-contain"
               />
             </div>
-          </div>
+            <div className="flex flex-col items-start leading-none text-right">
+              <span className="text-xs sm:text-sm font-black text-[#FF5900] tracking-tight">سنجوب</span>
+              <span className="text-[8px] font-bold text-[#6B7280] tracking-wider uppercase">SANGOUB</span>
+            </div>
+          </button>
+
+          {/* 2. Compact Location Picker (Left side in RTL - 1 Tap to switch) */}
+          <button
+            type="button"
+            onClick={onOpenAreaModal}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] text-right active:scale-95 transition-all max-w-[170px] cursor-pointer"
+            aria-label="تغيير موقع التوصيل"
+            title="انقر لتغيير العنوان"
+          >
+            <div className="w-5 h-5 rounded-lg bg-[#FFF2EC] text-[#FF5900] flex items-center justify-center shrink-0">
+              <MapPin size={12} />
+            </div>
+            <div className="flex flex-col leading-tight truncate">
+              <span className="text-[8.5px] text-[#6B7280] font-bold">التوصيل إلى</span>
+              <span className="text-[11px] font-black text-[#111827] truncate">
+                {serviceArea.name || 'حدد موقعك'}
+              </span>
+            </div>
+            <ChevronDown size={11} className="text-[#FF5900] shrink-0" />
+          </button>
 
         </div>
 
-        {/* Search Bar Input */}
+        {/* Search Bar Input (No browser cyan outline) */}
         <form onSubmit={handleSearchSubmit} className="relative flex items-center w-full bg-[#F3F4F6] rounded-xl border border-[#E5E7EB] focus-within:border-[#FF5900] focus-within:bg-white transition-all px-2.5 py-1.5">
           <Search size={15} className="text-[#9CA3AF] ml-2 shrink-0 pointer-events-none" />
           <input
@@ -330,7 +290,8 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ابحث عن صنف أو بقالة…"
-            className="w-full bg-transparent text-xs text-[#111827] placeholder-[#9CA3AF] outline-none"
+            style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
+            className="w-full bg-transparent text-xs text-[#111827] placeholder-[#9CA3AF] !outline-none !border-none !ring-0 !shadow-none font-medium"
             aria-label="بحث في سنجوب"
           />
           {searchQuery && (
@@ -350,7 +311,13 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           MAIN MOBILE BODY
           ══════════════════════════════════════════════════════════════ */}
       <main className="px-3.5 pt-2 space-y-3">
-        {isSingleStore ? (
+        {isSingleProduct ? (
+          <ProductDetailsPage
+            productId={currentProductId}
+            onBack={() => navigate('/')}
+            isMobile={true}
+          />
+        ) : isSingleStore ? (
           <StoreDetailsPage
             storeId={currentStoreId}
             onBackToStores={() => navigate('/stores')}
@@ -359,6 +326,20 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
         ) : isStoresList ? (
           <StoresPage
             onBackToHome={() => navigate('/')}
+            isMobile={true}
+          />
+        ) : isOrdersPage ? (
+          <OrdersPage
+            onBackToHome={() => navigate('/')}
+            onTrackOrder={(ord) => {
+              if (onOpenTrackingModal) onOpenTrackingModal(ord);
+            }}
+            isMobile={true}
+          />
+        ) : isAccountPage ? (
+          <AccountPage
+            onBackToHome={() => navigate('/')}
+            onOpenAreaModal={onOpenAreaModal}
             isMobile={true}
           />
         ) : (
@@ -515,12 +496,11 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           </div>
         )}
 
-        {/* 3. SANGOUB CATEGORIES HORIZONTAL SLIDER (Ultra-Compact 11x11 Squircles) */}
-        <section aria-labelledby="mobile-categories-heading">
-          <div className="flex items-center justify-between px-1 mb-1.5">
-            <h2 id="mobile-categories-heading" className="text-xs font-black text-[#111827] flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FF5900]" />
-              <span>أقسام سنجوب</span>
+        {/* 3. SANGOUB PRODUCT CATEGORIES — Talabat-style Squircles */}
+        <section aria-labelledby="mobile-categories-heading" className="pt-1">
+          <div className="flex items-center justify-between px-1 mb-3">
+            <h2 id="mobile-categories-heading" className="text-sm font-black text-[#111827]">
+              الأقسام
             </h2>
             {selectedCategory && (
               <button
@@ -528,78 +508,119 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                 onClick={() => setSelectedCategory(null)}
                 className="text-[10px] font-bold text-[#FF5900] hover:underline"
               >
-                إلغاء التحديد ✕
+                عرض الكل ✕
               </button>
             )}
           </div>
 
-          {/* Smooth Horizontal Touch Scroll of Categories (With Top Padding to prevent badge clipping) */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-3.5 pb-1 w-full overscroll-x-contain touch-pan-x">
-            {TALABAT_MOBILE_SERVICES.filter((serv) =>
-              LAUNCH_CONFIG.enabledCategories.length === 0 || LAUNCH_CONFIG.enabledCategories.includes(serv.id)
-            ).map((serv) => {
-              const Icon = serv.icon;
-              const isSelected = selectedCategory === serv.query;
+          {/* Grand Market / Talabat Style: Clean 4-Column Grid, soft squircle cards with image & title underneath */}
+          <div className="grid grid-cols-4 gap-2.5 sm:gap-3 w-full">
+            {supermarketCategories.map((cat) => {
+              const isSelected = selectedCategory === cat.name_ar || selectedCategory === cat.code;
 
               return (
                 <button
-                  key={serv.id}
+                  key={cat.code}
                   type="button"
-                  onClick={() => setSelectedCategory(isSelected ? null : serv.query)}
-                  className="flex flex-col items-center gap-1 shrink-0 w-[58px] active:scale-95 transition-transform"
+                  title={cat.name_ar}
+                  aria-label={cat.name_ar}
+                  onClick={() => {
+                    const nextVal = isSelected ? null : cat.name_ar;
+                    setSelectedCategory(nextVal);
+                    if (nextVal) {
+                      const grid = document.getElementById('mobile-products-grid');
+                      if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                  className="group flex flex-col items-center gap-1.5 cursor-pointer transition-transform active:scale-95 bg-transparent border-none outline-none p-0"
                 >
-                  <div
-                    className={`relative w-11 h-11 rounded-2xl flex items-center justify-center transition-all ${
-                      isSelected
-                        ? 'bg-[#FF5900] text-white shadow-md shadow-[#FF5900]/30 scale-105'
-                        : `${serv.bgColor} ${serv.textColor} border border-black/5 shadow-2xs`
-                    }`}
-                  >
-                    <Icon size={20} strokeWidth={2.2} />
-                    {serv.badge && (
-                      <span
-                        className={`absolute -top-1.5 -right-1 text-[6.5px] font-black px-1 py-0.2 rounded-full shadow-2xs ${
-                          isSelected ? 'bg-white text-[#FF5900]' : `${serv.badgeColor} text-white`
-                        }`}
-                      >
-                        {serv.badge}
-                      </span>
-                    )}
+                  {/* Talabat Squircle Card with Rounded Corners — ZERO overlay text */}
+                  <div className={`w-full aspect-square rounded-2xl bg-[#F4F5F7] p-2 flex items-center justify-center border transition-all duration-300 overflow-hidden ${
+                    isSelected
+                      ? 'border-[#FF5900] ring-2 ring-[#FF5900]/40 bg-[#FFF2EC] shadow-xs'
+                      : 'border-[#EBECEF] group-hover:border-[#FF5900]/40 group-hover:bg-[#FFF7ED]/40'
+                  }`}>
+                    <img
+                      src={cat.image}
+                      alt={cat.name_ar}
+                      className="w-full h-full object-contain rounded-xl pointer-events-none group-hover:scale-105 transition-transform"
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
+                      }}
+                    />
                   </div>
+                  {/* Name below the card in Tajawal font */}
                   <span
-                    className={`text-[9.5px] font-bold truncate w-full text-center ${
+                    className={`text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center line-clamp-2 w-full font-tajawal min-h-[26px] flex items-center justify-center ${
                       isSelected ? 'text-[#FF5900] font-black' : 'text-[#374151]'
                     }`}
+                    style={{ fontFamily: "'Tajawal', sans-serif" }}
                   >
-                    {serv.name}
+                    {cat.name_ar}
                   </span>
                 </button>
               );
             })}
           </div>
+
+          {/* If a category is selected: Show Merchants Strip */}
+          {selectedCategory && categoryMerchants.length > 0 && (
+            <div className="mt-2 p-2 bg-white rounded-xl border border-[#E5E7EB] shadow-2xs">
+              <p className="text-[9.5px] font-black text-[#111827] mb-1.5 flex items-center gap-1">
+                <span>المتاجر التي توفر منتجات في ({selectedCategory}):</span>
+                <span className="text-[#FF5900]">({categoryMerchants.length})</span>
+              </p>
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                {categoryMerchants.map((merchant) => (
+                  <div
+                    key={merchant.id}
+                    onClick={() => navigate(`/stores/${merchant.id}`)}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] shrink-0 cursor-pointer active:scale-95"
+                  >
+                    <img
+                      src={merchant.logo || '/brand/sangoub-market-logo.jpg'}
+                      alt={merchant.name}
+                      className="w-5 h-5 rounded-full object-cover border border-[#E5E7EB]"
+                    />
+                    <span className="text-[9px] font-black text-[#1F2937]">{merchant.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
-        {/* 5. SANGOUB GROCERY QUICK BAR */}
-        <div
-          onClick={() => setSelectedCategory('سوبرماركت')}
-          className="bg-gradient-to-r from-[#FF5900] to-[#E04E00] rounded-2xl p-2.5 text-white shadow-xs flex items-center justify-between gap-2 cursor-pointer active:scale-98 transition-transform"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-white text-[#FF5900] flex items-center justify-center shrink-0 font-black">
-              <Zap size={18} className="fill-[#FF5900]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] font-black">سنجوب بقالة</span>
-                <span className="text-[8px] bg-white/25 px-1.5 py-0.2 rounded-full font-bold">20 دقيقة ⚡</span>
+        {/* 5. SANGOUB GROCERY QUICK BAR (Dynamic & Configurable from Admin Dashboard) */}
+        {martBanner?.enabled !== false && (
+          <div
+            onClick={() => setSelectedCategory(martBanner?.targetCategory || 'سوبرماركت')}
+            className="bg-gradient-to-r from-[#FF5900] via-[#FF6A1A] to-[#FF4500] rounded-2xl p-2.5 sm:p-3 text-white shadow-xs flex items-center justify-between gap-2 cursor-pointer active:scale-98 transition-transform"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-white text-[#FF5900] flex items-center justify-center shrink-0 font-black shadow-xs">
+                <Zap size={18} className="fill-[#FF5900]" />
               </div>
-              <p className="text-[9px] text-white/90">بقالة وكل طلبات البيت لحد بابك</p>
+              <div className="leading-tight">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <span className="text-[8.5px] bg-white/25 px-1.5 py-0.2 rounded-full font-bold">
+                    {martBanner?.badge || 'سنجوب بقالة ⚡'}
+                  </span>
+                  {martBanner?.areaText && (
+                    <span className="text-[8px] bg-white text-[#FF5900] px-1.5 py-0.2 rounded-full font-black">
+                      {martBanner.areaText}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] font-black text-white">{martBanner?.title || 'سنجوب ماركت وكل طلبات البيت لحد بابك'}</p>
+              </div>
             </div>
+
+            <span className="px-2.5 py-1 rounded-xl bg-white text-[#FF5900] text-[9.5px] font-black shrink-0 shadow-xs">
+              {martBanner?.btnText || 'تسوق الآن'}
+            </span>
           </div>
-          <span className="text-[10px] font-black bg-white text-[#FF5900] px-2.5 py-1 rounded-xl shrink-0">
-            اطلب الآن
-          </span>
-        </div>
+        )}
 
         {/* 6. FLASH DEALS (Horizontal Swipe) */}
         {flashDeals.length > 0 && (
@@ -714,13 +735,12 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           </section>
         )}
 
-                {/* 6.5 POPULAR STORES HORIZONTAL SCROLL (Mobile) */}
+        {/* 6.5 POPULAR STORES HORIZONTAL SCROLL (Mobile) */}
         {stores.length > 0 && (
           <section aria-labelledby="mobile-stores-heading" className="mb-4">
-            <div className="flex items-center justify-between px-1 mb-2">
-              <h2 id="mobile-stores-heading" className="text-xs font-black text-[#111827] flex items-center gap-1.5">
-                <StoreIcon size={15} className="text-[#FF5900]" />
-                <span>المتاجر والشركاء ⭐</span>
+            <div className="flex items-center justify-between px-1 mb-3">
+              <h2 id="mobile-stores-heading" className="text-sm font-black text-[#111827]">
+                المتاجر
               </h2>
               <a
                 href="/stores"
@@ -730,49 +750,14 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                 }}
                 className="text-[11px] font-bold text-[#FF5900] hover:underline flex items-center gap-0.5 text-decoration-none"
               >
-                <span>كل المتاجر</span>
+                <span>عرض الكل</span>
                 <ChevronLeft size={12} />
               </a>
             </div>
 
-            <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-2 pt-0.5 w-full overscroll-x-contain touch-pan-x">
+            <div className="flex items-start gap-4 overflow-x-auto no-scrollbar pb-2 pt-0.5 w-full overscroll-x-contain touch-pan-x">
               {stores.map((store) => (
-                <a
-                  key={store.id}
-                  onClick={(e) => { e.preventDefault(); navigate('/stores/' + encodeURIComponent(store.id)); }}
-                  className="w-[170px] shrink-0 bg-white border border-[#E5E7EB] hover:border-[#FF5900]/40 rounded-2xl overflow-hidden shadow-xs active:scale-98 transition-all flex flex-col justify-between text-decoration-none select-none"
-                >
-                  <div className="relative h-20 w-full bg-[#E5E7EB] overflow-hidden">
-                    <img
-                      src={store.bannerUrl || store.imageUrl || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80'}
-                      alt={store.name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                    <span className="absolute bottom-1.5 right-1.5 bg-white/95 text-[#111827] text-[8px] font-black px-1.5 py-0.2 rounded shadow-xs flex items-center gap-0.5">
-                      <Clock size={8} className="text-[#FF5900]" />
-                      <span>{store.deliveryTime || '20-30 دقيقة'}</span>
-                    </span>
-                    <span className="absolute bottom-1.5 left-1.5 bg-[#059669] text-white text-[8px] font-black px-1 py-0.2 rounded shadow-xs">
-                      {store.deliveryFee === 0 ? 'مجاني 🛵' : formatEGP(store.deliveryFee)}
-                    </span>
-                  </div>
-                  <div className="p-2 space-y-0.5">
-                    <div className="flex items-start justify-between gap-1">
-                      <h3 className="text-[11px] font-black text-[#111827] truncate">
-                        {store.name}
-                      </h3>
-                      <div className="flex items-center gap-0.5 bg-[#FFFBEB] text-[#D97706] px-1 py-0.2 rounded text-[8.5px] font-black shrink-0">
-                        <Star size={8} className="fill-[#D97706]" />
-                        <span>{store.rating || 4.8}</span>
-                      </div>
-                    </div>
-                    <p className="text-[9px] text-[#6B7280] truncate">
-                      {store.type || 'متجر معتمد'}
-                    </p>
-                  </div>
-                </a>
+                <MerchantLogoCard key={store.id} store={store} className="w-[80px] shrink-0" />
               ))}
             </div>
           </section>
@@ -1055,54 +1040,54 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
       )}
 
       {/* ══════════════════════════════════════════════════════════════
-          10. FIXED MOBILE BOTTOM NAVIGATION
+          10. INSTAGRAM-STYLE FLOATING MOBILE BOTTOM NAVIGATION DOCK
           ══════════════════════════════════════════════════════════════ */}
       <nav
-        className="fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur-md border-t border-[#E5E7EB] px-3 py-1.5 flex items-center justify-around shadow-[0_-4px_16px_rgba(0,0,0,0.06)]"
-        aria-label="شريط التنقل السفلي"
+        className="fixed bottom-3 inset-x-3 max-w-lg mx-auto z-50 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-3xl p-1.5 flex items-center justify-around shadow-[0_8px_32px_rgba(0,0,0,0.14)] transition-all"
+        aria-label="شريط التنقل السفلي العائم"
       >
         <button
           type="button"
           onClick={() => { setSelectedCategory(null); setActiveFilter('all'); navigate('/'); }}
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            currentPath === '/' ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold'
+          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all cursor-pointer ${
+            currentPath === '/' ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold hover:text-[#111827]'
           }`}
         >
-          <Home size={20} strokeWidth={currentPath === '/' ? 2.5 : 1.8} />
+          <Home size={19} strokeWidth={currentPath === '/' ? 2.5 : 1.8} />
           <span className="text-[10px] mt-0.5">الرئيسية</span>
         </button>
 
         <button
           type="button"
           onClick={() => navigate('/stores')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            currentPath.startsWith('/stores') ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold'
+          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all cursor-pointer ${
+            currentPath.startsWith('/stores') ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold hover:text-[#111827]'
           }`}
         >
-          <StoreIcon size={20} strokeWidth={currentPath.startsWith('/stores') ? 2.5 : 1.8} />
+          <StoreIcon size={19} strokeWidth={currentPath.startsWith('/stores') ? 2.5 : 1.8} />
           <span className="text-[10px] mt-0.5">المتاجر</span>
         </button>
 
         <button
           type="button"
-          onClick={() => { setActiveFilter('offers'); navigate('/offers'); }}
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            currentPath.startsWith('/offers') ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold'
+          onClick={() => navigate('/my-orders')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all cursor-pointer ${
+            isOrdersPage ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold hover:text-[#111827]'
           }`}
         >
-          <Tag size={20} strokeWidth={currentPath.startsWith('/offers') ? 2.5 : 1.8} />
-          <span className="text-[10px] mt-0.5">العروض</span>
+          <Clock size={19} strokeWidth={isOrdersPage ? 2.5 : 1.8} />
+          <span className="text-[10px] mt-0.5">طلباتي</span>
         </button>
 
         <button
           type="button"
           onClick={handleOpenCart}
-          className={`flex flex-col items-center justify-center flex-1 py-1 relative ${
-            isCartModalOpen ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold'
+          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all cursor-pointer relative ${
+            isCartModalOpen ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold hover:text-[#111827]'
           }`}
         >
           <div className="relative">
-            <ShoppingBag size={20} strokeWidth={isCartModalOpen ? 2.5 : 1.8} />
+            <ShoppingBag size={19} strokeWidth={isCartModalOpen ? 2.5 : 1.8} />
             {cartItemCount > 0 && (
               <span className="absolute -top-1.5 -left-2 bg-[#FF5900] text-white text-[9px] font-black min-w-[15px] h-3.5 px-0.5 rounded-full flex items-center justify-center">
                 {cartItemCount}
@@ -1114,13 +1099,13 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
 
         <button
           type="button"
-          onClick={handleOpenRegister}
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            isRegisterModalOpen ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold'
+          onClick={() => navigate('/account')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all cursor-pointer ${
+            isAccountPage ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold hover:text-[#111827]'
           }`}
         >
-          <User size={20} strokeWidth={isRegisterModalOpen ? 2.5 : 1.8} />
-          <span className="text-[10px] mt-0.5">{user && !user.isGuest ? 'حسابي' : 'تسجيل'}</span>
+          <User size={19} strokeWidth={isAccountPage ? 2.5 : 1.8} />
+          <span className="text-[10px] mt-0.5">حسابي</span>
         </button>
       </nav>
 
@@ -1128,6 +1113,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
       <ProductModal
         product={selectedProductForModal}
         onClose={() => setSelectedProductForModal(null)}
+        onSelectProduct={(p) => setSelectedProductForModal(p)}
       />
 
       {/* Cart & Checkout Modal (Fallback if not provided by parent) */}
@@ -1143,6 +1129,9 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             setIsRegisterModalOpen(true);
           }}
           onOpenAreaModal={onOpenAreaModal}
+          onOrderPlaced={() => {
+            if (onOpenTrackingModal) onOpenTrackingModal();
+          }}
         />
       )}
 

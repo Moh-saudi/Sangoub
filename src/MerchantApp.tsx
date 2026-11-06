@@ -8,20 +8,6 @@ import { BRAND } from './brand';
 import { MerchantLoginLayout } from './components/MerchantLoginLayout';
 import React, { useEffect, useState, useRef } from "react";
 import {
-  auth,
-  googleProvider,
-  isVerifiedIdentity,
-  db,
-  onAuthStateChanged,
-  syncUserProfileToFirestore,
-  signOutFromFirebase,
-  watchCollection,
-  updateOrderRecord,
-  type FirebaseUser,
-} from "./lib/firebase";
-import { signInWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, setPersistence, browserLocalPersistence, browserSessionPersistence, sendEmailVerification } from "firebase/auth";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
-import {
   Store as StoreIcon,
   ChefHat,
   Lock,
@@ -44,27 +30,26 @@ import {
 import type { Order, Product, Profile, Store } from "./types";
 import { RestaurantPortal } from "./components/RestaurantPortal";
 import { customerMessage } from "./utils/customerMessage";
-import { INITIAL_STORES, INITIAL_PRODUCTS } from "./data/seedData";
+
 
 const SANGOUB_MASCOT = "/assets/sangoub/mascot-cheerful.png";
 const SANGOUB_LOGO = "/brand/sangoub-mark-white-128.png";
 const SANGOUB_WINK = "/assets/sangoub/mascot-wink.png";
 
 export default function MerchantApp() {
-  const [identity, setIdentity] = useState<FirebaseUser | null>(null);
+  const [identity, setIdentity] = useState<{ uid: string; email?: string } | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [access, setAccess] = useState<"checking" | "login" | "denied" | "merchant">("checking");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [remember, setRemember] = useState(false);
   const [busy, setBusy] = useState(false);
   const [revision,setRevision]=useState(0);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   // Data for Restaurant Portal
-  const [stores, setStores] = useState<Store[]>(INITIAL_STORES);
+  const [stores, setStores] = useState<Store[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [productsNextCursor,setProductsNextCursor]=useState<string|null>(null);
@@ -105,48 +90,25 @@ export default function MerchantApp() {
       }
 
       const uid = user.id || user.uid;
-      if (uid === '07492416-8a8e-434b-9094-391abb21272e' || user.email === 'meskllcqa@gmail.com') {
-        if (active) {
-          setIdentity({ uid, email: user.email } as any);
-          setProfile({
-            id: uid,
-            fullName: user.user_metadata?.full_name || 'مدير المنظومة (المشرف العام)',
-            email: user.email || 'meskllcqa@gmail.com',
-            phone: '01222334455',
-            role: 'restaurant',
-            storeId: '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-            duty: 'manager',
-            walletBalance: 0,
-          } as any);
-          setAccess("merchant");
-          setError("");
-        }
-        return;
-      }
       if (active) {
         setIdentity({ uid, email: user.email } as any);
         setAccess("checking");
       }
 
       try {
-        let prof: any = null;
-        try {
-          const res = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
-          if (!res.error && res.data) prof = res.data;
-        } catch {}
-        const role = prof?.role || (uid === '07492416-8a8e-434b-9094-391abb21272e' || user.email === 'meskllcqa@gmail.com' ? 'admin' : 'employee');
-
-        if (role === 'restaurant' || role === 'admin') {
-          const storeId = resolveSupabaseStoreUuid(prof?.store_id);
+        const authority = await operationsApi('operations', { action: 'profile' });
+        if (authority.role === 'restaurant' && authority.storeId) {
+          const storeId = resolveSupabaseStoreUuid(authority.storeId);
+          const { data: prof } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
           if (active) {
             setProfile({
               id: uid,
-              fullName: prof?.full_name || user.user_metadata?.full_name || 'مدير المتجر',
+              fullName: prof?.full_name || authority.displayName || user.user_metadata?.full_name || 'مدير المتجر',
               email: user.email || '',
               phone: prof?.phone || '',
               role: 'restaurant',
               storeId,
-              duty: 'manager',
+              duty: authority.duty || 'manager',
               walletBalance: 0,
             } as any);
             setAccess("merchant");
@@ -155,20 +117,9 @@ export default function MerchantApp() {
           return;
         }
 
-        if (auth.currentUser) {
-          const p = await syncUserProfileToFirestore(auth.currentUser);
-          if (p.role === 'restaurant' || p.role === 'admin') {
-            if (active) {
-              setProfile({ ...p, duty: 'manager' });
-              setAccess("merchant");
-            }
-            return;
-          }
-        }
-
         if (active) {
           setAccess("denied");
-          setError("هذا الحساب ليس مسجلاً كمتجر. تواصل مع الإدارة لاعتماده.");
+          setError("هذا الحساب غير مرتبط بمتجر في صلاحيات Supabase. تواصل مع الإدارة لاعتماده.");
         }
       } catch (e) {
         if (active) {
@@ -183,18 +134,14 @@ export default function MerchantApp() {
       if (session?.user) {
         checkMerchant(session.user);
       } else {
-        onAuthStateChanged(auth, fbUser => {
-          if (!active) return;
-          if (fbUser) checkMerchant(fbUser);
-          else setAccess("login");
-        });
+        setAccess("login");
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
       if (session?.user) checkMerchant(session.user);
-      else if (!auth.currentUser) setAccess("login");
+      else setAccess("login");
     });
 
     return () => {
@@ -203,7 +150,7 @@ export default function MerchantApp() {
     };
   }, [revision]);
   useEffect(()=>{
-    setStores(INITIAL_STORES);setOrders([]);setProducts([]);setCouriers([]);setConnected(false);setCatalogLoading(true);setProductsNextCursor(null);catalogPages.current=1;
+    setStores([]);setOrders([]);setProducts([]);setCouriers([]);setConnected(false);setCatalogLoading(true);setProductsNextCursor(null);catalogPages.current=1;
     if(access!=='merchant'||!profile)return;let active=true,inflight=false;
     const load = async () => {
       if (inflight) return;
@@ -230,7 +177,7 @@ export default function MerchantApp() {
         } else if (Array.isArray(result?.products) && result.products.length > 0) {
           catalog = result.products;
         } else {
-          catalog = INITIAL_PRODUCTS.filter(p => p.storeId === currentStoreId || p.storeId === '27d12743-8106-4ef0-ba3c-84abefdb75d6');
+          catalog = [];
         }
         let cursor = result?.productsNextCursor;
         for (let page = 1; page < catalogPages.current && cursor; page++) {
@@ -241,7 +188,7 @@ export default function MerchantApp() {
           } catch {}
         }
         if (active) {
-          const rawStores = (Array.isArray(sbStores) && sbStores.length > 0) ? sbStores : (Array.isArray(result?.stores) && result.stores.length > 0 ? result.stores : INITIAL_STORES);
+          const rawStores = (Array.isArray(sbStores) && sbStores.length > 0) ? sbStores : (Array.isArray(result?.stores) && result.stores.length > 0 ? result.stores : []);
           const stoppageKey = 'sangoub_store_stoppage_' + currentStoreId;
           let activeStoppage = null;
           try {
@@ -274,8 +221,8 @@ export default function MerchantApp() {
         }
       } catch (e) {
         if (active) {
-          setStores(INITIAL_STORES);
-          setProducts(INITIAL_PRODUCTS.filter(p => p.storeId === (resolveSupabaseStoreUuid(profile.storeId))));
+          setStores([]);
+          setProducts([]);
           setConnected(true);
           setError('');
         }
@@ -287,6 +234,19 @@ export default function MerchantApp() {
     refreshMerchant.current=load;void load();const timer=setInterval(()=>{if(!document.hidden)void load()},15000);return()=>{active=false;clearInterval(timer);refreshMerchant.current=async()=>{}};
   },[access,profile?.id,profile?.storeId]);
 
+  // Handle Logout
+  async function handleLogout() {
+    try {
+      await signOutFromSupabase();
+    } catch {}
+    setIdentity(null);
+    setProfile(null);
+    setStores([]);
+    setOrders([]);
+    setProducts([]);
+    setAccess("login");
+  }
+
   // Handle Login
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -295,16 +255,28 @@ export default function MerchantApp() {
     setError("");
     setNotice("");
     try {
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanPassword = password;
+
       const { data, error: sbErr } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+        email: cleanEmail,
+        password: cleanPassword,
       });
-      if (!sbErr && data.session) {
+      if (!sbErr && data?.session) {
         setRevision(r => r + 1);
         return;
       }
-      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      if (sbErr) {
+        if (sbErr.message?.includes('Invalid login credentials')) {
+          setError("البريد الإلكتروني أو كلمة المرور غير صحيحة.");
+          return;
+        }
+        if (sbErr.message?.includes('Email not confirmed')) {
+          setError("يرجى تأكيد البريد الإلكتروني أولاً.");
+          return;
+        }
+      }
+      setError("بيانات الدخول غير صحيحة. راجع البريد وكلمة المرور.");
     } catch (err: any) {
       setError("بيانات الدخول غير صحيحة. راجع البريد وكلمة المرور.");
     } finally {
@@ -316,10 +288,12 @@ export default function MerchantApp() {
     if (busy) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
-      await signInWithPopup(auth, googleProvider);
-    } catch (err) { setError(customerMessage(err, "تعذر الدخول باستخدام Google. حاول مجددًا.")); }
-    finally { setBusy(false); }
+      await signInWithSupabaseGoogle(window.location.origin + '/merchant');
+    } catch (err) {
+      setError(customerMessage(err, "تعذر الدخول باستخدام Google. حاول مجددًا."));
+    } finally {
+      setBusy(false);
+    }
   }
 
   // Handle Password Reset
@@ -329,9 +303,17 @@ export default function MerchantApp() {
     setBusy(true);
     setError("");
     try {
-      await sendPasswordResetEmail(auth, resetEmail.trim());
+      const { error: sbErr } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+        redirectTo: window.location.origin + '/merchant',
+      });
+      if (!sbErr) {
+        setResetSent(true);
+        setNotice(`تم إرسال رابط استعادة كلمة المرور إلى ${resetEmail} بنجاح.`);
+        return;
+      }
+      if (sbErr) throw sbErr;
       setResetSent(true);
-      setNotice(`تم إرسال رابط إعادة تعيين كلمة المرور إلى ${resetEmail} بنجاح.`);
+      setNotice(`إذا كان البريد مسجلاً، ستصله تعليمات الاستعادة.`);
     } catch (err: any) {
       setError(customerMessage(err, "تعذر إرسال رابط الاستعادة. تأكد من صحة البريد."));
     } finally {
@@ -482,16 +464,15 @@ export default function MerchantApp() {
           <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
             <AlertCircle size={32} />
           </div>
-          <h2 className="text-lg font-black text-slate-900">{identity&&!isVerifiedIdentity(identity)?'أكد بريد الحساب أولًا':'حساب غير مصرح له كتاجر'}</h2>
+          <h2 className="text-lg font-black text-slate-900">حساب غير مصرح له كتاجر</h2>
           {error&&<p role="alert" className="text-red-700">{error}</p>}
-          {identity&&!isVerifiedIdentity(identity)&&<div className="space-y-2"><button className="p-3 border rounded-lg" disabled={busy} onClick={async()=>{setBusy(true);try{await sendEmailVerification(identity);setError('أرسلت رسالة تأكيد البريد.')}catch(e){setError(customerMessage(e,'تعذر الإرسال.'))}finally{setBusy(false)}}}>إرسال تأكيد البريد</button><button className="p-3 border rounded-lg" disabled={busy} onClick={async()=>{setBusy(true);try{await identity.reload();await identity.getIdToken(true);setRevision(v=>v+1)}catch(e){setError(customerMessage(e,'تعذر التحقق.'))}finally{setBusy(false)}}}>تم التأكيد، إعادة الفحص</button></div>}
           <p className="text-xs text-slate-600 leading-relaxed">
             الحساب الحالي مسجل كـ (<strong>{profile?.role === "employee" ? "عميل بالحي الحكومي" : profile?.role || "مستخدم"}</strong>).
             هذه البوابة مخصصة حصرياً للمطابخ والمتاجر الشريكة المعتمدة في سنجوب.
           </p>
           <div className="pt-2 flex flex-col gap-2">
             <button
-              onClick={() => signOutFromFirebase()}
+              onClick={handleLogout}
               className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
             >
               تسجيل الخروج والتبديل لحساب التاجر
@@ -510,7 +491,7 @@ export default function MerchantApp() {
 
   // RENDER: 3. Logged-in Merchant Portal
   if (access === "merchant" && profile) {
-    const safeStores = Array.isArray(stores) && stores.length > 0 ? stores : INITIAL_STORES;
+    const safeStores = Array.isArray(stores) && stores.length > 0 ? stores : [];
     const userStore = safeStores.find((s) => s.id === profile?.storeId) || safeStores[0];
     const activeItems = Array.isArray(feed?.items) ? feed.items : [];
 
@@ -574,7 +555,7 @@ export default function MerchantApp() {
 
               <button
                 type="button"
-                onClick={() => signOutFromFirebase()}
+                onClick={handleLogout}
                 title="تسجيل الخروج"
                 className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
               >
@@ -653,7 +634,6 @@ export default function MerchantApp() {
               <strong>بوابة مخصصة لطاقم المتجر المعتمد:</strong> يتم إنشاء حسابات التجار وتعيين الصلاحيات من خلال إدارة سنجوب أو مدير المتجر حصراً.
             </div>
             <form onSubmit={handleLogin} className="space-y-4" aria-label="دخول التاجر">
-              <label className="merchant-entry-remember"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)} />تذكرني على هذا الجهاز</label>
               <div>
                 <label htmlFor="merchant-email" className="block text-slate-700 font-bold mb-1.5 flex items-center gap-1.5">
                   <Mail size={14} className="text-slate-400" />

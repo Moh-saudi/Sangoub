@@ -117,6 +117,8 @@ export const ProfileView: React.FC<Props> = ({
               <img
                 src={avatarUrl}
                 alt="الصورة الشخصية"
+                referrerPolicy="no-referrer"
+                onError={() => setAvatarUrl("")}
                 className="w-16 h-16 rounded-full object-cover border-2 border-orange-500 shadow-xs"
               />
             ) : (

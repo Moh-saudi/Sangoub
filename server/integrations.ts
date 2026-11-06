@@ -8,6 +8,7 @@
  */
 
 import crypto from "node:crypto";
+const APP_URL = (process.env.APP_URL || "https://capital-talabat.vercel.app").replace(/\/$/, "");
 
 export const ASIMA_CONFIG = {
   geidea: {
@@ -32,10 +33,10 @@ export const ASIMA_CONFIG = {
     },
     callbackUrl:
       process.env.GEIDEA_CALLBACK_URL ||
-      "https://capital-talabat.vercel.app/api/geidea/callback",
+      `${APP_URL}/api/geidea/callback`,
     returnUrl:
       process.env.GEIDEA_RETURN_URL ||
-      "https://capital-talabat.vercel.app/checkout/success",
+      `${APP_URL}/checkout/success`,
     environment: (process.env.GEIDEA_ENVIRONMENT || "production") as
       | "production"
       | "test",
@@ -140,7 +141,7 @@ export class GeideaGateway {
           lastName: nameParts.slice(1).join(" ") || "العاصمة",
         },
         metadata: {
-          system: "Talabat_Al_Asima",
+          system: "Sangoub",
           orderId: options.orderId,
         },
       };

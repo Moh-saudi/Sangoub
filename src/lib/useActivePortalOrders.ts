@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { collection, limit, onSnapshot, query, where } from 'firebase/firestore';
-import { auth, db } from './firebase';
 import { operationsApi } from './operationsApi';
+import { supabase } from './supabase';
 export function useActivePortalOrders(uid: string | undefined, storeId?: string) {
   const [items, setItems] = useState<any[]>([]),
     [loading, setLoading] = useState(true),
@@ -60,22 +59,20 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
     };
     refresher.current = load;
     void load();
-    const stop = onSnapshot(query(collection(db, storeId ? `storeOrderSignals/${storeId}/orders` : `courierOrderSignals/${uid}/orders`), where('active', '==', true), limit(50)), {
-      includeMetadataChanges: true
-    }, snapshot => {
-      if (!active) return;
-      liveConnected = !snapshot.metadata.fromCache;
-      setLive(liveConnected);
-      if (liveConnected) {
+    const filter = storeId ? `store_id=eq.${storeId}` : `courier_id=eq.${uid}`;
+    const channel = supabase.channel(`portal-orders:${storeId || uid}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter }, () => {
+        if (!active) return;
+        liveConnected = true;
+        setLive(true);
         clearTimeout(queued);
         queued = setTimeout(() => void load(), 100);
-      }
-    }, e => {
-      if (!active) return;
-      liveConnected = false;
-      setLive(false);
-      // Firestore realtime signal fallback
-    });
+      })
+      .subscribe(status => {
+        if (!active) return;
+        liveConnected = status === 'SUBSCRIBED';
+        setLive(liveConnected);
+      });
     const reconnect = () => {
       setOnline(navigator.onLine);
       if (navigator.onLine) void load();else setLive(false);
@@ -92,7 +89,7 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
     }, 30000);
     return () => {
       active = false;
-      stop();
+      void supabase.removeChannel(channel);
       clearInterval(timer);
       clearTimeout(queued);
       window.removeEventListener('online', reconnect);

@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { BRAND } from '../../brand';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import { 
   Search, 
   ShoppingBag, 
-  Heart, 
   User, 
   MapPin, 
   Menu, 
@@ -15,7 +14,8 @@ import {
   Phone,
   Tag,
   Clock,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck
 } from 'lucide-react';
 
 interface StoreHeaderProps {
@@ -42,7 +42,14 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
   } = useStore();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+
+  const isAdmin = user?.role === 'admin' || user?.email === 'meskllcqa@gmail.com' || user?.id === '07492416-8a8e-434b-9094-391abb21272e';
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatarUrl]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,10 +60,10 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
 
   const navLinks = [
     { label: 'الرئيسية', path: '/' },
-    { label: 'تتبع طلبك المباشر 🛵', path: '/track' },
-    { label: 'أقسام المتجر', path: '/categories' },
-    { label: 'المتاجر والشركاء', path: '/stores' },
+    { label: 'المتاجر والشركاء ⭐', path: '/stores' },
     { label: 'عروض اليوم الحصرية 🔥', path: '/offers' },
+    { label: 'أقسام المتجر', path: '/categories' },
+    { label: 'طلباتي السابقة', path: '/my-orders' },
     { label: 'سلة المشتريات', path: '/cart' },
     { label: 'المفضلة', path: '/wishlist' },
     { label: 'من نحن', path: '/about' },
@@ -68,16 +75,20 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
   return (
     <>
       {/* ══════════════════════════════════════════════════════════════
-          TALABAT SIGNATURE CLEAN WHITE & ORANGE HEADER
+          TALABAT SIGNATURE CLEAN WHITE & ORANGE HEADER (STICKY FIXED)
           ══════════════════════════════════════════════════════════════ */}
-      <header className="sticky top-0 z-50 bg-white border-b border-[#F0F1F3] shadow-xs" dir="rtl">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+      <header
+        className="sticky top-0 z-50 bg-white border-b border-[#E5E7EB] shadow-xs w-full sangoub-sticky-header"
+        style={{ position: 'sticky', top: 0, zIndex: 50 }}
+        dir="rtl"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          {/* Main Top Bar */}
-          <div className="flex items-center justify-between gap-3 sm:gap-6 h-16">
+          {/* Main Top Bar - Spacious, Elegant & Balanced */}
+          <div className="flex items-center justify-between gap-3 sm:gap-6 h-[68px]">
             
             {/* Right: Hamburger & Brand Logo */}
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setDrawerOpen(true)}
@@ -94,17 +105,17 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
                 className="flex items-center gap-2 text-decoration-none group"
                 aria-label="الرئيسية"
               >
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white flex items-center justify-center overflow-hidden">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white border border-[#E5E7EB] flex items-center justify-center overflow-hidden shadow-2xs group-hover:border-[#FF5900]/40 transition-all">
                   <img 
                     src="/brand/sangoub-mark-white-128.png"
-                    alt="شعار سنجوب Sangoub" 
+                    alt="سنجوب" 
                     className="w-full h-full object-contain group-hover:scale-105 transition-transform"
-                    width="28" 
-                    height="28" 
+                    width="32" 
+                    height="32" 
                   />
                 </div>
                 <div className="flex flex-col leading-none">
-                  <span className="text-base sm:text-lg font-black text-[#FF5900] tracking-tight">
+                  <span className="text-lg sm:text-xl font-black text-[#FF5900] tracking-tight">
                     سنجوب
                   </span>
                   <span className="text-[9px] font-bold text-[#6B7280] tracking-wider uppercase">
@@ -114,51 +125,65 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
               </a>
             </div>
 
-            {/* Middle: Talabat-Style Location Delivery Chip (Desktop & Tablet) */}
+            {/* Middle: Talabat-Style Compact Location Delivery Chip (Desktop & Tablet) */}
             <button
               type="button"
               onClick={onOpenAreaModal}
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] hover:border-[#FF5900]/40 transition-all cursor-pointer shrink-0 text-right"
+              className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] hover:border-[#FF5900]/40 transition-all cursor-pointer shrink-0 text-right group"
               title="انقر لتغيير منطقة التوصيل"
             >
-              <div className="w-7 h-7 rounded-xl bg-[#FFF2EC] text-[#FF5900] flex items-center justify-center shrink-0">
-                <MapPin size={15} />
+              <div className="w-6 h-6 rounded-lg bg-[#FFF2EC] text-[#FF5900] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <MapPin size={13} />
               </div>
-              <div className="flex flex-col leading-tight max-w-[170px] lg:max-w-[220px]">
-                <span className="text-[10px] font-bold text-[#6B7280]">
+              <div className="flex flex-col leading-tight max-w-[110px] lg:max-w-[135px]">
+                <span className="text-[9px] font-bold text-[#6B7280]">
                   التوصيل إلى:
                 </span>
-                <span className="text-xs font-black text-[#111827] truncate flex items-center gap-1">
-                  <span>{serviceArea.name || 'حدد موقعك على الخريطة'}</span>
-                  <ChevronDown size={12} className="text-[#FF5900]" />
+                <span className="text-[11px] font-black text-[#111827] group-hover:text-[#FF5900] truncate">
+                  {serviceArea.name || 'حدد موقعك'}
                 </span>
               </div>
+              <ChevronDown size={11} className="text-[#FF5900] shrink-0" />
             </button>
 
-            {/* Center: Search Bar (Desktop) */}
-            <form onSubmit={handleSearchSubmit} className="hidden sm:flex flex-1 max-w-md mx-2">
-              <div className="flex items-center w-full bg-[#F3F4F6] rounded-2xl border border-[#E5E7EB] focus-within:border-[#FF5900] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#FF5900]/10 transition-all p-1">
-                <Search size={16} className="text-[#9CA3AF] mr-2 shrink-0 pointer-events-none" />
+            {/* Center: Search Bar (Desktop) - Clean & Integrated */}
+            <form onSubmit={handleSearchSubmit} className="hidden sm:flex flex-1 max-w-lg mx-2 lg:mx-6">
+              <div className="relative flex items-center w-full bg-[#F3F4F6] hover:bg-[#EFEFF2] focus-within:bg-white rounded-2xl border border-[#E5E7EB] focus-within:border-[#FF5900] focus-within:ring-3 focus-within:ring-[#FF5900]/15 transition-all px-3 py-2">
+                <Search size={17} className="text-[#9CA3AF] shrink-0 ml-2 pointer-events-none" />
                 <input
                   type="search"
-                  className="w-full bg-transparent text-xs sm:text-sm text-[#111827] placeholder-[#9CA3AF] px-2 py-1 outline-none"
-                  placeholder="ابحث عن صنف أو بقالة…"
+                  style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
+                  className="w-full bg-transparent text-xs sm:text-sm text-[#111827] placeholder-[#9CA3AF] !outline-none !border-none !ring-0 !shadow-none font-medium"
+                  placeholder="ابحث عن وجبة، بقالة، صيدلية، أو متجر…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   aria-label="بحث في المتجر"
                 />
-                <button 
-                  type="submit" 
-                  className="px-3.5 py-1.5 bg-[#FF5900] hover:bg-[#E04E00] text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0"
-                  aria-label="بحث"
-                >
-                  بحث
-                </button>
+                {searchQuery.trim() && (
+                  <button 
+                    type="submit" 
+                    className="px-3 py-1 bg-[#FF5900] hover:bg-[#E04E00] text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0"
+                    aria-label="بحث"
+                  >
+                    بحث
+                  </button>
+                )}
               </div>
             </form>
 
-            {/* Left: Actions (User, Wishlist, Cart) */}
+            {/* Left: Actions (User, My Orders, Wishlist, Order Tracking if active, Cart) */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              
+              {/* My Orders Button (Desktop Direct Access) */}
+              <button
+                type="button"
+                onClick={() => navigate('/my-orders')}
+                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl hover:bg-[#F9FAFB] text-[#374151] hover:text-[#FF5900] border border-transparent hover:border-[#E5E7EB] transition-colors cursor-pointer text-xs font-bold"
+                title="طلباتي السابقة"
+              >
+                <Clock size={15} className="text-[#FF5900]" />
+                <span>طلباتي</span>
+              </button>
               
               {/* Account button */}
               <button
@@ -167,57 +192,60 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
                 className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-2xl hover:bg-[#F9FAFB] transition-colors cursor-pointer text-right"
                 title={user ? user.fullName || 'حسابي' : 'تسجيل الدخول'}
               >
-                <div className="w-8 h-8 rounded-full bg-[#F3F4F6] text-[#374151] flex items-center justify-center">
-                  <User size={16} />
+                <div className="w-8 h-8 rounded-full bg-[#F3F4F6] text-[#374151] overflow-hidden flex items-center justify-center shrink-0">
+                  {user?.avatarUrl && !avatarError ? (
+                    <img 
+                      src={user.avatarUrl} 
+                      alt="" 
+                      referrerPolicy="no-referrer"
+                      onError={() => setAvatarError(true)}
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : user ? (
+                    <div className="w-full h-full flex items-center justify-center font-black text-xs bg-orange-100 text-[#FF5900]">
+                      {user.fullName?.trim().charAt(0).toUpperCase() || user.email?.trim().charAt(0).toUpperCase() || 'س'}
+                    </div>
+                  ) : (
+                    <User size={16} />
+                  )}
                 </div>
                 <div className="flex flex-col leading-tight">
-                  <span className="text-[10px] text-[#9CA3AF]">
-                    {user ? 'أهلاً بك،' : 'تسجيل'}
+                  <span className="text-[10px] text-[#9CA3AF] flex items-center gap-1">
+                    {user ? (isAdmin ? 'مدير النظام' : 'أهلاً بك،') : 'تسجيل'}
+                    {isAdmin && <ShieldCheck size={10} className="text-purple-600 inline" />}
                   </span>
-                  <span className="text-xs font-black text-[#111827] truncate max-w-[80px]">
+                  <span className="text-xs font-black text-[#111827] truncate max-w-[85px]">
                     {user ? user.fullName?.split(' ')[0] || 'حسابي' : 'الدخول'}
                   </span>
                 </div>
               </button>
 
-              {/* Wishlist */}
-              <button
-                type="button"
-                onClick={() => navigate('/wishlist')}
-                className="relative p-2 rounded-2xl hover:bg-[#FFF5F0] text-[#374151] hover:text-[#FF5900] transition-colors cursor-pointer"
-                aria-label="المفضلة"
-                title="المفضلة"
-              >
-                <Heart size={20} />
-                {wishlistIds.length > 0 && (
-                  <span className="absolute top-1 left-1 bg-[#FF5900] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
-                    {wishlistIds.length}
-                  </span>
-                )}
-              </button>
 
-              {/* Live Tracking Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (onOpenTrackingModal) onOpenTrackingModal();
-                  else navigate('/track');
-                }}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-black border border-emerald-200 transition-all cursor-pointer shadow-2xs"
-                title="تتبع الطلب المباشر"
-              >
-                <div className="w-5 h-5 rounded-full overflow-hidden shrink-0">
-                  <img src="/assets/sangoub/sangoub-trio-7.png" alt="موتوسيكل سنجوب" className="w-full h-full object-contain" />
-                </div>
-                <span>تتبع الطلب</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              </button>
+
+              {/* Live Tracking Button - ONLY RENDERED WHEN THERE IS AN ACTUAL LIVE ACTIVE ORDER */}
+              {hasActiveOrder && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenTrackingModal) onOpenTrackingModal();
+                    else navigate('/track');
+                  }}
+                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-black border border-emerald-200 transition-all cursor-pointer shadow-2xs"
+                  title="تتبع الطلب الجاري"
+                >
+                  <div className="w-5 h-5 rounded-full overflow-hidden shrink-0">
+                    <img src="/assets/sangoub/sangoub-trio-7.png" alt="موتوسيكل سنجوب" className="w-full h-full object-contain" />
+                  </div>
+                  <span>تتبع طلبك</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                </button>
+              )}
 
               {/* Talabat Orange Cart Button */}
               <button
                 type="button"
                 onClick={() => navigate('/cart')}
-                className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-2xl bg-[#FF5900] hover:bg-[#E04E00] active:scale-97 text-white font-bold transition-all shadow-sm shadow-[#FF5900]/25 cursor-pointer"
+                className="flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-2xl bg-[#FF5900] hover:bg-[#E04E00] active:scale-97 text-white font-bold transition-all shadow-sm shadow-[#FF5900]/25 cursor-pointer"
                 aria-label="سلة المشتريات"
                 title="السلة"
               >
@@ -263,7 +291,8 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
               <Search size={15} className="text-[#9CA3AF] mr-2 shrink-0 pointer-events-none" />
               <input
                 type="search"
-                className="w-full bg-transparent text-xs text-[#111827] placeholder-[#9CA3AF] px-2 py-1 outline-none"
+                style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
+                className="w-full bg-transparent text-xs text-[#111827] placeholder-[#9CA3AF] px-2 py-1 !outline-none !border-none !ring-0 !shadow-none font-medium"
                 placeholder="ابحث عن صنف أو بقالة…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -297,15 +326,29 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
             {/* Drawer Header */}
             <div className="bg-[#FF5900] text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
-                  <User size={20} className="text-white" />
+                <div className="w-10 h-10 rounded-2xl bg-white/20 overflow-hidden flex items-center justify-center shrink-0">
+                  {user?.avatarUrl && !avatarError ? (
+                    <img 
+                      src={user.avatarUrl} 
+                      alt="" 
+                      referrerPolicy="no-referrer"
+                      onError={() => setAvatarError(true)}
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : user ? (
+                    <div className="w-full h-full flex items-center justify-center font-black text-sm bg-white/30 text-white">
+                      {user.fullName?.trim().charAt(0).toUpperCase() || user.email?.trim().charAt(0).toUpperCase() || 'س'}
+                    </div>
+                  ) : (
+                    <User size={20} className="text-white" />
+                  )}
                 </div>
                 <div>
                   <h3 className="font-black text-sm">
                     {user ? `أهلاً، ${user.fullName || 'ضيفنا'}` : 'أهلاً بك في سنجوب | Sangoub'}
                   </h3>
                   <p className="text-[11px] text-white/80">
-                    أسرع توصيل لمكاتب ومنازل العاصمة
+                    {isAdmin ? 'مدير النظام المعتمد 🛡️' : 'أسرع توصيل لمكاتب ومنازل العاصمة'}
                   </p>
                 </div>
               </div>
@@ -351,18 +394,20 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
                 <span className="text-[11px] font-black text-[#9CA3AF] uppercase px-3 block mb-2">
                   تواصل ودعم
                 </span>
-                <a
-                  href={BRAND.supportUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full text-right px-3.5 py-2.5 rounded-xl text-xs font-bold text-[#059669] hover:bg-[#ECFDF5] transition-colors flex items-center justify-between"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    navigate('/contact');
+                  }}
+                  className="w-full text-right px-3.5 py-2.5 rounded-xl text-xs font-bold text-[#111827] hover:bg-[#F3F4F6] transition-colors flex items-center justify-between cursor-pointer"
                 >
                   <span className="flex items-center gap-2">
-                    <Phone size={15} />
-                    <span>خدمة العملاء (واتساب)</span>
+                    <Phone size={15} className="text-[#FF5900]" />
+                    <span>خدمة العملاء والمساعدة</span>
                   </span>
-                  <span className="text-[10px] bg-[#059669] text-white px-2 py-0.5 rounded-full font-bold">24/7</span>
-                </a>
+                  <span className="text-[10px] bg-[#FF5900] text-white px-2 py-0.5 rounded-full font-bold">24/7</span>
+                </button>
               </div>
             </div>
 

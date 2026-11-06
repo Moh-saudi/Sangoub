@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/StoreContext';
 import type { Product } from '../../types';
 import { formatEGP } from '../../utils/orderCalculations';
+import { getStoreImage, getStoreLogo, getStoreSlug, resolveStoreSlug } from '../../utils/storeAssets';
 import {
   ArrowRight,
   Star,
@@ -34,17 +35,53 @@ export const StoreDetailsPage: React.FC<StoreDetailsPageProps> = ({
 
   // Find the target store
   const store = useMemo(() => {
+    const canonicalId = resolveStoreSlug(storeId);
     return stores.find(
-      (s) => s.id === storeId || s.id === decodeURIComponent(storeId) || s.name === storeId
+      (s) =>
+        s.id === canonicalId ||
+        s.id === storeId ||
+        getStoreSlug(s) === storeId ||
+        s.id === decodeURIComponent(storeId) ||
+        s.name === storeId ||
+        s.name === decodeURIComponent(storeId) ||
+        (storeId.includes('sangoub') && (s.id === 'a0000000-0000-0000-0000-000000000001' || s.name.includes('سنجوب')))
     ) || stores[0];
   }, [stores, storeId]);
+
+  // Clean, professional URL slug in address bar (e.g. /stores/sangoub-market instead of raw UUID)
+  React.useEffect(() => {
+    if (store) {
+      const friendlySlug = getStoreSlug(store);
+      const current = window.location.pathname;
+      if (current.includes('a0000000-0000-0000-0000-000000000001') || (store.id && current === `/stores/${store.id}`)) {
+        window.history.replaceState({}, '', `/stores/${friendlySlug}`);
+      }
+    }
+  }, [store]);
 
   // Find all products belonging to this store
   const storeProducts = useMemo(() => {
     if (!store) return [];
-    return products.filter(
-      (p) => p.storeId === store.id || p.storeName === store.name || (p.storeId && store.id && p.storeId.includes(store.id))
-    );
+    return products.filter((p) => {
+      const isSangoub =
+        store.id === 'a0000000-0000-0000-0000-000000000001' ||
+        store.name?.includes('سنجوب');
+
+      if (isSangoub) {
+        return (
+          p.storeId === 'a0000000-0000-0000-0000-000000000001' ||
+          p.storeId === '54a6c2f6-6c29-4177-ac65-32fadddea83d' ||
+          !p.storeId ||
+          p.storeName?.includes('سنجوب')
+        );
+      }
+
+      return (
+        p.storeId === store.id ||
+        p.storeName === store.name ||
+        (p.storeId && store.id && p.storeId.includes(store.id))
+      );
+    });
   }, [products, store]);
 
   // Categories available inside this store
@@ -93,7 +130,7 @@ export const StoreDetailsPage: React.FC<StoreDetailsPageProps> = ({
       <div className="relative bg-[#111827] text-white">
         <div className="relative h-44 sm:h-64 w-full bg-slate-800 overflow-hidden">
           <img
-            src={store.bannerUrl || store.imageUrl || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=1200&q=80'}
+            src={getStoreImage(store)}
             alt={store.name}
             className="w-full h-full object-cover opacity-75"
           />
@@ -115,11 +152,18 @@ export const StoreDetailsPage: React.FC<StoreDetailsPageProps> = ({
           <div className="bg-white rounded-3xl p-4 sm:p-6 border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-slate-900">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white border-2 border-orange-100 shadow-md overflow-hidden flex items-center justify-center shrink-0">
-                {store.logoUrl ? (
-                  <img src={store.logoUrl} alt={store.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-3xl">{store.logo || '🏪'}</span>
-                )}
+                <img
+                  src={getStoreLogo(store)}
+                  alt={store.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget as HTMLImageElement;
+                    target.style.display = 'none';
+                    if (target.parentElement) {
+                      target.parentElement.innerHTML = `<span class="text-3xl">🏪</span>`;
+                    }
+                  }}
+                />
               </div>
 
               <div>
@@ -300,6 +344,7 @@ export const StoreDetailsPage: React.FC<StoreDetailsPageProps> = ({
       <ProductModal
         product={selectedProductForModal}
         onClose={() => setSelectedProductForModal(null)}
+        onSelectProduct={(p) => setSelectedProductForModal(p)}
       />
     </div>
   );

@@ -1,4 +1,6 @@
 import avatarHandler from './api/user-avatar.ts';
+import portalAuthHandler from './api/portal-auth.ts';
+import partnerApplicationHandler from './api/partner-application.ts';
 import express from "express";
 import visitorsHandler from "./api/visitors.ts";
 import operationsHandler from "./api/operations.ts";
@@ -27,7 +29,8 @@ async function startServer() {
   const PORT = Number(process.env.PORT || 3000);
 
   app.use((_req, res, next) => { res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups"); next(); });
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: "10mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
   app.get("/api/visitors", visitorsHandler);
   app.post("/api/visitors", visitorsHandler);
   app.post("/api/operations", operationsHandler);
@@ -39,7 +42,10 @@ async function startServer() {
   app.options("/api/admin-users", adminUsersHandler);
   app.post("/api/admin-data", adminDataHandler);
   app.options("/api/admin-data", adminDataHandler);
+  app.post("/api/partner-application", partnerApplicationHandler);
   app.post("/api/user-avatar", avatarHandler);
+  app.post("/api/auth/login", portalAuthHandler);
+  app.options("/api/auth/login", portalAuthHandler);
   app.options("/api/user-avatar", avatarHandler);
   app.post("/api/orders", ordersHandler);
   app.options("/api/orders", ordersHandler);

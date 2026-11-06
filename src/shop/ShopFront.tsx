@@ -16,6 +16,7 @@ import { useShop } from "./ShopContext";
 import { CustomerLogin } from "./CustomerLogin";
 import { ProductPicker } from "./ProductPicker";
 import { openGeideaPayment } from "./geideaCheckout";
+import { getStoreSlug } from "../utils/storeAssets";
 import "./shop.css";
 
 function ItemImage({ src, name }: { src?: string; name: string }) {
@@ -112,7 +113,7 @@ function Stores() {
         {filtered.map((store) => (
           <a
             className="shop-store-card"
-            href={"/stores/" + encodeURIComponent(store.id)}
+            href={"/stores/" + getStoreSlug(store)}
             key={store.id}
           >
             <ItemImage

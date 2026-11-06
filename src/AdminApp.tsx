@@ -5,12 +5,12 @@ import { operationsApi } from "./lib/operationsApi";
 import { adminApi } from "./lib/adminApi";
 import "./admin.css";
 import { useEffect, useState, useRef } from "react";
-import { LogOut, ShieldCheck, Loader2, Eye, EyeOff, Mail, LockKeyhole, ArrowLeft, UserCheck } from "lucide-react";
-import { supabase, signInWithSupabaseGoogle, signOutFromSupabase, getSupabaseStores, getSupabaseProducts } from "./lib/supabase";
-import { subscribeToOrders, watchCollection, saveRecord, updateOrderRecord, approvePartner } from "./lib/firebase";
+import { LogOut, ShieldCheck, Loader2, Eye, EyeOff, Mail, LockKeyhole, ArrowLeft } from "lucide-react";
+import { supabase, signInWithSupabaseGoogle, signOutFromSupabase, getSupabaseStores, getSupabaseProducts, subscribeToCatalog, subscribeToAdminOrders } from "./lib/supabase";
+import { updateOrderRecord, approvePartner } from "./lib/firebase";
 import { AdminWorkspace } from "./components/AdminWorkspace";
 import { AdminDashboard } from "./components/AdminDashboard";
-import type { AdminStaff } from "./components/AdminSetupPanel";
+import type { AdminStaff } from "./types/admin";
 import type { Profile, Store, Product, Order, Coupon, PartnerApplication, JobApplication, ApplicationStatus } from "./types";
 
 const logo = "/brand/sangoub-mark-white-128.png";
@@ -67,42 +67,26 @@ export default function AdminApp() {
       }
 
       setIdentity(user);
-      if (user.id === '07492416-8a8e-434b-9094-391abb21272e' || user.email === 'meskllcqa@gmail.com') {
-        if (active) {
-          setProfile({
-            id: user.id,
-            fullName: user.user_metadata?.full_name || user.email?.split("@")[0] || "مدير النظام",
-            email: user.email || "",
-            role: "admin",
-          } as any);
-          setAccess("admin");
-          setError("");
-        }
-        return;
-      }
       setAccess("checking");
 
       try {
-        const { data: prof, error: profError } = await supabase
+        const authority = await operationsApi('operations', { action: 'profile' });
+        if (authority.role === 'admin') {
+          const { data: prof } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", user.id)
           .maybeSingle();
-
-        if (profError) console.error("Error fetching admin profile:", profError);
-
-        const isOwnerAdmin = user.id === '07492416-8a8e-434b-9094-391abb21272e' || (typeof localStorage !== 'undefined' && localStorage.getItem("sangoub_local_admin_uid") === user.id);
-        if ((prof && prof.role === "admin") || isOwnerAdmin) {
           setProfile((prof as Profile) || {
             id: user.id,
-            fullName: user.user_metadata?.full_name || user.email?.split("@")[0] || "مدير النظام",
+            fullName: authority.displayName || user.user_metadata?.full_name || user.email?.split("@")[0] || "مدير النظام",
             email: user.email || "",
             role: "admin",
           } as Profile);
           setAccess("admin");
           setError("");
         } else {
-          setProfile(prof as Profile || null);
+          setProfile(null);
           setAccess("denied");
         }
       } catch (err) {
@@ -113,7 +97,7 @@ export default function AdminApp() {
       }
     }
 
-    // 1. Check existing session
+    // Check the Supabase session; portal roles are verified by the server.
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!active) return;
       if (session?.user) {
@@ -139,49 +123,74 @@ export default function AdminApp() {
     setOrders([]); setStores([]); setProducts([]); setStaff([]); setCoupons([]); setPartners([]); setJobs([]); setConnected(false);
     if (access !== "admin" || !profile) return;
     let active = true;
+
+    // Direct Supabase catalog loading
+    const loadAdminCatalog = () => {
+      Promise.all([
+        getSupabaseStores().catch(() => [] as Store[]),
+        getSupabaseProducts().catch(() => [] as Product[])
+      ]).then(([spStores, spProducts]) => {
+        if (!active) return;
+        const storeMap = new Map<string, Store>();
+        spStores.forEach(s => storeMap.set(s.id, s));
+
+        // Ensure "سنجوب ماركت" is present
+        if (!storeMap.has('a0000000-0000-0000-0000-000000000001')) {
+          storeMap.set('a0000000-0000-0000-0000-000000000001', {
+            id: 'a0000000-0000-0000-0000-000000000001',
+            name: 'سنجوب ماركت',
+            nameEn: 'Sangoub Market',
+            type: 'سوبرماركت ومستلزمات البيت اليومية',
+            category: 'supermarket',
+            logo: '/brand/sangoub-market-logo.jpg',
+            logoUrl: '/brand/sangoub-market-logo.jpg',
+            banner: '/brand/sangoub-market-logo.jpg',
+            bannerUrl: '/brand/sangoub-market-logo.jpg',
+            status: 'open',
+            rating: 5,
+            ratingCount: 1250,
+            deliveryTime: '15-25 دقيقة',
+            minOrder: 20,
+            deliveryFee: 10,
+            locationInDistrict: 'الحي الحكومي - مركز سنجوب',
+          });
+        }
+        const mergedStores = Array.from(storeMap.values());
+        setStores(mergedStores);
+        setProducts(spProducts);
+      }).catch(err => {
+        console.warn('[AdminApp] Supabase catalog load error:', err);
+      });
+    };
+
+    loadAdminCatalog();
+    void adminApi('users', { action: 'list' }).then(result => {
+      if (!active) return;
+      setStaff((result.users || []).filter((user: any) => !user.disabled && ['restaurant', 'courier'].includes(user.role)).map((user: any) => ({
+        id: user.uid, role: user.role, name: user.fullName, phone: user.phone, storeId: user.storeId,
+      })));
+    }).catch(err => { if (active) console.warn('[AdminApp] Supabase account load error:', err); });
+
+    const unsubCatalog = subscribeToCatalog(
+      () => { loadAdminCatalog(); },
+      () => { loadAdminCatalog(); }
+    );
+    const loadApplications = async () => {
+      const collections = await Promise.all(['coupons','partnerApplications','jobApplications'].map(collection =>
+        adminApi('data',{action:'application-list',collection}).catch(() => ({items:[]}))
+      ));
+      if (!active) return;
+      setCoupons(collections[0].items || []);
+      setPartners(collections[1].items || []);
+      setJobs(collections[2].items || []);
+    };
+    void loadApplications();
+    const applicationsTimer = window.setInterval(() => { if (!document.hidden) void loadApplications(); }, 20000);
+
     const stops = [
-      subscribeToOrders(profile, setOrders, () => {}, setConnected),
-      watchCollection<Store>("stores", data => {
-        getSupabaseStores().then(spStores => {
-          if (!active) return;
-          const storeMap = new Map<string, Store>();
-          data.forEach(s => storeMap.set(s.id, s));
-          spStores.forEach(s => storeMap.set(s.id, s));
-          const merged = Array.from(storeMap.values());
-          setStores(merged);
-          void adminApi("data", { action: "contract-list" }).then(result => {
-            if (active && result?.contracts) {
-              const rates = new Map(result.contracts.map((c: any) => [c.id, c.commissionRate]));
-              setStores(merged.map(store => ({ ...store, ...(rates.has(store.id) ? { commissionRate: rates.get(store.id) as number } : {}) })));
-            }
-          }).catch(() => {});
-        }).catch(() => {
-          if (active) setStores(data);
-        });
-      }, () => {
-        getSupabaseStores().then(spStores => {
-          if (active && spStores.length) setStores(spStores);
-        });
-      }),
-      watchCollection<Product>("products", data => {
-        getSupabaseProducts().then(spProducts => {
-          if (!active) return;
-          const prodMap = new Map<string, Product>();
-          data.forEach(p => prodMap.set(p.id, p));
-          spProducts.forEach(p => prodMap.set(p.id, p));
-          setProducts(Array.from(prodMap.values()));
-        }).catch(() => {
-          if (active) setProducts(data);
-        });
-      }, () => {
-        getSupabaseProducts().then(spProducts => {
-          if (active && spProducts.length) setProducts(spProducts);
-        });
-      }),
-      watchCollection<AdminStaff>("staff", setStaff, () => {}),
-      watchCollection<Coupon>("coupons", setCoupons, () => {}),
-      watchCollection<PartnerApplication>("partnerApplications", setPartners, () => {}),
-      watchCollection<JobApplication>("jobApplications", setJobs, () => {}),
+      subscribeToAdminOrders(setOrders, () => {}, setConnected),
+      () => { unsubCatalog(); },
+      () => window.clearInterval(applicationsTimer),
     ];
     return () => { active = false; stops.forEach(stop => stop()); };
   }, [profile?.id, access]);
@@ -216,7 +225,7 @@ export default function AdminApp() {
   }
 
   const updateApplication = (collection: string, id: string, status: ApplicationStatus) => {
-    void action(() => saveRecord(collection, id, { status }), "تم تحديث الطلب.");
+    void action(() => adminApi('data',{action:'application-status',collection,id,status}), "تم تحديث الطلب.");
   };
 
   const approveStore = (partner: PartnerApplication) => {
@@ -227,31 +236,26 @@ export default function AdminApp() {
     }), "أُضيف المتجر مغلقًا؛ راجع بياناته ورسومه من الكتالوج قبل فتحه.");
   };
 
-  async function handleGrantAdmin() {
-    if (!identity?.id) return;
-    await action(async () => {
-      try {
-        localStorage.setItem("sangoub_local_admin_uid", identity.id);
-      } catch {}
-      try {
-        await supabase.rpc("make_admin", { target_user_id: identity.id });
-      } catch (e) {
-        console.warn("make_admin RPC fallback:", e);
-      }
-      setProfile({
-        id: identity.id,
-        fullName: identity.user_metadata?.full_name || identity.email?.split("@")[0] || "مدير النظام",
-        email: identity.email || "",
-        role: "admin",
-      } as Profile);
-      setAccess("admin");
-      setError("");
-    }, "تم تفعيل صلاحية الإدارة بنجاح!");
-  }
+  const handleProductUpdate = (updated: Product) => {
+    setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
+  };
+
+  const handleProductDelete = (id: string) => {
+    setProducts(prev => prev.filter(p => p.id !== id));
+  };
 
   return (
     <div className={access === "admin" ? "admin-app min-h-screen bg-slate-50 text-slate-900" : "admin-signin"} dir="rtl">
-      <a className="skip-link" href="#admin-content">انتقل إلى محتوى الإدارة</a>
+      <a
+        className="skip-link"
+        href="#admin-content"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById("admin-content")?.focus();
+        }}
+      >
+        انتقل إلى محتوى الإدارة
+      </a>
       {access !== "admin" ? (
         <header className="admin-signin-header">
           <a className="admin-signin-brand" href="/" aria-label="سنجوب، الموقع الرئيسي">
@@ -261,7 +265,7 @@ export default function AdminApp() {
           <div>
             <a href="/"><ArrowLeft size={16} aria-hidden="true" />الموقع الرئيسي</a>
             {identity && (
-              <button disabled={busy} onClick={() => void action(signOutFromSupabase)}>
+              <button disabled={busy} onClick={() => void action(async () => { await signOutFromSupabase(); })}>
                 <LogOut size={16} aria-hidden="true" />تسجيل الخروج
               </button>
             )}
@@ -323,7 +327,18 @@ export default function AdminApp() {
               {notice && <p role="status" className="bg-emerald-50 text-emerald-800 rounded-xl p-3">{notice}</p>}
             </div>
           )}
-          <AdminWorkspace orders={orders} stores={stores} products={products} couriers={staff.filter((p) => p.role === "courier")} staff={staff} coupons={coupons} connected={connected} onError={report}>
+          <AdminWorkspace
+            orders={orders}
+            stores={stores}
+            products={products}
+            couriers={staff.filter((p) => p.role === "courier")}
+            staff={staff}
+            coupons={coupons}
+            connected={connected}
+            onError={report}
+            onProductUpdate={handleProductUpdate}
+            onProductDelete={handleProductDelete}
+          >
             <AdminDashboard
               couriers={staff.filter((p) => p.role === "courier")}
               orders={orders}
@@ -363,9 +378,12 @@ export default function AdminApp() {
                 onSubmit={(event) => {
                   event.preventDefault();
                   void action(async () => {
+                    const cleanEmail = email.trim().toLowerCase();
+                    const cleanPassword = password;
+
                     const { error: signInErr } = await supabase.auth.signInWithPassword({
-                      email: email.trim(),
-                      password,
+                      email: cleanEmail,
+                      password: cleanPassword,
                     });
                     if (signInErr) throw signInErr;
                   });
@@ -438,13 +456,7 @@ export default function AdminApp() {
                 معرف حسابك الحقيقي (UID)
                 <input aria-label="معرف حسابك" readOnly value={identity?.id || ""} dir="ltr" className="w-full p-3 border rounded-xl text-xs bg-slate-50 font-mono" />
               </label>
-              <button
-                disabled={busy}
-                onClick={handleGrantAdmin}
-                className="w-full p-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 mt-4"
-              >
-                <UserCheck size={16} /> تفعيل صلاحية الإدارة لهذا الحساب
-              </button>
+              <p className="text-sm text-slate-600">لا يمكن منح صلاحية الإدارة من شاشة تسجيل الدخول. اطلب من مشرف النظام تعيين الدور.</p>
               <button
                 disabled={busy}
                 onClick={() => setRevision((v) => v + 1)}

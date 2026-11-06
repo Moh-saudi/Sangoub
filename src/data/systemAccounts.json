@@ -45,8 +45,7 @@
       "longitude": 31.748
     },
     "coverageRadiusKm": 15,
-    "preferredDeliveryMethod": "auto",
-    "password": "Sangoub@2025"
+    "preferredDeliveryMethod": "auto"
   },
   {
     "uid": "cour-ahmed-rajab",
@@ -93,8 +92,7 @@
       "longitude": 31.749
     },
     "coverageRadiusKm": 10,
-    "preferredDeliveryMethod": "motorcycle",
-    "password": "Sangoub@2025"
+    "preferredDeliveryMethod": "motorcycle"
   },
   {
     "uid": "cour-kareem-mamdouh",
@@ -141,8 +139,7 @@
       "longitude": 31.752
     },
     "coverageRadiusKm": 8,
-    "preferredDeliveryMethod": "motorcycle",
-    "password": "Sangoub@2025"
+    "preferredDeliveryMethod": "motorcycle"
   },
   {
     "uid": "rest-ibrahim-hind",
@@ -189,8 +186,7 @@
       "longitude": 31.748
     },
     "coverageRadiusKm": 5,
-    "preferredDeliveryMethod": "auto",
-    "password": "Sangoub@2025"
+    "preferredDeliveryMethod": "auto"
   },
   {
     "uid": "rest-capital-market",
@@ -237,8 +233,7 @@
       "longitude": 31.7512
     },
     "coverageRadiusKm": 7,
-    "preferredDeliveryMethod": "auto",
-    "password": "Sangoub@2025"
+    "preferredDeliveryMethod": "auto"
   },
   {
     "uid": "usr-hossam-elserif",
@@ -285,8 +280,7 @@
       "longitude": 31.7465
     },
     "coverageRadiusKm": 5,
-    "preferredDeliveryMethod": "auto",
-    "password": "Sangoub@2025"
+    "preferredDeliveryMethod": "auto"
   },
   {
     "uid": "usr-sara-elmahdy",
@@ -333,8 +327,7 @@
       "longitude": 31.7472
     },
     "coverageRadiusKm": 5,
-    "preferredDeliveryMethod": "auto",
-    "password": "Sangoub@2025"
+    "preferredDeliveryMethod": "auto"
   },
   {
     "uid": "ct_2c8f5e3db3bece9e2ac038a41241ee5a",
@@ -378,14 +371,12 @@
     "hasThermalBackpack": false,
     "courierStatus": "active",
     "coverageRadiusKm": 5,
-    "preferredDeliveryMethod": "auto",
-    "password": "Sangoub@2025"
+    "preferredDeliveryMethod": "auto"
   },
   {
     "uid": "ct_71b088deb3677d6087e777121632a7cd",
     "fullName": "كابتن إسلام سمير",
     "email": "eslam.courier@sangoub.com",
-    "password": "Sangoub@6795",
     "phone": "01022334455",
     "role": "courier",
     "storeId": "store-foul-hind",

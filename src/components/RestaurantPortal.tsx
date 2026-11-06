@@ -12,6 +12,7 @@ import { supabase, resolveSupabaseStoreUuid } from '../lib/supabase';
 import { saveRecord } from '../lib/firebase';
 import { uploadCatalogImage, validateCatalogImage } from '../lib/catalogImages';
 import { productCategories } from '../utils/catalogManagement';
+import { matchStoreId } from '../utils/storeAssets';
 import {OrderMap} from './OrderMap';
 import { EmptyState } from './ui/DataStates';
 import { cairoDay } from "../utils/orderIntegration";
@@ -502,19 +503,8 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   );
 
   // Products from Supabase use UUID as storeId, but userStore.id may be a slug.
-  // Accept both: UUID match OR slug match via the known mapping.
-  const SLUG_TO_UUID: Record<string, string> = {
-    'store-foul-hind': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-    'store-supermarket-capital': '54a6c2f6-6c29-4177-ac65-32fadddea83d',
-    'store-ministry-coffee': '55508f0e-f818-452e-b946-ab803fe9d637',
-    'store-karam-elsham': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-    'store-taza-bakery': '55508f0e-f818-452e-b946-ab803fe9d637',
-  };
   const userStoreId = userStore?.id || '';
-  const userStoreUuid = SLUG_TO_UUID[userStoreId] || userStoreId;
-  const storeProducts = products.filter((p) =>
-    p.storeId === userStoreId || p.storeId === userStoreUuid
-  );
+  const storeProducts = products.filter((p) => matchStoreId(p.storeId, userStoreId));
 
   const sectionMeta = [
     { key: 'dashboard', label: 'الرئيسية', icon: LayoutDashboard },

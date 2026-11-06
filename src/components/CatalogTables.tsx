@@ -1,6 +1,7 @@
-import { Archive, Image as ImageIcon, Pencil, RotateCcw, Trash2 } from 'lucide-react';
+import { Archive, Image as ImageIcon, Pencil, RotateCcw, Store as StoreIcon, Trash2 } from 'lucide-react';
 import type { Product, Store } from '../types';
 import { formatEGP } from '../utils/orderCalculations';
+import { matchStoreId } from '../utils/storeAssets';
 
 export function CatalogProductTable({
   products,
@@ -41,23 +42,46 @@ export function CatalogProductTable({
         <tbody>
           {products.map(product => {
             const stats = performance.get(product.id);
+            const matchedStore = stores.find(s => matchStoreId(s.id, product.storeId) || s.name === product.storeName);
+            const storeName = matchedStore?.name || product.storeName || (product.storeId === 'b1111111-2222-3333-4444-555555555501' ? 'صيدلية العاصمة المركزية - 24/7' : 'سنجوب ماركت');
+
             return (
               <tr key={product.id} className={product.archived ? 'bg-slate-50/70 opacity-90' : ''}>
                 <td>
                   <div className="catalog-item-cell">
                     <Thumbnail url={product.imageUrl} />
-                    <div>
-                      <strong className={product.archived ? 'line-through text-slate-500' : ''}>
+                    <div className="min-w-0">
+                      {/* Prominent Store Badge next to Product */}
+                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black bg-orange-50 text-orange-800 border border-orange-200/80 shadow-2xs">
+                          <StoreIcon size={12} className="text-orange-600 shrink-0" />
+                          <span>{storeName}</span>
+                        </span>
+                        {product.barcode && (
+                          <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {product.barcode}
+                          </span>
+                        )}
+                      </div>
+                      <strong className={`block text-sm font-black text-slate-900 ${product.archived ? 'line-through text-slate-400' : ''}`}>
                         {product.name}
                       </strong>
-                      <small title={product.description}>{product.description}</small>
+                      <small title={product.description} className="text-xs text-slate-500 line-clamp-1">
+                        {product.description}
+                      </small>
                     </div>
                   </div>
                 </td>
                 <td>
-                  {stores.find(store => store.id === product.storeId)?.name ||
-                    (product.storeId ? product.storeName : 'غير مرتبط بمتجر')}
-                  <small>{product.category}</small>
+                  <div className="flex flex-col gap-1">
+                    <strong className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      {storeName}
+                    </strong>
+                    <span className="inline-block px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-bold w-fit">
+                      {product.category || 'عام'}
+                    </span>
+                  </div>
                 </td>
                 <td className="catalog-price">
                   {formatEGP(product.price)}
@@ -99,7 +123,7 @@ export function CatalogProductTable({
                       <button
                         disabled={busy}
                         onClick={() => onAvailability(product)}
-                        className="compact-row-action btn btn-outline-secondary"
+                        className={`compact-row-action btn ${product.inStock ? 'btn-outline-secondary' : 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'}`}
                       >
                         {product.inStock ? 'إيقاف مؤقت' : 'إتاحة للطلب'}
                       </button>
@@ -215,7 +239,7 @@ export function CatalogStoreTable({
                 </span>
               </td>
               <td>
-                {products.filter(product => !product.archived && product.storeId === store.id).length}
+                {products.filter(product => !product.archived && matchStoreId(product.storeId, store.id)).length}
               </td>
               <td>{formatEGP(store.minOrder)}</td>
               <td>{formatEGP(store.deliveryFee)}</td>

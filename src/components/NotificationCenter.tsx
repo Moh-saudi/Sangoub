@@ -1,9 +1,11 @@
 import {authenticatedApi} from '../lib/authenticatedApi';
-import { useState, useEffect } from "react";
-import { auth, db } from "../lib/firebase";
+import { useState, useEffect, useRef } from "react";
+import { db } from "../lib/firebaseNotifications";
+import { supabase } from "../lib/supabase";
 import { apiUrl } from "../lib/apiUrl";
 import { collection, query, orderBy, limit, onSnapshot, Timestamp } from "firebase/firestore";
 import type { Store } from "../types";
+import { uploadCatalogImage } from "../lib/catalogImages";
 import {
   Bell,
   Send,
@@ -22,7 +24,11 @@ import {
   Zap,
   Info,
   Radio,
-  ExternalLink
+  ExternalLink,
+  Upload,
+  Loader2,
+  X,
+  Image as ImageIcon
 } from "lucide-react";
 
 interface NotificationCenterProps {
@@ -99,6 +105,25 @@ export function NotificationCenter({ stores = [] }: NotificationCenterProps) {
   const [targetId, setTargetId] = useState("");
   const [targetUid, setTargetUid] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleBannerImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingBanner(true);
+    try {
+      const res = await uploadCatalogImage('banners', 'notif-' + Date.now(), file);
+      if (res?.url) {
+        setImageUrl(res.url);
+      }
+    } catch (err: any) {
+      alert(err?.message || 'تعذر رفع صورة الإشعار');
+    } finally {
+      setIsUploadingBanner(false);
+      if (e.target) e.target.value = '';
+    }
+  };
 
   // Submission State
   const [sending, setSending] = useState(false);
@@ -136,10 +161,10 @@ export function NotificationCenter({ stores = [] }: NotificationCenterProps) {
     setFeedback(null);
 
     try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("يرجى تسجيل الدخول بحساب الإدارة.");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("يرجى تسجيل الدخول بحساب الإدارة.");
 
-      const token = await user.getIdToken();
+      const token = session.access_token;
       const response = await fetch(apiUrl("/api/notifications"), {
         method: "POST",
         headers: {
@@ -481,24 +506,63 @@ export function NotificationCenter({ stores = [] }: NotificationCenterProps) {
                 />
               </div>
 
-              {/* Optional Image URL */}
+              {/* Secure Image Upload & Preview (No Exposed Raw URLs) */}
               <div>
                 <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 700, color: "#1e293b", marginBottom: "0.4rem" }}>
-                  رابط صورة البانر (اختياري):
+                  صورة الإشعار أو البانر (اختياري):
                 </label>
                 <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://example.com/promo-banner.jpg"
-                  style={{
-                    width: "100%",
-                    padding: "0.65rem",
-                    borderRadius: "8px",
-                    border: "1px solid #cbd5e1",
-                    fontSize: "0.875rem",
-                  }}
+                  type="file"
+                  ref={bannerFileInputRef}
+                  accept="image/*"
+                  onChange={handleBannerImageUpload}
+                  style={{ display: "none" }}
                 />
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", background: "#f8fafc", padding: "0.75rem", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                  <div style={{ width: "64px", height: "64px", borderRadius: "10px", background: "#ffffff", border: "1px solid #cbd5e1", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, position: "relative" }}>
+                    {imageUrl ? (
+                      <>
+                        <img src={imageUrl} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <button
+                          type="button"
+                          onClick={() => setImageUrl("")}
+                          style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.65)", color: "white", borderRadius: "50%", width: 18, height: 18, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px" }}
+                          title="حذف الصورة"
+                        >
+                          ✕
+                        </button>
+                      </>
+                    ) : (
+                      <ImageIcon size={24} style={{ color: "#94a3b8" }} />
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: "0 0 0.35rem 0", fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>
+                      {imageUrl ? "تم تعيين صورة للإشعار" : "لا توجد صورة مرفقة"}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => bannerFileInputRef.current?.click()}
+                      disabled={isUploadingBanner}
+                      style={{
+                        padding: "0.45rem 0.9rem",
+                        borderRadius: "8px",
+                        border: "1px solid #cbd5e1",
+                        background: "#ea580c",
+                        color: "#ffffff",
+                        fontWeight: 700,
+                        fontSize: "0.8rem",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.4rem"
+                      }}
+                    >
+                      {isUploadingBanner ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                      <span>{isUploadingBanner ? "جارٍ الرفع…" : imageUrl ? "تغيير الصورة" : "رفع صورة من جهازك"}</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Feedback Alert */}

@@ -24,45 +24,34 @@ import {
 } from "lucide-react";
 import type { Order, Product, Store, Category } from "../types";
 import { saveRecord, deleteRecord } from "../lib/firebase";
-import { saveCatalogWithImages } from "../lib/catalogImages";
 import { catalogPerformance, productCategories, productFormData, storeCategories } from "../utils/catalogManagement";
 import { formatEGP } from "../utils/orderCalculations";
+import { matchStoreId } from "../utils/storeAssets";
 import { availableOffers, hasProductOffer } from "../utils/productOffers";
-import { ImageFileField } from "./ImageFileField";
 import { EnterpriseProductModal } from "./EnterpriseProductModal";
 import { BulkProductImportModal } from "./BulkProductImportModal";
+import { StoreEditorModal } from "./StoreEditorModal";
 import { supabase } from "../lib/supabase";
+import { getMerchantPaymentSettings, updateMerchantPaymentSettings } from "../utils/merchantPaymentSettings";
 
 const input = "form-control w-full border border-slate-300 rounded-xl p-3 bg-white text-sm text-slate-900";
 const button = "rounded-xl px-4 py-2 text-sm font-bold border border-slate-200 disabled:opacity-40";
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return <label className="block min-w-0 space-y-2 text-xs font-bold text-slate-700"><span>{label}</span>{children}</label>;
-}
-function Editor({ title, busy, onClose, children, compact = false }: { title: string; busy: boolean; onClose: () => void; children: ReactNode; compact?: boolean }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => { dialog.current?.showModal(); }, []);
-  return <dialog ref={dialog} onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }} aria-label={title} className={`catalog-editor ${compact ? "catalog-editor-compact" : ""}`} dir="rtl">
-    <header className="catalog-editor-heading flex justify-between items-center gap-3"><h2 className="font-black text-xl">{title}</h2><button type="button" aria-label="إغلاق المحرر" disabled={busy} onClick={onClose} className="p-2 rounded-xl border"><X size={18} /></button></header>{children}
-  </dialog>;
-}
 
-const SLUG_TO_UUID: Record<string, string> = {
-  'store-foul-hind': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-  'store-supermarket-capital': '54a6c2f6-6c29-4177-ac65-32fadddea83d',
-  'store-ministry-coffee': '55508f0e-f818-452e-b946-ab803fe9d637',
-  'store-karam-elsham': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-  'store-taza-bakery': '55508f0e-f818-452e-b946-ab803fe9d637',
-};
-
-function matchStoreId(a?: string, b?: string): boolean {
-  if (!a || !b) return true;
-  if (a === b) return true;
-  const uuidA = SLUG_TO_UUID[a] || a;
-  const uuidB = SLUG_TO_UUID[b] || b;
-  return uuidA === uuidB;
-}
-
-export function CatalogManager({ products, stores, orders, searchRequest, mode, fixedStoreId }: { products: Product[]; stores: Store[]; orders: Order[]; mode?: "products" | "stores" | "offers"; searchRequest?:{term:string;kind:"products"|"stores";key:number}; fixedStoreId?: string }) {
+export function CatalogManager({ products, stores, orders, searchRequest, mode, fixedStoreId, onProductUpdate, onProductDelete, onProductsRefresh }: {
+  products: Product[];
+  stores: Store[];
+  orders: Order[];
+  mode?: "products" | "stores" | "offers";
+  searchRequest?: { term: string; kind: "products" | "stores"; key: number };
+  fixedStoreId?: string;
+  onProductUpdate?: (updated: Product) => void;
+  onProductDelete?: (id: string) => void;
+  onProductsRefresh?: () => void;
+}) {
+  const [localProducts, setLocalProducts] = useState<Product[]>(products);
+  useEffect(() => {
+    setLocalProducts(products);
+  }, [products]);
   const [offerPicker, setOfferPicker] = useState(false);
   const [assignStoreModal, setAssignStoreModal] = useState<{ product: Product; selectedStoreId: string } | null>(null);
   const [view, setView] = useState<"table" | "cards">("table");
@@ -116,7 +105,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
     }
     void loadCats();
   }, []);
-  const scopedProducts = fixedStoreId ? products.filter((item) => matchStoreId(item.storeId, fixedStoreId)) : products;
+  const scopedProducts = fixedStoreId ? localProducts.filter((item) => matchStoreId(item.storeId, fixedStoreId)) : localProducts;
   const active = scopedProducts.filter((item) => !item.archived);
   const discounted = active.filter(hasProductOffer);
   const metrics: [string, number][] = mode === "stores"
@@ -128,7 +117,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
       : [["منتجات نشطة", active.length], ["متاحة بالمنيو", active.filter(item => item.inStock).length], ["غير متاحة", active.filter(item => !item.inStock).length], ["مؤرشفة", scopedProducts.filter(item => item.archived).length]];
   const filtered = scopedProducts.filter((item) => {
     const text = `${item.name} ${item.storeName} ${item.description}`.toLocaleLowerCase("ar");
-    return (mode !== "offers" || hasProductOffer(item)) && text.includes(search.trim().toLocaleLowerCase("ar")) && (!storeFilter || item.storeId === storeFilter) && (!category || item.category === category) &&
+    return (mode !== "offers" || hasProductOffer(item)) && text.includes(search.trim().toLocaleLowerCase("ar")) && (!storeFilter || matchStoreId(item.storeId, storeFilter)) && (!category || item.category === category) &&
       (availability === "archived" ? item.archived : !item.archived && (availability === "available" ? item.inStock : availability === "unavailable" ? !item.inStock : true));
   }).sort((a,b) => sort === "price" ? a.price - b.price : sort === "sales" ? (performance.get(b.id)?.sold || 0) - (performance.get(a.id)?.sold || 0) : a.name.localeCompare(b.name, "ar"));
   const visibleStores = stores.filter((store) => `${store.name} ${store.locationInDistrict}`.includes(search.trim()));
@@ -150,79 +139,42 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
     finally { setBusy(false); }
   }
   function open(kind: "products" | "stores", id?: string, enableOnSave = false) { setError(""); setMessage(""); setEditor({ kind, id, enableOnSave }); }
-  function changeAvailability(product: Product) {
-    if (!stores.some(store => store.id === product.storeId)) {
-      open("products", product.id, !product.inStock);
+  async function changeAvailability(product: Product) {
+    const newInStock = !product.inStock;
+    setLocalProducts(prev => prev.map(p => p.id === product.id ? { ...p, inStock: newInStock } : p));
+    await perform(async () => {
+      const { error } = await supabase.from('products').update({ is_available: newInStock }).eq('id', product.id);
+      if (error) throw error;
+      onProductUpdate?.({ ...product, inStock: newInStock });
+    }, newInStock ? "تمت إتاحة الصنف للطلب بالمنيو." : "تم إيقاف توافر الصنف مؤقتاً.");
+  }
+  async function handleArchive(product: Product) {
+    if (product.archived) {
+      setError("");
+      setMessage("");
+      const defaultStore = stores.find(s => matchStoreId(s.id, product.storeId)) || stores.find(s => s.id === 'a0000000-0000-0000-0000-000000000001') || stores[0];
+      setAssignStoreModal({ product, selectedStoreId: defaultStore?.id || "" });
       return;
     }
-    void perform(() => saveRecord("products", product.id, { inStock: !product.inStock }), "تم تحديث توافر الصنف.");
+    setLocalProducts(prev => prev.map(p => p.id === product.id ? { ...p, archived: true, inStock: false } : p));
+    await perform(async () => {
+      const { error } = await supabase.from("products").update({ archived: true, is_available: false }).eq("id", product.id);
+      if (error) throw error;
+      onProductUpdate?.({ ...product, archived: true, inStock: false });
+    }, "تم نقل الصنف إلى الأرشيف بنجاح.");
   }
+
   async function handleDeleteProduct(product: Product) {
     if (window.confirm(`هل أنت متأكد من حذف الصنف "${product.name}" نهائياً من قاعدة البيانات؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+      setLocalProducts(prev => prev.filter(p => p.id !== product.id));
       await perform(async () => {
-        await deleteRecord("products", product.id);
-        try {
-          await supabase.from("products").delete().eq("id", product.id);
-        } catch (err) {
-          console.error("Error deleting product from Supabase:", err);
-        }
-      }, "تم حذف الصنف نهائياً من النظام.");
+        const { error } = await supabase.from("products").delete().eq("id", product.id);
+        if (error) throw error;
+        onProductDelete?.(product.id);
+      }, "تم حذف الصنف نهائياً من قاعدة البيانات.");
     }
   }
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (!editor || busy) return;
-    const data = new FormData(event.currentTarget);
-    const success = await perform(async () => {
-      const id = editor.id || crypto.randomUUID();
-      if (editor.kind === "products") {
-        const previous = selectedProduct;
-        if (editor.id && !previous) throw new Error("الصنف لم يعد موجودًا. حدّث القائمة.");
-        if (mode === "offers" || previous?.catalogProductId) {
-          if (!previous) throw new Error("اختر منتجًا موجودًا لإضافة العرض.");
-          const price = Number(data.get("price"));
-          const original = String(data.get("originalPrice") || "").trim();
-          const originalPrice = original ? Number(original) : price;
-          if (!Number.isFinite(price) || price < 0 || price > 100000 || !Number.isFinite(originalPrice) || originalPrice < price || originalPrice > 100000) throw new Error("راجع السعر؛ السعر قبل الخصم يجب ألا يقل عن سعر البيع.");
-          const store = stores.find(item => item.id === (previous.storeId || data.get("storeId")));
-          if (!store) throw new Error("اختر المتجر المسؤول عن المنتج قبل إتاحته.");
-          await saveRecord("products", id, {
-            price, originalPrice, inStock: !previous.archived && data.get("inStock") === "on",
-            ...(!previous.storeId ? { storeId: store.id, storeName: store.name } : {}),
-          });
-          return;
-        }
-        const store = stores.find((item) => item.id === (previous?.storeId || data.get("storeId")));
-        if (!store) throw new Error("اختر المتجر المسؤول عن الصنف.");
-        const patch = productFormData(data, previous);
-        const file = data.get("imageFile") as File | null;
-        if (!patch.imageUrl && !file?.size) throw new Error("اختر صورة حقيقية للصنف أو أدخل رابطها.");
-        await saveCatalogWithImages("products", id, {
-          ...(previous ? {} : { id, imageType: "croissant", archived: false }),
-          ...patch, storeId: store.id, storeName: store.name,
-        }, [{ field: "imageUrl", file }]);
-      } else {
-        if (editor.id && !selectedStore) throw new Error("المتجر لم يعد موجودًا.");
-        const commissionText=String(data.get('commissionRate')||'').trim();const commissionRate=commissionText===''?undefined:Number(commissionText);if(commissionRate!==undefined&&(!Number.isFinite(commissionRate)||commissionRate<0||commissionRate>100))throw new Error('راجع نسبة التعاقد.');
-        const taxRate=Number(data.get("taxRate")||0);const taxRegistrationNumber=String(data.get("taxRegistrationNumber")||'').trim();if(!Number.isFinite(taxRate)||taxRate<0||taxRate>100||(taxRate>0&&!taxRegistrationNumber))throw new Error('راجع نسبة الضريبة ورقم التسجيل الضريبي.');
-        const minOrder = Number(data.get("minOrder")); const deliveryFee = Number(data.get("deliveryFee"));
-        if (!Number.isFinite(minOrder) || minOrder < 0 || minOrder > 100000 || !Number.isFinite(deliveryFee) || deliveryFee < 0 || deliveryFee > 1000) throw new Error("راجع الحد الأدنى ورسوم التوصيل.");
-        const name = String(data.get("name") || "").trim();
-        const address = String(data.get("address") || "").trim();
-        if (!name || !address) throw new Error("أدخل اسم المتجر وعنوانه الفعلي.");
-        const imageUrl = String(data.get("imageUrl") || "").trim();
-        const logoUrl = String(data.get("logoUrl") || "").trim();
-        for (const url of [imageUrl, logoUrl]) if (url && new URL(url).protocol !== "https:") throw new Error("روابط الصور يجب أن تستخدم HTTPS.");
-        await saveCatalogWithImages("stores", id, {
-          ...(selectedStore ? {} : { id, logo: "🍽️", banner: "from-orange-600 to-slate-900", rating: 0, ratingCount: 0 }),
-          name, nameEn: String(data.get("nameEn") || name).trim(), locationInDistrict: address,
-          type: String(data.get("type")), category: String(data.get("category")), status: String(data.get("status")),
-          deliveryTime: String(data.get("deliveryTime") || "لم يحدد بعد"), minOrder, deliveryFee,
-          imageUrl, bannerUrl: imageUrl, logoUrl,...(commissionRate!==undefined?{commissionRate}:{}), taxRate,taxRegistrationNumber,pricesIncludeTax:data.get('pricesIncludeTax')==='on',
-        }, [{ field: "bannerUrl", file: data.get("coverFile") as File | null }, { field: "logoUrl", file: data.get("logoFile") as File | null }]);
-      }
-    }, editor.id ? "تم حفظ التعديلات." : "تمت الإضافة إلى الكتالوج.");
-    if (success) setEditor(null);
-  }
+
   return <section dir="rtl" className="catalog-workspace space-y-3" aria-label="إدارة الكتالوج">
     <header className="ops-heading catalog-heading">
       <div>
@@ -304,7 +256,19 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
     {error && !editor && <p role="alert" className="bg-red-50 text-red-700 rounded-xl p-3">{error}</p>}{message && <p role="status" className="bg-emerald-50 text-emerald-800 rounded-xl p-3">{message}</p>}
 
     <div className="catalog-filters"><label className="relative min-w-0"><Search className="absolute right-3 top-3.5 text-slate-400" size={16} /><input aria-label="بحث الكتالوج" className={`${input} pr-9`} placeholder="ابحث بالاسم أو المتجر" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
-      {tab === "products" && <>{!fixedStoreId && <select aria-label="تصفية حسب المتجر" className={input} value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}><option value="">كل المتاجر</option>{stores.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}<select aria-label="تصفية حسب التصنيف" className={input} value={category} onChange={(e) => setCategory(e.target.value)}><option value="">كل التصنيفات</option>{productCategories.map((item) => <option key={item}>{item}</option>)}</select><select aria-label="تصفية حسب التوافر" className={input} value={availability} onChange={(e) => setAvailability(e.target.value)}><option value="active">كل المنتجات النشطة</option><option value="available">متاحة بالمنيو</option><option value="unavailable">غير متاحة</option><option value="archived">الأرشيف والمؤرشفة 📦</option></select><select aria-label="ترتيب المنتجات" value={sort} onChange={(e) => setSort(e.target.value)} className={input}><option value="name">الاسم</option><option value="price">السعر الأقل</option><option value="sales">الأكثر مبيعًا</option></select></>}
+      {tab === "products" && <>{!fixedStoreId && (
+        <select aria-label="تصفية حسب المتجر" className={input} value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}>
+          <option value="">جميع المتاجر ({scopedProducts.length} صنف مسجل)</option>
+          {stores.map((item) => {
+            const count = scopedProducts.filter(p => matchStoreId(p.storeId, item.id)).length;
+            return (
+              <option key={item.id} value={item.id}>
+                {item.name} ({count} صنف)
+              </option>
+            );
+          })}
+        </select>
+      )}<select aria-label="تصفية حسب التصنيف" className={input} value={category} onChange={(e) => setCategory(e.target.value)}><option value="">كل التصنيفات</option>{productCategories.map((item) => <option key={item}>{item}</option>)}</select><select aria-label="تصفية حسب التوافر" className={input} value={availability} onChange={(e) => setAvailability(e.target.value)}><option value="active">كل المنتجات النشطة</option><option value="available">متاحة بالمنيو</option><option value="unavailable">غير متاحة</option><option value="archived">الأرشيف والمؤرشفة 📦</option></select><select aria-label="ترتيب المنتجات" value={sort} onChange={(e) => setSort(e.target.value)} className={input}><option value="name">الاسم</option><option value="price">السعر الأقل</option><option value="sales">الأكثر مبيعًا</option></select></>}
     </div>
 
     {/* ── Toolbar with Rows-Per-Page Selector ── */}
@@ -372,21 +336,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
           busy={busy}
           onEdit={id => open("products", id)}
           onAvailability={changeAvailability}
-          onArchive={product => {
-            if (product.archived) {
-              setError("");
-              setMessage("");
-              const defaultStore = stores.find(s => s.id === product.storeId) || stores.find(s => s.id === 'a0000000-0000-0000-0000-000000000001') || stores.find(s => s.name.includes("سنجوب")) || stores[0];
-              setAssignStoreModal({ product, selectedStoreId: defaultStore?.id || "" });
-              return;
-            }
-            void perform(async () => {
-              await saveRecord("products", product.id, { archived: true, inStock: false });
-              try {
-                await supabase.from("products").update({ archived: true, is_available: false }).eq("id", product.id);
-              } catch {}
-            }, "تم نقل الصنف إلى الأرشيف بنجاح.");
-          }}
+          onArchive={handleArchive}
           onDelete={handleDeleteProduct}
         />
       ) : (
@@ -560,12 +510,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
           {product.archived ? (
             <button
               disabled={busy}
-              onClick={() => {
-                setError("");
-                setMessage("");
-                const defaultStore = stores.find(s => s.id === product.storeId) || stores.find(s => s.id === 'a0000000-0000-0000-0000-000000000001') || stores.find(s => s.name.includes("سنجوب")) || stores[0];
-                setAssignStoreModal({ product, selectedStoreId: defaultStore?.id || "" });
-              }}
+              onClick={() => handleArchive(product)}
               className={`${button} bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs`}
             >
               <RotateCcw size={14} className="inline ml-1" />
@@ -574,10 +519,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
           ) : (
             <button
               disabled={busy}
-              onClick={() => perform(async () => {
-                await saveRecord("products", product.id, { archived: true, inStock: false });
-                try { await supabase.from("products").update({ archived: true, is_available: false }).eq("id", product.id); } catch {}
-              }, "أُرشف الصنف مع الاحتفاظ بسجل الطلبات.")}
+              onClick={() => handleArchive(product)}
               className={`${button} text-slate-600`}
             >
               <Archive size={14} className="inline ml-1" />
@@ -1027,29 +969,81 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
       />
     )}
 
-    {editor && (mode === "offers" || editor.kind === "stores") && <Editor key={`${editor.kind}-${editor.id || "new"}`} compact={mode === "offers"} title={mode === "offers" ? "تعديل عرض المنتج" : editor.id ? "تعديل المتجر" : "إضافة متجر"} busy={busy} onClose={() => { setEditor(null); setError(""); }}>
-      <form onSubmit={submit} className="catalog-editor-form"><fieldset disabled={busy} className="catalog-editor-fields min-w-0">
-        {selectedProduct && !selectedProduct.storeId && <p className="ops-warning alert alert-warning">هذا المنتج غير مرتبط بمتجر. اختر المتجر المسؤول عنه ليتمكن العملاء من طلبه.</p>}
-        {(mode === "offers" || selectedProduct?.catalogProductId) ? <>
-          <div className="catalog-offer-summary"><strong>{selectedProduct?.name}</strong><p>{stores.find(store => store.id === selectedProduct?.storeId)?.name || selectedProduct?.storeName}</p></div>
-          {!selectedProduct?.storeId && <Field label="المتجر المسؤول عن العرض"><select name="storeId" aria-label="متجر العرض" required defaultValue="" className={input}><option value="" disabled>اختر المتجر</option>{stores.map(store => <option key={store.id} value={store.id}>{store.name}</option>)}</select></Field>}
-          <div className="offer-price-fields"><Field label="سعر العرض بالجنيه"><input type="number" name="price" aria-label="سعر المنتج" min="0" max="100000" step="0.01" defaultValue={selectedProduct?.price} required className={input} /></Field>
-          <Field label="السعر قبل الخصم"><input type="number" name="originalPrice" aria-label="السعر قبل الخصم" min="0" max="100000" step="0.01" defaultValue={selectedProduct && hasProductOffer(selectedProduct) ? selectedProduct.originalPrice : ""} className={input} /></Field></div>
-          <p className="text-sm text-slate-500">اترك السعر قبل الخصم فارغًا لإلغاء العرض. تغيير سعر العرض يحدّث سعر المنتج نفسه.</p>
-          <label className="catalog-editor-check"><input type="checkbox" name="inStock" defaultChecked={editor.enableOnSave || selectedProduct?.inStock} disabled={selectedProduct?.archived} />متاح للطلب</label>
-        </> : <>
-          <Field label="اسم المتجر"><input name="name" aria-label="اسم المتجر" defaultValue={selectedStore?.name} required maxLength={120} className={input} /></Field><Field label="الاسم بالإنجليزية — اختياري"><input name="nameEn" defaultValue={selectedStore?.nameEn} className={input} /></Field><Field label="عنوان المتجر"><textarea name="address" aria-label="عنوان المتجر" defaultValue={selectedStore?.locationInDistrict} required maxLength={500} className={input} /></Field>
-          <Field label="نوع النشاط"><input name="type" aria-label="نوع النشاط" defaultValue={selectedStore?.type} required className={input} /></Field><Field label="التصنيف"><select name="category" defaultValue={selectedStore?.category} className={input}>{storeCategories.map(([id,label]) => <option key={id} value={id}>{label}</option>)}</select></Field><Field label="حالة المتجر"><select name="status" defaultValue={selectedStore?.status || "closed"} className={input}><option value="closed">مغلق</option><option value="open">مفتوح</option><option value="busy">مشغول</option></select></Field>
-          <div className="grid sm:grid-cols-2 gap-3"><Field label="الحد الأدنى للطلب"><input name="minOrder" type="number" min="0" max="100000" step="0.01" defaultValue={selectedStore?.minOrder ?? 0} required className={input} /></Field><Field label="رسوم التوصيل"><input name="deliveryFee" type="number" min="0" max="1000" step="0.01" defaultValue={selectedStore?.deliveryFee ?? 0} required className={input} /></Field></div>
-          <Field label="نسبة التعاقد المتفق عليها % — تترك فارغة حتى التعاقد"><input name="commissionRate" type="number" min="0" max="100" step="0.01" defaultValue={selectedStore?.commissionRate??''} className={input}/></Field><Field label="نسبة الضريبة % — حسب تسجيل المتجر"><input name="taxRate" type="number" min="0" max="100" step="0.01" defaultValue={selectedStore?.taxRate||0} className={input}/></Field><Field label="رقم التسجيل الضريبي"><input name="taxRegistrationNumber" maxLength={60} defaultValue={selectedStore?.taxRegistrationNumber||''} className={input}/></Field><label className="flex gap-2 text-sm"><input name="pricesIncludeTax" type="checkbox" defaultChecked={selectedStore?.pricesIncludeTax!==false}/>أسعار المنتجات تشمل الضريبة</label><p className="text-xs text-slate-500">أدخل النسبة الفعلية المسجلة للتاجر فقط. النسبة الافتراضية صفر؛ تُحفظ بيانات الضريبة في الطلب والفاتورة وقت التأكيد.</p>
-          <Field label="مدة التجهيز المتوقعة — اختياري"><input name="deliveryTime" defaultValue={selectedStore?.deliveryTime} className={input} /></Field>
-          <ImageFileField name="coverFile" label="رفع صورة المتجر" disabled={busy} /><Field label="أو رابط صورة المتجر"><input name="imageUrl" type="url" pattern="https://.*" defaultValue={selectedStore?.imageUrl || selectedStore?.bannerUrl} className={input} /></Field><ImageFileField name="logoFile" label="رفع شعار المتجر" disabled={busy} /><Field label="أو رابط الشعار"><input name="logoUrl" type="url" pattern="https://.*" defaultValue={selectedStore?.logoUrl} className={input} /></Field>
-        </>}
-      </fieldset>
-      {error && <p role="alert" className="p-3 bg-red-50 text-red-700 rounded-xl">{error}</p>}
-      <div className="catalog-editor-actions"><button type="submit" disabled={busy} className={`${button} bg-orange-600 text-white`}>{busy ? "جارٍ الحفظ…" : "حفظ"}</button><button type="button" disabled={busy} onClick={() => { setEditor(null); setError(""); }} className={button}>إلغاء</button></div>
-      </form>
-    </Editor>}
+    {editor?.kind === "stores" && (
+      <StoreEditorModal
+        store={selectedStore}
+        busy={busy}
+        onClose={() => {
+          setEditor(null);
+          setError("");
+        }}
+        onSave={async (payload) => {
+          await perform(async () => {
+            const storeId = payload.id;
+
+            // 1. Save locally / Firebase
+            const storeDoc = {
+              id: storeId,
+              name: payload.name,
+              nameEn: payload.nameEn,
+              type: payload.type,
+              category: payload.category,
+              status: payload.status,
+              deliveryTime: payload.deliveryTime,
+              minOrder: payload.minOrder,
+              deliveryFee: payload.deliveryFee,
+              locationInDistrict: payload.address,
+              imageUrl: payload.bannerUrl,
+              bannerUrl: payload.bannerUrl,
+              banner: payload.bannerUrl,
+              logoUrl: payload.logoUrl,
+              logo: payload.logoUrl,
+              commissionRate: payload.commissionRate,
+              taxRate: payload.taxRate,
+              taxRegistrationNumber: payload.taxRegistrationNumber,
+              pricesIncludeTax: payload.pricesIncludeTax,
+              rating: selectedStore?.rating ?? 5,
+              ratingCount: selectedStore?.ratingCount ?? 120,
+              updatedAt: new Date().toISOString(),
+            };
+            await saveRecord("stores", storeId, storeDoc);
+
+            // 2. Direct Sync to Supabase `stores` table
+            try {
+              const { error: supaErr } = await supabase.from("stores").upsert({
+                id: storeId,
+                name: payload.name,
+                name_en: payload.nameEn || null,
+                type: payload.type,
+                category: payload.category,
+                status: payload.status,
+                delivery_time: payload.deliveryTime,
+                min_order: payload.minOrder,
+                delivery_fee: payload.deliveryFee,
+                location_in_district: payload.address,
+                commission_rate: payload.commissionRate ?? null,
+                tax_rate: payload.taxRate,
+                tax_number: payload.taxRegistrationNumber || null,
+                banner: payload.bannerUrl || null,
+                logo: payload.logoUrl || null,
+                updated_at: new Date().toISOString(),
+              });
+              if (supaErr) console.warn("Supabase store upsert warning:", supaErr);
+            } catch (supaErr) {
+              console.warn("Failed to sync store to Supabase:", supaErr);
+            }
+
+            // 3. Update InstaPay / Vodafone Cash payment settings
+            updateMerchantPaymentSettings(storeId, payload.paymentSettings);
+
+            // 4. Refresh parent if callback exists
+            if (onProductsRefresh) {
+              onProductsRefresh();
+            }
+          }, selectedStore ? "🎉 تم تحديث بيانات وشعار وغلاف المتجر بنجاح!" : "🎉 تمت إضافة المتجر الجديد إلى الكتالوج بنجاح!");
+        }}
+      />
+    )}
 
     {/* نافذة اختيار المتجر السريعة عند استعادة صنف يتيم */}
     {assignStoreModal && (
@@ -1083,7 +1077,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
               >
                 {!stores.some(s => s.id === 'a0000000-0000-0000-0000-000000000001') && (
                   <option value="a0000000-0000-0000-0000-000000000001">
-                    متجر سنجوب إكسبريس المركزي ⭐ (منتجات سنجوب الرسمية)
+                    سنجوب ماركت ⭐ (متجر سنجوب الرسمي)
                   </option>
                 )}
                 {stores.map(store => (
@@ -1105,33 +1099,24 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
               onClick={async () => {
                 const targetStore = stores.find(s => s.id === assignStoreModal.selectedStoreId);
                 const prod = assignStoreModal.product;
+                const updatedProd = {
+                  ...prod,
+                  archived: false,
+                  inStock: true,
+                  storeId: assignStoreModal.selectedStoreId,
+                  storeName: targetStore?.name || prod.storeName || "سنجوب ماركت",
+                };
+                setLocalProducts(prev => prev.map(p => p.id === prod.id ? updatedProd : p));
                 await perform(async () => {
-                  const updatedData = {
-                    id: prod.id,
-                    name: prod.name,
-                    nameEn: prod.nameEn || "",
-                    description: prod.description || "",
-                    price: Number(prod.price) || 0,
-                    category: prod.category || "عام",
-                    storeId: assignStoreModal.selectedStoreId,
-                    storeName: targetStore?.name || "متجر سنجوب إكسبريس المركزي",
+                  const { error } = await supabase.from("products").update({
+                    store_id: assignStoreModal.selectedStoreId,
                     archived: false,
-                    inStock: true,
-                    imageUrl: prod.imageUrl || "",
-                    imageType: prod.imageType || "croissant",
-                  };
-                  await saveRecord("products", prod.id, updatedData);
-                  try {
-                    await supabase.from("products").update({
-                      store_id: assignStoreModal.selectedStoreId,
-                      archived: false,
-                      is_available: true,
-                    }).eq("id", prod.id);
-                  } catch (e) {
-                    console.error("Supabase update error:", e);
-                  }
+                    is_available: true,
+                  }).eq("id", prod.id);
+                  if (error) throw error;
+                  onProductUpdate?.(updatedProd);
                   setAssignStoreModal(null);
-                }, `🎉 تمت استعادة الصنف ونقله إلى (${targetStore?.name || "متجر سنجوب إكسبريس المركزي"}) بنجاح!`);
+                }, `🎉 تمت استعادة الصنف وتفعيله في (${targetStore?.name || "سنجوب ماركت"}) بنجاح!`);
               }}
               className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs transition-colors"
             >

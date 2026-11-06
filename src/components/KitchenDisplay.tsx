@@ -77,7 +77,8 @@ export function KitchenDisplay({
         const gain = context.createGain();
         oscillator.connect(gain);
         gain.connect(context.destination);
-        oscillator.frequency.value = 740;
+        oscillator.frequency.setValueAtTime(659.25, context.currentTime);
+        oscillator.frequency.setValueAtTime(880, context.currentTime + 0.15);
         gain.gain.setValueAtTime(0.15, context.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.55);
         oscillator.start();
@@ -100,6 +101,19 @@ export function KitchenDisplay({
       if (!sound) {
         if (!audio.current || audio.current.state === "closed") audio.current = new AudioContext();
         await audio.current.resume();
+        const ctx = audio.current;
+        if (ctx && ctx.state === "running") {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+          osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.12, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.4);
+        }
       }
       setSound(!sound);
     } catch {

@@ -3,9 +3,19 @@ import { useStore } from '../context/StoreContext';
 import { ProductCard } from '../components/ProductCard';
 import { HeroSlider } from '../components/HeroSlider';
 import { ProductModal } from '../components/ProductModal';
+import { MerchantLogoCard } from '../components/MerchantLogoCard';
 import { formatEGP } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import type { Product } from '../../types';
+import { 
+  matchProductToCategory, 
+  getCategoryProductCount, 
+  getCategoryMerchants 
+} from '../../utils/categoryMatching';
+import { 
+  getActiveStoreTypes, 
+  getSupermarketCategories 
+} from '../../constants/taxonomy';
 import { 
   Sparkles, 
   Coffee, 
@@ -27,7 +37,6 @@ import {
   Zap, 
   ShoppingBag,
   ChevronLeft,
-  Store as StoreIcon,
   Sandwich
 } from 'lucide-react';
 
@@ -35,103 +44,14 @@ interface HomePageProps {
   onOpenAreaModal: () => void;
 }
 
-// 8 Core Talabat Categories with clean mobile-first styling
-const TALABAT_MAIN_SERVICES = [
-  {
-    id: 'food',
-    name: 'مطاعم',
-    subtext: 'خصم 50%',
-    badge: 'شائع',
-    badgeColor: 'bg-[#FF5900]',
-    bgColor: 'bg-[#FFF2EC]',
-    textColor: 'text-[#FF5900]',
-    icon: UtensilsCrossed,
-    categoryQuery: 'وجبات',
-  },
-  {
-    id: 'mart',
-    name: 'سنجوب بقالة',
-    subtext: 'سوبرماركت ومستلزمات',
-    badge: 'طازج',
-    badgeColor: 'bg-[#059669]',
-    bgColor: 'bg-[#ECFDF5]',
-    textColor: 'text-[#059669]',
-    icon: Zap,
-    categoryQuery: 'سوبرماركت',
-  },
-  {
-    id: 'groceries',
-    name: 'سوبرماركت',
-    subtext: 'طلبات ومستلزمات البيت',
-    badge: 'عروض',
-    badgeColor: 'bg-[#2563EB]',
-    bgColor: 'bg-[#EFF6FF]',
-    textColor: 'text-[#2563EB]',
-    icon: Milk,
-    categoryQuery: 'سوبرماركت وبقالة',
-  },
-  {
-    id: 'coffee_sweets',
-    name: 'كافيهات',
-    subtext: 'قهوة وسناكس',
-    badge: 'طازج',
-    badgeColor: 'bg-[#9333EA]',
-    bgColor: 'bg-[#FAF5FF]',
-    textColor: 'text-[#9333EA]',
-    icon: Coffee,
-    categoryQuery: 'مشروبات وكافيهات',
-  },
-  {
-    id: 'pharmacy',
-    name: 'صيدلية',
-    subtext: 'عناية وصحة',
-    badge: '24/7',
-    badgeColor: 'bg-[#E11D48]',
-    bgColor: 'bg-[#FFF1F2]',
-    textColor: 'text-[#E11D48]',
-    icon: HeartPulse,
-    categoryQuery: 'صيدلية وعناية',
-  },
-  {
-    id: 'breakfast',
-    name: 'فطور',
-    subtext: 'مخبوزات وفول',
-    badge: 'صباحي',
-    badgeColor: 'bg-[#D97706]',
-    bgColor: 'bg-[#FFFBEB]',
-    textColor: 'text-[#D97706]',
-    icon: Sandwich,
-    categoryQuery: 'فطور ومخبوزات',
-  },
-  {
-    id: 'shawarma_sandwiches',
-    name: 'سندوتشات',
-    subtext: 'شاورما وحواوشي',
-    badge: 'سريع',
-    badgeColor: 'bg-[#EA580C]',
-    bgColor: 'bg-[#FFF7ED]',
-    textColor: 'text-[#EA580C]',
-    icon: Pizza,
-    categoryQuery: 'سندوتشات وشاورما',
-  },
-  {
-    id: 'fruits_veg',
-    name: 'خضار وفواكه',
-    subtext: 'طازج يومياً',
-    badge: 'طبيعي',
-    badgeColor: 'bg-[#16A34A]',
-    bgColor: 'bg-[#F0FDF4]',
-    textColor: 'text-[#16A34A]',
-    icon: Apple,
-    categoryQuery: 'خضار وفواكه',
-  },
-];
-
 export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
   const { 
     currentPath,
     products, 
     stores, 
+    martBanner,
+    supermarketCategories,
+    activeStoreTypes,
     applyCoupon, 
     appliedCoupon, 
     navigate,
@@ -156,12 +76,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     }
   }, [currentPath]);
 
-  const displayedServices = useMemo(() => {
-    return TALABAT_MAIN_SERVICES.filter((serv) =>
-      LAUNCH_CONFIG.enabledCategories.length === 0 || LAUNCH_CONFIG.enabledCategories.includes(serv.id)
-    );
-  }, []);
-
   const cartItemCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   // Flash deals & discounted products
@@ -176,11 +90,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     let list = [...products];
 
     if (selectedCategory) {
-      list = list.filter((p) => {
-        const cat = (p.category || '').toLowerCase();
-        const target = selectedCategory.toLowerCase();
-        return cat.includes(target) || target.includes(cat);
-      });
+      list = list.filter((p) => matchProductToCategory(p, selectedCategory));
     }
 
     if (activeFilter === 'offers') {
@@ -218,6 +128,21 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     setTimeout(() => setCouponCopied(false), 2500);
   };
 
+  // Dynamic product count per category
+  const categoryProductCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    supermarketCategories.forEach((c) => {
+      counts[c.code] = getCategoryProductCount(products, c.code, c.name_ar);
+    });
+    return counts;
+  }, [products, supermarketCategories]);
+
+  // Merchants offering items in selected category
+  const categoryMerchants = useMemo(() => {
+    if (!selectedCategory) return [];
+    return getCategoryMerchants(products, selectedCategory, stores);
+  }, [selectedCategory, products, stores]);
+
   return (
     <div className="min-h-screen bg-[#F7F7F8] pb-28 sm:pb-20 text-[#1F2937] overflow-x-hidden" dir="rtl">
       
@@ -242,109 +167,136 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
           />
         </section>
 
-        {/* 3. TALABAT CORE CATEGORIES (4 Cols on Mobile, 8 Cols on Desktop) */}
-        <section aria-labelledby="talabat-services-heading" className="mb-6">
-          <div className="flex items-center justify-between px-1 mb-2.5">
-            <h2 id="talabat-services-heading" className="text-sm sm:text-base font-black text-[#111827] flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#FF5900]" />
-              <span>أقسام وخدمات سنجوب</span>
+        {/* 3. SANGOUB PRODUCT CATEGORIES — Talabat-style Squircles */}
+        <section aria-labelledby="categories-heading" className="mb-8">
+          <div className="flex items-center justify-between px-1 mb-4">
+            <h2 id="categories-heading" className="text-base sm:text-lg font-black text-[#111827]">
+              الأقسام
             </h2>
-            <button
-              type="button"
-              onClick={() => setSelectedCategory(null)}
-              className="text-xs font-bold text-[#FF5900] hover:underline cursor-pointer flex items-center gap-0.5"
-            >
-              <span>عرض الكل</span>
-              <ChevronLeft size={13} />
-            </button>
+            {selectedCategory && (
+              <button
+                type="button"
+                onClick={() => setSelectedCategory(null)}
+                className="text-xs font-bold text-[#FF5900] hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <span>عرض الكل</span>
+                <ChevronLeft size={13} />
+              </button>
+            )}
           </div>
 
-          {/* Squircles Grid */}
-          <div className={`grid gap-2.5 sm:gap-3.5 w-full ${
-            displayedServices.length <= 4 
-              ? 'grid-cols-2 sm:grid-cols-4 max-w-md mx-auto' 
-              : 'grid-cols-4 sm:grid-cols-4 lg:grid-cols-8'
-          }`}>
-            {displayedServices.map((serv) => {
-              const Icon = serv.icon;
-              const isSelected = selectedCategory === serv.categoryQuery;
+          {/* Responsive Grid: Talabat-style squircle cards with rounded corners, text below */}
+          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2.5 sm:gap-3.5 w-full">
+            {supermarketCategories.map((cat) => {
+              const isSelected = selectedCategory === cat.name_ar || selectedCategory === cat.code;
 
               return (
                 <button
-                  key={serv.id}
+                  key={cat.code}
                   type="button"
                   onClick={() => {
-                    setSelectedCategory(isSelected ? null : serv.categoryQuery);
+                    const nextVal = isSelected ? null : cat.name_ar;
+                    setSelectedCategory(nextVal);
+                    const grid = document.getElementById('products-grid');
+                    if (grid) grid.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className="flex flex-col items-center gap-1.5 p-1 rounded-2xl transition-all cursor-pointer group text-center active:scale-95"
+                  className="group flex flex-col items-center gap-1.5 cursor-pointer transition-transform active:scale-95 bg-transparent border-none outline-none p-0"
                 >
-                  {/* Squircle Icon Box */}
-                  <div
-                    className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all ${
-                      isSelected
-                        ? 'bg-[#FF5900] text-white shadow-md shadow-[#FF5900]/30 scale-105 ring-2 ring-[#FF5900]'
-                        : `${serv.bgColor} ${serv.textColor} border border-black/5 shadow-2xs group-hover:scale-105`
-                    }`}
-                  >
-                    <Icon size={24} strokeWidth={2.2} />
-
-                    {/* Mini Badge */}
-                    {serv.badge && (
-                      <span 
-                        className={`absolute -top-1.5 -right-1 text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-2xs ${
-                          isSelected ? 'bg-white text-[#FF5900]' : `${serv.badgeColor} text-white`
-                        }`}
-                      >
-                        {serv.badge}
-                      </span>
-                    )}
+                  {/* Talabat Squircle Box — rounded corners, soft bg, image fills cleanly, ZERO text overlay */}
+                  <div className={`aspect-square w-full rounded-2xl sm:rounded-[22px] bg-[#F4F5F7] p-2 flex items-center justify-center border transition-all duration-300 overflow-hidden ${
+                    isSelected
+                      ? 'border-[#FF5900] ring-2 ring-[#FF5900]/40 bg-[#FFF2EC] shadow-xs'
+                      : 'border-[#EBECEF] group-hover:border-[#FF5900]/40 group-hover:bg-[#FFF7ED]/50 group-hover:shadow-xs'
+                  }`}>
+                    <img
+                      src={cat.image}
+                      alt={cat.name_ar}
+                      className="w-full h-full object-contain rounded-xl group-hover:scale-108 transition-transform duration-300"
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
+                      }}
+                    />
                   </div>
 
-                  {/* Category Title */}
-                  <span className={`text-[11px] sm:text-xs font-black transition-colors truncate w-full ${
-                    isSelected ? 'text-[#FF5900]' : 'text-[#1F2937] group-hover:text-[#FF5900]'
-                  }`}>
-                    {serv.name}
+                  {/* Category name below the image in Tajawal font */}
+                  <span
+                    className={`text-[10px] sm:text-[11px] font-semibold leading-tight text-center line-clamp-2 w-full transition-colors font-tajawal ${
+                      isSelected ? 'text-[#FF5900]' : 'text-[#374151] group-hover:text-[#FF5900]'
+                    }`}
+                    style={{ fontFamily: "'Tajawal', sans-serif" }}
+                  >
+                    {cat.name_ar}
                   </span>
                 </button>
               );
             })}
           </div>
-        </section>
 
-        {/* 4. COMPACT TALABAT MART BANNER (Clean Height & No Overlaps) */}
-        <section className="mb-6">
-          <div className="bg-gradient-to-r from-[#FF5900] via-[#FF6A1A] to-[#FF4500] rounded-2xl p-3.5 sm:p-5 text-white shadow-xs flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white text-[#FF5900] flex items-center justify-center shrink-0 shadow-xs">
-                <Zap size={22} className="fill-[#FF5900]" />
-              </div>
-              <div className="leading-tight">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-[9px] bg-white/20 text-white px-2 py-0.2 rounded-full font-black">
-                    سنجوب بقالة ⚡
-                  </span>
-                  <span className="text-[9px] bg-white text-[#FF5900] px-1.5 py-0.2 rounded-full font-black">
-                    {LAUNCH_CONFIG.serviceAreaLabel}
-                  </span>
-                </div>
-                <h3 className="text-xs sm:text-sm font-black line-clamp-1">
-                  سنجوب ماركت وكل طلبات البيت لحد بابك
-                </h3>
+          {/* Merchants Offering Products in this Category */}
+          {selectedCategory && categoryMerchants.length > 0 && (
+            <div className="mt-3.5 p-3.5 bg-white rounded-2xl border border-[#E5E7EB] shadow-xs flex flex-wrap items-center gap-3">
+              <span className="text-xs font-black text-[#111827] shrink-0">المتاجر المتوفرة في ({selectedCategory}):</span>
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                {categoryMerchants.map((merchant) => (
+                  <div
+                    key={merchant.id}
+                    onClick={() => navigate(`/stores/${merchant.id}`)}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#F9FAFB] border border-[#E5E7EB] shrink-0 cursor-pointer hover:border-[#FF5900] transition-colors text-xs font-bold font-tajawal"
+                    style={{ fontFamily: "'Tajawal', sans-serif" }}
+                  >
+                    <img
+                      src={merchant.logo || '/brand/sangoub-market-logo.jpg'}
+                      alt={merchant.name}
+                      className="w-5 h-5 rounded-full object-cover"
+                    />
+                    <span>{merchant.name}</span>
+                  </div>
+                ))}
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedCategory('سوبرماركت وبقالة');
-              }}
-              className="px-3.5 py-1.5 bg-white text-[#FF5900] rounded-xl text-xs font-black shrink-0 shadow-xs active:scale-95 transition-transform"
-            >
-              تسوق الآن
-            </button>
-          </div>
+          )}
         </section>
+
+        {/* 4. COMPACT SANGOUB MART BANNER (Dynamic & Managed from Admin Dashboard) */}
+        {martBanner?.enabled !== false && (
+          <section className="mb-6">
+            <div className="bg-gradient-to-r from-[#FF5900] via-[#FF6A1A] to-[#FF4500] rounded-2xl p-3.5 sm:p-5 text-white shadow-xs flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white text-[#FF5900] flex items-center justify-center shrink-0 shadow-xs">
+                  <Zap size={22} className="fill-[#FF5900]" />
+                </div>
+                <div className="leading-tight">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[9px] bg-white/20 text-white px-2 py-0.2 rounded-full font-black">
+                      {martBanner?.badge || 'سنجوب بقالة ⚡'}
+                    </span>
+                    {martBanner?.areaText && (
+                      <span className="text-[9px] bg-white text-[#FF5900] px-1.5 py-0.2 rounded-full font-black">
+                        {martBanner.areaText}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xs sm:text-sm font-black line-clamp-1">
+                    {martBanner?.title || 'سنجوب ماركت وكل طلبات البيت لحد بابك'}
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory(martBanner?.targetCategory || 'سوبرماركت');
+                  const grid = document.getElementById('products-grid');
+                  if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="px-4 py-2 bg-white text-[#FF5900] rounded-xl text-xs sm:text-sm font-black shrink-0 shadow-xs active:scale-95 transition-transform hover:bg-[#FFF2EC] cursor-pointer"
+              >
+                {martBanner?.btnText || 'تسوق الآن'}
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* 5. FLASH DEALS (Horizontal Touch Scroll with Clean Snap) */}
         {flashDeals.length > 0 && (
@@ -445,13 +397,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
           </section>
         )}
 
-        {/* 6. POPULAR STORES HORIZONTAL SCROLL (Hidden in soft launch to protect merchant privacy) */}
+        {/* 6. STORES SECTION — Talabat-style Squircle Logos */}
         {!LAUNCH_CONFIG.hideMerchantNames && stores.length > 0 && (
-          <section aria-labelledby="stores-heading" className="mb-6">
-            <div className="flex items-center justify-between px-1 mb-2.5">
-              <h2 id="stores-heading" className="text-sm sm:text-base font-black text-[#111827] flex items-center gap-1.5">
-                <StoreIcon size={18} className="text-[#FF5900]" />
-                <span>المطاعم والشركاء ⭐</span>
+          <section aria-labelledby="stores-heading" className="mb-8">
+            <div className="flex items-center justify-between px-1 mb-4">
+              <h2 id="stores-heading" className="text-base sm:text-lg font-black text-[#111827]">
+                المتاجر
               </h2>
               <a
                 href="/stores"
@@ -459,63 +410,17 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                   e.preventDefault();
                   navigate('/stores');
                 }}
-                className="text-xs font-bold text-[#FF5900] hover:underline cursor-pointer flex items-center gap-0.5 text-decoration-none"
+                className="text-xs font-bold text-[#FF5900] hover:underline cursor-pointer flex items-center gap-1 text-decoration-none"
               >
-                <span>جميع الشركاء</span>
+                <span>عرض الكل</span>
                 <ChevronLeft size={13} />
               </a>
             </div>
 
-            {/* Horizontal Stores Scroll */}
-            <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 pt-1 w-full overscroll-x-contain touch-pan-x">
+            {/* Flexible Row of Stores — Natural spacing, no empty grid gaps */}
+            <div className="flex flex-wrap items-start gap-4 sm:gap-6 w-full">
               {stores.map((store) => (
-                <div
-                  key={store.id}
-                  onClick={() => navigate('/stores/' + encodeURIComponent(store.id))}
-                  className="w-[210px] sm:w-[240px] shrink-0 bg-white border border-[#E5E7EB] hover:border-[#FF5900]/40 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between select-none"
-                >
-                  {/* Store Banner */}
-                  <div className="relative h-24 w-full bg-[#E5E7EB] overflow-hidden">
-                    <img
-                      src={store.bannerUrl || store.imageUrl || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80'}
-                      alt={store.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                    
-                    {/* Delivery Time Badge */}
-                    <span className="absolute bottom-2 right-2 bg-white/95 backdrop-blur-xs text-[#111827] text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs flex items-center gap-1">
-                      <Clock size={10} className="text-[#FF5900]" />
-                      <span>{store.deliveryTime || '20-30 دقيقة'}</span>
-                    </span>
-
-                    {/* Delivery Fee Badge */}
-                    <span className="absolute bottom-2 left-2 bg-[#059669] text-white text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs">
-                      {store.deliveryFee === 0 ? 'توصيل مجاني 🛵' : `توصيل ${formatEGP(store.deliveryFee)}`}
-                    </span>
-                  </div>
-
-                  {/* Store Details */}
-                  <div className="p-3 space-y-1">
-                    <div className="flex items-start justify-between gap-1.5">
-                      <div className="truncate">
-                        <h3 className="text-xs sm:text-sm font-black text-[#111827] group-hover:text-[#FF5900] transition-colors truncate">
-                          {store.name}
-                        </h3>
-                        <p className="text-[10px] text-[#6B7280] truncate">
-                          {store.type || 'مطعم فطور وسندوتشات'}
-                        </p>
-                      </div>
-
-                      {/* Rating */}
-                      <div className="flex items-center gap-0.5 bg-[#FFFBEB] border border-[#FDE68A] text-[#D97706] px-1.5 py-0.2 rounded-md text-[10px] font-black shrink-0">
-                        <Star size={10} className="fill-[#D97706]" />
-                        <span>{store.rating || 4.8}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <MerchantLogoCard key={store.id} store={store} className="w-[82px] sm:w-[94px]" />
               ))}
             </div>
           </section>
@@ -777,6 +682,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
       <ProductModal
         product={selectedProductForModal}
         onClose={() => setSelectedProductForModal(null)}
+        onSelectProduct={(p) => setSelectedProductForModal(p)}
       />
 
     </div>

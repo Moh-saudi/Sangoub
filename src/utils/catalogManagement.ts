@@ -13,11 +13,12 @@ export const productCategories: Product["category"][] = [
 ];
 
 export const storeCategories: [StoreCategory, string][] = [
-  ["breakfast", "فطور"],
-  ["sandwiches", "مطعم وسندوتشات"],
-  ["supermarket", "سوبر ماركت"],
-  ["cafe", "كافيه"],
-  ["desserts", "حلويات"],
+  ["restaurant", "مطاعم وكشري"],
+  ["seafood", "أسماك ومأكولات بحرية"],
+  ["supermarket", "سوبر ماركت وهايبر"],
+  ["breakfast", "فطور ومخبوزات"],
+  ["cafe", "كافيه ومشروبات"],
+  ["desserts", "حلويات ومخبوزات"],
   ["pharmacy", "صيدلية وعناية طبية"],
 ];
 

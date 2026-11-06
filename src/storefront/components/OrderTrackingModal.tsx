@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { OrderMap } from '../../components/OrderMap';
 import { formatEGP } from '../../utils/orderCalculations';
 import { CustomerPOSReceipt } from '../../components/CustomerPOSReceipt';
-import { Receipt, Navigation, X } from 'lucide-react';
+import { useStore } from '../context/StoreContext';
+import { Receipt, Navigation, X, Upload, Camera, CheckCircle2 } from 'lucide-react';
 import type { Order } from '../../types';
 
 export interface TrackableOrder {
@@ -10,6 +11,9 @@ export interface TrackableOrder {
   orderStatus?: import('../../types').Order['orderStatus'];
   coordinates?: import('../../types').Coordinates;
   itemsCount: number;
+  subtotal?: number;
+  deliveryFee?: number;
+  discount?: number;
   total: number;
   destination: string;
   destinationCoords?: { lat: number; lng: number };
@@ -38,17 +42,57 @@ interface OrderTrackingModalProps {
 export type TrackingStage = 'received' | 'preparing' | 'with_courier' | 'delivered';
 
 export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModalProps) {
+  const { stores } = useStore();
   const ref = useRef<HTMLDialogElement>(null);
   const [viewMode, setViewMode] = useState<'tracking' | 'receipt'>('tracking');
+  const [receiptUrl, setReceiptUrl] = useState<string | undefined>(order?.receiptUrl);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
 
   useEffect(() => {
     if (isOpen && order) {
       setViewMode('tracking');
+      setReceiptUrl(order.receiptUrl);
       ref.current?.showModal();
     } else {
       ref.current?.close();
     }
-  }, [isOpen, order?.orderId]);
+  }, [isOpen, order?.orderId, order?.receiptUrl]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !order) return;
+
+    setUploadingReceipt(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setReceiptUrl(result);
+      setUploadingReceipt(false);
+      order.receiptUrl = result;
+
+      try {
+        const last = localStorage.getItem('sangoub_last_order');
+        if (last) {
+          const parsed = JSON.parse(last);
+          parsed.receiptUrl = result;
+          localStorage.setItem('sangoub_last_order', JSON.stringify(parsed));
+        }
+        const hist = localStorage.getItem('sangoub_customer_orders_history');
+        if (hist) {
+          const parsedHist = JSON.parse(hist);
+          const updated = parsedHist.map((o: any) =>
+            o.id === order.orderId
+              ? { ...o, receiptUrl: result, rawOrder: { ...o.rawOrder, receiptUrl: result } }
+              : o
+          );
+          localStorage.setItem('sangoub_customer_orders_history', JSON.stringify(updated));
+        }
+      } catch (err) {
+        console.warn('Saving uploaded receipt failed', err);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   if (!isOpen || !order) return null;
 
@@ -57,6 +101,16 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
       ? { latitude: order.destinationCoords.lat, longitude: order.destinationCoords.lng }
       : undefined
   );
+
+  const itemsSum = (order.items || []).reduce((acc, it) => acc + (it.price * it.quantity), 0);
+  const calculatedSubtotal = typeof order.subtotal === 'number' && order.subtotal > 0
+    ? order.subtotal
+    : itemsSum > 0
+    ? itemsSum
+    : Math.max(0, order.total - 15);
+  const calculatedDeliveryFee = typeof order.deliveryFee === 'number'
+    ? order.deliveryFee
+    : Math.max(0, order.total - calculatedSubtotal);
 
   // Adapt TrackableOrder into full Order schema for CustomerPOSReceipt
   const adaptedOrder = {
@@ -82,9 +136,9 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
       extraPrice: 0,
       selectedOptions: {},
     })),
-    subtotal: Math.max(0, order.total - 20),
-    deliveryFee: 20,
-    discount: 0,
+    subtotal: calculatedSubtotal,
+    deliveryFee: calculatedDeliveryFee,
+    discount: order.discount ?? 0,
     total: order.total,
     tip: 0,
     taxTotal: 0,
@@ -96,6 +150,7 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
     address: order.destination,
     floorNumber: order.destination.includes('الدور') ? (order.destination.match(/الدور\s*(\S+)/)?.[1] || '4') : '1',
     roomNumber: order.destination.includes('مكتب') ? (order.destination.match(/مكتب\s*(\S+)/)?.[1] || '12') : '1',
+    receiptUrl: receiptUrl || order.receiptUrl,
   } as unknown as Order;
 
   return (
@@ -172,6 +227,60 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
               <OrderMap order={{ id: order.orderId, orderStatus: order.orderStatus || 'received', coordinates }} />
             </div>
 
+            {/* 📸 InstaPay / E-Wallet Payment Receipt Upload Card */}
+            {(order.paymentMethod === 'instapay' || order.paymentMethod === 'vodafone_cash') && (
+              <div className="bg-purple-50/90 border border-purple-200 rounded-2xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Upload size={16} className="text-purple-700" />
+                    <h4 className="text-xs font-black text-slate-900">
+                      إثبات تحويل إنستاباي / المحفظة
+                    </h4>
+                  </div>
+                  {receiptUrl ? (
+                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <CheckCircle2 size={11} /> تم رفع الإيصال
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                      مطلوب رفع الإشعار
+                    </span>
+                  )}
+                </div>
+
+                {receiptUrl ? (
+                  <div className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-purple-100">
+                    <img
+                      src={receiptUrl}
+                      alt="إيصال التحويل"
+                      className="w-12 h-12 object-cover rounded-lg border border-slate-200 cursor-pointer shadow-2xs"
+                      onClick={() => window.open(receiptUrl, '_blank')}
+                      title="انقر لعرض الصورة بالحجم الكامل"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black text-slate-800 truncate">تم حفظ إيصال التحويل بنجاح ✓</p>
+                      <p className="text-[10px] text-slate-500">تم إرسال الإشعار للتاجر والإدارة لمراجعة التحويل واعتماد الطلب فوراً.</p>
+                    </div>
+                    <label className="text-[11px] font-bold text-purple-700 hover:text-purple-900 underline cursor-pointer shrink-0">
+                      تغيير
+                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      بعد إتمام التحويل عبر إنستاباي، يرجى رفع لقطة الشاشة (Screenshot) للتأكد من وصول المبلغ واعتماد تجهيز طلبك فوراً لدى التاجر:
+                    </p>
+                    <label className="w-full py-2.5 px-3 bg-white hover:bg-purple-100/70 border-2 border-dashed border-purple-300 rounded-xl text-xs font-bold text-purple-800 transition flex items-center justify-center gap-2 cursor-pointer active:scale-98">
+                      <Camera size={15} className="text-purple-600" />
+                      <span>{uploadingReceipt ? 'جارٍ رفع الإيصال...' : 'رفع لقطة شاشة التحويل (إيصال الدفع) 📸'}</span>
+                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Quick Button to open POS Receipt */}
             <button
               type="button"
@@ -183,7 +292,7 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
             </button>
           </div>
         ) : (
-          <CustomerPOSReceipt order={adaptedOrder} showTabs={true} />
+          <CustomerPOSReceipt order={adaptedOrder} stores={stores} showTabs={true} />
         )}
       </div>
     </dialog>

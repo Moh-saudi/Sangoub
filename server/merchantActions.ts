@@ -1,236 +1,142 @@
-import {readQuery} from './data/firestoreQueries.ts';
-import {queryPlans} from '../src/data/queryPlans.ts';
-import {merchantReadModel} from './merchantReadModels.ts';
+import { merchantReadModel } from './merchantReadModels.ts';
 import { sharedCatalogPage, linkCatalogProduct } from './sharedCatalog.ts';
 import { merchantOrderView } from './portalOrders.ts';
-import { writeOrderSignals } from './orderSignals.ts';
-import { FieldValue } from "firebase-admin/firestore";
-import { AdminError, validId } from "./adminRequest.ts";
-import { auditInTransaction } from "./audit.ts";
-import { paymentReady, type OperationIdentity } from "./operations.ts";
-import { INITIAL_STORES, INITIAL_PRODUCTS } from '../src/data/seedData.ts';
+import { AdminError, validId } from './adminRequest.ts';
+import { paymentReady, type OperationIdentity } from './operations.ts';
+import { supabaseAdminClient } from './supabaseAdmin.ts';
 
-const SLUG_TO_UUID: Record<string, string> = {
-  'store-foul-hind': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-  'store-supermarket-capital': '54a6c2f6-6c29-4177-ac65-32fadddea83d',
-  'store-ministry-coffee': '55508f0e-f818-452e-b946-ab803fe9d637',
-  'store-karam-elsham': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-  'store-taza-bakery': '55508f0e-f818-452e-b946-ab803fe9d637',
-};
-
-function matchStoreId(a?: string, b?: string): boolean {
-  if (!a || !b) return true;
-  if (a === b) return true;
-  const uuidA = SLUG_TO_UUID[a] || a;
-  const uuidB = SLUG_TO_UUID[b] || b;
-  return uuidA === uuidB;
-}
 export const merchantActions = [
-  "store-dashboard",
-  "store-products",
-  "shared-catalog",
-  "store-customers",
-  "store-payments",
-  "link-catalog-product",
-  "set-product-archived",
-  "save-product",
-  "set-product-stock",
-  "set-product-inventory",
-  "set-product-price",
-  "set-store-status",
-  "legacy-prepare",
+  'store-dashboard', 'store-products', 'shared-catalog', 'store-customers', 'store-payments',
+  'link-catalog-product', 'set-product-archived', 'save-product', 'set-product-stock',
+  'set-product-inventory', 'set-product-price', 'set-store-status', 'legacy-prepare',
 ];
+
+const storeView = (row: any) => ({
+  id: row.id, name: row.name, nameEn: row.name_en || '', type: row.type || '', category: row.category || '',
+  status: row.status || 'closed', minOrder: Number(row.min_order) || 0, deliveryFee: Number(row.delivery_fee) || 0,
+  deliveryTime: row.delivery_time || '', locationInDistrict: row.location_in_district || '', logo: row.logo || '',
+  banner: row.banner || '', imageUrl: row.logo || '', commissionRate: Number(row.commission_rate) || 0,
+  taxRate: Number(row.tax_rate) || 0, taxRegistrationNumber: row.tax_registration_number || row.tax_number || '',
+  pricesIncludeTax: row.prices_include_tax === true,
+});
+
+const productView = (row: any) => ({
+  id: row.id, storeId: row.store_id, storeName: row.store_name || '', name: row.name, nameEn: row.name_en || '',
+  description: row.description || '', price: Number(row.price) || 0,
+  originalPrice: row.original_price == null ? undefined : Number(row.original_price), category: row.category || 'عام',
+  categoryId: row.category_id || undefined, barcode: row.barcode || '', merchantPosSku: row.merchant_pos_sku || '',
+  verticalId: row.vertical_id || undefined, imageType: row.image_type || '', imageUrl: row.image_url || '',
+  imageKey: row.image_key || undefined, inStock: row.is_available !== false, archived: row.archived === true,
+  badge: row.badge || '', isPopular: row.is_popular === true, optionGroups: row.options || [],
+  stockQuantity: Number(row.stock_quantity) || 0, minStockAlert: Number(row.min_stock_alert) || 0,
+  maxPerOrder: Number(row.max_per_order) || 99, catalogProductId: row.catalog_product_id || undefined,
+  offerTitle: row.offer_title || '', isOccasion: row.is_occasion === true, occasionName: row.occasion_name || '',
+  offerStartDate: row.offer_start_date || '', offerEndDate: row.offer_end_date || '',
+});
+
 export async function merchantAction(input: any, context: OperationIdentity) {
-  const { db, actor, staff, role } = context;
-  const storeId = input.storeId || staff?.storeId || "store-foul-hind";
-  if (!context.verified || (!["restaurant", "admin"].includes(role)) || !storeId)
-    throw new AdminError(403, "الحساب غير مرتبط بمتجر معتمد.");
+  const { actor, staff, role } = context;
+  if (!context.verified || !['restaurant', 'admin'].includes(role)) throw new AdminError(403, 'الحساب غير مرتبط بمتجر معتمد.');
+  const storeId = input.storeId || staff?.storeId;
+  if (!storeId || (role === 'restaurant' && storeId !== staff?.storeId)) throw new AdminError(403, 'المتجر غير مرتبط بحسابك.');
   validId(storeId);
-  if(['store-customers','store-payments'].includes(input.action))return merchantReadModel(input,context);
-  if(input.action==='shared-catalog')return sharedCatalogPage(db,input.cursor,input.query||'');
-  if(input.action==='link-catalog-product')return linkCatalogProduct(input,context);
-  const storeRef = db.doc("stores/" + storeId);
-  const productPage=async(cursor?:string)=>{
-    if(cursor!==undefined)validId(cursor);
-    const snapshot=await readQuery(db,queryPlans.merchantProducts(storeId),cursor);const docs=snapshot.docs.slice(0,100);
-    return {products:docs.map(d=>({...d.data(),id:d.id})),productsNextCursor:snapshot.docs.length>100?docs.at(-1)!.id:null};
-  };
-  if(input.action==='store-products')return productPage(input.cursor);
-  if (input.action === "store-dashboard") {
-    const [store, products, orders, contract] = await Promise.all([
-      storeRef.get(),
-      productPage(),
-      input.includeOrders===false ? Promise.resolve({docs:[]}) : db
-        .collection("orders")
-        .where("storeIds", "array-contains", storeId)
-        .limit(100)
-        .get(),
-      db.doc("merchantContracts/" + storeId).get(),
+
+  if (input.action === 'store-customers' || input.action === 'store-payments') return merchantReadModel(input, context);
+  if (input.action === 'shared-catalog') return sharedCatalogPage(undefined, input.cursor, input.query || '');
+  if (input.action === 'link-catalog-product') return linkCatalogProduct(input, context);
+
+  const client = supabaseAdminClient();
+  if (input.action === 'store-products' || input.action === 'store-dashboard') {
+    const [{ data: store, error: storeError }, { data: rows, error: productsError }] = await Promise.all([
+      client.from('stores').select('*').eq('id', storeId).maybeSingle(),
+      (() => {
+        let query = client.from('products').select('*,stores(name)').eq('store_id', storeId).order('id', { ascending: true }).limit(101);
+        if (input.cursor !== undefined) {
+          if (typeof input.cursor !== 'string' || !/^[0-9a-f-]{36}$/i.test(input.cursor)) throw new AdminError(400, 'مؤشر الصفحة غير صالح.');
+          query = query.gt('id', input.cursor);
+        }
+        return query;
+      })(),
     ]);
-    const seedStore = INITIAL_STORES.find(s => s.id === storeId) || INITIAL_STORES[0];
-    const storeData = store && store.exists ? { ...store.data(), id: store.id } : seedStore;
-    const storeProducts = products && products.products && products.products.length > 0 ? products : {
-      products: INITIAL_PRODUCTS.filter(p => p.storeId === storeId || p.storeId === seedStore.id),
-      productsNextCursor: null
-    };
+    if (productsError) throw new AdminError(503, 'تعذر تحميل منتجات المتجر من Supabase.');
+    if (input.action === 'store-products') {
+      const products = rows || [];
+      return { products: products.slice(0, 100).map((row: any) => productView({ ...row, store_name: row.stores?.name })), productsNextCursor: products.length > 100 ? products[99].id : null };
+    }
+    if (storeError) throw new AdminError(503, 'تعذر تحميل المتجر من Supabase.');
+    if (!store) throw new AdminError(404, 'المتجر غير موجود في Supabase.');
+    const products = rows || [];
     return {
-      stores: [
-        {
-          ...storeData,
-          id: storeData.id,
-          ...(contract && contract.exists ? { commissionRate: contract.data()?.commissionRate } : {}),
-        },
-      ],
-      ...storeProducts,
-      orders: (orders?.docs || [])
-        .filter((d) => d.data().fulfillmentVersion !== 2)
-        .map((d) => {
-          return merchantOrderView(d.id, d.data(), storeId);
-        }),
+      stores: [storeView(store)],
+      products: products.slice(0, 100).map((row: any) => productView({ ...row, store_name: store.name })),
+      productsNextCursor: products.length > 100 ? products[99].id : null,
+      orders: [],
     };
   }
-  const id = input.action === "set-store-status" ? storeId : input.id;
-  validId(id);
-  return db.runTransaction(async (tx) => {
-    const ref = db.doc(
-      (input.action === "legacy-prepare"
-        ? "orders"
-        : input.action === "set-store-status"
-          ? "stores"
-          : "products") +
-        "/" +
-        id,
-    );
-    const [membership, access, store, current] = await Promise.all([
-      tx.get(db.doc("staff/" + actor.uid)),
-      tx.get(db.doc("accountAccess/" + actor.uid)),
-      tx.get(storeRef),
-      tx.get(ref),
-    ]);
-    const m = membership.data(),
-      a = access.data();
-    const isAdmin = role === "admin" || m?.role === "admin";
-    const isStoreStaff = role === "restaurant" || m?.role === "restaurant" || staff?.role === "restaurant";
-    if (!isAdmin && !isStoreStaff)
-      throw new AdminError(403, "تغيرت صلاحية الحساب.");
-    const revokedSec = a?.revokedBefore ? (a.revokedBefore > 1e11 ? Math.floor(a.revokedBefore / 1000) : a.revokedBefore) : 0;
-    if (
-      a?.disabled === true ||
-      a?.operationLocked === true ||
-      (revokedSec > 0 && actor.auth_time <= revokedSec)
-    )
-      throw new AdminError(403, "تغيرت صلاحية الحساب.");
-    if (!store.exists) {
-      const seed = INITIAL_STORES.find(s => s.id === storeId) || INITIAL_STORES[0];
-      tx.set(storeRef, { id: storeId, name: seed?.name || 'فول وفلافل العاصمة', status: 'open', createdAt: FieldValue.serverTimestamp() }, { merge: true });
-    }
-    const before = current.data() || null;
-    if (input.action === "legacy-prepare") {
-      if (
-        !before ||
-        !before.storeIds?.includes(storeId) ||
-        before.fulfillmentVersion === 2
-      )
-        throw new AdminError(403, "الطلب غير متاح لهذا المسار.");
-      if (
-        !paymentReady(before) ||
-        !["received", "preparing"].includes(before.orderStatus)
-      )
-        throw new AdminError(409, "الطلب غير متاح للتحضير.");
-      const old = before.kitchenStatus?.[storeId] || "received",
-        next = input.next;
-      if (
-        !(
-          (old === "received" && next === "preparing") ||
-          (old === "preparing" && next === "ready")
-        )
-      )
-        throw new AdminError(409, "راجع مرحلة التحضير الحالية.");
-      const kitchenStatus = { ...before.kitchenStatus, [storeId]: next },
-        all = before.storeIds.every(
-          (s: string) => kitchenStatus[s] === "ready",
-        );
-      const after = {
-        kitchenStatus,
-        orderStatus: all ? "ready" : "preparing",
-        updatedAt: FieldValue.serverTimestamp(),
-        ...(all ? { readyAt: FieldValue.serverTimestamp() } : {}),
-      };
-      tx.update(ref, after);
-      writeOrderSignals(db, tx, {...before, ...after, id}, {...before, id});
-      auditInTransaction(
-        db,
-        tx,
-        actor,
-        "merchant.prepare",
-        "orders",
-        id,
-        before,
-        { ...before, ...after },
-      );
-      return { ok: true };
-    }
-    if (!isAdmin && ((m?.duty || "manager") !== "manager"))
-      throw new AdminError(403, "تعديل المنيو والمتجر متاح لمدير المتجر فقط.");
-    if (
-      before &&
-      input.action !== "set-store-status" &&
-      !isAdmin &&
-      !matchStoreId(before.storeId, storeId)
-    )
-      throw new AdminError(403, "المنتج يخص متجرًا آخر.");
-    let patch: any;
-    if (input.action === "set-store-status") {
-      if (!["open", "closed", "busy"].includes(input.status))
-        throw new AdminError(400, "حالة متجر غير صالحة.");
-      patch = { 
-        status: input.status,
-        ...(input.status === "closed" ? { stoppedAt: FieldValue.serverTimestamp() } : { stoppedAt: FieldValue.delete() })
-      };
-    } else if (input.action === "set-product-archived") {
-      if(!before||typeof input.archived!=='boolean')throw new AdminError(400,'حالة الأرشفة غير صالحة.');
-      patch={archived:input.archived,inStock:false};
-    } else if (input.action === "set-product-stock") {
-      if (!before || typeof input.inStock !== "boolean" || before.archived)
-        throw new AdminError(400, "المنتج غير متاح للتعديل.");
-      patch = { inStock: input.inStock };
-    } else if (input.action === "set-product-inventory") {
-      if (!before || before.archived)
-        throw new AdminError(400, "المنتج غير متاح للتعديل.");
-      patch = {};
-      if (typeof input.inStock === "boolean") patch.inStock = input.inStock;
-      if (typeof input.stockQuantity === "number") patch.stockQuantity = Math.max(0, Math.floor(input.stockQuantity));
-      if (typeof input.minStockAlert === "number") patch.minStockAlert = Math.max(0, Math.floor(input.minStockAlert));
-      if (typeof input.maxPerOrder === "number") patch.maxPerOrder = Math.max(1, Math.floor(input.maxPerOrder));
-    } else if (input.action === "set-product-price") {
-      if (
-        !before ||
-        !Number.isFinite(input.price) ||
-        input.price < 0 ||
-        input.price > 100000
-      )
-        throw new AdminError(400, "سعر غير صالح.");
-      patch = { price: input.price };
-      if (
-        before.originalPrice !== undefined &&
-        before.originalPrice < input.price
-      )
-        patch.originalPrice = FieldValue.delete();
-    } else if (input.action === "save-product") {
-      throw new AdminError(409,'اختر المنتج من الكتالوج العام بدل إنشاء نسخة جديدة.');
-    } else throw new AdminError(400, "عملية غير صالحة.");
-    const after = { ...patch, updatedAt: FieldValue.serverTimestamp() };
-    tx.set(ref, after, { merge: true });
-    auditInTransaction(
-      db,
-      tx,
-      actor,
-      "merchant." + input.action,
-      ref.parent?.id || (input.action === 'set-store-status' ? 'stores' : 'products'),
-      id,
-      before,
-      { ...before, ...patch },
-    );
+
+  if (input.action === 'legacy-prepare') {
+    validId(input.id);
+    if (!['preparing', 'ready'].includes(input.next)) throw new AdminError(400, 'مرحلة التحضير غير صالحة.');
+    const { data: order, error } = await client.from('orders').select('id,status,store_id,store_ids,kitchen_status,payment_method,payment_status,payment_confirmed_at,fulfillment_version')
+      .eq('id', input.id).maybeSingle();
+    if (error) throw new AdminError(503, 'تعذر قراءة الطلب من Supabase.');
+    if (!order || !(order.store_ids || [order.store_id]).includes(storeId) || order.fulfillment_version === 2) throw new AdminError(403, 'الطلب غير متاح لهذا المسار.');
+    const mapped = { paymentMethod: order.payment_method, paymentStatus: order.payment_status, paymentConfirmedAt: order.payment_confirmed_at };
+    if (!paymentReady(mapped) || !['received', 'preparing'].includes(order.status)) throw new AdminError(409, 'الطلب غير متاح للتحضير.');
+    const current = order.kitchen_status || {};
+    const old = current[storeId] || 'received';
+    if (!((old === 'received' && input.next === 'preparing') || (old === 'preparing' && input.next === 'ready'))) throw new AdminError(409, 'راجع مرحلة التحضير الحالية.');
+    const kitchenStatus = { ...current, [storeId]: input.next };
+    const allReady = (order.store_ids || [storeId]).every((id: string) => kitchenStatus[id] === 'ready');
+    const nextStatus = allReady ? 'ready' : 'preparing';
+    const { error: updateError } = await client.from('orders').update({
+      kitchen_status: kitchenStatus, status: nextStatus, updated_at: new Date().toISOString(),
+      ...(allReady ? { ready_at: new Date().toISOString() } : {}),
+    }).eq('id', input.id).eq('status', order.status);
+    if (updateError) throw new AdminError(503, 'تعذر تحديث تحضير الطلب في Supabase.');
     return { ok: true };
-  });
+  }
+
+  if (role !== 'admin' && staff?.duty !== 'manager') throw new AdminError(403, 'تعديل المنيو والمتجر متاح لمدير المتجر فقط.');
+  if (input.action === 'set-store-status') {
+    if (!['open', 'closed', 'busy'].includes(input.status)) throw new AdminError(400, 'حالة متجر غير صالحة.');
+    const { error } = await client.from('stores').update({
+      status: input.status, updated_at: new Date().toISOString(), stopped_at: input.status === 'closed' ? new Date().toISOString() : null,
+    }).eq('id', storeId);
+    if (error) throw new AdminError(503, 'تعذر تحديث حالة المتجر في Supabase.');
+    return { ok: true };
+  }
+
+  validId(input.id);
+  const { data: product, error: productError } = await client.from('products').select('*').eq('id', input.id).eq('store_id', storeId).maybeSingle();
+  if (productError) throw new AdminError(503, 'تعذر قراءة المنتج من Supabase.');
+  if (!product) throw new AdminError(404, 'المنتج غير موجود في متجرك.');
+  if (input.action === 'save-product') throw new AdminError(409, 'اختر المنتج من الكتالوج العام بدل إنشاء نسخة جديدة.');
+  const patch: Record<string, any> = { updated_at: new Date().toISOString() };
+  if (input.action === 'set-product-archived') {
+    if (typeof input.archived !== 'boolean') throw new AdminError(400, 'حالة الأرشفة غير صالحة.');
+    patch.archived = input.archived;
+    if (input.archived) patch.is_available = false;
+  } else if (input.action === 'set-product-stock') {
+    if (typeof input.inStock !== 'boolean' || product.archived) throw new AdminError(400, 'المنتج غير متاح للتعديل.');
+    patch.is_available = input.inStock;
+  } else if (input.action === 'set-product-inventory') {
+    if (product.archived) throw new AdminError(400, 'المنتج غير متاح للتعديل.');
+    for (const [source, target, max] of [['stockQuantity','stock_quantity',1000000],['minStockAlert','min_stock_alert',10000],['maxPerOrder','max_per_order',1000]] as const) {
+      const value = input[source];
+      if (value === undefined) continue;
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > max || (source === 'maxPerOrder' && value < 1)) throw new AdminError(400, 'قيمة المخزون غير صالحة.');
+      patch[target] = Math.floor(value);
+    }
+    if (typeof input.inStock === 'boolean') patch.is_available = input.inStock;
+  } else if (input.action === 'set-product-price') {
+    if (!Number.isFinite(input.price) || input.price < 0 || input.price > 100000) throw new AdminError(400, 'سعر غير صالح.');
+    patch.price = input.price;
+    if (Number(product.original_price) < input.price) patch.original_price = null;
+  } else {
+    throw new AdminError(400, 'عملية غير صالحة.');
+  }
+  const { error: updateError } = await client.from('products').update(patch).eq('id', input.id).eq('store_id', storeId);
+  if (updateError) throw new AdminError(503, 'تعذر حفظ تعديل المنتج في Supabase.');
+  return { ok: true };
 }

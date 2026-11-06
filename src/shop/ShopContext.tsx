@@ -315,15 +315,7 @@ function useShopState() {
   ) {
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50)
       throw new Error("اختر كمية من 1 إلى 50.");
-    if (
-      lines.some(
-        (line) =>
-          productCache.current[line.productId]?.storeId !== product.storeId,
-      )
-    )
-      throw new Error(
-        "السلة لطلب من متجر واحد. أكمل طلبك الحالي أو أفرغ السلة قبل اختيار متجر آخر.",
-      );
+    // Multiple stores allowed with separated fulfillment
     const normalized = Object.fromEntries(
       Object.entries(selectedOptions)
         .filter(([, value]) => value)

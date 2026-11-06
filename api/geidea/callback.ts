@@ -1,108 +1,49 @@
-import { writeOrderSignals } from '../../server/orderSignals.ts';
-import { FieldValue } from "firebase-admin/firestore";
-import { adminServices } from "../../server/firebaseAdmin.ts";
-import { GeideaGateway, ChatAmanGateway } from "../../server/integrations.ts";
+import { supabaseAdminClient } from '../../server/supabaseAdmin.ts';
+import { GeideaGateway, ChatAmanGateway } from '../../server/integrations.ts';
+
 export default async function handler(req: any, res: any) {
-  res.setHeader("Cache-Control", "no-store");
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "Method not allowed" });
+  res.setHeader('Cache-Control', 'no-store');
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
-    const payload = req.body || {},
-      providerId = payload.orderId || payload.order?.orderId;
-    if (
-      typeof providerId !== "string" ||
-      !/^[a-zA-Z0-9-]{1,100}$/.test(providerId)
-    )
-      return res.status(400).json({ error: "بيانات الدفع غير صالحة." });
-    const { db } = adminServices();
-    let id = payload.metadata?.orderId || payload.order?.metadata?.orderId;
-    const reference =
-      payload.merchantReferenceId || payload.order?.merchantReferenceId;
-    if (
-      !id &&
-      typeof reference === "string" &&
-      /^SNG_[a-f0-9]{24}$/.test(reference)
-    ) {
-      const found = await db
-        .collection("orderPayments")
-        .where("referenceId", "==", reference)
-        .limit(1)
-        .get();
-      id = found.docs[0]?.id;
+    const payload = req.body || {};
+    const providerId = payload.orderId || payload.order?.orderId;
+    if (typeof providerId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(providerId)) return res.status(400).json({ error: 'بيانات الدفع غير صالحة.' });
+    const admin = supabaseAdminClient();
+    const referenceId = payload.merchantReferenceId || payload.order?.merchantReferenceId;
+    let payment: any = null;
+    const metadataId = payload.metadata?.orderId || payload.order?.metadata?.orderId;
+    if (typeof metadataId === 'string' && /^[0-9a-f-]{36}$/i.test(metadataId)) {
+      const { data } = await admin.from('order_payments').select('*').eq('order_id', metadataId).maybeSingle();
+      payment = data;
     }
-    if(!id){const found=await db.collection('orderPayments').where('providerId','==',providerId).limit(1).get();id=found.docs[0]?.id;}
-    if (typeof id !== "string" || !/^[\w-]{1,200}$/.test(id))
-      return res.status(400).json({ error: "مرجع الطلب غير صالح." });
-    const [order, payment] = await db.getAll(
-      db.doc("orders/" + id),
-      db.doc("orderPayments/" + id),
-    );
-    if (
-      !order.exists ||
-      order.data()?.paymentMethod !== "geidea" ||
-      !payment.data()?.referenceId
-    )
-      return res
-        .status(409)
-        .json({ error: "الدفع يحتاج مراجعة مرجعه على الخادم." });
+    if (!payment && typeof referenceId === 'string') {
+      const { data } = await admin.from('order_payments').select('*').eq('reference_id', referenceId).maybeSingle();
+      payment = data;
+    }
+    if (!payment) {
+      const { data } = await admin.from('order_payments').select('*').eq('provider_id', providerId).maybeSingle();
+      payment = data;
+    }
+    if (!payment?.order_id || !payment.reference_id) return res.status(409).json({ error: 'الدفع يحتاج مراجعة مرجعه على الخادم.' });
+    const { data: order, error: orderError } = await admin.from('orders').select('id,total_amount,payment_method,payment_status,customer_name,customer_phone,order_number').eq('id', payment.order_id).maybeSingle();
+    if (orderError || !order || order.payment_method !== 'geidea') return res.status(409).json({ error: 'الدفع يحتاج مراجعة مرجعه على الخادم.' });
+
     const verified = await GeideaGateway.verifyOrderPayment(providerId, {
-      referenceId: payment.data()!.referenceId,
-      amount: order.data()!.total,
-      currency: "EGP",
+      referenceId: payment.reference_id,
+      amount: Number(order.total_amount),
+      currency: 'EGP',
     });
-    const newlyPaid = await db.runTransaction(async (tx) => {
-      const [current, session, used] = await Promise.all([
-        tx.get(order.ref),
-        tx.get(payment.ref),
-        tx.get(db.doc("geideaTransactions/" + providerId)),
-      ]);
-      if (used.exists && used.data()?.orderId !== id)
-        throw new Error("PAYMENT_ALREADY_USED");
-      if (
-        session.data()?.referenceId !== verified.referenceId ||
-        current.data()?.total !== verified.amount ||
-        current.data()?.paymentMethod !== "geidea"
-      )
-        throw new Error("PAYMENT_CHANGED");
-      if (current.data()?.paymentStatus === "paid") return false;
-      tx.update(order.ref, {
-        ...(Array.isArray(current.data()?.pendingStoreIds)
-          ? {
-              storeIds: current.data()!.pendingStoreIds,
-              pendingStoreIds: FieldValue.delete(),
-            }
-          : {}),
-        paymentStatus: "paid",
-        paymentConfirmedAt: FieldValue.serverTimestamp(),
-        paidAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-        geideaTransaction: verified,
-      });
-      writeOrderSignals(db,tx,{...current.data(),id,storeIds:current.data()!.pendingStoreIds || current.data()!.storeIds,paymentStatus:"paid"});
-      tx.update(payment.ref, {
-        state: "paid",
-        providerId,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      tx.set(db.doc("geideaTransactions/" + providerId), {
-        orderId: id,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-      return true;
+    const wasPaid = order.payment_status === 'paid';
+    const { data: confirmed, error: confirmError } = await admin.rpc('confirm_sangoub_payment', {
+      p_order_id: order.id, p_provider_id: providerId, p_reference_id: verified.referenceId, p_amount: verified.amount,
     });
-    if (
-      newlyPaid &&
-      order.data()?.phone &&
-      !process.env.FIRESTORE_EMULATOR_HOST
-    )
-      void ChatAmanGateway.sendDirectMessage(
-        order.data()!.phone,
-        `تم تأكيد سداد طلب سنجوب ${order.data()!.orderNumber || id} بقيمة ${verified.amount} ج.م عبر جيديا.`,
-      ).catch(() => {});
+    if (confirmError || confirmed !== true) return res.status(409).json({ error: 'لم يؤكد الخادم سداد هذا الطلب بعد.' });
+    if (!wasPaid && order.customer_phone) {
+      void ChatAmanGateway.sendDirectMessage(order.customer_phone,
+        `تم تأكيد سداد طلب سنجوب ${order.order_number || order.id} بقيمة ${verified.amount} ج.م عبر جيديا.`).catch(() => {});
+    }
     return res.status(200).json({ ok: true });
   } catch {
-    return res
-      .status(409)
-      .json({ error: "لم يؤكد الخادم سداد هذا الطلب بعد." });
+    return res.status(409).json({ error: 'لم يؤكد الخادم سداد هذا الطلب بعد.' });
   }
 }

@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import type { Product, Store, Order } from '../types';
 import { formatEGP } from '../utils/orderCalculations';
+import { matchStoreId } from '../utils/storeAssets';
+import { getStoreSlug } from '../utils/storeAssets';
 import { saveRecord } from '../lib/firebase';
 import { supabase } from '../lib/supabase';
 
@@ -60,30 +62,18 @@ export function OffersManager({
   stores,
   fixedStoreId,
 }: OffersManagerProps) {
-  // Mapping for known UUIDs vs slugs
-  const SLUG_TO_UUID: Record<string, string> = {
-    'store-foul-hind': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-    'store-supermarket-capital': '54a6c2f6-6c29-4177-ac65-32fadddea83d',
-    'store-ministry-coffee': '55508f0e-f818-452e-b946-ab803fe9d637',
-    'store-karam-elsham': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-    'store-taza-bakery': '55508f0e-f818-452e-b946-ab803fe9d637',
-  };
-
-  const fixedStoreUuid = fixedStoreId ? (SLUG_TO_UUID[fixedStoreId] || fixedStoreId) : undefined;
-
+  
   // Filter products scoped to store if fixedStoreId is provided
   const scopedProducts = useMemo(() => {
     if (!fixedStoreId) return products.filter((p) => !p.archived);
-    return products.filter(
-      (p) => !p.archived && (p.storeId === fixedStoreId || (fixedStoreUuid && p.storeId === fixedStoreUuid))
-    );
-  }, [products, fixedStoreId, fixedStoreUuid]);
+    return products.filter((p) => !p.archived && matchStoreId(p.storeId, fixedStoreId));
+  }, [products, fixedStoreId]);
 
   // Current store object (if fixedStoreId)
   const currentStore = useMemo(() => {
     if (!fixedStoreId) return undefined;
-    return stores.find((s) => s.id === fixedStoreId || s.id === fixedStoreUuid);
-  }, [stores, fixedStoreId, fixedStoreUuid]);
+    return stores.find((s) => matchStoreId(s.id, fixedStoreId));
+  }, [stores, fixedStoreId]);
 
   // All active offers: items with valid originalPrice > price
   const activeOffers = useMemo(() => {
@@ -482,7 +472,7 @@ export function OffersManager({
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <a
-            href={currentStore ? `/stores/${currentStore.id}` : '/offers'}
+            href={currentStore ? `/stores/${getStoreSlug(currentStore)}` : '/offers'}
             target="_blank"
             rel="noopener noreferrer"
             className="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"

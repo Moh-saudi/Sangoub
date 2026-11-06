@@ -1,28 +1,7 @@
-import {authenticatedApi} from '../../lib/authenticatedApi';
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
-import {
-  auth,
-  db,
-  signInWithFirebaseGoogle,
-  signOutFromFirebase,
-  syncUserProfileToFirestore,
-  isVerifiedIdentity,
-} from '../../lib/firebase';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
-  sendEmailVerification,
-} from 'firebase/auth';
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
+import { supabase } from '../../lib/supabase';
 import type { Profile } from '../../types';
 import { cleanDisplayAddress } from '../../utils/orderCalculations';
 import { BRAND } from '../../brand';
@@ -41,7 +20,8 @@ import {
   Loader2,
   Sparkles,
   Edit3,
-  ChevronLeft
+  ChevronLeft,
+  Clock
 } from 'lucide-react';
 
 interface SangoubAuthModalProps {
@@ -57,7 +37,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
   onSuccess,
   initialTab = 'login',
 }) => {
-  const { user, setUser, serviceArea, setServiceArea } = useStore();
+  const { user, setUser, serviceArea, setServiceArea, navigate } = useStore();
 
   const [tab, setTab] = useState<'login' | 'register' | 'profile'>('login');
   const [busy, setBusy] = useState(false);
@@ -91,8 +71,10 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
       setPhone(user.phone && user.phone !== 'غير مسجل' ? user.phone : '');
       setEmail(user.email || '');
       setMinistryAddress(cleanDisplayAddress(user.ministry || serviceArea.name || ''));
-      setFloorNumber(user.floorNumber || '');
-      setRoomNumber(user.roomNumber || '');
+      const rawFloor = user.floorNumber || '';
+      const rawRoom = user.roomNumber || '';
+      setFloorNumber(rawFloor.includes('الموقع المحدد') || rawFloor.length > 20 ? '' : rawFloor);
+      setRoomNumber(rawRoom.includes('الموقع المحدد') || rawRoom.length > 20 ? '' : rawRoom);
     } else {
       setTab(initialTab === 'profile' ? 'login' : initialTab);
       setMinistryAddress(cleanDisplayAddress(serviceArea.name || ''));
@@ -101,23 +83,80 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  // 1. Firebase Login with Email & Password
-  async function finishVerifiedAccount() {
-    const current=auth.currentUser;if(!current)throw new Error('سجل الدخول أولًا.');
-    await current.reload();await current.getIdToken(true);
-    if(!isVerifiedIdentity(current))throw new Error('افتح رسالة تأكيد البريد أولًا ثم اضغط متابعة.');
-    const profile=await syncUserProfileToFirestore(current,{fullName:fullName.trim(),phone:phone.trim(),ministry:ministryAddress.trim(),floorNumber:floorNumber.trim(),roomNumber:roomNumber.trim()});
-    setUser(profile);setVerificationPending(false);onSuccess?.();
-  }
-  const handleLogin = async (e:React.FormEvent) => {
-    e.preventDefault();setBusy(true);setError(null);
-    try{const credential=await signInWithEmailAndPassword(auth,email.trim(),password);
-      if(!isVerifiedIdentity(credential.user)){setVerificationPending(true);setSuccessNotice('أكد البريد الإلكتروني قبل متابعة الطلب.');return;}
-      await finishVerifiedAccount();
-    }catch(e){setError(e instanceof Error?e.message:'تعذر الدخول.');}finally{setBusy(false);}
+  // 1. Supabase Login with Email & Password
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+      if (signInError) throw signInError;
+
+      if (data.user) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        if (prof) {
+          setUser({
+            id: data.user.id,
+            fullName: prof.full_name || 'عميل سنجوب',
+            email: prof.email || data.user.email || '',
+            phone: prof.phone || '',
+            ministry: prof.ministry || '',
+            floorNumber: prof.floor_number || '',
+            roomNumber: prof.room_number || '',
+            walletBalance: Number(prof.wallet_balance) || 0,
+            role: 'employee',
+            isGuest: false,
+          } as Profile);
+        } else {
+          const { data: createdProfile, error: profileError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: data.user.id,
+              full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'عميل سنجوب',
+              email: data.user.email || '',
+              phone: data.user.phone || data.user.user_metadata?.phone || '',
+              role: 'employee',
+              wallet_balance: 0,
+            })
+            .select('*')
+            .single();
+          if (profileError) throw profileError;
+          setUser({
+            id: data.user.id,
+            fullName: createdProfile.full_name || 'عميل سنجوب',
+            email: createdProfile.email || data.user.email || '',
+            phone: createdProfile.phone || '',
+            ministry: createdProfile.ministry || '',
+            floorNumber: createdProfile.floor_number || '',
+            roomNumber: createdProfile.room_number || '',
+            walletBalance: Number(createdProfile.wallet_balance) || 0,
+            role: 'employee',
+            isGuest: false,
+          } as Profile);
+        }
+      }
+
+      setSuccessNotice('تم تسجيل الدخول بنجاح!');
+      setTimeout(() => {
+        if (onSuccess) onSuccess();
+        else onClose();
+      }, 500);
+    } catch (e: any) {
+      setError(e.message === 'Invalid login credentials' ? 'البريد أو كلمة المرور غير صحيحة.' : (e.message || 'تعذر الدخول.'));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // 2. Firebase Registration with Exact Firestore Schema
+  // 2. Supabase Registration with profiles table upsert
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -147,52 +186,85 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
     }
 
     try {
-      // Create user in Firebase Auth
-      const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
-      const uid = userCred.user.uid;
-
-      await updateProfile(userCred.user, { displayName: cleanName });
-
-      await sendEmailVerification(userCred.user);
-      setVerificationPending(true);
-      setSuccessNotice('أُنشئ الحساب وأُرسلت رسالة تأكيد البريد. افتحها ثم اضغط «تم التأكيد، متابعة». لا يوجد رصيد ترحيبي أو خصم وهمي.');
-    } catch (err: any) {
-      const msgs: Record<string, string> = {
-        'auth/email-already-in-use': 'هذا البريد مسجل بالفعل. يرجى تسجيل الدخول.',
-        'auth/weak-password': 'كلمة المرور ضعيفة. استخدم 6 رموز على الأقل.',
-        'auth/invalid-email': 'البريد الإلكتروني غير صحيح.',
-      };
-      setError(msgs[err.code] || err.message || 'تعذر إنشاء الحساب، يرجى المحاولة ثانية.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // 3. Google Sign In
-  const handleGoogleSignIn = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const profile = await signInWithFirebaseGoogle({
-        ministry: serviceArea.name,
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: password,
+        options: {
+          data: {
+            full_name: cleanName,
+            phone: cleanPhone,
+            ministry: cleanAddress,
+            floor_number: floorNumber.trim(),
+            room_number: roomNumber.trim(),
+          },
+        },
       });
-      if (profile.fullName && /platform|el7lm|admin|system/i.test(profile.fullName)) {
-        profile.fullName = 'عميل سنجوب';
+      if (signUpError) throw signUpError;
+
+      if (data.user) {
+        if (!data.session) {
+          setSuccessNotice('تم إنشاء الحساب. افتح رسالة تأكيد البريد، ثم سجّل الدخول.');
+          setBusy(false);
+          return;
+        }
+
+        const { error: profileError } = await supabase.from('profiles').upsert({
+          id: data.user.id,
+          full_name: cleanName,
+          phone: cleanPhone,
+          email: cleanEmail,
+          ministry: cleanAddress,
+          floor_number: floorNumber.trim(),
+          room_number: roomNumber.trim(),
+          role: 'employee',
+        });
+        if (profileError) throw profileError;
+
+        setUser({
+          id: data.user.id,
+          fullName: cleanName,
+          email: cleanEmail,
+          phone: cleanPhone,
+          ministry: cleanAddress,
+          floorNumber: floorNumber.trim(),
+          roomNumber: roomNumber.trim(),
+          walletBalance: 0,
+          role: 'employee',
+          isGuest: false,
+        } as Profile);
       }
-      setUser(profile);
-      setSuccessNotice('تم تسجيل الدخول عبر Google بنجاح 🐿️');
+
+      setSuccessNotice('تم إنشاء الحساب بنجاح في سنجوب!');
       setTimeout(() => {
         if (onSuccess) onSuccess();
         else onClose();
       }, 700);
     } catch (err: any) {
-      setError('تعذر تسجيل الدخول عبر Google.');
+      setError(err.message?.includes('already registered') ? 'هذا البريد مسجل بالفعل، يرجى تسجيل الدخول.' : (err.message || 'تعذر إنشاء الحساب، يرجى المحاولة ثانية.'));
     } finally {
       setBusy(false);
     }
   };
 
-  // 4. Update Profile in Firestore
+  // 3. Google Sign In via Supabase OAuth
+  const handleGoogleSignIn = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const { error: oAuthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (oAuthError) throw oAuthError;
+    } catch (err: any) {
+      setError('تعذر تسجيل الدخول عبر Google.');
+      setBusy(false);
+    }
+  };
+
+  // 4. Update Profile in Supabase
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || user.isGuest) return;
@@ -212,32 +284,26 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
         return;
       }
 
-      await authenticatedApi('/api/orders',{action:'profile-update',data:{fullName:cleanName,phone:cleanPhone,ministry:cleanAddress,floorNumber:floorNumber.trim(),roomNumber:roomNumber.trim()}});
+      const { error: updateErr } = await supabase.from('profiles').update({
+        full_name: cleanName,
+        phone: cleanPhone,
+        ministry: cleanAddress,
+        floor_number: floorNumber.trim(),
+        room_number: roomNumber.trim(),
+      }).eq('id', uid);
+
+      if (updateErr) throw updateErr;
 
       const updatedProfile: Profile = {
         ...user,
         fullName: cleanName,
         phone: cleanPhone,
         ministry: cleanAddress,
-        ...(user.defaultAddress && cleanAddress !== user.ministry ? {defaultAddress:{...user.defaultAddress,fullAddress:cleanAddress,details:''}} : {}),
         floorNumber: floorNumber.trim(),
         roomNumber: roomNumber.trim(),
       };
 
       setUser(updatedProfile);
-      if (cleanAddress) {
-        setServiceArea({
-          id: `addr_${uid}`,
-          name: updatedProfile.defaultAddress?.fullAddress || cleanAddress,
-          latitude: updatedProfile.coordinates?.latitude,
-          longitude: updatedProfile.coordinates?.longitude,
-          city: updatedProfile.defaultAddress?.city,
-          details: updatedProfile.defaultAddress?.details,
-          deliveryTime: LAUNCH_CONFIG.showEta ? '20-30 دقيقة' : '',
-          active: true,
-        });
-      }
-
       setIsEditingProfile(false);
       setSuccessNotice('تم حفظ تعديلات الملف الشخصي بنجاح!');
       setTimeout(() => setSuccessNotice(null), 2500);
@@ -248,11 +314,11 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
     }
   };
 
-  // 5. Logout
+  // 5. Supabase Logout
   const handleLogout = async () => {
     setBusy(true);
     try {
-      await signOutFromFirebase();
+      await supabase.auth.signOut();
       setUser(null);
       setTab('login');
       onClose();
@@ -313,7 +379,57 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
           </button>
         </div>
 
-        {verificationPending && <div className="p-4 space-y-3 border-b" role="status"><p>أكد بريدك الإلكتروني لتفعيل الحساب.</p><button type="button" disabled={busy} className="p-3 rounded-xl bg-orange-700 text-white" onClick={async()=>{setBusy(true);setError(null);try{await finishVerifiedAccount()}catch(e){setError(e instanceof Error?e.message:'تعذر التحقق.')}finally{setBusy(false)}}}>تم التأكيد، متابعة</button><button type="button" disabled={busy} className="p-3 underline" onClick={async()=>{if(!auth.currentUser)return;setBusy(true);try{await sendEmailVerification(auth.currentUser);setSuccessNotice('أعيد إرسال رسالة التأكيد.')}catch(e){setError(e instanceof Error?e.message:'تعذر الإرسال.')}finally{setBusy(false)}}}>إعادة إرسال التأكيد</button></div>}
+        {verificationPending && (
+          <div className="p-4 space-y-3 border-b bg-amber-50/70 text-slate-800 text-xs" role="status">
+            <p className="font-bold">أكد بريدك الإلكتروني لتفعيل الحساب بالكامل.</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs cursor-pointer"
+                onClick={async () => {
+                  setBusy(true);
+                  setError(null);
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session?.user) {
+                      setVerificationPending(false);
+                      onSuccess?.();
+                      onClose();
+                    } else {
+                      setError('يرجى النقر على الرابط المرسل إلى بريدك الإلكتروني أولاً.');
+                    }
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : 'تعذر التحقق.');
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                تم التأكيد، متابعة ✓
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                className="px-3 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 underline cursor-pointer"
+                onClick={async () => {
+                  if (!email) return;
+                  setBusy(true);
+                  try {
+                    await supabase.auth.resend({ type: 'signup', email: email.trim() });
+                    setSuccessNotice('أعيد إرسال رسالة التأكيد لبريدك الإلكتروني.');
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : 'تعذر الإرسال.');
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                إعادة إرسال التأكيد
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tab Switcher (Only if NOT in profile mode) */}
         {tab !== 'profile' && (
@@ -400,7 +516,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full h-11 px-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827]"
+                      className="w-full h-9 px-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827]"
                     />
                   </div>
 
@@ -412,7 +528,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                       dir="ltr"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full h-11 px-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-right text-[#111827]"
+                      className="w-full h-9 px-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-right text-[#111827]"
                     />
                   </div>
 
@@ -422,7 +538,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                       type="text"
                       value={ministryAddress}
                       onChange={(e) => setMinistryAddress(e.target.value)}
-                      className="w-full h-11 px-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827]"
+                      className="w-full h-9 px-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827]"
                     />
                   </div>
 
@@ -434,7 +550,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                         value={floorNumber}
                         onChange={(e) => setFloorNumber(e.target.value)}
                         placeholder="مثال: الدور 3"
-                        className="w-full h-11 px-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827]"
+                        className="w-full h-9 px-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827]"
                       />
                     </div>
                     <div>
@@ -444,7 +560,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                         value={roomNumber}
                         onChange={(e) => setRoomNumber(e.target.value)}
                         placeholder="مثال: مكتب 304"
-                        className="w-full h-11 px-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827]"
+                        className="w-full h-9 px-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827]"
                       />
                     </div>
                   </div>
@@ -548,6 +664,32 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                 </div>
               )}
 
+              {/* Quick User Actions: Orders and Stores */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    navigate('/my-orders');
+                  }}
+                  className="p-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Clock size={15} />
+                  <span>طلباتي السابقة</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    navigate('/stores');
+                  }}
+                  className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <MapPin size={15} />
+                  <span>تصفح المتاجر</span>
+                </button>
+              </div>
+
               {/* Logout Button */}
               <button
                 type="button"
@@ -601,7 +743,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full h-11 pr-10 pl-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
+                    className="w-full h-9 pr-10 pl-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
                   />
                 </div>
               </div>
@@ -617,7 +759,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full h-11 pr-10 pl-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
+                    className="w-full h-9 pr-10 pl-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
                   />
                 </div>
               </div>
@@ -661,7 +803,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="مثال: محمد مصطفى"
-                    className="w-full h-11 pr-10 pl-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
+                    className="w-full h-9 pr-10 pl-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
                   />
                 </div>
               </div>
@@ -680,7 +822,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="01012345678"
-                    className="w-full h-11 pr-10 pl-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-right text-[#111827] transition-all"
+                    className="w-full h-9 pr-10 pl-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-right text-[#111827] transition-all"
                   />
                 </div>
               </div>
@@ -698,7 +840,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@mail.com"
-                    className="w-full h-11 px-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
+                    className="w-full h-9 px-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
                   />
                 </div>
                 <div>
@@ -711,7 +853,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full h-11 px-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
+                    className="w-full h-9 px-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
                   />
                 </div>
               </div>
@@ -732,7 +874,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                     value={ministryAddress}
                     onChange={(e) => setMinistryAddress(e.target.value)}
                     placeholder="اسم الشارع / الحي / المدينة / المبنى"
-                    className="w-full h-11 pr-10 pl-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
+                    className="w-full h-9 pr-10 pl-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
                   />
                 </div>
               </div>
@@ -746,7 +888,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                     value={floorNumber}
                     onChange={(e) => setFloorNumber(e.target.value)}
                     placeholder="مثال: الدور 4"
-                    className="w-full h-11 px-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
+                    className="w-full h-9 px-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
                   />
                 </div>
                 <div>
@@ -756,7 +898,7 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
                     value={roomNumber}
                     onChange={(e) => setRoomNumber(e.target.value)}
                     placeholder="مثال: 402"
-                    className="w-full h-11 px-3 text-base sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
+                    className="w-full h-9 px-3 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl focus:border-[#FF5900] focus:bg-white outline-none font-bold text-[#111827] transition-all"
                   />
                 </div>
               </div>

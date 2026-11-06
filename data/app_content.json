@@ -11,7 +11,7 @@
       },
       {
         "type": "offers",
-        "enabled": true
+        "enabled": false
       },
       {
         "type": "products",
@@ -42,8 +42,8 @@
       "imageUrl": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80",
       "enabled": true,
       "priority": 2,
-      "targetType": "offers",
-      "targetId": "",
+      "targetType": "store",
+      "targetId": "sangoub-market",
       "startsAt": "2026-01-01T00:00:00.000Z",
       "endsAt": "2027-12-31T23:59:59.000Z"
     },
@@ -105,5 +105,110 @@
       "url": "https://images.unsplash.com/photo-1586015555751-63bb77f4322a?auto=format&fit=crop&w=1200&q=80",
       "addedAt": "2026-11-01T00:00:00.000Z"
     }
-  ]
+  ],
+  "martBanner": {
+    "enabled": true,
+    "title": "سنجوب ماركت وكل طلبات البيت لحد بابك",
+    "badge": "سنجوب بقالة ⚡",
+    "areaText": "العاصمة وكافة المناطق",
+    "btnText": "تسوق الآن",
+    "targetCategory": "سوبرماركت",
+    "bgGradient": "from-[#FF5900] via-[#FF6A1A] to-[#FF4500]"
+  },
+  "disabledStoreTypes": [
+    "REST",
+    "CAFE",
+    "PHARM",
+    "OUTDOOR",
+    "SEASONAL",
+    "FLOWER",
+    "PET"
+  ],
+  "disabledCategories": [
+    "CAT-PHARMACY",
+    "pharmacy",
+    "صيدلية",
+    "أدوية وصيدلية",
+    "أدوية",
+    "ادوية",
+    "مستلزمات طبية",
+    "علاج",
+    "CAT-SEASONAL",
+    "CAT-OUTDOOR",
+    "CAT-AUTO"
+  ],
+  "categoryOverrides": {
+    "CAT-PRODUCE": {
+      "name_ar": "الخضروات والفواكه",
+      "name_en": "Fruits & Vegetables",
+      "image": "/api/catalog-images?key=catalog%2Fbanners%2Fcat-CAT-PRODUCE%2F9d12be14-4ff2-434c-8320-3fccb1651ec9.png",
+      "sort_order": 1
+    },
+    "CAT-BAKERY": {
+      "name_ar": "المخبوزات والخبز",
+      "name_en": "Bakery & Bread",
+      "image": "/api/catalog-images?key=catalog%2Fbanners%2Fcat-CAT-BAKERY%2Fce613a5d-ed4e-4472-b3e0-447662cabb28.png",
+      "sort_order": 2
+    },
+    "CAT-MEAT": {
+      "name_ar": "اللحوم والدواجن",
+      "name_en": "Meat & Poultry",
+      "image": "/api/catalog-images?key=catalog%2Fbanners%2Fcat-CAT-MEAT%2F33d5eb26-6b13-47f9-a5a8-44534c636cc8.png",
+      "sort_order": 3
+    },
+    "CAT-DAIRY": {
+      "name_ar": "الألبان والبيض",
+      "name_en": "Dairy & Eggs",
+      "image": "/api/catalog-images?key=catalog%2Fbanners%2Fcat-CAT-DAIRY%2F70512db9-2292-4412-986d-a6f4fae73b9c.png",
+      "sort_order": 4
+    },
+    "CAT-BREAKFAST": {
+      "name_ar": "الفطار",
+      "name_en": "Breakfast",
+      "image": "/api/catalog-images?key=catalog%2Fbanners%2Fcat-CAT-BREAKFAST%2Fb548e962-2333-4e46-bd23-42d1c991fb06.png",
+      "sort_order": 7
+    },
+    "CAT-COOKING": {
+      "name_ar": "الطبخ والخبز",
+      "name_en": "Cooking & Baking",
+      "image": "/api/catalog-images?key=catalog%2Fbanners%2Fcat-CAT-COOKING%2F1e8e4bda-ce39-486a-8ffb-8e480356bc66.png",
+      "sort_order": 8
+    },
+    "CAT-COFFEE-TEA": {
+      "name_ar": "القهوة والشاي",
+      "name_en": "Coffee & Tea",
+      "image": "/api/catalog-images?key=catalog%2Fbanners%2Fcat-CAT-COFFEE-TEA%2F4ee9f98d-b01f-4788-84a6-c1f09810d5fb.png",
+      "sort_order": 12
+    },
+    "CAT-BEVERAGES": {
+      "name_ar": "المشروبات",
+      "name_en": "Beverages",
+      "image": "/api/catalog-images?key=catalog%2Fbanners%2Fcat-CAT-BEVERAGES%2F1b969940-7a47-4c3f-ad19-12d1dd4a07c3.png",
+      "sort_order": 11
+    },
+    "CAT-SNACKS": {
+      "name_ar": "التسالي والشوكولاتة",
+      "name_en": "Snacks & Chocolate",
+      "image": "/api/catalog-images?key=catalog%2Fbanners%2Fcat-CAT-SNACKS%2F34e6e99d-0449-4a6a-9084-77fe579960bb.png",
+      "sort_order": 13
+    },
+    "CAT-ICECREAM": {
+      "name_ar": "الآيس كريم",
+      "name_en": "Ice Cream",
+      "image": "/api/catalog-images?key=catalog%2Fbanners%2Fcat-CAT-ICECREAM%2F81361dcc-7f25-442a-9322-c27ec4b9ca36.png",
+      "sort_order": 14
+    },
+    "CAT-FROZEN": {
+      "name_ar": "الأطعمة المجمدة",
+      "name_en": "Frozen Food",
+      "image": "/api/catalog-images?key=catalog%2Fbanners%2Fcat-CAT-FROZEN%2F100afd1c-149a-4dd0-904e-5ddb7d3af08d.png",
+      "sort_order": 9
+    },
+    "CAT-PERSONAL": {
+      "name_ar": "العناية الشخصية",
+      "name_en": "Personal Care",
+      "image": "/api/catalog-images?key=catalog%2Fbanners%2Fcat-CAT-PERSONAL%2F517e9788-d216-428f-b37b-bbfa623677d3.png",
+      "sort_order": 17
+    }
+  }
 }

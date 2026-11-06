@@ -5,12 +5,16 @@ import { StoreHeader } from './components/StoreHeader';
 import { StoreFooter } from './components/StoreFooter';
 import { ServiceAreaModal } from './components/ServiceAreaModal';
 import { CartCheckoutModal } from './components/CartCheckoutModal';
+import { SwitchStoreModal } from './components/SwitchStoreModal';
 import { SangoubAuthModal } from './components/SangoubAuthModal';
 import { OrderTrackingModal, type TrackableOrder } from './components/OrderTrackingModal';
 import { HomePage } from './pages/HomePage';
 import { MobileStorefront } from './mobile/MobileStorefront';
 import { StoresPage } from './pages/StoresPage';
 import { StoreDetailsPage } from './pages/StoreDetailsPage';
+import { ProductDetailsPage } from './pages/ProductDetailsPage';
+import { OrdersPage } from './pages/OrdersPage';
+import { AccountPage } from './pages/AccountPage';
 import { LAUNCH_CONFIG } from '../config/launchConfig';
 
 /**
@@ -44,7 +48,11 @@ const StorefrontRouter: React.FC = () => {
   const isMobile = useIsMobile();
   const isStoresList = currentPath === '/stores';
   const isSingleStore = currentPath.startsWith('/stores/');
+  const isSingleProduct = currentPath.startsWith('/products/') || currentPath.startsWith('/product/');
+  const isOrdersPage = currentPath === '/my-orders' || currentPath === '/orders' || currentPath === '/track';
+  const isAccountPage = currentPath === '/account' || currentPath === '/profile' || currentPath === '/settings' || currentPath === '/addresses';
   const currentStoreId = isSingleStore ? decodeURIComponent(currentPath.replace(/^\/stores\//, '').replace(/\/$/, '')) : '';
+  const currentProductId = isSingleProduct ? decodeURIComponent(currentPath.replace(/^\/(products|product)\//, '').replace(/\/$/, '')) : '';
 
   useEffect(() => {
     document.title = 'سنجوب | Sangoub';
@@ -56,13 +64,9 @@ const StorefrontRouter: React.FC = () => {
       setCartModalOpen(true);
     } else if (
       currentPath === '/login' ||
-      currentPath === '/register' ||
-      currentPath === '/account' ||
-      currentPath === '/profile'
+      currentPath === '/register'
     ) {
       setRegisterModalOpen(true);
-    } else if (currentPath === '/track' || currentPath.startsWith('/order-tracking')) {
-      window.location.assign('/my-orders');
     }
   }, [currentPath, activeOrder, serviceArea.name, serviceArea.latitude, serviceArea.longitude]);
 
@@ -83,7 +87,16 @@ const StorefrontRouter: React.FC = () => {
           onOpenAreaModal={() => setAreaModalOpen(true)}
           onOpenCartModal={() => setCartModalOpen(true)}
           onOpenRegisterModal={() => setRegisterModalOpen(true)}
-          onOpenTrackingModal={() => window.location.assign('/my-orders')}
+          onOpenTrackingModal={(ord) => {
+            if (ord) {
+              setActiveOrder(ord);
+              setTrackingModalOpen(true);
+            } else if (activeOrder) {
+              setTrackingModalOpen(true);
+            } else {
+              navigate('/my-orders');
+            }
+          }}
           activeOrder={activeOrder}
         />
       ) : (
@@ -91,17 +104,41 @@ const StorefrontRouter: React.FC = () => {
         <div className="flex flex-col min-h-screen">
           <StoreHeader
             onOpenAreaModal={() => setAreaModalOpen(true)}
-            onOpenTrackingModal={() => window.location.assign('/my-orders')}
+            onOpenTrackingModal={() => {
+              if (activeOrder) {
+                setTrackingModalOpen(true);
+              } else {
+                navigate('/my-orders');
+              }
+            }}
             hasActiveOrder={Boolean(activeOrder)}
           />
           <main className="flex-1">
-            {isSingleStore ? (
+            {isSingleProduct ? (
+              <ProductDetailsPage
+                productId={currentProductId}
+                onBack={() => navigate('/')}
+              />
+            ) : isSingleStore ? (
               <StoreDetailsPage
                 storeId={currentStoreId}
                 onBackToStores={() => navigate('/stores')}
               />
             ) : isStoresList ? (
               <StoresPage onBackToHome={() => navigate('/')} />
+            ) : isOrdersPage ? (
+              <OrdersPage
+                onBackToHome={() => navigate('/')}
+                onTrackOrder={(ord) => {
+                  setActiveOrder(ord);
+                  setTrackingModalOpen(true);
+                }}
+              />
+            ) : isAccountPage ? (
+              <AccountPage
+                onBackToHome={() => navigate('/')}
+                onOpenAreaModal={() => setAreaModalOpen(true)}
+              />
             ) : (
               <HomePage onOpenAreaModal={() => setAreaModalOpen(true)} />
             )}
@@ -135,6 +172,9 @@ const StorefrontRouter: React.FC = () => {
         }}
         onOrderPlaced={handleOrderPlaced}
       />
+
+      {/* Switch Store Confirmation Dialog */}
+      <SwitchStoreModal />
 
       {/* 3. Sangoub Authentication & Profile Modal */}
       <SangoubAuthModal

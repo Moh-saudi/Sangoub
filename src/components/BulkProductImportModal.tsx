@@ -1,10 +1,12 @@
 import { getBestAutoImageUrl } from '../utils/productImageFinder';
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { supabase } from '../lib/supabase';
+import { resolveSupabaseStoreUuid, supabase } from '../lib/supabase';
 import { saveRecord } from '../lib/firebase';
 import type { Store, Category } from '../types';
 import { detectCategoryFromName } from '../utils/aiProductGenerator';
+import { findMatchingCategoryCode } from '../utils/categoryMatching';
+import { SUPERMARKET_CATEGORY_TEMPLATES, STORE_TYPES } from '../constants/taxonomy';
 import {
   X,
   FileSpreadsheet,
@@ -60,22 +62,6 @@ interface ParsedProductRow {
   error?: string;
 }
 
-const STORE_SLUG_TO_SUPABASE_UUID: Record<string, string> = {
-  'store-foul-hind': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-  'store-supermarket-capital': '54a6c2f6-6c29-4177-ac65-32fadddea83d',
-  'store-ministry-coffee': '55508f0e-f818-452e-b946-ab803fe9d637',
-  'store-karam-elsham': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-  'store-taza-bakery': '55508f0e-f818-452e-b946-ab803fe9d637',
-};
-
-function resolveSupabaseStoreUuid(rawId?: string): string {
-  if (!rawId) return '27d12743-8106-4ef0-ba3c-84abefdb75d6';
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawId);
-  if (isUuid) return rawId;
-  return STORE_SLUG_TO_SUPABASE_UUID[rawId] || '27d12743-8106-4ef0-ba3c-84abefdb75d6';
-}
-
-
 function normalizeTextKey(str?: string | null): string {
   if (!str) return '';
   return str
@@ -114,58 +100,188 @@ export function BulkProductImportModal({
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Download Sample Excel Template
-  function handleDownloadTemplate() {
-    const sampleStore = targetStore?.name || 'فول هند - فرع العاصمة';
-    const sampleData = [
+  // 1. Download Sample / Empty Excel Template with Official 24 Categories
+  function handleDownloadTemplate(asEmpty = false) {
+    const sampleStore = targetStore?.name || 'سنجوب ماركت - الفرع الرئيسي';
+    
+    // Sample rows using the official new 24 Supermarket Categories
+    const sampleData = asEmpty ? [
+      {
+        'اسم_المنتج_بالعربية': '',
+        'اسم_المنتج_بالانجليزية': '',
+        'المتجر': sampleStore,
+        'التصنيف': 'الفطار',
+        'سعر_البيع': '',
+        'السعر_قبل_الخصم': '',
+        'الباركود': '',
+        'كود_POS': '',
+        'الوصف': '',
+        'الكمية_المتوفرة': 50,
+        'متاح_للطلب': 'نعم',
+        'صنف_مميز': 'لا',
+      }
+    ] : [
       {
         'اسم_المنتج_بالعربية': 'شاي ليبتون ناعم أحمر 250 جم',
         'اسم_المنتج_بالانجليزية': 'Lipton Red Label Black Tea 250g',
         'المتجر': sampleStore,
-        'التصنيف': 'مشروبات ومياه',
+        'التصنيف': 'المشروبات',
         'سعر_البيع': 75,
         'السعر_قبل_الخصم': 85,
         'الباركود': '6221155010012',
         'كود_POS': 'TEA-LIP-250',
         'الوصف': 'شاي أسود ناعم عالي الجودة منتقى من أفضل المزارع',
+        'الكمية_المتوفرة': 100,
         'متاح_للطلب': 'نعم',
         'صنف_مميز': 'نعم',
-        'رابط_الصورة': '',
       },
       {
-        'اسم_المنتج_بالعربية': 'جبنة دومتي فيتا بلس 500 جم',
-        'اسم_المنتج_بالانجليزية': 'Domty Feta Cheese 500g',
+        'اسم_المنتج_بالعربية': 'حليب جهينة كامل الدسم 1 لتر',
+        'اسم_المنتج_بالانجليزية': 'Juhayna Full Cream Milk 1L',
         'المتجر': sampleStore,
-        'التصنيف': 'ألبان وأجبان وبيض',
-        'سعر_البيع': 42,
+        'التصنيف': 'الألبان والبيض',
+        'سعر_البيع': 44,
+        'السعر_قبل_الخصم': 48,
+        'الباركود': '6221003001010',
+        'كود_POS': 'MLK-JUH-1L',
+        'الوصف': 'حليب بقري طبيعي مبستر ومعقم 100%',
+        'الكمية_المتوفرة': 80,
+        'متاح_للطلب': 'نعم',
+        'صنف_مميز': 'نعم',
+      },
+      {
+        'اسم_المنتج_بالعربية': 'فول مدمس سادة حدائق كاليفورنيا 400 جم',
+        'اسم_المنتج_بالانجليزية': 'California Garden Plain Fava Beans 400g',
+        'المتجر': sampleStore,
+        'التصنيف': 'الفطار',
+        'سعر_البيع': 26,
         'السعر_قبل_الخصم': '',
+        'الباركود': '6223000511112',
+        'كود_POS': 'FUL-CG-400',
+        'الوصف': 'فول مدمس درجة أولى حبوب كاملة جاهز للتقديم',
+        'الكمية_المتوفرة': 120,
+        'متاح_للطلب': 'نعم',
+        'صنف_مميز': 'لا',
+      },
+      {
+        'اسم_المنتج_بالعربية': 'جبنة دومتي فيتا بلس بطعم الزيتون 500 جم',
+        'اسم_المنتج_بالانجليزية': 'Domty Feta Cheese with Olives 500g',
+        'المتجر': sampleStore,
+        'التصنيف': 'الجبن واللانشون',
+        'سعر_البيع': 42,
+        'السعر_قبل_الخصم': 46,
         'الباركود': '6221054010115',
         'كود_POS': 'CHS-DOM-500',
         'الوصف': 'جبنة بيضاء فيتا كريمية سهلة الفرد للسندوتشات',
+        'الكمية_المتوفرة': 60,
         'متاح_للطلب': 'نعم',
         'صنف_مميز': 'لا',
-        'رابط_الصورة': '',
       },
       {
-        'اسم_المنتج_بالعربية': 'ساندوتش دبل تشيز برجر بيف',
-        'اسم_المنتج_بالانجليزية': 'Double Cheeseburger Beef',
+        'اسم_المنتج_بالعربية': 'طماطم طازجة بلدي درجة أولى 1 كجم',
+        'اسم_المنتج_بالانجليزية': 'Fresh Local Tomatoes 1kg',
         'المتجر': sampleStore,
-        'التصنيف': 'وجبات وساندوتشات رئيسية',
-        'سعر_البيع': 135,
-        'السعر_قبل_الخصم': 150,
-        'الباركود': '',
-        'كود_POS': 'BRG-DBL-01',
-        'الوصف': 'قطعتين لحم مشوي على اللهب مع جبن شيدر وخس وخيار مخلل',
+        'التصنيف': 'الخضروات والفواكه',
+        'سعر_البيع': 20,
+        'السعر_قبل_الخصم': '',
+        'الباركود': '6220000001011',
+        'كود_POS': 'VEG-TOM-1K',
+        'الوصف': 'طماطم حمراء طازجة ونقية مفرزة بعناية يومياً',
+        'الكمية_المتوفرة': 50,
         'متاح_للطلب': 'نعم',
         'صنف_مميز': 'نعم',
-        'رابط_الصورة': '',
+      },
+      {
+        'اسم_المنتج_بالعربية': 'خبز فينو ممتاز كيس 5 أرغفة',
+        'اسم_المنتج_بالانجليزية': 'Fresh Fino Bread Pack 5 Loaves',
+        'المتجر': sampleStore,
+        'التصنيف': 'المخبوزات والخبز',
+        'سعر_البيع': 15,
+        'السعر_قبل_الخصم': '',
+        'الباركود': '6220000002022',
+        'كود_POS': 'BKR-FIN-5P',
+        'الوصف': 'خبز فينو طازج وهش للسندوتشات والوجبات اليومية',
+        'الكمية_المتوفرة': 90,
+        'متاح_للطلب': 'نعم',
+        'صنف_مميز': 'نعم',
+      },
+      {
+        'اسم_المنتج_بالعربية': 'أرز مصري المطبخ درجة أولى 1 كجم',
+        'اسم_المنتج_بالانجليزية': 'Al Matbakh Egyptian Rice 1kg',
+        'المتجر': sampleStore,
+        'التصنيف': 'البقالة والمواد الغذائية',
+        'سعر_البيع': 35,
+        'السعر_قبل_الخصم': 38,
+        'الباركود': '6221122334455',
+        'كود_POS': 'GRO-RIC-1K',
+        'الوصف': 'أرز مصري أبيض حبة عريضة منقى ومغسول آلياً',
+        'الكمية_المتوفرة': 150,
+        'متاح_للطلب': 'نعم',
+        'صنف_مميز': 'نعم',
+      },
+      {
+        'اسم_المنتج_بالعربية': 'صدور دجاج بانيه متبلة طازجة 1 كجم',
+        'اسم_المنتج_بالانجليزية': 'Fresh Seasoned Chicken Pane 1kg',
+        'المتجر': sampleStore,
+        'التصنيف': 'اللحوم والدواجن',
+        'سعر_البيع': 220,
+        'السعر_قبل_الخصم': 240,
+        'الباركود': '6220000003033',
+        'كود_POS': 'MET-PAN-1K',
+        'الوصف': 'صدور دجاج مخلية متبلة جاهزة للقلي والشوي',
+        'الكمية_المتوفرة': 30,
+        'متاح_للطلب': 'نعم',
+        'صنف_مميز': 'نعم',
+      },
+      {
+        'اسم_المنتج_بالعربية': 'مسحوق غسيل أوتوماتيك أريال لافندر 2.5 كجم',
+        'اسم_المنتج_بالانجليزية': 'Ariel Automatic Powder Lavender 2.5kg',
+        'المتجر': sampleStore,
+        'التصنيف': 'المنظفات ومستلزمات الغسيل',
+        'سعر_البيع': 175,
+        'السعر_قبل_الخصم': 195,
+        'الباركود': '6221010055221',
+        'كود_POS': 'CLN-ARI-25',
+        'الوصف': 'مسحوق مركز للغسالات الأوتوماتيك مع عطر اللافندر المنعش',
+        'الكمية_المتوفرة': 45,
+        'متاح_للطلب': 'نعم',
+        'صنف_مميز': 'لا',
+      },
+      {
+        'اسم_المنتج_بالعربية': 'مناديل فاين كلاسيك معقمة عبوة 550 منديل',
+        'اسم_المنتج_بالانجليزية': 'Fine Classic Facial Tissues 550 Sheets',
+        'المتجر': sampleStore,
+        'التصنيف': 'الورقيات والمنتجات الاستهلاكية',
+        'سعر_البيع': 38,
+        'السعر_قبل_الخصم': '',
+        'الباركود': '6221088010444',
+        'كود_POS': 'PAP-FIN-550',
+        'الوصف': 'مناديل وجه ناعمة ثلاثية الطبقات معقمة بتقنية ستيري برو',
+        'الكمية_المتوفرة': 70,
+        'متاح_للطلب': 'نعم',
+        'صنف_مميز': 'لا',
+      },
+      {
+        'اسم_المنتج_بالعربية': 'حفاضات أطفال بامبرز عناية مميزة مقاس 3 (64 حفاضة)',
+        'اسم_المنتج_بالانجليزية': 'Pampers Premium Care Size 3 (64 Diapers)',
+        'المتجر': sampleStore,
+        'التصنيف': 'مستلزمات الأطفال',
+        'سعر_البيع': 310,
+        'السعر_قبل_الخصم': 340,
+        'الباركود': '6221099020333',
+        'كود_POS': 'BAB-PAM-S3',
+        'الوصف': 'حفاضات ناعمة بحماية فائقة للبشرة ضد التسرب حتى 12 ساعة',
+        'الكمية_المتوفرة': 25,
+        'متاح_للطلب': 'نعم',
+        'صنف_مميز': 'نعم',
       },
     ];
 
+    // Sheet 1: Main Products Sheet
     const worksheet = XLSX.utils.json_to_sheet(sampleData);
     worksheet['!cols'] = [
-      { wch: 30 }, // اسم بالعربي
-      { wch: 30 }, // اسم بالانجليزي
+      { wch: 32 }, // اسم بالعربي
+      { wch: 32 }, // اسم بالانجليزي
       { wch: 25 }, // متجر
       { wch: 25 }, // تصنيف
       { wch: 12 }, // سعر
@@ -173,14 +289,57 @@ export function BulkProductImportModal({
       { wch: 18 }, // باركود
       { wch: 16 }, // كود POS
       { wch: 45 }, // وصف
+      { wch: 15 }, // الكمية المتوفرة
       { wch: 12 }, // متاح
       { wch: 12 }, // مميز
-      { wch: 35 }, // رابط صورة
+    ];
+
+    // Sheet 2: Official Approved Categories Reference Sheet (24 Supermarket Categories)
+    const officialCategoriesList = SUPERMARKET_CATEGORY_TEMPLATES.map((cat, idx) => ({
+      'الرقم': idx + 1,
+      'كود_القسم': cat.code,
+      'اسم_القسم_بالعربية': cat.name_ar,
+      'اسم_القسم_بالانجليزية': cat.name_en,
+      'نوع_المتجر': 'السوبر ماركت والبقالة (GROC)',
+      'الحالة': cat.status === 'active' ? 'نشط ومعتمد' : 'مؤجل',
+    }));
+    const refWorksheet = XLSX.utils.json_to_sheet(officialCategoriesList);
+    refWorksheet['!cols'] = [
+      { wch: 8 },  // الرقم
+      { wch: 18 }, // كود
+      { wch: 28 }, // اسم عربي
+      { wch: 28 }, // اسم انجليزي
+      { wch: 28 }, // نوع المتجر
+      { wch: 15 }, // الحالة
+    ];
+
+    // Sheet 3: Official Store Types Reference Sheet (16 Store Types)
+    const officialStoreTypesList = STORE_TYPES.map((st, idx) => ({
+      'الرقم': idx + 1,
+      'كود_نوع_المتجر': st.code,
+      'نوع_المتجر_بالعربية': st.name_ar,
+      'نوع_المتجر_بالانجليزية': st.name_en,
+      'حالة_الإطلاق': st.status === 'active' ? 'متاح للإطلاق الأول' : 'مؤجل ومحجوب',
+    }));
+    const storeTypesWorksheet = XLSX.utils.json_to_sheet(officialStoreTypesList);
+    storeTypesWorksheet['!cols'] = [
+      { wch: 8 },  // الرقم
+      { wch: 18 }, // كود
+      { wch: 28 }, // اسم عربي
+      { wch: 28 }, // اسم انجليزي
+      { wch: 20 }, // الحالة
     ];
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'نموذج_أصناف_سنجوب');
-    XLSX.writeFile(workbook, 'نموذج_استيراد_منتجات_سنجوب.xlsx');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'بيانات_الأصناف');
+    XLSX.utils.book_append_sheet(workbook, refWorksheet, 'قائمة_الأقسام_المعتمدة');
+    XLSX.utils.book_append_sheet(workbook, storeTypesWorksheet, 'أنواع_المتاجر_المعتمدة');
+
+    const fileName = asEmpty
+      ? 'نموذج_أصناف_سنجوب_فارغ_معتمد.xlsx'
+      : 'نموذج_أصناف_سنجوب_مع_أمثلة_معتمد.xlsx';
+
+    XLSX.writeFile(workbook, fileName);
   }
 
   // 2. Parse Uploaded Excel / CSV
@@ -269,7 +428,26 @@ export function BulkProductImportModal({
           const cat = categories.find(
             c => c.name_ar.toLowerCase() === rawCategory.toLowerCase() || (c.name_en && c.name_en.toLowerCase() === rawCategory.toLowerCase())
           );
-          if (cat) categoryId = cat.id;
+          if (cat) {
+            categoryId = cat.id;
+            rawCategory = cat.name_ar;
+          } else {
+            // Match against official approved 24 Supermarket Categories via smart semantic matcher
+            const matchedCode = findMatchingCategoryCode(rawCategory);
+            const matchedTmpl = matchedCode ? SUPERMARKET_CATEGORY_TEMPLATES.find(t => t.code === matchedCode) : null;
+            if (matchedTmpl) {
+              rawCategory = matchedTmpl.name_ar;
+            } else {
+              const directTmpl = SUPERMARKET_CATEGORY_TEMPLATES.find(
+                t => t.name_ar.toLowerCase() === rawCategory.toLowerCase() ||
+                     t.name_en.toLowerCase() === rawCategory.toLowerCase() ||
+                     t.code.toLowerCase() === rawCategory.toLowerCase()
+              );
+              if (directTmpl) {
+                rawCategory = directTmpl.name_ar;
+              }
+            }
+          }
         }
 
         if (!categoryId && name) {
@@ -277,6 +455,12 @@ export function BulkProductImportModal({
           if (detected) {
             categoryId = detected.category.id;
             if (!rawCategory) rawCategory = detected.category.name_ar;
+          } else if (!rawCategory) {
+            const matchedCode = findMatchingCategoryCode(name);
+            const matchedTmpl = matchedCode ? SUPERMARKET_CATEGORY_TEMPLATES.find(t => t.code === matchedCode) : null;
+            if (matchedTmpl) {
+              rawCategory = matchedTmpl.name_ar;
+            }
           }
         }
 
@@ -723,27 +907,41 @@ export function BulkProductImportModal({
           ) : (
             <div className="space-y-6">
           {/* Single Template Download Banner */}
-          <div className="flex items-center justify-between p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                <FileSpreadsheet size={16} />
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <FileSpreadsheet size={18} />
               </div>
               <div className="min-w-0">
-                <h4 className="text-xs font-black text-slate-900 truncate">نموذج Excel المعتمد</h4>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <h4 className="text-xs font-black text-slate-900 truncate">نموذج Excel المعتمد (24 قسماً)</h4>
+                  <span className="text-[9px] bg-emerald-200/70 text-emerald-900 px-1.5 py-0.2 rounded font-bold">محدّث</span>
+                </div>
                 <p className="text-[10px] text-slate-500 truncate">
-                  حمّل النموذج الفارغ لتعبئته بأصنافك وأسعارك ورفعه مباشرة
+                  يتضمن شيت الأصناف وشيت مرجعي كامل للأقسام وأنواع المتاجر المعتمدة
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleDownloadTemplate}
-              className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors shrink-0 cursor-pointer"
-              title="تحميل ملف إكسيل فارغ"
-            >
-              <Download size={13} />
-              <span>تحميل النموذج (.xlsx)</span>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleDownloadTemplate(false)}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                title="تحميل ملف إكسيل معبأ بأمثلة للأقسام"
+              >
+                <Download size={13} />
+                <span>نموذج بأمثلة (.xlsx)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDownloadTemplate(true)}
+                className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                title="تحميل ملف إكسيل فارغ"
+              >
+                <FileDown size={13} />
+                <span>نموذج فارغ (.xlsx)</span>
+              </button>
+            </div>
           </div>
 
           {/* Store Indicator */}
@@ -826,11 +1024,11 @@ export function BulkProductImportModal({
                     تمت قراءة <strong className="text-slate-950 font-black">{parsedRows.length}</strong> صف في الملف:
                   </span>
                   <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800">
-                    {validCount} صالح للاستيراد ✓
+                    {validCount} صالح للاستيراد [نجاح]
                   </span>
                   {invalidCount > 0 && (
                     <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-red-100 text-red-800">
-                      {invalidCount} به أخطاء ✗
+                      {invalidCount} به أخطاء [خطأ]
                     </span>
                   )}
                 </div>

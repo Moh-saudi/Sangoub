@@ -11,7 +11,7 @@ import { VisitorStats } from "./VisitorStats";
 import { AppContentManager } from "./AppContentManager";
 import { CouponManager } from "./CouponManager";
 import type { AdminTabType } from "./AdminDashboard";
-import { type AdminStaff } from "./AdminSetupPanel";
+import type { AdminStaff } from "../types/admin";
 import { CatalogManager } from "./CatalogManager";
 import { OffersManager } from "./OffersManager";
 import { CategoryManager } from "./CategoryManager";
@@ -59,30 +59,46 @@ function getInitialSection(): string {
   if (match) return resolveSection(match[1]);
   if (path === "/kitchen") return "kitchen";
 
-  // Backward compatibility: upgrade legacy hash (#finance) to clean URL (/admin/finance)
+  // Always clean up any hash immediately so "#" never stays in URL
   if (window.location.hash) {
-    const hashTarget = resolveSection(window.location.hash.replace(/^#/, ""));
-    const cleanPath = hashTarget === "operations" ? "/admin" : `/admin/${hashTarget}`;
-    if (window.history.replaceState) {
-      window.history.replaceState(null, "", cleanPath);
+    const rawHash = window.location.hash.replace(/^#/, "");
+    const hashTarget = legacySections[rawHash] || (sections.some(s => s.id === rawHash) ? rawHash : null);
+    if (hashTarget) {
+      const cleanPath = hashTarget === "operations" ? "/admin" : `/admin/${hashTarget}`;
+      if (window.history.replaceState) {
+        window.history.replaceState(null, "", cleanPath);
+      }
+      return hashTarget;
+    } else {
+      if (window.history.replaceState) {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
     }
-    return hashTarget;
   }
 
   return "operations";
 }
 
-export function AdminWorkspace({ orders, stores, products, couriers, staff, coupons, initialManagementTab, connected, onError, children }: {
+export function AdminWorkspace({ orders, stores, products, couriers, staff, coupons, initialManagementTab, connected, onError, onProductUpdate, onProductDelete, onProductsRefresh, children }: {
   orders: Order[]; stores: Store[]; products: Product[]; couriers: OperationsCourier[]; connected: boolean;
   staff: AdminStaff[]; coupons: Coupon[]; initialManagementTab?: string;
   onError: (error: unknown) => void; children: ReactNode;
+  onProductUpdate?: (product: Product) => void;
+  onProductDelete?: (id: string) => void;
+  onProductsRefresh?: () => void;
 }) {
   const [tab, setTab] = useState(getInitialSection);
 
   useEffect(() => {
+    if (window.location.hash) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
     const sync = () => {
       setTab(getInitialSection());
       setMenuOpen(false);
+      if (window.location.hash) {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("hashchange", sync);
@@ -226,7 +242,7 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
         {tab === "fleet-intelligence" && <FleetIntelligence orders={orders} stores={stores} couriers={couriers} />}
         {tab === "finance" && <FinancialReports orders={orders} stores={stores} products={products} />}
         {tab === "kitchen" && <PreparationMonitor orders={orders} stores={stores} connected={connected} />}
-        {tab === "categories" && <CategoryManager />}
+        {tab === "categories" && <CategoryManager stores={stores} products={products} />}
         {["stores", "products"].includes(tab) && (
           <CatalogManager
             key={tab}
@@ -235,6 +251,9 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
             products={products}
             orders={orders}
             searchRequest={catalogRequest?.kind === tab ? catalogRequest : undefined}
+            onProductUpdate={onProductUpdate}
+            onProductDelete={onProductDelete}
+            onProductsRefresh={onProductsRefresh}
           />
         )}
         {tab === "offers" && (

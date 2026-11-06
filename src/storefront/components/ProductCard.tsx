@@ -3,7 +3,8 @@ import type { Product } from '../../types';
 import { useStore } from '../context/StoreContext';
 import { formatEGP } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
-import { Plus, Minus, Heart, ShoppingBag, Clock, Star } from 'lucide-react';
+import { Plus, Minus, Heart, ShoppingBag, Clock, Star, Check } from 'lucide-react';
+import { getProductSlug } from '../../utils/storeAssets';
 
 interface ProductCardProps {
   product: Product;
@@ -11,17 +12,18 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }) => {
-  const { cartItems, addToCart, updateQuantity, toggleWishlist, isWishlisted, navigate } = useStore();
+  const { cartItems, addToCart, updateQuantity, toggleWishlist, isWishlisted, isProductOrderedBefore, navigate } = useStore();
 
   const cartItem = cartItems.find((item) => item.product.id === product.id);
   const quantity = cartItem ? cartItem.quantity : 0;
   const wishlisted = isWishlisted(product.id);
+  const orderedBefore = isProductOrderedBefore(product.id, product.name);
 
   const handleCardClick = () => {
     if (onOpenModal) {
       onOpenModal(product);
     } else {
-      navigate(`/products/${product.id}`);
+      navigate(`/products/${getProductSlug(product)}`);
     }
   };
 
@@ -36,7 +38,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }
       if (onOpenModal) {
         onOpenModal(product);
       } else {
-        navigate(`/products/${product.id}`);
+        navigate(`/products/${getProductSlug(product)}`);
       }
     } else {
       addToCart(product, 1);
@@ -97,13 +99,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }
             <span className="text-[10px] font-bold">سنجوب</span>
           </div>
         )}
-
-        {/* Badge (Offers / Most Popular) */}
-        {product.badge && (
-          <span className="absolute top-2 right-2 bg-[#FF5900] text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs">
-            {product.badge}
-          </span>
-        )}
+        {/* Badges (Previously Ordered / Offers / Popular) */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1 items-end z-10">
+          {orderedBefore && (
+            <span className="bg-emerald-600 text-white text-[8px] sm:text-[8.5px] font-black px-1.5 py-0.5 rounded-md shadow-xs flex items-center gap-0.5">
+              <Check size={9} strokeWidth={3} />
+              <span>طلبته سابقاً</span>
+            </span>
+          )}
+          {product.badge && (
+            <span className="bg-[#FF5900] text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs">
+              {product.badge}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Product Details */}

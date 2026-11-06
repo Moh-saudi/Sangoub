@@ -30,7 +30,6 @@ export function SmartProductImageModal({
   const [loading, setLoading] = useState(false);
   const [savingUrl, setSavingUrl] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [customUrl, setCustomUrl] = useState('');
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -284,29 +283,10 @@ export function SmartProductImageModal({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  <Upload size={13} className="text-orange-600" />
-                  <span>رفع صورة من الجهاز</span>
-                </button>
-              </div>
-
-              {/* Paste URL */}
-              <div className="flex gap-1.5">
-                <input
-                  type="url"
-                  value={customUrl}
-                  onChange={(e) => setCustomUrl(e.target.value)}
-                  placeholder="https://... رابط صورة مباشر"
-                  className="flex-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-amber-500 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleApply(customUrl.trim())}
-                  disabled={!customUrl.trim() || savingUrl !== null}
-                  className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl disabled:opacity-40 transition-colors cursor-pointer shrink-0"
-                >
-                  حفظ
+                  <Upload size={14} className="text-orange-400" />
+                  <span>رفع صورة جديدة من الجهاز</span>
                 </button>
               </div>
             </div>

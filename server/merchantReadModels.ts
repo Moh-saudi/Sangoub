@@ -1,54 +1,57 @@
-import {readQuery} from './data/firestoreQueries.ts';
-import {queryPlans} from '../src/data/queryPlans.ts';
-import {createHash} from 'node:crypto';
-import {AdminError,validId} from './adminRequest.ts';
+import { createHash } from 'node:crypto';
+import { AdminError, validId } from './adminRequest.ts';
+import { supabaseAdminClient } from './supabaseAdmin.ts';
 
 export async function merchantReadModel(input: any, context: any) {
-  const { db, staff, actor, role } = context;
-  const storeId = input.storeId || staff?.storeId || 'store-foul-hind';
+  const isAdmin = context.role === 'admin';
+  const isMerchant = context.role === 'restaurant';
+  const storeId = input.storeId || context.staff?.storeId;
+  if (!isAdmin && !isMerchant) throw new AdminError(403, 'هذه الصفحة لموظفي الإدارة والمتجر فقط.');
+  if (!storeId || (isMerchant && storeId !== context.staff?.storeId)) throw new AdminError(403, 'المتجر غير مرتبط بحسابك.');
   validId(storeId);
-  const isAdmin = role === 'admin';
-  const isMerchant = role === 'restaurant' || staff?.role === 'restaurant';
-  if (!isAdmin && !isMerchant) {
-    throw new AdminError(403, 'هذه الصفحة لمدير المتجر فقط.');
-  }
-  const access = await db.doc('accountAccess/' + actor.uid).get();
-  const control = access.data();
-  const revokedSec = control?.revokedBefore ? (control.revokedBefore > 1e11 ? Math.floor(control.revokedBefore / 1000) : control.revokedBefore) : 0;
-  if (control?.disabled === true || control?.operationLocked === true || (revokedSec > 0 && actor.auth_time <= revokedSec)) {
-    throw new AdminError(403, 'انتهت صلاحية الحساب.');
-  }
 
+  const client = supabaseAdminClient();
   if (input.action === 'store-payments') {
-    if (input.cursor) validId(input.cursor);
-    const snapshot = await readQuery(db, queryPlans.merchantPayments(storeId), input.cursor || undefined);
-    const docs = snapshot.docs.slice(0, 50);
+    if (input.cursor !== undefined && (typeof input.cursor !== 'string' || !/^[0-9a-f-]{36}$/i.test(input.cursor))) {
+      throw new AdminError(400, 'مؤشر الصفحة غير صالح.');
+    }
+    let query = client.from('merchant_settlements').select('id,store_id,gross,commission,net,reference,order_ids,created_at')
+      .eq('store_id', storeId).order('created_at', { ascending: false }).limit(51);
+    if (input.cursor) {
+      const { data: cursorRow, error: cursorError } = await client.from('merchant_settlements')
+        .select('created_at').eq('id', input.cursor).eq('store_id', storeId).maybeSingle();
+      if (cursorError || !cursorRow) throw new AdminError(400, 'مؤشر الصفحة غير صالح.');
+      query = query.lt('created_at', cursorRow.created_at);
+    }
+    const { data, error } = await query;
+    if (error) throw new AdminError(503, 'تعذر قراءة تسويات المتجر من Supabase.');
+    const rows = data || [];
     return {
-      items: docs.map((d: any) => {
-        const v = d.data();
-        return {
-          id: d.id,
-          gross: v.gross,
-          commission: v.commission,
-          net: v.net,
-          reference: v.reference || '',
-          orderCount: Array.isArray(v.orderIds) ? v.orderIds.length : 0,
-          createdAt: v.createdAt?.toDate?.().toISOString() || null
-        };
-      }),
-      nextCursor: snapshot.docs.length > 50 ? docs.at(-1)!.id : null
+      items: rows.slice(0, 50).map((row: any) => ({
+        id: row.id, gross: Number(row.gross) || 0, commission: Number(row.commission) || 0,
+        net: Number(row.net) || 0, reference: row.reference || '',
+        orderCount: Array.isArray(row.order_ids) ? row.order_ids.length : 0, createdAt: row.created_at || null,
+      })),
+      nextCursor: rows.length > 50 ? rows[49].id : null,
     };
   }
 
-  const snapshot = await readQuery(db, queryPlans.merchantCustomers(storeId));
+  if (input.action !== 'store-customers') throw new AdminError(400, 'عملية بيانات المتجر غير معروفة.');
+  const { data: orders, error } = await client.from('orders')
+    .select('id,customer_id,customer_name,created_at')
+    .contains('store_ids', [storeId])
+    .order('created_at', { ascending: false })
+    .limit(101);
+  if (error) throw new AdminError(503, 'تعذر قراءة طلبات العملاء من Supabase.');
   const customers = new Map<string, any>();
-  for (const d of snapshot.docs.slice(0, 100)) {
-    const order = d.data();
-    if (!order.profileId) continue;
-    const id = createHash('sha256').update(storeId + '\0' + order.profileId).digest('hex');
-    const row = customers.get(id) || { id, name: typeof order.profileName === 'string' ? order.profileName.slice(0, 120) : 'عميل طلب', orderIds: [] };
-    row.orderIds.push(d.id);
+  for (const order of (orders || []).slice(0, 100)) {
+    if (!order.customer_id) continue;
+    const id = createHash('sha256').update(storeId + '\0' + order.customer_id).digest('hex');
+    const row = customers.get(id) || {
+      id, name: typeof order.customer_name === 'string' ? order.customer_name.slice(0, 120) : 'عميل طلب', orderIds: [],
+    };
+    row.orderIds.push(order.id);
     customers.set(id, row);
   }
-  return { items: [...customers.values()], truncated: snapshot.docs.length > 100 };
+  return { items: [...customers.values()], truncated: (orders || []).length > 100 };
 }

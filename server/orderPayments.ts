@@ -1,83 +1,40 @@
-import { FieldValue, type Firestore } from "firebase-admin/firestore";
-import { GeideaGateway } from "./integrations.ts";
-export async function ensureOrderPayment(
-  db: Firestore,
-  id: string,
-  email: string,
-  uid: string,
-) {
-  const ref = db.doc("orderPayments/" + id);
-  const claim = await db.runTransaction<Record<string, any>>(async (tx) => {
-    const [order, payment] = await Promise.all([
-      tx.get(db.doc("orders/" + id)),
-      tx.get(ref),
-    ]);
-    if (
-      !order.exists ||
-      order.data()?.profileId !== uid ||
-      order.data()?.paymentMethod !== "geidea" ||
-      order.data()?.orderStatus === "cancelled"
-    )
-      throw new Error("PAYMENT_ORDER_INVALID");
-    if (order.data()?.paymentStatus === "paid")
-      return { state: "paid", order: order.data()! };
-    if (payment.exists) return { ...payment.data(), order: order.data()! };
-    tx.create(ref, {
-      state: "creating",
-      createdAt: FieldValue.serverTimestamp(),
-    });
-    return { state: "new", order: order.data()! };
-  });
-  if (claim.state === "paid") return { alreadyPaid: true };
-  if (claim.state === "ready")
-    return {
-      sessionId: claim.sessionId,
-      redirectUrl: claim.redirectUrl || null,
-    };
-  if (claim.state !== "new")
-    return {
-      error:
-        "تعذر تأكيد جلسة الدفع. احتفظ برقم الطلب وتواصل مع الدعم قبل المحاولة بطلب جديد.",
-    };
+import { supabaseAdminClient } from './supabaseAdmin.ts';
+import { GeideaGateway } from './integrations.ts';
+
+function trustedRedirect(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && (url.hostname === 'merchant.geidea.net' || url.hostname.endsWith('.merchant.geidea.net')) ? url.href : null;
+  } catch { return null; }
+}
+
+export async function ensureOrderPayment(orderId: string, email: string, uid: string) {
+  const client = supabaseAdminClient();
+  const { data: claim, error: claimError } = await client.rpc('claim_sangoub_payment', { p_order_id: orderId, p_customer_id: uid });
+  if (claimError) throw new Error('PAYMENT_CLAIM_FAILED');
+  if (claim?.state === 'paid') return { alreadyPaid: true };
+  if (claim?.state === 'ready') return { sessionId: claim.sessionId || null, redirectUrl: claim.redirectUrl || null };
+  if (claim?.state !== 'new') return { error: 'تعذر تهيئة جلسة الدفع. احتفظ برقم الطلب وتواصل مع الدعم قبل إنشاء طلب جديد.' };
+
   const result = await GeideaGateway.createOrderPayment({
-    orderId: id,
-    amount: claim.order.total,
-    currency: "EGP",
+    orderId,
+    amount: Number(claim.amount),
+    currency: 'EGP',
     customerEmail: email,
-    customerName: claim.order.profileName,
-    returnUrl: `${process.env.APP_URL || "https://capital-talabat.vercel.app"}/checkout/success?orderId=${encodeURIComponent(id)}`,
+    customerName: String(claim.customerName || 'عميل سنجوب'),
+    returnUrl: `${(process.env.APP_URL || 'https://capital-talabat.vercel.app').replace(/\/$/, '')}/checkout/success?orderId=${encodeURIComponent(orderId)}`,
   });
-  let redirectUrl: string | null = null;
-  if (result.success && result.redirectUrl) {
-    try {
-      const url = new URL(result.redirectUrl);
-      if (
-        url.protocol === "https:" &&
-        (url.hostname === "merchant.geidea.net" ||
-          url.hostname.endsWith(".merchant.geidea.net"))
-      )
-        redirectUrl = url.href;
-    } catch {
-      /* SDK session remains available. */
-    }
+  const providerId = typeof result.orderId === 'string' && /^[a-zA-Z0-9-]{1,100}$/.test(result.orderId) ? result.orderId : null;
+  const redirectUrl = trustedRedirect(result.redirectUrl);
+  if (!result.success || (!result.sessionId && !redirectUrl) || !result.referenceId) {
+    await client.rpc('finish_sangoub_payment_session', { p_order_id: orderId, p_state: 'uncertain' });
+    return { error: 'لم تكتمل تهيئة الدفع. طلبك محفوظ وغير مدفوع؛ تواصل مع الدعم برقم الطلب.' };
   }
-  if (!result.success || (!result.sessionId && !redirectUrl)) {
-    await ref.update({
-      state: "uncertain",
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-    return {
-      error:
-        "لم تكتمل تهيئة الدفع. طلبك محفوظ وغير مدفوع؛ تواصل مع الدعم برقم الطلب.",
-    };
-  }
-  await ref.update({
-    state: "ready",
-    referenceId: result.referenceId,
-    providerId:typeof result.orderId==='string'&&/^[a-zA-Z0-9-]{1,100}$/.test(result.orderId)?result.orderId:null,
-    sessionId: result.sessionId || null,
-    redirectUrl,
-    updatedAt: FieldValue.serverTimestamp(),
+  const { data: saved, error: saveError } = await client.rpc('finish_sangoub_payment_session', {
+    p_order_id: orderId, p_state: 'ready', p_reference_id: result.referenceId,
+    p_provider_id: providerId, p_session_id: result.sessionId || null, p_redirect_url: redirectUrl,
   });
+  if (saveError || saved !== true) return { error: 'أنشأ مزود الدفع الجلسة لكن تعذر تسجيلها؛ لا تنشئ طلبًا آخر، تواصل مع الدعم.' };
   return { sessionId: result.sessionId || null, redirectUrl };
 }

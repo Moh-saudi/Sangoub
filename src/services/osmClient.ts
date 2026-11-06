@@ -1,8 +1,9 @@
 import { apiUrl } from '../lib/apiUrl';
+import { supabase } from '../lib/supabase';
 export interface OsmClientOptions { fetch?:typeof fetch; getToken?:()=>Promise<string>; signal?:AbortSignal }
-/** Same-origin only: never send Firebase tokens to configurable upstream providers. */
+/** Same-origin only: never send account tokens to configurable upstream providers. */
 export async function requestOsm(action:'route'|'search',body:object,options:OsmClientOptions={}){
- const token = action === 'search' ? undefined : await (options.getToken?options.getToken():(async()=>{const {auth}=await import('../lib/firebase');const token=await auth.currentUser?.getIdToken();if(!token)throw Error('سجل الدخول لاستخدام المسار.');return token})());
+ const token = action === 'search' ? undefined : await (options.getToken?options.getToken():(async()=>{const {data:{session}}=await supabase.auth.getSession();if(!session?.access_token)throw Error('سجل الدخول لاستخدام المسار.');return session.access_token})());
  if(options.signal?.aborted)throw new DOMException('Aborted','AbortError');
  const response=await (options.fetch||fetch)(apiUrl('/api/osm/'+action),{method:'POST',signal:options.signal,headers:{'Content-Type':'application/json',...(token ? {Authorization:'Bearer '+token} : {})},body:JSON.stringify(body)});
  const result=await response.json().catch(()=>({error:'خدمة الخرائط غير متاحة.'}));

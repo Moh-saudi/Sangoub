@@ -54,17 +54,26 @@
   animation: fadeInUp 0.25s ease-out forwards;
 }
 
-/* Prevent lateral viewport jitter / horizontal wobble on mobile */
+/* Prevent lateral viewport jitter / horizontal wobble on mobile without breaking sticky headers */
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100vw;
   position: relative;
 }
 
 .sangoub-store {
-  overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100vw;
   position: relative;
+}
+
+/* Enforce persistent fixed sticky headers across all mobile & desktop viewports */
+header.sticky,
+.sangoub-sticky-header {
+  position: -webkit-sticky !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 50 !important;
 }
 
 .no-scrollbar {

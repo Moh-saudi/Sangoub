@@ -1,4 +1,4 @@
-import { auth } from "../lib/firebase.ts";
+import { supabase } from "../lib/supabase.ts";
 import { apiUrl } from "../lib/apiUrl";
 import { useState, useRef, useCallback } from "react";
 
@@ -29,6 +29,12 @@ export interface MapsGroundingResult {
   };
 }
 
+async function authorizationHeader() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("يرجى تسجيل الدخول.");
+  return `Bearer ${session.access_token}`;
+}
+
 export async function sendGeminiChatMessage(params: {
   message: string;
   history: { role: "user" | "model"; text: string }[];
@@ -40,7 +46,7 @@ export async function sendGeminiChatMessage(params: {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${(await auth.currentUser?.getIdToken()) || ""}`,
+      Authorization: await authorizationHeader(),
     },
     body: JSON.stringify(params),
   });
@@ -61,7 +67,7 @@ export async function queryGoogleMapsGrounding(params: {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${(await auth.currentUser?.getIdToken()) || ""}`,
+      Authorization: await authorizationHeader(),
     },
     body: JSON.stringify(params),
   });
@@ -89,7 +95,7 @@ export async function transcribeAudioBlob(blob: Blob): Promise<string> {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${(await auth.currentUser?.getIdToken()) || ""}`,
+      Authorization: await authorizationHeader(),
     },
     body: JSON.stringify({
       audioBase64: base64Audio,

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
 import { Store as StoreIcon, Star, ArrowLeft, Clock } from 'lucide-react';
+import { getStoreSlug } from '../../utils/storeAssets';
 
 export const MerchantsMarquee: React.FC = () => {
   const { stores, navigate } = useStore();
@@ -40,10 +41,10 @@ export const MerchantsMarquee: React.FC = () => {
           {marqueeList.map((store, index) => (
             <div
               key={`${store.id}-${index}`}
-              onClick={() => navigate(`/stores/${store.id}`)}
+              onClick={() => navigate(`/stores/${getStoreSlug(store)}`)}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && navigate(`/stores/${store.id}`)}
+              onKeyDown={(e) => e.key === 'Enter' && navigate(`/stores/${getStoreSlug(store)}`)}
               className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border border-[#E5E7EB] bg-[#F8F9FA] hover:bg-[#FFF2EC] hover:border-[#FF5900]/50 transition-all shrink-0 shadow-2xs group/store min-w-[170px]"
             >
               {/* Circular Store Logo */}

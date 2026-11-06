@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { auth } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { apiUrl } from '../lib/apiUrl';
 import { eventLabels, sourceLabels, visitorEvents, visitorSources, type VisitorStatsData } from '../types/siteAnalytics';
 export function VisitorStats() {
@@ -8,8 +8,8 @@ export function VisitorStats() {
   const controller = new AbortController();setLoading(true);setError('');
   (async () => {
    try {
-    const user = auth.currentUser;if (!user) throw new Error('يرجى تسجيل الدخول.');
-    const response = await fetch(apiUrl('/api/visitors'), { headers: { Authorization: 'Bearer ' + await user.getIdToken() }, signal: controller.signal });
+    const { data: { session } } = await supabase.auth.getSession();if (!session?.access_token) throw new Error('يرجى تسجيل الدخول.');
+    const response = await fetch(apiUrl('/api/visitors'), { headers: { Authorization: 'Bearer ' + session.access_token }, signal: controller.signal });
     const result = await response.json();if (!response.ok) throw new Error(result.error || 'تعذر تحميل الإحصائيات.');
     if (!controller.signal.aborted) setStats(result);
    } catch (e) { if (!controller.signal.aborted) setError((e as Error).message); }

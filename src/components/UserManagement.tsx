@@ -1,19 +1,18 @@
 import { searchOsm } from '../services/osmClient';
 import { placeAddress } from '../services/deliveryAddress';
 import { validateAccount, cairoToday } from '../validation/accounts';
-import { AccountAccessDialog } from './AccountAccessDialog';
 import { formatEGP } from "../utils/orderCalculations";
+import { matchStoreId } from '../utils/storeAssets';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import {
   Plus, Search, RefreshCw, Users, X, ShieldCheck, ChevronLeft, ChevronRight,
   Copy, Check, MapPin, Bike, Navigation, AlertCircle, FileCheck, Stethoscope,
   Shield, Car, ExternalLink, Store as StoreIcon, UserCheck, PhoneCall, Building2,
   Calendar, Award, Eye, Edit3, Power, Trash2, Camera, Upload, User,
-  Send, Sparkles, Lock, EyeOff, Clock, CheckCircle2, Wallet, DollarSign, Coins
+  Clock, CheckCircle2, Wallet, DollarSign, Coins
 } from 'lucide-react';
 import { adminApi } from '../lib/adminApi';
 import type { Store, UserRole } from '../types';
-import { auth } from '../lib/firebase';
 
 const roleNames: Record<string, string> = {
   employee: 'عميل / مستخدم المنظومة',
@@ -133,16 +132,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
   const [editingUser, setEditingUser] = useState<AccountRecord | null>(null);
   const [viewingUser, setViewingUser] = useState<AccountRecord | null>(null);
   const [deleteConfirmationUser, setDeleteConfirmationUser] = useState<AccountRecord | null>(null);
-  const [resetLink, setResetLink] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [accessAccount, setAccessAccount] = useState<{
-    email: string;
-    role: string;
-    fullName?: string;
-    phone?: string;
-    password?: string;
-    storeName?: string;
-  } | null>(null);
 
   // Form State
   const [formRole, setFormRole] = useState<UserRole>('employee');
@@ -162,141 +152,9 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
   const [reconcileNotes, setReconcileNotes] = useState('');
   const [reconcileBusy, setReconcileBusy] = useState(false);
 
-  const SLUG_TO_UUID: Record<string, string> = {
-    'store-foul-hind': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-    'store-supermarket-capital': '54a6c2f6-6c29-4177-ac65-32fadddea83d',
-    'store-ministry-coffee': '55508f0e-f818-452e-b946-ab803fe9d637',
-    'store-karam-elsham': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
-    'store-taza-bakery': '55508f0e-f818-452e-b946-ab803fe9d637',
-  };
-
-  function matchStoreId(a?: string, b?: string): boolean {
-    if (!a || !b) return false;
-    if (a === b) return true;
-    const uuidA = SLUG_TO_UUID[a] || a;
-    const uuidB = SLUG_TO_UUID[b] || b;
-    return uuidA === uuidB;
-  }
-
   const baseUsers = useMemo<AccountRecord[]>(() => {
     if (!fixedStoreId) return users;
-    const matched = users.filter((u) => matchStoreId(u.storeId, fixedStoreId) || (u.role === 'courier' && (!u.storeId || matchStoreId(u.storeId, fixedStoreId))));
-    if (matched.length === 0) {
-      const defaultStaff: AccountRecord[] = [
-        {
-          uid: 'staff-cashier-1',
-          fullName: 'أحمد سامي عبد الرحمن',
-          email: 'cashier.foulhind@sangoub.com',
-          phone: '01023456789',
-          role: 'restaurant',
-          duty: 'cashier',
-          storeId: fixedStoreId,
-          disabled: false,
-          emailVerified: true,
-          ministry: 'فرع العاصمة المركزية',
-          floorNumber: 'الأرضي',
-          roomNumber: 'كاونتر 1',
-          providers: ['password'],
-          lastSignInAt: new Date().toISOString(),
-          createdAt: '2026-09-01',
-          walletBalance: 0,
-          drugTestStatus: 'passed',
-          criminalRecordStatus: 'passed',
-        },
-        {
-          uid: 'staff-chef-1',
-          fullName: 'الشيف محمد جلال',
-          email: 'chef.foulhind@sangoub.com',
-          phone: '01134567890',
-          role: 'restaurant',
-          duty: 'preparer',
-          storeId: fixedStoreId,
-          disabled: false,
-          emailVerified: true,
-          ministry: 'المطبخ والتحضير',
-          floorNumber: 'الأرضي',
-          roomNumber: 'خط الإنتاج',
-          providers: ['password'],
-          lastSignInAt: new Date().toISOString(),
-          createdAt: '2026-09-01',
-          walletBalance: 0,
-          drugTestStatus: 'passed',
-          criminalRecordStatus: 'passed',
-        },
-        {
-          uid: 'staff-acc-1',
-          fullName: 'هدى عبد المنعم الشريف',
-          email: 'accounting.foulhind@sangoub.com',
-          phone: '01245678901',
-          role: 'restaurant',
-          duty: 'accountant',
-          storeId: fixedStoreId,
-          disabled: false,
-          emailVerified: true,
-          ministry: 'الحسابات والخزينة',
-          floorNumber: 'الأرضي',
-          roomNumber: 'مكتب الإدارة',
-          providers: ['password'],
-          lastSignInAt: new Date().toISOString(),
-          createdAt: '2026-09-01',
-          walletBalance: 0,
-          drugTestStatus: 'passed',
-          criminalRecordStatus: 'passed',
-        },
-        {
-          uid: 'staff-courier-1',
-          fullName: 'كابتن محمود رضا',
-          email: 'courier.mahmod@sangoub.com',
-          phone: '01012345678',
-          role: 'courier',
-          duty: 'courier',
-          storeId: fixedStoreId,
-          disabled: false,
-          emailVerified: true,
-          ministry: 'أسطول الفرع',
-          floorNumber: '',
-          roomNumber: '',
-          providers: ['password'],
-          lastSignInAt: new Date().toISOString(),
-          createdAt: '2026-09-15',
-          walletBalance: 0,
-          vehicleType: 'motorcycle',
-          vehiclePlate: 'س ن ج 1234',
-          nationalId: '29501011234567',
-          courierStatus: 'active',
-          drugTestStatus: 'passed',
-          criminalRecordStatus: 'passed',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
-        },
-        {
-          uid: 'staff-courier-2',
-          fullName: 'كابتن إبراهيم فؤاد',
-          email: 'courier.ibrahim@sangoub.com',
-          phone: '01198765432',
-          role: 'courier',
-          duty: 'courier',
-          storeId: fixedStoreId,
-          disabled: false,
-          emailVerified: true,
-          ministry: 'أسطول الفرع',
-          floorNumber: '',
-          roomNumber: '',
-          providers: ['password'],
-          lastSignInAt: new Date().toISOString(),
-          createdAt: '2026-08-20',
-          walletBalance: 0,
-          vehicleType: 'scooter',
-          vehiclePlate: 'ع ص م 5678',
-          nationalId: '29803021987654',
-          courierStatus: 'active',
-          drugTestStatus: 'passed',
-          criminalRecordStatus: 'passed',
-          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80',
-        }
-      ];
-      return defaultStaff;
-    }
-    return matched;
+    return users.filter((u) => matchStoreId(u.storeId, fixedStoreId));
   }, [users, fixedStoreId]);
 
   const displayUsersCount = (fixedStoreId ? baseUsers : users).length;
@@ -312,11 +170,11 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
       ? storeOrders.filter((o: any) => o.courierId === user.uid || o.courierName === user.fullName)
       : storeOrders;
     const delivered = relevantOrders.filter((o: any) => o.orderStatus === 'delivered');
-    const ordersCount = delivered.length || (isCourier ? (user as any).ordersCompleted || 6 : 14);
-    const gross = delivered.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || (ordersCount * 135);
-    const cash = delivered.filter((o: any) => o.paymentMethod === 'cash').reduce((sum: number, o: any) => sum + (o.total || 0), 0) || Math.round(gross * 0.65);
-    const electronic = delivered.filter((o: any) => o.paymentMethod === 'geidea').reduce((sum: number, o: any) => sum + (o.total || 0), 0) || Math.round(gross * 0.25);
-    const instapay = delivered.filter((o: any) => o.paymentMethod === 'instapay').reduce((sum: number, o: any) => sum + (o.total || 0), 0) || Math.round(gross * 0.10);
+    const ordersCount = delivered.length;
+    const gross = delivered.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+    const cash = delivered.filter((o: any) => o.paymentMethod === 'cash').reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+    const electronic = delivered.filter((o: any) => o.paymentMethod === 'geidea').reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+    const instapay = delivered.filter((o: any) => o.paymentMethod === 'instapay').reduce((sum: number, o: any) => sum + (o.total || 0), 0);
     return {
       ordersCount,
       gross,
@@ -370,8 +228,6 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
     setReconcileBusy(false);
   };
   const [formAvatarUrl, setFormAvatarUrl] = useState('');
-  const [formPassword, setFormPassword] = useState('');
-  const [showFormPassword, setShowFormPassword] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [formFullName, setFormFullName] = useState('');
   const [selectedStoreId, setSelectedStoreId] = useState('');
@@ -430,7 +286,6 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
     setNotice('');
     setGpsError('');
     setFieldErrors({});
-    setResetLink('');
     setEditingUser(null);
     setFormAvatarUrl('');
     if (mode === 'merchant') {
@@ -443,8 +298,6 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
       setSelectedStoreId(stores[0]?.id || '');
     }
     setFormFullName('');
-    setFormPassword('Sangoub@' + Math.floor(1000 + Math.random() * 9000));
-    setShowFormPassword(false);
     setFormAddress('العاصمة الإدارية الجديدة، القاهرة، مصر');
     setFormVehicleType('motorcycle');
     setFormLatitude('30.011799');
@@ -458,14 +311,11 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
     setNotice('');
     setGpsError('');
     setFieldErrors({});
-    setResetLink('');
     setEditingUser(user);
     setFormRole(user.role);
     setFormDuty((user.duty as any) || (user.role === 'courier' ? 'preparer' : 'manager'));
     setFormFullName(user.fullName || '');
     setFormAvatarUrl(user.avatarUrl || '');
-    setFormPassword('');
-    setShowFormPassword(false);
     setFormAddress(user.locationAddress || user.currentAddress || '');
     setSelectedStoreId(fixedStoreId || user.storeId || '');
     setFormVehicleType(user.vehicleType || 'motorcycle');
@@ -478,7 +328,6 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
     setIsFormModalOpen(false);
     setEditingUser(null);
     setFormAvatarUrl('');
-    setResetLink('');
     setError('');
     setGpsError('');
   }
@@ -601,7 +450,6 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
       ...data,
       fullName: formFullName || data.fullName,
       avatarUrl: formAvatarUrl || undefined,
-      password: formPassword || undefined,
       action,
       uid: editingUser?.uid,
       role: formRole,
@@ -630,42 +478,10 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
       setIsFormModalOpen(false);
       setEditingUser(null);
       setFormAvatarUrl('');
-      const storeObj = stores.find((s) => s.id === (selectedStoreId || data.storeId));
-      setResetLink(result.resetLink || '');
-      setAccessAccount({
-        email: String(data.email),
-        role: formRole,
-        fullName: String(data.fullName || formFullName),
-        phone: String(data.phone || ''),
-        password: result.password || formPassword,
-        storeName: storeObj ? storeObj.name : undefined,
-      });
-      setNotice('تم حفظ بيانات الحساب بنجاح! يمكنك الآن إرسال بيانات الدخول عبر واتساب.');
+      setNotice(editingUser ? 'تم حفظ بيانات الحساب في Supabase.' : 'تم إنشاء الحساب وإرسال دعوة تعيين كلمة المرور عبر Supabase.');
       setRevision((v) => v + 1);
     } catch (e) {
       setFieldErrors((e as any).fields||{});setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handlePasswordSetup(user:AccountRecord){
-    setBusy(true);setError('');setResetLink('');
-    try{
-      const result=await adminApi('users',{action:'reset',uid:user.uid,reason:'إصدار وتعيين بيانات الدخول وإرسالها لصاحب الحساب عبر واتساب'});
-      const storeObj = stores.find((s) => s.id === user.storeId);
-      setResetLink(result.resetLink || '');
-      setAccessAccount({
-        email: user.email,
-        role: user.role,
-        fullName: user.fullName,
-        phone: user.phone,
-        password: result.password || (user as any).password || 'Sangoub@' + Math.floor(1000 + Math.random() * 9000),
-        storeName: storeObj ? storeObj.name : undefined,
-      });
-      setNotice('تم تجهيز بيانات الدخول. يمكنك إرسالها الآن عبر واتساب.');
-    } catch {
-      setError('تعذر إصدار وتعيين كلمة المرور. تحقق من حالة الحساب وأعد المحاولة.');
     } finally {
       setBusy(false);
     }
@@ -1054,7 +870,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                       <div className="flex items-start justify-between gap-2.5 mb-3">
                         <div className="flex items-center gap-2.5">
                           {user.avatarUrl ? (
-                            <img src={user.avatarUrl} alt={user.fullName} className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0" />
+                            <img src={user.avatarUrl} alt={user.fullName} referrerPolicy="no-referrer" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0" />
                           ) : (
                             <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-sm border border-slate-200 shrink-0">
                               {user.fullName.charAt(0)}
@@ -1258,6 +1074,8 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                           <img
                             src={user.avatarUrl}
                             alt={user.fullName || 'User'}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
                             className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0 shadow-2xs"
                           />
                         ) : (
@@ -1463,33 +1281,11 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                           تعديل
                         </button>
 
-                        {/* WhatsApp Credentials Button */}
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => {
-                            const storeObj = stores.find((s) => s.id === user.storeId);
-                            setAccessAccount({
-                              email: user.email,
-                              role: user.role,
-                              fullName: user.fullName,
-                              phone: user.phone,
-                              password: (user as any).password || 'Sangoub@2025',
-                              storeName: storeObj ? storeObj.name : undefined,
-                            });
-                          }}
-                          title="إرسال بيانات الدخول عبر واتساب"
-                          className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px] font-bold rounded-md transition-colors cursor-pointer flex items-center gap-1"
-                        >
-                          <Send size={12} className="text-emerald-700" />
-                          <span>واتساب</span>
-                        </button>
-
-                        <button type="button" disabled={busy||user.disabled||!user.email} onClick={()=>void handlePasswordSetup(user)} className="px-2 py-1 border border-slate-300 hover:bg-slate-50 rounded-md text-[11px] font-medium text-slate-700">كلمة المرور</button>
+                        <span className="px-2 py-1 text-[11px] text-slate-500">إدارة الدخول عبر Supabase</span>
                         {/* Toggle Status */}
                         <button
                           type="button"
-                          disabled={user.uid === auth.currentUser?.uid || busy}
+                          disabled={busy}
                           onClick={() => handleToggleStatus(user)}
                           className={`px-1.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${
                             user.disabled
@@ -1503,7 +1299,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         {/* Delete */}
                         <button
                           type="button"
-                          disabled={user.uid === auth.currentUser?.uid || busy}
+                          disabled={busy}
                           onClick={() => setDeleteConfirmationUser(user)}
                           className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold rounded-md transition-colors cursor-pointer"
                         >
@@ -2575,65 +2371,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                   </div>
                 )}
 
-                {/* 4. Credentials, Password & WhatsApp Dispatch */}
-                <div className="p-3.5 sm:p-4 rounded-xl border border-teal-200 bg-teal-50/70 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 font-bold text-xs text-teal-950">
-                      <Lock size={15} className="text-teal-700" />
-                      <span>بيانات الدخول وتعيين كلمة المرور</span>
-                    </div>
-                    <span className="text-[10px] bg-teal-200/80 text-teal-900 px-2 py-0.5 rounded-full font-bold">
-                      بيانات الاعتماد ورسالة واتساب
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                    <div>
-                      <label className="block text-slate-700 font-bold text-xs mb-1">
-                        كلمة المرور للحساب {editingUser ? '(اتركه فارغاً للإبقاء على الحالية)' : '*'}
-                      </label>
-                      <div className="relative flex items-center">
-                        <input
-                          name="password"
-                          type={showFormPassword ? 'text' : 'password'}
-                          value={formPassword}
-                          onChange={(e) => setFormPassword(e.target.value)}
-                          placeholder={editingUser ? '•••••••• (غير معدلة)' : 'أدخل كلمة مرور أو اضغط توليد'}
-                          className="w-full h-9 px-3 pl-16 border border-slate-300 rounded-lg text-xs bg-white font-mono"
-                        />
-                        <div className="absolute left-1.5 flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setShowFormPassword((v) => !v)}
-                            className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
-                            title={showFormPassword ? 'إخفاء' : 'إظهار'}
-                          >
-                            {showFormPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const generated = 'Sangoub@' + Math.floor(1000 + Math.random() * 9000);
-                          setFormPassword(generated);
-                          setShowFormPassword(true);
-                        }}
-                        className="h-9 px-3.5 bg-white border border-teal-300 hover:bg-teal-100 text-teal-800 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer w-full justify-center"
-                      >
-                        <Sparkles size={14} className="text-amber-500" />
-                        <span>توليد كلمة مرور آمنة تلقائياً</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <p className="text-[11px] text-teal-900/90 leading-5">
-                    💡 بمجرد الحفظ، ستظهر نافذة تتيح لك <strong>إرسال كافة بيانات الدخول ورابط البوابة المباشر إلى واتساب</strong> صاحب الحساب بنقرة زر واحدة.
-                  </p>
-                </div>
+                <p className="p-3.5 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900">تُنشأ الحسابات عبر Supabase Auth، ويُرسل للمستخدم رابط آمن لتعيين كلمة المرور. لا تشارك كلمة مرور مؤقتة.</p>
 
                 {Object.keys(fieldErrors).length > 0 && (
                   <div role="alert" className="p-3 border border-red-200 bg-red-50 text-red-800 rounded-xl">
@@ -2688,18 +2426,6 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
         </div>
       )}
 
-      {accessAccount && (
-        <AccountAccessDialog
-          email={accessAccount.email}
-          role={accessAccount.role}
-          fullName={accessAccount.fullName}
-          phone={accessAccount.phone}
-          password={accessAccount.password}
-          storeName={accessAccount.storeName}
-          onClose={() => setAccessAccount(null)}
-        />
-      )}
-
       {/* 6. POP-UP MODAL: Full Comprehensive Profile Inspection (نهج بطاقة المعاينة الشاملة - زر العين) */}
       {viewingUser && (
         <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
@@ -2711,6 +2437,8 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                   <img
                     src={viewingUser.avatarUrl}
                     alt={viewingUser.fullName || 'User'}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
                     className="w-12 h-12 rounded-full object-cover border-2 border-teal-600 shadow-xs shrink-0"
                   />
                 ) : (
@@ -2941,7 +2669,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
               <h3 className="text-base font-black">تأكيد حذف الحساب نهائياً</h3>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              هل أنت متأكد من حذف حساب (<strong>{deleteConfirmationUser.fullName || deleteConfirmationUser.email}</strong>)؟ سيتم إلغاء صلاحياته وحذف حسابه من Firebase Authentication نهائياً.
+              هل أنت متأكد من حذف حساب (<strong>{deleteConfirmationUser.fullName || deleteConfirmationUser.email}</strong>)؟ سيتم حذف حسابه من Supabase Auth. الحسابات المرتبطة بطلبات لا يمكن حذفها؛ عطّلها بدلًا من ذلك.
             </p>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button

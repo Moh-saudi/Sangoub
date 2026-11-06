@@ -1,7 +1,8 @@
-import { auth } from "./firebase";
+import { supabase } from "./supabase";
 import { apiUrl } from "./apiUrl";
 export async function orderDelivery(body: { action: "code" | "deliver"; orderId: string; otpCode?: string; collectedAmount?: number }) {
-  const token = await auth.currentUser?.getIdToken();
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
   if (!token) throw new Error("يرجى تسجيل الدخول.");
   const response = await fetch(apiUrl("/api/order-delivery"), { method: "POST", headers: {
     "Content-Type": "application/json", Authorization: `Bearer ${token}`,

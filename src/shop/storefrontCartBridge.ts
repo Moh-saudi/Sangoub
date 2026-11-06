@@ -4,14 +4,8 @@ export const storefrontCartKey = "sangoub_cart_items_v2";
 export const checkoutCartKey = "sangoub-web-cart-v1";
 /** Only product identities/options cross the boundary; checkout reloads authoritative prices. */
 export function checkoutLines(items: CartItem[]): CartLine[] {
-  if (
-    !items.length ||
-    items.length > 50 ||
-    new Set(items.map((item) => item.product.storeId)).size !== 1
-  )
-    throw new Error(
-      "اختر منتجات متجر واحد لكل طلب. يمكنك إكمال طلب ثم بدء طلب متجر آخر.",
-    );
+  if (!items.length || items.length > 50)
+    throw new Error("راجع المنتجات والكميات قبل المتابعة.");
   return items.map((item) => {
     if (
       !/^[\w-]{1,128}$/.test(item.product.id) ||

@@ -1,45 +1,34 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { createClient } from '@supabase/supabase-js';
-import { validateAccount } from '../../src/validation/accounts.ts';
-import { randomBytes } from 'node:crypto';
-import { FieldValue } from 'firebase-admin/firestore';
-import { requireAdmin, AdminError, adminError, validId } from '../adminRequest.ts';
-import { auditRecord, auditSafe, auditChangedFields } from '../audit.ts';
+import { requireAdmin, AdminError, adminError } from '../adminRequest.ts';
 import { mobileCors } from '../mobileCors.ts';
+import { supabaseAdminClient } from '../supabaseAdmin.ts';
+import { validateAccount } from '../../src/validation/accounts.ts';
 
-const roles = ['employee', 'restaurant', 'courier', 'admin'];
-function text(value: any, max: number, required = false) {
-  if (typeof value !== 'string' || value.length > max || (required && !value.trim())) {
-    throw new AdminError(400, 'راجع البيانات المطلوبة وطول النصوص.');
-  }
-  return value.trim();
+const roleDefinitions: Record<string, { role: string; duty?: string }> = {
+  'super admin': { role: 'admin' },
+  'store owner': { role: 'restaurant', duty: 'manager' },
+  'store manager': { role: 'restaurant', duty: 'manager' },
+  'store accountant': { role: 'restaurant', duty: 'accountant' },
+  'kitchen & prep staff': { role: 'restaurant', duty: 'kitchen' },
+  'fleet courier': { role: 'courier' },
+  'store in-house courier': { role: 'courier' },
+  customer: { role: 'employee' },
+};
+
+function accountRole(value: unknown): string | undefined {
+  return typeof value === 'string' && ['admin', 'restaurant', 'courier', 'employee'].includes(value)
+    ? value
+    : undefined;
 }
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://tvnsqatkaqyubeznhnmu.supabase.co';
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9ORqYV9HK0AbacKtYSRZiA_K7hcJ4yI';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-const ACCOUNTS_FILE = path.resolve(process.cwd(), 'src/data/systemAccounts.json');
-
-function loadSystemAccounts(): any[] {
-  try {
-    if (fs.existsSync(ACCOUNTS_FILE)) {
-      const content = fs.readFileSync(ACCOUNTS_FILE, 'utf-8');
-      return JSON.parse(content);
-    }
-  } catch (err) {
-    console.error('Failed to read system accounts file:', err);
-  }
-  return [];
-}
-
-function saveSystemAccounts(accounts: any[]) {
-  try {
-    fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('Failed to save system accounts file:', err);
-  }
+function matchesRequestedRole(name: string, role: string, duty: string): boolean {
+  const normalized = name.trim().toLowerCase();
+  if (role === 'admin') return normalized === 'super admin';
+  if (role === 'courier') return normalized === 'fleet courier';
+  if (role === 'employee') return normalized === 'customer';
+  if (role !== 'restaurant') return false;
+  if (duty === 'accountant') return normalized === 'store accountant';
+  if (duty === 'kitchen' || duty === 'preparer') return normalized === 'kitchen & prep staff';
+  return normalized === 'store owner' || normalized === 'store manager';
 }
 
 export default async function handler(req: any, res: any) {
@@ -47,389 +36,231 @@ export default async function handler(req: any, res: any) {
   if (mobileCors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  let context: Awaited<ReturnType<typeof requireAdmin>> | undefined;
-  let journalStarted = false;
-
   try {
-    const { auth, db, actor } = (context = await requireAdmin(req));
+    const { actor } = await requireAdmin(req);
     const input = req.body || {};
-
-    if (input.action === 'list') {
-      if (input.pageToken !== undefined && (typeof input.pageToken !== 'string' || input.pageToken.length > 4096)) {
-        throw new AdminError(400, 'مؤشر الصفحة غير صالح.');
-      }
-      const search = typeof input.search === 'string' ? input.search.trim().toLowerCase() : '';
-      if (search.length > 160) throw new AdminError(400, 'نص البحث طويل.');
-
-      const systemAccounts = loadSystemAccounts();
-      const accountsMap = new Map<string, any>();
-      for (const acc of systemAccounts) {
-        accountsMap.set(acc.uid, acc);
-      }
-
-      // Check Supabase profiles and merge
-      try {
-        const { data: supaProfiles } = await supabase.from('profiles').select('*');
-        if (supaProfiles && supaProfiles.length) {
-          for (const p of supaProfiles) {
-            const mapped = {
-              uid: p.id,
-              email: p.email || '',
-              fullName: p.full_name || '',
-              avatarUrl: p.avatar_url || '',
-              phone: p.phone || '',
-              role: p.role || 'employee',
-              storeId: p.store_id || '',
-              duty: 'manager',
-              disabled: false,
-              emailVerified: true,
-              providers: ['email'],
-              createdAt: p.created_at || new Date().toISOString(),
-              lastSignInAt: p.updated_at || '',
-              ministry: p.ministry || '',
-              floorNumber: p.floor_number || '',
-              roomNumber: p.room_number || '',
-              walletBalance: Number(p.wallet_balance) || 0,
-              nickname: p.nickname || '',
-              nationalId: p.national_id || '',
-              emergencyPhone: p.emergency_phone || '',
-              currentAddress: p.current_address || p.location_address || '',
-              locationAddress: p.location_address || p.current_address || '',
-              idCardAddress: p.id_card_address || '',
-              vehicleType: p.vehicle_type || '',
-              vehicleMake: p.vehicle_make || '',
-              vehicleModel: p.vehicle_model || '',
-              vehiclePlate: p.vehicle_plate || '',
-              drivingLicenseNumber: p.driving_license_number || '',
-              licenseExpiryDate: p.license_expiry_date || '',
-              licenseIssueDate: p.license_issue_date || '',
-              vehicleYear: p.vehicle_year || '',
-              drugTestStatus: p.drug_test_status || 'passed',
-              drugTestDate: p.drug_test_date || '',
-              criminalRecordStatus: p.criminal_record_status || 'passed',
-              criminalRecordDate: p.criminal_record_date || '',
-              hasThermalBox: Boolean(p.has_thermal_box),
-              hasThermalBackpack: Boolean(p.has_thermal_backpack),
-              courierStatus: p.courier_status || 'active',
-              coordinates: p.coordinates || null,
-              coverageRadiusKm: p.coverage_radius_km || 5,
-              preferredDeliveryMethod: 'auto',
-            };
-            accountsMap.set(p.id, { ...(accountsMap.get(p.id) || {}), ...mapped });
-          }
-        }
-      } catch (e) {
-        console.warn('Supabase profiles list error:', e);
-      }
-
-      // Ensure logged in admin is in list
-      const adminEmail = actor.email || 'meskllcqa@gmail.com';
-      const adminUid = actor.uid || '07492416-8a8e-434b-9094-391abb21272e';
-      if (!accountsMap.has(adminUid)) {
-        accountsMap.set(adminUid, {
-          uid: adminUid,
-          email: adminEmail,
-          fullName: 'مدير المنظومة (المشرف العام)',
-          avatarUrl: '',
-          phone: '01222334455',
-          role: 'admin',
-          storeId: '',
-          duty: 'manager',
-          disabled: false,
-          emailVerified: true,
-          providers: ['google'],
-          createdAt: new Date().toISOString(),
-          lastSignInAt: new Date().toISOString(),
-          ministry: 'الإدارة المركزية - الحي الحكومي',
-          floorNumber: 'الدور الثاني',
-          roomNumber: 'غرفة التحكم والعمليات المركزية',
-          walletBalance: 10000,
-          nickname: 'المشرف العام',
-          nationalId: '28501010100001',
-          emergencyPhone: '01222334455',
-          currentAddress: 'مبنى القيادة والتحكم، الحي الحكومي، العاصمة الإدارية الجديدة',
-          locationAddress: 'مبنى القيادة والتحكم، الحي الحكومي، العاصمة الإدارية الجديدة',
-          idCardAddress: 'العاصمة الإدارية الجديدة',
-          vehicleType: '',
-          vehicleMake: '',
-          vehicleModel: '',
-          vehiclePlate: '',
-          drivingLicenseNumber: '',
-          licenseExpiryDate: '',
-          licenseIssueDate: '',
-          vehicleYear: '',
-          drugTestStatus: 'passed',
-          drugTestDate: '2024-01-01',
-          criminalRecordStatus: 'passed',
-          criminalRecordDate: '2024-01-01',
-          hasThermalBox: false,
-          hasThermalBackpack: false,
-          courierStatus: 'active',
-          coordinates: { latitude: 30.0118, longitude: 31.748 },
-          coverageRadiusKm: 15,
-          preferredDeliveryMethod: 'auto',
-        });
-      }
-
-      let users = Array.from(accountsMap.values());
-      if (search) {
-        users = users.filter(
-          (u: any) =>
-            (u.fullName && u.fullName.toLowerCase().includes(search)) ||
-            (u.email && u.email.toLowerCase().includes(search)) ||
-            (u.phone && u.phone.includes(search)) ||
-            (u.nationalId && u.nationalId.includes(search)) ||
-            (u.nickname && u.nickname.toLowerCase().includes(search)) ||
-            (u.vehiclePlate && u.vehiclePlate.includes(search))
-        );
-      }
-
-      return res.status(200).json({ users, nextPageToken: null });
-    }
-
-    if (!['create', 'update', 'role', 'disable', 'enable', 'revoke', 'reset', 'delete'].includes(input.action)) {
-      throw new AdminError(400, 'عملية غير معروفة.');
-    }
-
-    const defaultReason = input.action === 'create' ? 'إنشاء حساب جديد بالمنظومة' : 'تحديث بيانات الحساب';
-    const reason = text(input.reason || defaultReason, 500, false);
-
-    let uid = input.uid;
-    const requestedRole = ['create', 'role', 'update'].includes(input.action) ? input.role : undefined;
-    const serializesMembership =
-      ['create', 'role', 'disable', 'delete'].includes(input.action) || (input.action === 'update' && requestedRole !== undefined);
-    let assignmentChanged = input.action === 'create' || input.action === 'role';
-
-    let userPassword = typeof input.password === 'string' && input.password.trim()
-      ? input.password.trim()
-      : 'Sangoub@' + Math.floor(1000 + Math.random() * 9000);
-
-    if ((input.action === 'create' || input.action === 'role' || requestedRole !== undefined) && !roles.includes(requestedRole)) {
-      throw new AdminError(400, 'اختر دورًا صحيحًا.');
-    }
-
-    const duty = input.duty || 'preparer';
-    if (requestedRole === 'restaurant' && !['manager', 'preparer', 'cashier', 'accountant'].includes(duty)) {
-      throw new AdminError(400, 'اختر مهمة فريق المتجر.');
-    }
-    if (requestedRole === 'restaurant') {
-      validId(input.storeId);
-    }
-    if (requestedRole === 'courier' && input.storeId) {
-      validId(input.storeId);
-    }
-
-    let fullName = '',
-      email = '',
-      profilePatch: any = {};
+    const client = supabaseAdminClient();
 
     if (input.action === 'create' || input.action === 'update') {
-      fullName = text(input.fullName, 120, true);
-      email = text(input.email, 160, true);
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new AdminError(400, 'البريد غير صالح.');
+      const isCreate = input.action === 'create';
+      const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
+      const fullName = typeof input.fullName === 'string' ? input.fullName.trim().slice(0, 120) : '';
+      const role = accountRole(input.role);
+      const duty = typeof input.duty === 'string' ? input.duty : 'manager';
+      const storeId = typeof input.storeId === 'string' ? input.storeId.trim() : '';
+      if (!/^\S+@\S+\.\S+$/.test(email)) throw new AdminError(400, 'البريد الإلكتروني غير صالح.');
+      if (!fullName) throw new AdminError(400, 'اسم المستخدم مطلوب.');
+      if (!role) throw new AdminError(400, 'الدور المحدد غير صالح.');
+      const validation = validateAccount({ ...input, email, fullName }, role);
+      if (Object.keys(validation.errors).length) {
+        const first = Object.values(validation.errors)[0];
+        throw Object.assign(new AdminError(400, first), { fields: validation.errors });
+      }
+      if (role === 'admin' && actor.uid !== input.uid && input.allowAdmin !== true) {
+        throw new AdminError(403, 'لا يمكن إنشاء مدير آخر من هذا النموذج.');
+      }
+      if ((role === 'restaurant' || role === 'courier') && !storeId) throw new AdminError(400, 'حدد المتجر المرتبط بالحساب.');
+      if (!isCreate && (typeof input.uid !== 'string' || !/^[0-9a-f-]{36}$/i.test(input.uid) || input.uid === actor.uid && role !== 'admin')) throw new AdminError(400, 'معرّف الحساب غير صالح.');
 
-      profilePatch = {
-        fullName,
+      const { data: roleRows, error: roleError } = await client.from('roles').select('id,name_en,name_ar');
+      if (roleError) throw new AdminError(503, 'تعذر قراءة أدوار Supabase.');
+      const roleRow = (roleRows || []).find((row: any) => matchesRequestedRole(String(row.name_en || row.name_ar || ''), role, duty));
+      if (!roleRow) throw new AdminError(400, 'الدور غير مهيأ في جدول roles على Supabase.');
+
+      const profile: Record<string, any> = {
+        full_name: fullName,
         email,
-        avatarUrl: typeof input.avatarUrl === 'string' ? input.avatarUrl.slice(0, 100000) : '',
-        phone: text(input.phone || '', 30),
-        ministry: text(input.ministry || '', 120),
-        floorNumber: text(input.floorNumber || '', 60),
-        roomNumber: text(input.roomNumber || '', 80),
-        nickname: text(input.nickname || '', 80),
-        nationalId: text(input.nationalId || '', 20),
-        emergencyPhone: text(input.emergencyPhone || '', 30),
-        currentAddress: text(input.currentAddress || input.locationAddress || '', 250),
-        locationAddress: text(input.locationAddress || input.currentAddress || '', 250),
-        idCardAddress: text(input.idCardAddress || '', 200),
-        vehicleType: text(input.vehicleType || '', 40),
-        vehicleMake: text(input.vehicleMake || '', 60),
-        vehicleModel: text(input.vehicleModel || '', 60),
-        vehiclePlate: text(input.vehiclePlate || '', 30),
-        drivingLicenseNumber: text(input.drivingLicenseNumber || '', 60),
-        licenseExpiryDate: text(input.licenseExpiryDate || '', 30),
-        licenseIssueDate: text(input.licenseIssueDate || '', 30),
-        vehicleYear: text(input.vehicleYear || '', 4),
-        drugTestStatus: input.drugTestStatus ?? 'passed',
-        drugTestDate: text(input.drugTestDate || '', 30),
-        criminalRecordStatus: input.criminalRecordStatus ?? 'passed',
-        criminalRecordDate: text(input.criminalRecordDate || '', 30),
-        hasThermalBox: input.hasThermalBox === true || input.hasThermalBox === 'true' || input.hasThermalBox === 'on',
-        hasThermalBackpack: input.hasThermalBackpack === true || input.hasThermalBackpack === 'true' || input.hasThermalBackpack === 'on',
-        courierStatus: input.courierStatus ?? 'active',
-        coverageRadiusKm: Number(input.coverageRadiusKm) || 5,
-        preferredDeliveryMethod: ['bicycle', 'motorcycle', 'car', 'auto'].includes(input.preferredDeliveryMethod)
-          ? input.preferredDeliveryMethod
-          : 'auto',
+        role,
+        phone: validation.data.phone,
+        avatar_url: typeof input.avatarUrl === 'string' ? input.avatarUrl.slice(0, 2000) : null,
+        ministry: typeof input.ministry === 'string' ? input.ministry.trim().slice(0, 120) : null,
+        floor_number: typeof input.floorNumber === 'string' ? input.floorNumber.trim().slice(0, 30) : null,
+        room_number: typeof input.roomNumber === 'string' ? input.roomNumber.trim().slice(0, 30) : null,
+        vehicle_type: role === 'courier' && typeof input.vehicleType === 'string' ? input.vehicleType.slice(0, 40) : null,
+        vehicle_make: role === 'courier' && typeof input.vehicleMake === 'string' ? input.vehicleMake.slice(0, 80) : null,
+        vehicle_model: role === 'courier' && typeof input.vehicleModel === 'string' ? input.vehicleModel.slice(0, 80) : null,
+        vehicle_plate: role === 'courier' && typeof input.vehiclePlate === 'string' ? input.vehiclePlate.slice(0, 40) : null,
+        has_thermal_box: role === 'courier' && input.hasThermalBox === true,
+        has_thermal_backpack: role === 'courier' && input.hasThermalBackpack === true,
+        courier_status: role === 'courier' ? validation.data.courierStatus : null,
+        updated_at: new Date().toISOString(),
       };
 
-      if (input.latitude !== undefined && input.longitude !== undefined && input.latitude !== '' && input.longitude !== '') {
-        const lat = Number(input.latitude);
-        const lng = Number(input.longitude);
-        if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-          profilePatch.coordinates = { latitude: lat, longitude: lng };
-        }
-      }
-    }
-
-    if (input.action === 'create') uid = 'ct_' + randomBytes(16).toString('hex');
-    else validId(uid);
-
-    if (uid === actor.uid && ['role', 'disable', 'delete', 'revoke'].includes(input.action)) {
-      throw new AdminError(409, 'لا يمكنك تغيير صلاحيتك أو تعطيل حسابك من الجلسة الحالية. استخدم مديرًا آخر.');
-    }
-    if (input.action === 'delete' && input.confirmation !== uid) {
-      throw new AdminError(400, 'أدخل UID لتأكيد حذف الحساب.');
-    }
-
-    const log = db.collection('auditLogs').doc();
-    const lock = db.doc('adminUserLocks/' + uid);
-    let target = input.action === 'create' ? null : await auth.getUser(uid);
-    let protectAccess =
-      ['create', 'role', 'disable', 'delete', 'revoke'].includes(input.action) ||
-      (input.action === 'update' && email !== target?.email);
-    let authBefore = target
-      ? {
-          uid: target.uid,
-          email: target.email || '',
-          displayName: target.displayName || '',
-          disabled: target.disabled,
-          emailVerified: target.emailVerified,
-        }
-      : null;
-
-    const before = await db.runTransaction(async (tx) => {
-      const [own, existingLock, profile, admin, staff, admins, control, access] = await Promise.all([
-        tx.get(db.doc('admins/' + actor.uid)),
-        tx.get(lock),
-        tx.get(db.doc('users/' + uid)),
-        tx.get(db.doc('admins/' + uid)),
-        tx.get(db.doc('staff/' + uid)),
-        tx.get(db.collection('admins')),
-        tx.get(db.doc('adminControl/membership')),
-        tx.get(db.doc('accountAccess/' + uid)),
-      ]);
-
-      if (input.action !== 'create') {
-        target = await auth.getUser(uid);
-        authBefore = {
-          uid: target.uid,
-          email: target.email || '',
-          displayName: target.displayName || '',
-          disabled: target.disabled,
-          emailVerified: target.emailVerified,
-        };
-        protectAccess =
-          ['role', 'disable', 'delete', 'revoke'].includes(input.action) || (input.action === 'update' && email !== target.email);
-      }
-
-      const currentRole = admin.exists ? 'admin' : staff.data()?.role || 'employee';
-      if (input.action === 'update' && requestedRole !== undefined)
-        assignmentChanged =
-          requestedRole !== currentRole ||
-          (requestedRole === 'restaurant' && (input.storeId !== staff.data()?.storeId || duty !== (staff.data()?.duty || 'manager'))) ||
-          (requestedRole === 'courier' && profilePatch.courierStatus !== (staff.data()?.courierStatus || 'active'));
-      if (assignmentChanged && uid === actor.uid) throw new AdminError(409, 'لا يمكنك تعديل صلاحياتك من الجلسة الحالية.');
-      if (assignmentChanged) protectAccess = true;
-
-      if (['create', 'update', 'role'].includes(input.action)) {
-        const effectiveRole = requestedRole || currentRole;
-        const candidate = { ...(profile.data() || {}), ...profilePatch };
-        const validation = validateAccount(candidate, effectiveRole);
-        if (Object.keys(validation.errors).length)
-          throw Object.assign(new AdminError(400, Object.values(validation.errors)[0]), { fields: validation.errors });
-        if (input.action !== 'role') for (const key of Object.keys(profilePatch)) profilePatch[key] = validation.data[key];
-      }
-
-      const previous = {
-        auth: authBefore,
-        profile: profile.data() || null,
-        role: admin.exists ? 'admin' : staff.data()?.role || 'employee',
-        staff: staff.data() || null,
-        access: access.data() || null,
-      };
-
-      return previous;
-    });
-
-    journalStarted = true;
-
-    if (input.action === 'create') {
-      const newAccount = {
-        uid,
-        fullName,
-        email,
-        password: userPassword,
-        phone: profilePatch.phone || '',
-        role: requestedRole || 'employee',
-        storeId: input.storeId || '',
-        duty,
-        disabled: false,
-        emailVerified: true,
-        providers: ['email'],
-        createdAt: new Date().toISOString(),
-        lastSignInAt: '',
-        walletBalance: 0,
-        ...profilePatch,
-      };
-      const accounts = loadSystemAccounts();
-      const existingIdx = accounts.findIndex((a: any) => a.uid === uid || a.email === email);
-      if (existingIdx >= 0) {
-        accounts[existingIdx] = { ...accounts[existingIdx], ...newAccount };
+      let uid = input.uid as string | undefined;
+      if (isCreate) {
+        const { data, error } = await client.auth.admin.inviteUserByEmail(email, { data: { full_name: fullName } });
+        if (error) throw error;
+        if (!data.user) throw new AdminError(503, 'تعذر إنشاء حساب Supabase.');
+        uid = data.user.id;
       } else {
-        accounts.push(newAccount);
+        const { error } = await client.auth.admin.updateUserById(uid!, { email, user_metadata: { full_name: fullName } });
+        if (error) throw error;
       }
-      saveSystemAccounts(accounts);
-    }
-
-    if (input.action === 'update') {
-      const accounts = loadSystemAccounts();
-      const existingIdx = accounts.findIndex((a: any) => a.uid === uid);
-      if (existingIdx >= 0) {
-        if (input.password && String(input.password).trim()) {
-          userPassword = String(input.password).trim();
-        } else {
-          userPassword = accounts[existingIdx].password || userPassword;
-        }
-        accounts[existingIdx] = {
-          ...accounts[existingIdx],
-          ...profilePatch,
-          ...(input.password && String(input.password).trim() ? { password: userPassword } : {}),
-          ...(requestedRole ? { role: requestedRole } : {}),
-          ...(input.storeId !== undefined ? { storeId: input.storeId } : {}),
-          ...(duty ? { duty } : {}),
+      profile.id = uid;
+      const { error: profileError } = await client.from('profiles').upsert(profile, { onConflict: 'id' });
+      if (profileError) {
+        if (isCreate && uid) await client.auth.admin.deleteUser(uid).catch(() => undefined);
+        throw new AdminError(503, 'تعذر حفظ ملف الحساب في Supabase.');
+      }
+      if (role === 'courier') {
+        const courierVerification = {
+          user_id: uid,
+          national_id: validation.data.nationalId,
+          emergency_phone: validation.data.emergencyPhone,
+          current_address: validation.data.currentAddress,
+          id_card_address: validation.data.idCardAddress,
+          driving_license_number: validation.data.drivingLicenseNumber || null,
+          license_issue_date: validation.data.licenseIssueDate || null,
+          license_expiry_date: validation.data.licenseExpiryDate || null,
+          vehicle_year: validation.data.vehicleYear || null,
+          drug_test_status: validation.data.drugTestStatus,
+          drug_test_date: validation.data.drugTestDate || null,
+          criminal_record_status: validation.data.criminalRecordStatus,
+          criminal_record_date: validation.data.criminalRecordDate || null,
+          updated_at: new Date().toISOString(),
         };
-        saveSystemAccounts(accounts);
+        const { error } = await client.from('courier_verification').upsert(courierVerification, { onConflict: 'user_id' });
+        if (error) throw new AdminError(503, 'تعذر حفظ ملف التحقق الخاص بالمندوب في Supabase.');
+      } else if (!isCreate) {
+        const { error } = await client.from('courier_verification').delete().eq('user_id', uid!);
+        if (error && error.code !== 'PGRST205') throw new AdminError(503, 'تعذر إزالة بيانات التحقق غير المستخدمة.');
       }
+
+      const { data: oldAssignments, error: oldAssignmentError } = await client.from('user_roles').select('id,role_id').eq('user_id', uid!);
+      if (oldAssignmentError) throw new AdminError(503, 'تعذر قراءة صلاحيات الحساب الحالية.');
+      const sameRole = (oldAssignments || []).find((item: any) => item.role_id === roleRow.id);
+      if (sameRole) {
+        const { error } = await client.from('user_roles').update({ store_id: storeId || null, assigned_by: actor.uid }).eq('id', sameRole.id);
+        if (error) throw new AdminError(503, 'تعذر تحديث ارتباط الدور بالمتجر.');
+        const obsoleteIds = (oldAssignments || []).map((item: any) => item.id).filter((id: string) => id && id !== sameRole.id);
+        if (obsoleteIds.length) {
+          const { error: cleanupError } = await client.from('user_roles').delete().in('id', obsoleteIds);
+          if (cleanupError) throw new AdminError(503, 'تم تحديث الدور مع تعذر حذف التعيينات القديمة؛ راجع صلاحيات الحساب.');
+        }
+      } else {
+        const { data: inserted, error: assignmentError } = await client.from('user_roles')
+          .insert({ user_id: uid, role_id: roleRow.id, store_id: storeId || null, assigned_by: actor.uid })
+          .select('id').single();
+        if (assignmentError) {
+          if (isCreate && uid) await client.auth.admin.deleteUser(uid).catch(() => undefined);
+          throw new AdminError(503, 'تعذر ربط الدور بحساب Supabase.');
+        }
+        const oldIds = (oldAssignments || []).map((item: any) => item.id).filter(Boolean);
+        if (oldIds.length) {
+          const { error } = await client.from('user_roles').delete().in('id', oldIds);
+          if (error) {
+            await client.from('user_roles').delete().eq('id', inserted.id);
+            if (isCreate && uid) await client.auth.admin.deleteUser(uid).catch(() => undefined);
+            throw new AdminError(503, 'لم تكتمل عملية استبدال صلاحيات الحساب؛ أُبقيت الصلاحيات السابقة.');
+          }
+        }
+      }
+      return res.status(200).json({ ok: true, uid });
     }
 
-    if (input.action === 'disable' || input.action === 'enable') {
-      const accounts = loadSystemAccounts();
-      const existingIdx = accounts.findIndex((a: any) => a.uid === uid);
-      if (existingIdx >= 0) {
-        accounts[existingIdx].disabled = input.action === 'disable';
-        saveSystemAccounts(accounts);
-      }
+    if (['disable', 'enable'].includes(input.action)) {
+      if (typeof input.uid !== 'string' || !/^[0-9a-f-]{36}$/i.test(input.uid) || input.uid === actor.uid) throw new AdminError(400, 'لا يمكن إيقاف حساب المدير الحالي.');
+      const { error } = await client.auth.admin.updateUserById(input.uid, {
+        ban_duration: input.action === 'disable' ? '876000h' : 'none',
+      });
+      if (error) throw error;
+      return res.status(200).json({ ok: true });
     }
 
     if (input.action === 'delete') {
-      const accounts = loadSystemAccounts();
-      const filtered = accounts.filter((a: any) => a.uid !== uid);
-      saveSystemAccounts(filtered);
+      if (typeof input.uid !== 'string' || !/^[0-9a-f-]{36}$/i.test(input.uid) || input.uid !== input.confirmation || input.uid === actor.uid) throw new AdminError(400, 'تأكيد حذف الحساب غير صالح.');
+      const { count, error: ordersError } = await client.from('orders').select('id', { count: 'exact', head: true }).or(`customer_id.eq.${input.uid},courier_id.eq.${input.uid}`);
+      if (ordersError) throw new AdminError(503, 'تعذر التحقق من ارتباطات الحساب.');
+      if ((count || 0) > 0) throw new AdminError(409, 'لا يمكن حذف حساب مرتبط بطلبات؛ عطّله بدلًا من ذلك.');
+      const { error } = await client.auth.admin.deleteUser(input.uid);
+      if (error) throw error;
+      return res.status(200).json({ ok: true });
     }
 
-    if (input.action === 'reset') {
-      const accounts = loadSystemAccounts();
-      const existing = accounts.find((a: any) => a.uid === uid);
-      userPassword = 'Sangoub@' + Math.floor(1000 + Math.random() * 9000);
-      if (existing) {
-        existing.password = userPassword;
-        saveSystemAccounts(accounts);
-      }
+    if (input.action !== 'list') throw new AdminError(400, 'عملية إدارة الحساب غير معروفة.');
+    if (input.pageToken !== undefined && (typeof input.pageToken !== 'string' || input.pageToken.length > 4096)) {
+      throw new AdminError(400, 'مؤشر الصفحة غير صالح.');
+    }
+    const search = typeof input.search === 'string' ? input.search.trim().toLowerCase() : '';
+    if (search.length > 160) throw new AdminError(400, 'نص البحث طويل.');
+
+    const [authResult, profileResult, assignmentResult, verificationResult] = await Promise.all([
+      client.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+      client.from('profiles').select('*'),
+      client.from('user_roles').select('user_id,store_id,roles(name_en,name_ar)'),
+      client.from('courier_verification').select('*'),
+    ]);
+    if (authResult.error || profileResult.error || assignmentResult.error || (verificationResult.error && verificationResult.error.code !== 'PGRST205')) {
+      throw new AdminError(503, 'تعذر تحميل حسابات Supabase وصلاحياتها.');
     }
 
-    return res.status(200).json({ ok: true, uid, password: userPassword });
+    const profiles = new Map((profileResult.data || []).map((profile: any) => [profile.id, profile]));
+    const verifications = new Map((verificationResult.data || []).map((item: any) => [item.user_id, item]));
+    const assignments = new Map<string, Array<{ role: string; duty?: string; storeId?: string }>>();
+    for (const item of assignmentResult.data || []) {
+      const relation = Array.isArray(item.roles) ? item.roles[0] : item.roles;
+      const definition = roleDefinitions[String(relation?.name_en || relation?.name_ar || '').trim().toLowerCase()];
+      if (!definition) continue;
+      const rows = assignments.get(item.user_id) || [];
+      rows.push({ ...definition, ...(item.store_id ? { storeId: item.store_id } : {}) });
+      assignments.set(item.user_id, rows);
+    }
+
+    const users = authResult.data.users.map((user: any) => {
+      const profile: any = profiles.get(user.id) || {};
+      const verification: any = verifications.get(user.id) || {};
+      const userAssignments = assignments.get(user.id) || [];
+      const role = ['admin', 'restaurant', 'courier', 'employee'].find(candidate => userAssignments.some(item => item.role === candidate)) || 'employee';
+      const assignment = userAssignments.find(item => item.role === role);
+      const row = {
+        uid: user.id,
+        id: user.id,
+        email: user.email || '',
+        fullName: profile.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || '',
+        avatarUrl: profile.avatar_url || user.user_metadata?.avatar_url || '',
+        phone: profile.phone || user.phone || '',
+        role,
+        storeId: assignment?.storeId || '',
+        duty: assignment?.duty || '',
+        disabled: Boolean(user.banned_until && new Date(user.banned_until).getTime() > Date.now()),
+        emailVerified: Boolean(user.email_confirmed_at || user.phone_confirmed_at),
+        providers: Array.isArray(user.app_metadata?.providers) ? user.app_metadata.providers : [],
+        createdAt: user.created_at || '',
+        lastSignInAt: user.last_sign_in_at || '',
+        ministry: profile.ministry || '',
+        floorNumber: profile.floor_number || '',
+        roomNumber: profile.room_number || '',
+        walletBalance: Number(profile.wallet_balance) || 0,
+        vehicleType: profile.vehicle_type || '',
+        vehicleMake: profile.vehicle_make || '',
+        vehicleModel: profile.vehicle_model || '',
+        vehiclePlate: profile.vehicle_plate || '',
+        hasThermalBox: Boolean(profile.has_thermal_box),
+        hasThermalBackpack: Boolean(profile.has_thermal_backpack),
+        courierStatus: profile.courier_status || '',
+        nationalId: verification.national_id || '',
+        emergencyPhone: verification.emergency_phone || '',
+        currentAddress: verification.current_address || '',
+        idCardAddress: verification.id_card_address || '',
+        drivingLicenseNumber: verification.driving_license_number || '',
+        licenseExpiryDate: verification.license_expiry_date || '',
+        licenseIssueDate: verification.license_issue_date || '',
+        vehicleYear: verification.vehicle_year || '',
+        drugTestStatus: verification.drug_test_status || 'pending',
+        drugTestDate: verification.drug_test_date || '',
+        criminalRecordStatus: verification.criminal_record_status || 'pending',
+        criminalRecordDate: verification.criminal_record_date || '',
+      };
+      return row;
+    }).filter((user: any) => !search || [user.fullName, user.email, user.phone, user.vehiclePlate].some(value => String(value || '').toLowerCase().includes(search)));
+
+    if (!users.some((user: any) => user.uid === actor.uid)) {
+      users.unshift({ uid: actor.uid, id: actor.uid, email: actor.email, fullName: actor.name, avatarUrl: '', phone: actor.phone_number, role: 'admin', storeId: '', duty: '', disabled: false, emailVerified: actor.email_verified, providers: [], createdAt: '', lastSignInAt: '', ministry: '', floorNumber: '', roomNumber: '', walletBalance: 0, vehicleType: '', vehicleMake: '', vehicleModel: '', vehiclePlate: '', hasThermalBox: false, hasThermalBackpack: false, courierStatus: '', nationalId: '', emergencyPhone: '', currentAddress: '', idCardAddress: '', drivingLicenseNumber: '', licenseExpiryDate: '', licenseIssueDate: '', vehicleYear: '', drugTestStatus: 'pending', drugTestDate: '', criminalRecordStatus: 'pending', criminalRecordDate: '' });
+    }
+
+    return res.status(200).json({ users, nextPageToken: null });
   } catch (error) {
     return adminError(res, error);
   }
 }
+
