@@ -356,6 +356,28 @@
    * اختبار `tsc --noEmit`: 0 أخطاء (Code 0).
    * اختبار بناء المشروع بالكامل `vite build`: اكتمل بنجاح تام في 32.5 ثانية دون أي خطأ.
 
+---
+
+## 3. سجل التحديثات الميدانية وحل مشكلات النشر والمصادقة (6 - 7 نوفمبر 2026)
+
+### 📌 ملخص المرحلة:
+إطلاق النطاق الرسمي المعتمد للمنظومة (`https://sangoub.el7lm.com`)، حل تعارض شهادات SSL وسجلات DNS بين Cloudflare و Vercel، تصحيح مسارات إعادة التوجيه لـ Google OAuth عند دخول الإدارة، تحديث تدفق المصادقة بسلة المشتريات لاستيعاب الحسابات المسجلة بجوجل دون رقم هاتف، وحل مشكلة أخطاء 404 على مسارات Vercel الفرعية (`/admin/*`).
+
+---
+
+### جدول التوثيق الزمني (التاريخ - الخطوة - النتيجة)
+
+| التاريخ والوقت | الخطوة التقنية (Step) | الإجراء المنفذ في الكود والمنظومة | النتيجة المحققة (Result) |
+| :--- | :--- | :--- | :--- |
+| **2026-11-06**<br>`19:29` | **توليد وتأمين ملف مفاتيح الإنتاج** (`vercel-production-import.env`) | إعداد ملف شامل لمتغيرات البيئة للإنتاج يضم مفاتيح Supabase الكاملة (Anon، Service Role، Project Ref) وبيانات Cloudflare R2 التخزينية المحدثة، وتأمين حظر رفعه على GitHub عبر `.gitignore`. | توافر مرجع موحد وجاهز للنسخ المباشر في Vercel Dashboard وتفادي تسريب الأسرار السحابية. |
+| **2026-11-06**<br>`20:57` | **اعتماد النطاق الرسمي** (`sangoub.el7lm.com`) | تحديث متغيرات `VITE_API_ORIGIN` و `APP_URL`، وتحديث قواعد أصل الاتصال المسموح به في [`config/r2-cors.json`](file:///d:/Sangoub/config/r2-cors.json) لإتاحة الدومين الجديد لرفع وعرض الصور بدون حظر CORS. | تهيئة كاملة للمشروع للعمل بالهوية الرسمية المعتمدة للمنصة. |
+| **2026-11-06**<br>`21:14` | **حل خطأ SSL Handshake Failed (Code 525) و Proxy Detected** | تشخيص تعارض السحابة البرتقالية (`Proxied`) في Cloudflare DNS مع تحقق Vercel من ملكية النطاق وشهادة Let's Encrypt؛ وتوجيه ضبط السجل `CNAME` ليكون **`DNS only` (سحابة رمادية)**. | نجاح Vercel في إصدار شهادة SSL فوراً، وتحول حالة الدومين إلى `Valid Configuration`، وعمل الموقع فوراً بـ HTTPS. |
+| **2026-11-06**<br>`21:44` | **ضغط ومواءمة دوال الـ Serverless مع قيود خطة Vercel Hobby** | دمج مسارات البوابة العامة (`portal-auth` و `partner-application` و `user-avatar`) في راوتر موحد [`api/public.ts`](file:///d:/Sangoub/api/public.ts) لعدم تجاوز سقف 12 Serverless Function. | تفادي فشل النشر وبناء المشروع بنجاح على سحابة Vercel. *(Commit `ed0cb62`)* |
+| **2026-11-06**<br>`23:10` | **إصلاح إعادة توجيه لوحة الإدارة إلى المتجر (`/account`)** | 1. تعديل زر «لوحة الإدارة ↗» في [`AccountPage.tsx`](file:///d:/Sangoub/src/storefront/pages/AccountPage.tsx) ومسار `/admin` في [`StoreContext.tsx`](file:///d:/Sangoub/src/storefront/context/StoreContext.tsx) ليستخدم `window.location.assign('/admin')` للانتقال الصريح المستقل خارج نطاق المتجر.<br>2. تمرير رابط العودة الصريح `window.location.origin + '/admin'` بدالة `signInWithSupabaseGoogle` في [`AdminApp.tsx`](file:///d:/Sangoub/src/AdminApp.tsx). | إنهاء مشكلة دوران الأدمن ورجوعه لصفحة الحساب، وتمكين الدخول المباشر للوحة التحكم. *(Commit `b741efc`)* |
+| **2026-11-06**<br>`23:23` | **تصحيح تدفق مصادقة سلة المشتريات لحسابات Google** | 1. فصل حالة تسجيل الدخول `isLoggedIn` عن اكتمال رقم الهاتف `effectivePhone` في [`CartCheckoutModal.tsx`](file:///d:/Sangoub/src/storefront/components/CartCheckoutModal.tsx).<br>2. استبدال تحذير "تسجيل الدخول مطلوب" بإرشاد واضح: "مطلوب رقم هاتف للتوصيل" لعملاء Google.<br>3. الحفظ التلقائي لرقم الهاتف في جدول `profiles` بـ Supabase عند تأكيد الطلب. | إلغاء التناقض بالسلة، والتعرف الفوري على هوية العميل المسجل مع تسهيل إدخال رقم هاتفه دون إعادة تسجيل. *(Commit `b741efc`)* |
+| **2026-11-06**<br>`23:31` | **حل خطأ 404 Not Found على المسارات الفرعية للإدارة (`/admin/stores`)** | إضافة قواعد إعادة التوجيه للصفحات أحادية الصفحة (SPA Rewrites) في [`vercel.json`](file:///d:/Sangoub/vercel.json) لكل من `/admin/:path*` و `/kitchen/:path*` و `/courier/:path*` نحو `/index.html` مع تعطيل الـ Cache للمسارات الحساسة. | فتح صفحات إدارة المتاجر والطلبات والمنتجات الفرعية من أي رابط مباشر أو تحديث صفحة دون أي خطأ 404. *(Commit `4e59b12`)* |
+
+
 
 
 

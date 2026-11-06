@@ -16,6 +16,13 @@
 | **Cloudflare R2 Bucket** | `sangoub` | مستودع الصور السحابي لكتالوج المنتجات والمتاجر والملفات |
 | **R2 Public Base URL** | `https://pub-39e754c2871845ba91c1ec271a0400e8.r2.dev` | النطاق السحابي العام لعرض صور الكتالوج |
 
+### 1.2 روابط النطاق والمصادقة (Domain & Auth URL Configuration)
+| الإعداد في Supabase Dashboard | القيمة المعتمدة | الملاحظات والهدف |
+| :--- | :--- | :--- |
+| **Site URL** | `https://sangoub.el7lm.com` | النطاق الرسمي المعتمد الذي يعود إليه المستخدم افتراضياً بعد تأكيد الدخول |
+| **Redirect URLs (Whitelist)** | `https://sangoub.el7lm.com/**`<br>`https://sangoub.el7lm.com/admin`<br>`https://sangoub-mohamedsaudis-projects.vercel.app/**`<br>`https://sangoub-mohamedsaudis-projects.vercel.app/admin`<br>`http://localhost:3000/**` | قائمة الروابط المصرح بها لاستقبال رمز المصادقة (OAuth Callback) ومنع الرجوع الخاطئ للمتجر |
+
+
 ---
 
 ## 2. هندسة المصادقة والحسابات (Authentication Architecture)
