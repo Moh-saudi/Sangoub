@@ -22,13 +22,21 @@ export function r2Services() {
   const R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID;
   const R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY;
   const R2_PUBLIC_URL = process.env.CLOUDFLARE_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "https://pub-14521cdfec73fa908fbf7e760fae362a.r2.dev";
-  if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_PUBLIC_URL) throw new Error("R2_NOT_CONFIGURED");
-  const publicUrl = new URL(R2_PUBLIC_URL);
-  if (publicUrl.protocol !== "https:" || publicUrl.username || publicUrl.password || publicUrl.search || publicUrl.hash)
-    throw new Error("R2_NOT_CONFIGURED");
+  if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+    throw new Error("R2_NOT_CONFIGURED: Missing CLOUDFLARE_R2_ACCESS_KEY_ID or CLOUDFLARE_R2_SECRET_ACCESS_KEY in environment variables");
+  }
+  let publicUrl: URL;
+  try {
+    publicUrl = new URL(R2_PUBLIC_URL);
+  } catch {
+    publicUrl = new URL("https://pub-14521cdfec73fa908fbf7e760fae362a.r2.dev");
+  }
+  const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID || "14521cdfec73fa908fbf7e760fae362a";
   return {
-    client: new S3Client({ region: "auto", forcePathStyle: true,
-      endpoint: "https://14521cdfec73fa908fbf7e760fae362a.r2.cloudflarestorage.com",
+    client: new S3Client({
+      region: "auto",
+      forcePathStyle: true,
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: { accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY },
       requestChecksumCalculation: "WHEN_REQUIRED",
     }),

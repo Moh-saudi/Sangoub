@@ -23,6 +23,7 @@ import { formatEGP, applyCouponDiscount } from '../../utils/orderCalculations';
 import { isCashPaymentAllowed, CASH_PAYMENT_LIMIT_MESSAGE } from '../../utils/paymentPolicy';
 import { matchStoreId, getStoreLogo } from '../../utils/storeAssets';
 import { authenticatedApi } from '../../lib/authenticatedApi';
+import { supabase } from '../../lib/supabase';
 import type { TrackableOrder } from './OrderTrackingModal';
 
 interface Props {
@@ -53,6 +54,7 @@ export function CartCheckoutModal({
     applyCoupon,
     stores,
     user,
+    setUser,
     serviceArea,
   } = useStore();
 

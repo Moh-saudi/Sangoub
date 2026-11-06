@@ -8,13 +8,13 @@ import { supabaseAdminClient } from '../supabaseAdmin.ts';
 
 const fields:Record<string,string[]>={
   products:['id','storeId','storeName','name','nameEn','description','price','originalPrice','category','categoryId','barcode','merchantPosSku','verticalId','imageType','imageUrl','imageKey','inStock','archived','badge','isPopular','optionGroups','stockQuantity','minStockAlert','maxPerOrder','catalogProductId','offerTitle','isOccasion','occasionName','offerStartDate','offerEndDate'],
-  stores:['commissionRate','taxRate','taxRegistrationNumber','pricesIncludeTax','id','name','nameEn','locationInDistrict','type','category','status','deliveryTime','minOrder','deliveryFee','imageUrl','bannerUrl','logoUrl','logoKey','bannerKey','imageKey','logo','banner','rating','ratingCount'],
+  stores:['commissionRate','taxRate','taxRegistrationNumber','pricesIncludeTax','id','name','nameEn','locationInDistrict','address','type','category','status','deliveryTime','minOrder','deliveryFee','imageUrl','bannerUrl','logoUrl','logoKey','bannerKey','imageKey','logo','banner','rating','ratingCount','updatedAt','stoppedAt'],
   coupons:['code','discountType','value','minOrder','title','description'],staff:['role','name','phone','storeId'],partnerApplications:['status'],jobApplications:['status'],
   orders:['orderStatus','courierId','courierName','courierPhone'],
 };
 const dbFields:Record<string,Record<string,string>>={
   products:{storeId:'store_id',name:'name',nameEn:'name_en',description:'description',price:'price',originalPrice:'original_price',category:'category',categoryId:'category_id',barcode:'barcode',merchantPosSku:'merchant_pos_sku',verticalId:'vertical_id',imageType:'image_type',imageUrl:'image_url',imageKey:'image_key',inStock:'is_available',archived:'archived',badge:'badge',isPopular:'is_popular',optionGroups:'options',stockQuantity:'stock_quantity',minStockAlert:'min_stock_alert',maxPerOrder:'max_per_order',catalogProductId:'catalog_product_id',offerTitle:'offer_title',isOccasion:'is_occasion',occasionName:'occasion_name',offerStartDate:'offer_start_date',offerEndDate:'offer_end_date'},
-  stores:{commissionRate:'commission_rate',taxRate:'tax_rate',taxRegistrationNumber:'tax_registration_number',pricesIncludeTax:'prices_include_tax',name:'name',nameEn:'name_en',locationInDistrict:'location_in_district',type:'type',category:'category',status:'status',deliveryTime:'delivery_time',minOrder:'min_order',deliveryFee:'delivery_fee',imageUrl:'logo_url',bannerUrl:'banner_url',logoUrl:'logo_url',logoKey:'logo_key',bannerKey:'banner_key',imageKey:'image_key',logo:'logo',banner:'banner',rating:'rating',ratingCount:'rating_count'},
+  stores:{name:'name',nameEn:'name_en',locationInDistrict:'location_in_district',address:'location_in_district',type:'type',category:'category',status:'status',deliveryTime:'delivery_time',minOrder:'min_order',deliveryFee:'delivery_fee',imageUrl:'banner',bannerUrl:'banner',banner:'banner',logoUrl:'logo',logo:'logo',commissionRate:'commission_rate',taxRate:'tax_rate',taxRegistrationNumber:'tax_number',rating:'rating',ratingCount:'rating_count',updatedAt:'updated_at'},
   coupons:{code:'code',discountType:'discount_type',value:'value',minOrder:'min_order',title:'title',description:'description'},
 };
 const bad=(message='بيانات غير صالحة.')=>{throw new AdminError(400,message);};
@@ -77,20 +77,35 @@ async function supabaseCatalogMutation(input:any,actor:any){
   if(!patch||typeof patch!=='object'||Array.isArray(patch)||Object.keys(patch).some(key=>!fields[type].includes(key)))bad('تتضمن العملية حقولًا غير مسموحة.');
   const idColumn=type==='coupons'?'code':'id';
   const {data:current,error:readError}=await client.from(type).select('*').eq(idColumn,id).maybeSingle();
-  if(readError)throw new AdminError(503,'تعذر تحميل السجل من Supabase.');
+  if(readError) {
+    console.error('Supabase catalog read error for', type, id, readError);
+    throw new AdminError(503, `تعذر تحميل السجل من Supabase: ${readError.message || ''}`);
+  }
   const merged={...(current?toApp(type,current):{}),...patch,id,...(type==='coupons'?{code:id}:{})};
   validate(type,id,merged);
   const columns=dbFields[type];
   const values:any={...(type==='coupons'?{code:id}:{id})};
   for(const [key,value] of Object.entries(patch))if(columns[key])values[columns[key]]=value;
   if(type==='products'&&patch.archived===true)values.is_available=false;
-  if(type==='stores'&&patch.taxRegistrationNumber!==undefined)values.tax_number=patch.taxRegistrationNumber;
+  if(type==='stores'){
+    if(patch.taxRegistrationNumber!==undefined)values.tax_number=patch.taxRegistrationNumber;
+    if(patch.logoUrl) values.logo = patch.logoUrl;
+    if(patch.bannerUrl) values.banner = patch.bannerUrl;
+    if(patch.address) values.location_in_district = patch.address;
+    values.updated_at = new Date().toISOString();
+  }
   if(current){
     const {error}=await client.from(type).update(values).eq(idColumn,id);
-    if(error)throw new AdminError(503,'تعذر حفظ التعديل في Supabase.');
+    if(error){
+      console.error('Supabase catalog update error for', type, id, error);
+      throw new AdminError(503, `تعذر حفظ التعديل في Supabase: ${error.message || ''}`);
+    }
   }else{
     const {error}=await client.from(type).insert(values);
-    if(error)throw new AdminError(503,'تعذر إنشاء السجل في Supabase.');
+    if(error){
+      console.error('Supabase catalog insert error for', type, id, error);
+      throw new AdminError(503, `تعذر إنشاء السجل في Supabase: ${error.message || ''}`);
+    }
   }
   return {ok:true};
 }

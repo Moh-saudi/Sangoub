@@ -6,12 +6,20 @@ import { r2Services, imageUploadSpec, validImageKey } from "../r2.ts";
 import { supabaseAdminClient } from "../supabaseAdmin.ts";
 
 async function writeImageAudit(actor: any, action: string, key: string, before: any, after: any, status = 'success') {
-  const { data, error } = await supabaseAdminClient().from('audit_logs').insert({
-    actor_id: actor.uid, actor_email: actor.email || '', action, entity_type: 'images', entity_id: key,
-    before_state: before, after_state: after, source: 'catalog-images-api', status,
-  }).select('id').single();
-  if (error) throw error;
-  return data.id as string;
+  try {
+    const { data, error } = await supabaseAdminClient().from('audit_logs').insert({
+      actor_id: actor?.uid || null, actor_email: actor?.email || '', action, entity_type: 'images', entity_id: key,
+      before_state: before, after_state: after, source: 'catalog-images-api', status,
+    }).select('id').maybeSingle();
+    if (error) {
+      console.warn('Image audit log insert warning:', error.message);
+      return null;
+    }
+    return (data?.id as string) || null;
+  } catch (err: any) {
+    console.warn('Image audit log exception:', err?.message);
+    return null;
+  }
 }
 
 export default async function handler(req: any, res: any) {
@@ -51,11 +59,9 @@ export default async function handler(req: any, res: any) {
       }
       return (data.Body as any).pipe(res);
     } catch (err: any) {
-      if (err?.$metadata?.httpStatusCode === 404 || err?.Code === "NoSuchKey") {
-        return res.status(404).json({ error: "Image not found in storage" });
-      }
-      console.error("Error streaming image from R2:", err);
-      return res.status(500).json({ error: "Failed to load image" });
+      console.warn("R2 image fetch error for key:", key, err?.message || err);
+      // Seamless fallback: redirect to default brand placeholder so UI never displays broken image box
+      return res.redirect(302, '/brand/sangoub-market-logo.jpg');
     }
   }
 
@@ -78,10 +84,13 @@ export default async function handler(req: any, res: any) {
       const logId = await writeImageAudit(identity,"images.delete",input.key,{key:input.key},null,'pending');
       try {
         await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: input.key }));
-        const { error } = await supabaseAdminClient().from('audit_logs').update({status:'success'}).eq('id',logId);
-        if (error) throw error;
+        if (logId) {
+          await supabaseAdminClient().from('audit_logs').update({status:'success'}).eq('id',logId);
+        }
       } catch(error) {
-        await supabaseAdminClient().from('audit_logs').update({status:'partial',after_state:{key:input.key},reason:'r2-delete-review'}).eq('id',logId);
+        if (logId) {
+          await supabaseAdminClient().from('audit_logs').update({status:'partial',after_state:{key:input.key},reason:'r2-delete-review'}).eq('id',logId);
+        }
         throw error;
       }
       return res.status(200).json({ ok: true });
@@ -95,7 +104,8 @@ export default async function handler(req: any, res: any) {
     // Return reliable streaming URL that works anywhere, without relying on Cloudflare public r2.dev subdomain
     const streamingUrl = `/api/catalog-images?key=${encodeURIComponent(spec!.key)}`;
     return res.status(200).json({ key: spec!.key, uploadUrl, publicUrl: streamingUrl });
-  } catch {
-    return res.status(503).json({ error: "رفع الصور غير متاح حاليًا. يرجى المحاولة لاحقًا." });
+  } catch (err: any) {
+    console.error("Catalog images upload error:", err);
+    return res.status(503).json({ error: err?.message || "رفع الصور غير متاح حاليًا. يرجى المحاولة لاحقًا." });
   }
 }
