@@ -4,6 +4,7 @@ import { ProductCard } from '../components/ProductCard';
 import { HeroSlider } from '../components/HeroSlider';
 import { ProductModal } from '../components/ProductModal';
 import { MerchantLogoCard } from '../components/MerchantLogoCard';
+import { CategoryRail } from '../components/CategoryRail';
 import { formatEGP } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import type { Product } from '../../types';
@@ -78,10 +79,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
 
   const cartItemCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
-  // Flash deals & discounted products
-  const flashDeals = useMemo(() => {
+  // Use the popularity flag populated by the catalog; deals remain available in the filter below.
+  const popularProducts = useMemo(() => {
     return products.filter(
-      (p) => (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم')
+      (p) => p.isPopular || p.badge?.includes('طلب') || p.badge?.includes('الأكثر')
     ).slice(0, 10);
   }, [products]);
 
@@ -167,71 +168,17 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
           />
         </section>
 
-        {/* 3. SANGOUB PRODUCT CATEGORIES — Talabat-style Squircles */}
-        <section aria-labelledby="categories-heading" className="mb-8">
-          <div className="flex items-center justify-between px-1 mb-4">
-            <h2 id="categories-heading" className="text-base sm:text-lg font-black text-[#111827]">
-              الأقسام
-            </h2>
-            {selectedCategory && (
-              <button
-                type="button"
-                onClick={() => setSelectedCategory(null)}
-                className="text-xs font-bold text-[#FF5900] hover:underline cursor-pointer flex items-center gap-1"
-              >
-                <span>عرض الكل</span>
-                <ChevronLeft size={13} />
-              </button>
-            )}
-          </div>
-
-          {/* Responsive Grid: Talabat-style squircle cards with rounded corners, text below */}
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2.5 sm:gap-3.5 w-full">
-            {supermarketCategories.map((cat) => {
-              const isSelected = selectedCategory === cat.name_ar || selectedCategory === cat.code;
-
-              return (
-                <button
-                  key={cat.code}
-                  type="button"
-                  onClick={() => {
-                    const nextVal = isSelected ? null : cat.name_ar;
-                    setSelectedCategory(nextVal);
-                    const grid = document.getElementById('products-grid');
-                    if (grid) grid.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="group flex flex-col items-center gap-1.5 cursor-pointer transition-transform active:scale-95 bg-transparent border-none outline-none p-0"
-                >
-                  {/* Talabat Squircle Box — rounded corners, soft bg, image fills cleanly, ZERO text overlay */}
-                  <div className={`aspect-square w-full rounded-2xl sm:rounded-[22px] bg-[#F4F5F7] p-2 flex items-center justify-center border transition-all duration-300 overflow-hidden ${
-                    isSelected
-                      ? 'border-[#FF5900] ring-2 ring-[#FF5900]/40 bg-[#FFF2EC] shadow-xs'
-                      : 'border-[#EBECEF] group-hover:border-[#FF5900]/40 group-hover:bg-[#FFF7ED]/50 group-hover:shadow-xs'
-                  }`}>
-                    <img
-                      src={cat.image}
-                      alt={cat.name_ar}
-                      className="w-full h-full object-contain rounded-xl group-hover:scale-108 transition-transform duration-300"
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
-                      }}
-                    />
-                  </div>
-
-                  {/* Category name below the image in Tajawal font */}
-                  <span
-                    className={`text-[10px] sm:text-[11px] font-semibold leading-tight text-center line-clamp-2 w-full transition-colors font-tajawal ${
-                      isSelected ? 'text-[#FF5900]' : 'text-[#374151] group-hover:text-[#FF5900]'
-                    }`}
-                    style={{ fontFamily: "'Tajawal', sans-serif" }}
-                  >
-                    {cat.name_ar}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+        {/* 3. Two-row category rail */}
+        <section className="mb-6">
+          <CategoryRail
+            categories={supermarketCategories}
+            selectedCategory={selectedCategory}
+            onSelect={(category) => {
+              setSelectedCategory(category);
+              const grid = document.getElementById('products-grid');
+              if (category && grid) grid.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
 
           {/* Merchants Offering Products in this Category */}
           {selectedCategory && categoryMerchants.length > 0 && (
@@ -298,20 +245,20 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
           </section>
         )}
 
-        {/* 5. FLASH DEALS (Horizontal Touch Scroll with Clean Snap) */}
-        {flashDeals.length > 0 && (
-          <section aria-labelledby="deals-heading" className="mb-6">
+        {/* 5. Popular products */}
+        {popularProducts.length > 0 && (
+          <section aria-labelledby="popular-products-heading" className="mb-6">
             <div className="flex items-center justify-between px-1 mb-2.5">
               <div>
-                <h2 id="deals-heading" className="text-sm sm:text-base font-black text-[#111827] flex items-center gap-1.5">
+                <h2 id="popular-products-heading" className="text-sm sm:text-base font-black text-[#111827] flex items-center gap-1.5">
                   <Flame size={18} className="text-[#FF5900]" />
-                  <span>الأكثر طلباً واحتياجات اليوم ⭐</span>
+                  <span>الأكثر طلباً الآن</span>
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  setActiveFilter('offers');
+                  setActiveFilter('popular');
                   setSelectedCategory(null);
                 }}
                 className="text-xs font-bold text-[#FF5900] hover:underline cursor-pointer flex items-center gap-0.5"
@@ -323,7 +270,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
 
             {/* Horizontal Scroll Track */}
             <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 pt-1 w-full overscroll-x-contain touch-pan-x">
-              {flashDeals.map((product) => {
+              {popularProducts.map((product) => {
                 const discountPct = product.originalPrice && product.originalPrice > product.price
                   ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
                   : 0;
@@ -418,9 +365,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
             </div>
 
             {/* Flexible Row of Stores — Natural spacing, no empty grid gaps */}
-            <div className="flex flex-wrap items-start gap-4 sm:gap-6 w-full">
+            <div className="flex items-start gap-4 overflow-x-auto overscroll-x-contain touch-pan-x snap-x snap-mandatory pb-2 w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {stores.map((store) => (
-                <MerchantLogoCard key={store.id} store={store} className="w-[82px] sm:w-[94px]" />
+                <MerchantLogoCard key={store.id} store={store} className="w-[82px] sm:w-[94px] shrink-0 snap-start" />
               ))}
             </div>
           </section>

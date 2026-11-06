@@ -1,5 +1,6 @@
 import {orderTaxSnapshots} from './orderTax.ts';
 import { productCandidateIds } from './productIdentity.ts';
+import { CASH_PAYMENT_LIMIT_EGP, CASH_PAYMENT_LIMIT_ERROR } from '../src/utils/paymentPolicy.ts';
 import type {
   Order,
   Product,
@@ -126,6 +127,7 @@ export function buildOrder(
   const taxes=orderTaxSnapshots(items,stores,discount);
   const total = round(subtotal + deliveryFee - discount + tip + taxes.additionalTax);
   if (total > 100000) throw new Error("قيمة الطلب تتجاوز الحد المسموح.");
+  if (paymentMethod === 'cash' && total >= CASH_PAYMENT_LIMIT_EGP) throw new Error(CASH_PAYMENT_LIMIT_ERROR);
   const phone = text("phone", 30);
   if (!/^(\+20|0)1[0125]\d{8}$/.test(phone))
     throw new Error("أدخل رقم هاتف مصري صحيح.");

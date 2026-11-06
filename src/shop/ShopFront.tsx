@@ -868,27 +868,23 @@ function CheckoutForm() {
           </fieldset>
           <fieldset disabled={busy || !!current}>
             <legend>طريقة الدفع</legend>
-            <label className="shop-option">
-              <input
-                type="radio"
-                name="web-payment"
-                value="geidea"
-                required
-                checked={fields.paymentMethod === "geidea"}
-                disabled={!geidea}
-                onChange={() => change("paymentMethod", "geidea")}
-              />
-              <span>بطاقة أو محفظة محمول عبر جيديا</span>
-            </label>
-            <p>
-              وسائل الدفع والمحافظ المتاحة تظهر داخل جيديا حسب تفعيل حساب
-              التاجر. لا تدخل بيانات بطاقتك على موقع سنجوب.
-            </p>
-            {configReady && !geidea && (
-              <p>
-                الدفع الإلكتروني غير متاح حاليًا. يمكنك الدفع كاش عند الاستلام.
-              </p>
+            {geidea && (
+              <>
+                <label className="shop-option">
+                  <input
+                    type="radio"
+                    name="web-payment"
+                    value="geidea"
+                    required
+                    checked={fields.paymentMethod === "geidea"}
+                    onChange={() => change("paymentMethod", "geidea")}
+                  />
+                  <span>بطاقة أو محفظة عبر Geidea</span>
+                </label>
+                <p>تظهر وسائل الدفع المتاحة داخل صفحة Geidea الآمنة.</p>
+              </>
             )}
+            {configReady && !geidea && <p role="status">الدفع الإلكتروني عبر Geidea مؤجل حاليًا.</p>}
             <label className="shop-option">
               <input
                 type="radio"
@@ -900,6 +896,9 @@ function CheckoutForm() {
               />
               كاش عند الاستلام
             </label>
+            <p className="text-sm text-slate-600">
+              الدفع النقدي متاح إذا كان إجمالي الفاتورة النهائي، شاملًا التوصيل وبعد الخصم، أقل من 300 جنيه.
+            </p>
           </fieldset>
           {!current && (
             <button

@@ -8,6 +8,7 @@ import { ensureOrderPayment } from '../orderPayments.ts';
 import { buildOrder } from '../orderBuilder.ts';
 import { mobileCors } from '../mobileCors.ts';
 import { GeideaGateway, ChatAmanGateway } from '../integrations.ts';
+import { CASH_PAYMENT_LIMIT_ERROR, CASH_PAYMENT_LIMIT_MESSAGE } from '../../src/utils/paymentPolicy.ts';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://tvnsqatkaqyubeznhnmu.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9ORqYV9HK0AbacKtYSRZiA_K7hcJ4yI';
@@ -227,6 +228,7 @@ export default async function handler(req: any, res: any) {
     }
     return res.status(200).json({ order: publicOrder, requiresPaymentRedirect: Boolean(payment?.redirectUrl), redirectUrl: payment?.redirectUrl || null, sessionId: payment?.sessionId || null, paymentError: payment?.error || null });
   } catch (error: any) {
+    if (error?.message === CASH_PAYMENT_LIMIT_ERROR) return res.status(409).json({ error: CASH_PAYMENT_LIMIT_MESSAGE });
     if (error?.message === 'QUOTE_CHANGED') return res.status(409).json({ error: 'تغير السعر أو رسوم التوصيل. راجع الإجمالي مرة أخرى قبل التأكيد.' });
     if (error?.message === 'ORDER_RATE_LIMIT') return res.status(429).json({ error: 'تجاوزت عدد الطلبات اليومي. تواصل مع الدعم.' });
     if (error?.message === 'COUPON_UNAVAILABLE') return res.status(409).json({ error: 'كود الخصم لم يعد متاحًا. أعد مراجعة السلة.' });

@@ -9,6 +9,7 @@ import { AccountPage } from '../pages/AccountPage';
 import { CartCheckoutModal } from '../components/CartCheckoutModal';
 import { SangoubAuthModal } from '../components/SangoubAuthModal';
 import { MerchantLogoCard } from '../components/MerchantLogoCard';
+import { CategoryRail } from '../components/CategoryRail';
 import { formatEGP } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import type { Product } from '../../types';
@@ -173,10 +174,10 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
 
   const cartItemCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
-  // Flash deals
-  const flashDeals = useMemo(() => {
+  // Popular products are selected by the catalog's popularity metadata.
+  const popularProducts = useMemo(() => {
     return products.filter(
-      (p) => (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم')
+      (p) => p.isPopular || p.badge?.includes('طلب') || p.badge?.includes('الأكثر')
     ).slice(0, 8);
   }, [products]);
 
@@ -496,73 +497,18 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           </div>
         )}
 
-        {/* 3. SANGOUB PRODUCT CATEGORIES — Talabat-style Squircles */}
-        <section aria-labelledby="mobile-categories-heading" className="pt-1">
-          <div className="flex items-center justify-between px-1 mb-3">
-            <h2 id="mobile-categories-heading" className="text-sm font-black text-[#111827]">
-              الأقسام
-            </h2>
-            {selectedCategory && (
-              <button
-                type="button"
-                onClick={() => setSelectedCategory(null)}
-                className="text-[10px] font-bold text-[#FF5900] hover:underline"
-              >
-                عرض الكل ✕
-              </button>
-            )}
-          </div>
-
-          {/* Grand Market / Talabat Style: Clean 4-Column Grid, soft squircle cards with image & title underneath */}
-          <div className="grid grid-cols-4 gap-2.5 sm:gap-3 w-full">
-            {supermarketCategories.map((cat) => {
-              const isSelected = selectedCategory === cat.name_ar || selectedCategory === cat.code;
-
-              return (
-                <button
-                  key={cat.code}
-                  type="button"
-                  title={cat.name_ar}
-                  aria-label={cat.name_ar}
-                  onClick={() => {
-                    const nextVal = isSelected ? null : cat.name_ar;
-                    setSelectedCategory(nextVal);
-                    if (nextVal) {
-                      const grid = document.getElementById('mobile-products-grid');
-                      if (grid) grid.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
-                  className="group flex flex-col items-center gap-1.5 cursor-pointer transition-transform active:scale-95 bg-transparent border-none outline-none p-0"
-                >
-                  {/* Talabat Squircle Card with Rounded Corners — ZERO overlay text */}
-                  <div className={`w-full aspect-square rounded-2xl bg-[#F4F5F7] p-2 flex items-center justify-center border transition-all duration-300 overflow-hidden ${
-                    isSelected
-                      ? 'border-[#FF5900] ring-2 ring-[#FF5900]/40 bg-[#FFF2EC] shadow-xs'
-                      : 'border-[#EBECEF] group-hover:border-[#FF5900]/40 group-hover:bg-[#FFF7ED]/40'
-                  }`}>
-                    <img
-                      src={cat.image}
-                      alt={cat.name_ar}
-                      className="w-full h-full object-contain rounded-xl pointer-events-none group-hover:scale-105 transition-transform"
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
-                      }}
-                    />
-                  </div>
-                  {/* Name below the card in Tajawal font */}
-                  <span
-                    className={`text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center line-clamp-2 w-full font-tajawal min-h-[26px] flex items-center justify-center ${
-                      isSelected ? 'text-[#FF5900] font-black' : 'text-[#374151]'
-                    }`}
-                    style={{ fontFamily: "'Tajawal', sans-serif" }}
-                  >
-                    {cat.name_ar}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+        {/* 3. Two-row swipeable category rail */}
+        <section>
+          <CategoryRail
+            categories={supermarketCategories}
+            selectedCategory={selectedCategory}
+            compact
+            onSelect={(category) => {
+              setSelectedCategory(category);
+              const grid = document.getElementById('mobile-products-grid');
+              if (category && grid) grid.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
 
           {/* If a category is selected: Show Merchants Strip */}
           {selectedCategory && categoryMerchants.length > 0 && (
@@ -622,17 +568,17 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           </div>
         )}
 
-        {/* 6. FLASH DEALS (Horizontal Swipe) */}
-        {flashDeals.length > 0 && (
-          <section aria-labelledby="mobile-flash-deals">
+        {/* 6. Popular products */}
+        {popularProducts.length > 0 && (
+          <section aria-labelledby="mobile-popular-products">
             <div className="flex items-center justify-between px-1 mb-2">
-              <h2 id="mobile-flash-deals" className="text-xs font-black text-[#111827] flex items-center gap-1">
+              <h2 id="mobile-popular-products" className="text-xs font-black text-[#111827] flex items-center gap-1">
                 <Flame size={15} className="text-[#FF5900]" />
-                <span>الأكثر طلباً واحتياجات اليوم ⭐</span>
+                <span>الأكثر طلباً الآن</span>
               </h2>
               <button
                 type="button"
-                onClick={() => { setActiveFilter('offers'); setSelectedCategory(null); }}
+                onClick={() => { setActiveFilter('popular'); setSelectedCategory(null); }}
                 className="text-[10px] font-bold text-[#FF5900] flex items-center gap-0.5"
               >
                 <span>الكل</span>
@@ -641,7 +587,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             </div>
 
             <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-1 w-full overscroll-x-contain touch-pan-x">
-              {flashDeals.map((product) => {
+              {popularProducts.map((product) => {
                 const cartItem = cartItems.find((item) => item.product.id === product.id);
                 const qty = cartItem ? cartItem.quantity : 0;
 

@@ -10,6 +10,7 @@ function trustedRedirect(value: unknown): string | null {
 }
 
 export async function ensureOrderPayment(orderId: string, email: string, uid: string) {
+  if (!GeideaGateway.isConfigured()) return { error: 'الدفع الإلكتروني مؤجل وغير متاح حاليًا.' };
   const client = supabaseAdminClient();
   const { data: claim, error: claimError } = await client.rpc('claim_sangoub_payment', { p_order_id: orderId, p_customer_id: uid });
   if (claimError) throw new Error('PAYMENT_CLAIM_FAILED');

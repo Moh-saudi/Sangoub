@@ -15,16 +15,14 @@ import {
   ShoppingBag,
   ArrowRight,
   ShieldCheck,
-  CreditCard,
-  Zap,
   CheckCircle2,
   MessageSquare,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatEGP, applyCouponDiscount } from '../../utils/orderCalculations';
+import { isCashPaymentAllowed, CASH_PAYMENT_LIMIT_MESSAGE } from '../../utils/paymentPolicy';
 import { matchStoreId, getStoreLogo } from '../../utils/storeAssets';
-import { getMerchantPaymentSettings } from '../../utils/merchantPaymentSettings';
-import { supabase, resolveSupabaseStoreUuid } from '../../lib/supabase';
+import { authenticatedApi } from '../../lib/authenticatedApi';
 import type { TrackableOrder } from './OrderTrackingModal';
 
 interface Props {
@@ -123,20 +121,8 @@ export function CartCheckoutModal({
     }
   }, [user]);
 
-  // Business Rule: Cash on Delivery is strictly allowed ONLY for orders up to 300 EGP
-  const isCashAllowed = total <= 300;
-
-  // Payment Method State (defaults to InstaPay if total > 300)
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'instapay' | 'card'>(
-    total <= 300 ? 'cash' : 'instapay'
-  );
-
-  // Automatically switch away from cash if cart total exceeds 300 EGP
-  useEffect(() => {
-    if (!isCashAllowed && paymentMethod === 'cash') {
-      setPaymentMethod('instapay');
-    }
-  }, [isCashAllowed, paymentMethod]);
+  const isCashAllowed = isCashPaymentAllowed(total);
+  const paymentMethod = 'cash' as const;
 
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
@@ -167,11 +153,6 @@ export function CartCheckoutModal({
       deliveryTime: found?.deliveryTime || '15-25 دقيقة',
     };
   }, [currentStoreId, stores]);
-
-  // Merchant Payment Settings (loaded directly from dashboard config)
-  const merchantPayment = useMemo(() => {
-    return getMerchantPaymentSettings(currentStoreId);
-  }, [currentStoreId]);
 
   if (!isOpen) return null;
 
@@ -219,155 +200,87 @@ export function CartCheckoutModal({
       return;
     }
 
-    if (paymentMethod === 'cash' && total > 300) {
-      setError('خيار الدفع نقدًا عند الاستلام متاح فقط للطلبات حتى 300 ج.م كحد أقصى. يرجى اختيار السداد عبر إنستاباي أو المحفظة الإلكترونية.');
+    if (!isCashAllowed) {
+      setError(CASH_PAYMENT_LIMIT_MESSAGE);
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const orderId = 'SNG-' + Math.floor(100000 + Math.random() * 900000);
-      const currentTime = new Date().toLocaleTimeString('ar-EG', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-
       const fullNotes = [
         deliveryNotes.trim(),
-        hasWhatsApp ? '🟢 واتساب متاح على الرقم' : '',
+        hasWhatsApp ? 'واتساب متاح على الرقم' : '',
+        customWhatsApp.trim() ? `واتساب بديل: ${sanitizePhone(customWhatsApp)}` : '',
       ].filter(Boolean).join(' • ');
 
-      const destinationParts = [
-        cleanAddress,
-        buildingNumber.trim() ? `عمارة/مبنى ${buildingNumber.trim()}` : '',
-        floorNumber.trim() ? `الدور ${floorNumber.trim()}` : '',
-        unitNumber.trim()
-          ? placeType === 'work'
-            ? `مكتب ${unitNumber.trim()}`
-            : `شقة ${unitNumber.trim()}`
-          : '',
-      ].filter(Boolean);
+      const attemptKey = 'sangoub-mobile-checkout-attempt';
+      let requestId = '';
+      try { requestId = sessionStorage.getItem(attemptKey) || ''; } catch {}
+      if (!/^ord-[a-f0-9-]{36}$/.test(requestId)) {
+        requestId = `ord-${window.crypto.randomUUID()}`;
+        try { sessionStorage.setItem(attemptKey, requestId); } catch {}
+      }
 
-      const destination = destinationParts.join(' • ') || cleanAddress;
-
-      const trackable: TrackableOrder = {
-        orderId,
-        orderStatus: 'received',
-        itemsCount: cartItems.reduce((acc, i) => acc + i.quantity, 0),
-        subtotal,
-        deliveryFee,
-        discount,
-        total,
-        destination,
-        time: currentTime,
+      const destination = [cleanAddress, buildingNumber.trim() && `مبنى ${buildingNumber.trim()}`, floorNumber.trim() && `الدور ${floorNumber.trim()}`, unitNumber.trim() && (placeType === 'work' ? `مكتب ${unitNumber.trim()}` : `وحدة ${unitNumber.trim()}`)].filter(Boolean).join(' • ');
+      const payload = {
+        id: requestId,
+        profileName: cleanName,
+        phone: cleanPhone,
+        ministry: cleanAddress,
+        floorNumber: [buildingNumber.trim(), floorNumber.trim()].filter(Boolean).join(' / ') || 'غير محدد',
+        roomNumber: unitNumber.trim() || 'غير محدد',
+        notes: fullNotes,
         paymentMethod,
-        notes: fullNotes || undefined,
-        createdAt: new Date().toISOString(),
+        tip: 0,
+        ...(appliedCoupon?.code ? { couponCode: appliedCoupon.code } : {}),
         items: cartItems.map((item) => ({
-          name: item.product.name,
+          product: { id: item.product.id },
           quantity: item.quantity,
-          price: item.product.price + (item.extraPrice || 0),
-          imageUrl: item.product.imageUrl,
-          storeId: currentStore.id,
-          storeName: currentStore.name,
+          selectedOptions: item.selectedOptions || {},
+          notes: item.notes || '',
         })),
       };
 
-      // Direct InstaPay Redirection: opens registered link directly
-      if (paymentMethod === 'instapay' && merchantPayment.instapayLink) {
-        try {
-          window.open(merchantPayment.instapayLink, '_blank', 'noopener,noreferrer');
-        } catch (err) {
-          console.warn('Direct InstaPay window.open failed:', err);
-        }
-      }
+      const quote = await authenticatedApi('/api/orders', { ...payload, action: 'quote' }) as any;
+      if (!quote.quote || quote.quote.total >= 300) throw new Error(CASH_PAYMENT_LIMIT_MESSAGE);
+      const created = await authenticatedApi('/api/orders', { ...payload, quoteHash: quote.quoteHash }) as any;
+      const saved = created.order;
+      if (!saved?.id) throw new Error('لم يؤكد الخادم حفظ الطلب. لم يتم تفريغ السلة.');
 
-      // Persist profile to localStorage for instant auto-fill next time
-      try {
-        localStorage.setItem(
-          'sangoub_guest_profile',
-          JSON.stringify({
-            fullName: cleanName,
-            phone: cleanPhone,
-            streetAddress: cleanAddress,
-            buildingNumber: buildingNumber.trim(),
-            floorNumber: floorNumber.trim(),
-            unitNumber: unitNumber.trim(),
-            placeType,
-            hasWhatsApp,
-            customWhatsApp,
-          })
-        );
-      } catch (err) {
-        console.warn('Saving guest profile failed', err);
-      }
+      const currentTime = new Date(saved.createdAt || Date.now()).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      const trackable: TrackableOrder = {
+        orderId: saved.id,
+        orderStatus: saved.orderStatus || 'received',
+        itemsCount: (saved.items || []).reduce((count: number, item: any) => count + Number(item.quantity || 0), 0),
+        subtotal: Number(saved.subtotal) || 0,
+        deliveryFee: Number(saved.deliveryFee) || 0,
+        discount: Number(saved.discount) || 0,
+        total: Number(saved.total) || 0,
+        destination,
+        time: currentTime,
+        paymentMethod: 'cash',
+        notes: fullNotes || undefined,
+        createdAt: saved.createdAt,
+        items: (saved.items || []).map((item: any) => {
+          const product = item.product || {};
+          const store = stores.find((candidate) => matchStoreId(candidate.id, product.storeId) || candidate.id === product.storeId);
+          return {
+            name: product.name || 'صنف',
+            quantity: Number(item.quantity) || 1,
+            price: (Number(product.price) || 0) + (Number(item.extraPrice) || 0),
+            imageUrl: product.imageUrl,
+            storeId: product.storeId,
+            storeName: store?.name || currentStore.name,
+          };
+        }),
+      };
 
-      // Persist in localStorage for instant tracking & history
       try {
+        localStorage.setItem('sangoub_guest_profile', JSON.stringify({ fullName: cleanName, phone: cleanPhone, streetAddress: cleanAddress, buildingNumber: buildingNumber.trim(), floorNumber: floorNumber.trim(), unitNumber: unitNumber.trim(), placeType, hasWhatsApp, customWhatsApp }));
         localStorage.setItem('sangoub_last_order', JSON.stringify(trackable));
-        const existingHistory = JSON.parse(
-          localStorage.getItem('sangoub_customer_orders_history') || '[]'
-        );
-        const nextHistory = [
-          {
-            id: trackable.orderId,
-            orderNumber: trackable.orderId,
-            createdAt: trackable.createdAt,
-            status: 'received',
-            statusText: 'قيد التجهيز ⏳',
-            statusColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-            total: trackable.total,
-            paymentMethod:
-              paymentMethod === 'cash'
-                ? 'الدفع نقدًا عند الاستلام'
-                : paymentMethod === 'instapay'
-                ? 'إنستاباي / فودافون كاش'
-                : 'بطاقة بنكية (جيديا)',
-            destination: trackable.destination,
-            items: trackable.items,
-            rawOrder: trackable,
-          },
-          ...existingHistory,
-        ];
-        localStorage.setItem('sangoub_customer_orders_history', JSON.stringify(nextHistory));
-      } catch (err) {
-        console.warn('LocalStorage save failed:', err);
-      }
-
-      // Persist directly to Supabase PostgreSQL (Sole Database Source of Truth)
-      try {
-        const targetStoreUuid = resolveSupabaseStoreUuid(currentStore.id);
-        const { data: sbOrder } = await supabase.from('orders').insert({
-          customer_id: user?.id && !user.isGuest ? user.id : null,
-          store_id: targetStoreUuid,
-          status: 'pending',
-          subtotal: subtotal,
-          delivery_fee: deliveryFee,
-          total_amount: total,
-          delivery_address: destination,
-          delivery_ministry: cleanAddress,
-          delivery_floor: floorNumber.trim() || null,
-          delivery_room: unitNumber.trim() || null,
-          payment_method: paymentMethod,
-          payment_status: paymentMethod === 'cash' ? 'pending' : 'paid',
-          notes: fullNotes || null,
-        }).select().single();
-
-        if (sbOrder?.id) {
-          await supabase.from('order_items').insert(
-            cartItems.map((item) => ({
-              order_id: sbOrder.id,
-              product_id: item.product.id && item.product.id.length === 36 ? item.product.id : null,
-              product_name: item.product.name,
-              price: item.product.price + (item.extraPrice || 0),
-              quantity: item.quantity,
-            }))
-          );
-        }
-      } catch (sbErr) {
-        console.warn('Supabase order insert warning:', sbErr);
-      }
+        sessionStorage.removeItem(attemptKey);
+      } catch {}
 
       // Clear cart
       clearCart();
@@ -801,135 +714,23 @@ export function CartCheckoutModal({
                 </div>
               </div>
 
-              {/* 💳 PAYMENT METHODS SELECTION SECTION (With Official Logos & Direct InstaPay Redirect) */}
-              <div className="border-2 border-orange-200/80 rounded-2xl p-4 bg-orange-50/30 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CreditCard size={18} className="text-orange-600" />
-                    <h4 className="text-sm font-black text-slate-900">اختر طريقة الدفع</h4>
-                  </div>
-                  <span className="text-[11px] font-bold text-orange-800 bg-orange-100 px-2.5 py-0.5 rounded-full">
-                    متاح 3 طرق للدفع
+              <div className="rounded-2xl border-2 border-orange-200/80 bg-orange-50/30 p-4 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <Banknote size={20} className={isCashAllowed ? 'text-emerald-600' : 'text-slate-400'} aria-hidden="true" />
+                  <h4 className="text-sm font-black text-slate-900">الدفع نقدًا عند الاستلام</h4>
+                  <span className="mr-auto rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700">
+                    {isCashAllowed ? 'متاح لهذا الطلب' : 'غير متاح لهذا الإجمالي'}
                   </span>
                 </div>
-
-                <div className="grid grid-cols-1 gap-2.5">
-                  {/* Option 1: Cash on Delivery (Restricted to <= 300 EGP) */}
-                  <label
-                    className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 transition-all ${
-                      !isCashAllowed
-                        ? 'opacity-60 bg-slate-100/90 border-slate-200 cursor-not-allowed select-none'
-                        : paymentMethod === 'cash'
-                        ? 'border-orange-500 bg-white shadow-sm ring-2 ring-orange-500/20 cursor-pointer'
-                        : 'border-slate-200 bg-white/70 hover:border-slate-300 cursor-pointer'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="cash"
-                      disabled={!isCashAllowed}
-                      checked={paymentMethod === 'cash' && isCashAllowed}
-                      onChange={() => isCashAllowed && setPaymentMethod('cash')}
-                      className="mt-1 accent-orange-600 disabled:opacity-40"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between gap-1 flex-wrap">
-                        <div className="flex items-center gap-2">
-                          <Banknote size={20} className={isCashAllowed ? "text-emerald-600" : "text-slate-400"} />
-                          <span className={`font-black text-sm ${isCashAllowed ? "text-slate-900" : "text-slate-400 line-through"}`}>
-                            الدفع عند الاستلام (كاش)
-                          </span>
-                        </div>
-                        {isCashAllowed ? (
-                          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
-                            متاح (للطلبات حتى 300 ج.م)
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-black bg-rose-100 text-rose-700 px-2 py-0.5 rounded-md border border-rose-200">
-                            مغلق (أكثر من 300 ج.م)
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {isCashAllowed
-                          ? 'ادفع نقدًا لمندوب التوصيل فور وصول واستلام طلبك في موقعك.'
-                          : '⚠️ الدفع عند الاستلام غير متاح لأن إجمالي الطلب يتجاوز 300 ج.م. يرجى السداد إلكترونيًا عبر إنستاباي أو البطاقة.'}
-                      </p>
-                    </div>
-                  </label>
-
-                  {/* Option 2: InstaPay & Vodafone Cash (With Official Uploaded Logos & Direct Redirection) */}
-                  <label
-                    className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
-                      paymentMethod === 'instapay'
-                        ? 'border-orange-500 bg-white shadow-sm ring-2 ring-orange-500/20'
-                        : 'border-slate-200 bg-white/70 hover:border-slate-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="instapay"
-                      checked={paymentMethod === 'instapay'}
-                      onChange={() => setPaymentMethod('instapay')}
-                      className="mt-1.5 accent-orange-600"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2.5">
-                          <img
-                            src="/payments/instapay.png"
-                            alt="InstaPay"
-                            className="h-6 object-contain"
-                          />
-                          <img
-                            src="/payments/vodafone-cash.png"
-                            alt="Vodafone Cash"
-                            className="h-6 object-contain"
-                          />
-                        </div>
-                        <span className="text-[10px] font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-md">
-                          تحويل مباشر
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        دفع فوري عبر إنستاباي أو المحافظ الإلكترونية. سيتم فتح رابط الدفع المعتمد للمتجر فور تأكيد الطلب.
-                      </p>
-                    </div>
-                  </label>
-
-                  {/* Option 3: Card / Visa & Mastercard & Geidea (Locked / Coming Soon) */}
-                  <label
-                    className="flex items-start gap-3 p-3.5 rounded-2xl border-2 border-slate-200 bg-slate-100/80 opacity-60 cursor-not-allowed select-none transition-all"
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="card"
-                      disabled={true}
-                      checked={false}
-                      className="mt-1.5 accent-orange-600 disabled:opacity-40 cursor-not-allowed"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2.5">
-                          <img
-                            src="/payments/visa-mastercard.png"
-                            alt="Visa and MasterCard"
-                            className="h-6 sm:h-7 object-contain grayscale"
-                          />
-                        </div>
-                        <span className="text-[10px] font-black bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md flex items-center gap-1">
-                          <span>بوابة جيديا · قريباً</span>
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        بوابة الدفع بالبطاقات البنكية (جيديا) قيد التفعيل حالياً. يرجى السداد عبر إنستاباي أو نقدًا عند الاستلام.
-                      </p>
-                    </div>
-                  </label>
-                </div>
+                <p className="text-xs leading-5 text-slate-600">
+                  ادفع للمندوب عند الاستلام. الكاش متاح عندما يكون إجمالي الفاتورة النهائي أقل من 300 جنيه، شاملًا التوصيل وبعد الخصم.
+                </p>
+                {!isCashAllowed && (
+                  <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">
+                    {CASH_PAYMENT_LIMIT_MESSAGE}
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500">الدفع الإلكتروني عبر Geidea مؤجل حاليًا.</p>
               </div>
 
               {/* COUPON INPUT */}
@@ -998,8 +799,8 @@ export function CartCheckoutModal({
           <footer className="p-4 sm:p-5 border-t border-slate-200 bg-white shrink-0">
             <button
               onClick={!isUserAuthenticated ? onRequestRegister : handleSubmitOrder}
-              disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 disabled:opacity-50 text-white rounded-2xl p-4 font-black text-base flex justify-center items-center gap-2 shadow-lg shadow-orange-500/25 transition-all cursor-pointer"
+              disabled={isSubmitting || (isUserAuthenticated && !isCashAllowed)}
+              className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl p-4 font-black text-base flex justify-center items-center gap-2 shadow-lg shadow-orange-500/25 transition-all cursor-pointer"
             >
               {isSubmitting ? (
                 <span>جارٍ تأكيد وإرسال الطلب...</span>

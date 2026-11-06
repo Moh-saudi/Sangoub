@@ -71,7 +71,7 @@ export interface CreateOrderPaymentOptions {
 }
 
 export class GeideaGateway {
-  public static isConfigured() { const c=ASIMA_CONFIG.geidea.environment==='test'?ASIMA_CONFIG.geidea.test:ASIMA_CONFIG.geidea.live;return Boolean(c.apiPassword&&c.merchantPublicKey); }
+  public static isConfigured() { const c=ASIMA_CONFIG.geidea.environment==='test'?ASIMA_CONFIG.geidea.test:ASIMA_CONFIG.geidea.live;return process.env.GEIDEA_ENABLED === 'true' && Boolean(c.apiPassword&&c.merchantPublicKey); }
 
   /**
    * حساب توقيع HMAC-SHA256 وفقاً لمتطلبات Geidea الرسمية

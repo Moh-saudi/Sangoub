@@ -102,6 +102,12 @@ test("server only accepts configured cash payment and valid coupons", () => {
   assert.equal(order.total, 75);
 });
 
+test("cash payment requires a final invoice total strictly below 300 EGP", () => {
+  assert.equal(build({ ...payload(), tip: 219 }).total, 299);
+  assert.throws(() => build({ ...payload(), tip: 220 }), /CASH_LIMIT_EXCEEDED/);
+  assert.throws(() => build({ ...payload(), tip: 221 }), /CASH_LIMIT_EXCEEDED/);
+});
+
 test("electronic payment selection does not mark an order paid", () => {
   const order = build({ ...payload(), paymentMethod: "geidea" });
   assert.equal(order.paymentMethod, "geidea");
