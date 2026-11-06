@@ -22,6 +22,9 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
         // The Workbox glob below already includes public icons. Adding them
         // through the manifest as well produces conflicting cache revisions.
         includeManifestIcons: false,
@@ -54,55 +57,13 @@ export default defineConfig(() => {
             },
           ],
         },
-        workbox: {
+        injectManifest: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           // Only Vite's hashed chunks are immutable; public/assets images are not.
           dontCacheBustURLsMatching: /^assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/,
           globPatterns: ['**/*.{js,css,woff,woff2}', 'favicon.ico', 'brand/sangoub-mark-white-{32,64,128,256,512}.png', 'courier.webmanifest'],
           // Fetch current HTML on navigation instead of pinning visitors to precached releases.
           globIgnores: ['**/index.html'],
-          navigateFallback: null,
-          runtimeCaching: [
-            {urlPattern:({request,url})=>request.destination==='image'&&url.origin===self.location.origin,handler:'StaleWhileRevalidate',options:{cacheName:'sangoub-images',cacheableResponse:{statuses:[200]},expiration:{maxEntries:60,maxAgeSeconds:7*24*60*60}}},
-            {
-              urlPattern: ({ request, url }) => request.mode === 'navigate' && url.origin === self.location.origin,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'capital-page-navigation',
-                networkTimeoutSeconds: 4,
-                cacheableResponse: { statuses: [200] },
-                expiration: { maxEntries: 12, maxAgeSeconds: 24 * 60 * 60 },
-              },
-            },
-            {
-              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'google-fonts-cache',
-                expiration: {
-                  maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365,
-                },
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-              },
-            },
-            {
-              urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'gstatic-fonts-cache',
-                expiration: {
-                  maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365,
-                },
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-              },
-            },
-          ],
         },
         devOptions: {
           enabled: false,

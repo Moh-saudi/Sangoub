@@ -16,6 +16,7 @@ import { ProductDetailsPage } from './pages/ProductDetailsPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { AccountPage } from './pages/AccountPage';
 import { LAUNCH_CONFIG } from '../config/launchConfig';
+import { enableWebPushNotifications } from '../lib/webPushNotifications';
 
 /**
  * Hook to detect viewport width changes in real time
@@ -38,7 +39,7 @@ function useIsMobile() {
 }
 
 const StorefrontRouter: React.FC = () => {
-  const { currentPath, navigate, cartItems, serviceArea, catalogError } = useStore();
+  const { currentPath, navigate, cartItems, serviceArea, catalogError, user } = useStore();
   const [areaModalOpen, setAreaModalOpen] = useState(false);
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
@@ -57,6 +58,13 @@ const StorefrontRouter: React.FC = () => {
   useEffect(() => {
     document.title = 'سنجوب | Sangoub';
   }, []);
+
+  useEffect(() => {
+    if (!user || user.isGuest || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    void enableWebPushNotifications().catch((error) => {
+      console.warn('Web push token sync failed:', error);
+    });
+  }, [user?.id, user?.isGuest]);
 
   // React to URL route changes
   useEffect(() => {

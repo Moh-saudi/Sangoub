@@ -20,6 +20,17 @@ function chunk<T>(items: T[], size: number): T[][] {
   return result;
 }
 
+function notificationWebLink(screen: string, targetId?: string) {
+  const path = screen === 'offers'
+    ? '/offers'
+    : screen === 'orders'
+      ? '/my-orders'
+      : screen === 'store' && targetId
+        ? `/stores/${encodeURIComponent(targetId)}`
+        : '/';
+  return new URL(path, appOrigin).href;
+}
+
 async function fetchAllRows(queryForRange: (from: number, to: number) => any): Promise<any[]> {
   const rows: any[] = [];
   for (let offset = 0; ; offset += 1000) {
@@ -272,13 +283,13 @@ export default async function handler(req: any, res: any) {
     let failureCount = 0;
     let fcmError: string | null = null;
     const invalidDeviceIds: string[] = [];
-    let devices: Array<{ id: string; user_id: string; token: string }> = [];
+    let devices: Array<{ id: string; user_id: string; token: string; platform: string }> = [];
 
     if (userIds.length) {
       for (const userChunk of chunk(userIds, 500)) {
         devices.push(...await fetchAllRows((from, to) => admin
           .from('notification_devices')
-          .select('id,user_id,token')
+          .select('id,user_id,token,platform')
           .eq('enabled', true)
           .in('user_id', userChunk)
           .range(from, to)));
@@ -306,6 +317,16 @@ export default async function handler(req: any, res: any) {
               },
             },
             apns: { payload: { aps: { sound: 'default' } } },
+            webpush: {
+              headers: { Urgency: 'high' },
+              notification: {
+                icon: `${appOrigin}/brand/sangoub-mark-white-256.png`,
+                badge: `${appOrigin}/brand/sangoub-mark-white-64.png`,
+                tag: `sangoub-${campaign.id}`,
+                ...(cleanImageUrl ? { image: cleanImageUrl } : {}),
+              },
+              fcmOptions: { link: notificationWebLink(targetScreen, targetId) },
+            },
           });
           successCount += response.successCount;
           failureCount += response.failureCount;

@@ -35,6 +35,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { disableWebPushNotifications, enableWebPushNotifications } from '../../lib/webPushNotifications';
 import { PartnerRegisterModal } from '../components/PartnerRegisterModal';
 
 interface AccountPageProps {
@@ -75,7 +76,10 @@ export const AccountPage: React.FC<AccountPageProps> = ({
   const [gender, setGender] = useState<'male' | 'female' | ''>('');
   const [receiveOffers, setReceiveOffers] = useState(true);
   const [subscribeNewsletter, setSubscribeNewsletter] = useState(true);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(
+    () => typeof Notification !== 'undefined' && Notification.permission === 'granted',
+  );
+  const [isNotificationBusy, setIsNotificationBusy] = useState(false);
   const [language, setLanguage] = useState<'ar' | 'en'>('ar');
   const [busy, setBusy] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -217,10 +221,43 @@ export const AccountPage: React.FC<AccountPageProps> = ({
 
   const handleLogout = async () => {
     try {
+      if (notificationsEnabled && user && !user.isGuest) {
+        try {
+          await disableWebPushNotifications();
+        } catch (error) {
+          console.warn('Could not disable web push token before logout:', error);
+        }
+      }
       await supabase.auth.signOut();
       setUser(null);
       setCurrentView('main');
     } catch {}
+  };
+
+  const handleNotificationToggle = async () => {
+    if (!user || user.isGuest) {
+      setFeedbackMsg({ type: 'error', text: 'سجّل الدخول أولًا لتفعيل إشعارات حسابك.' });
+      return;
+    }
+    setIsNotificationBusy(true);
+    try {
+      if (notificationsEnabled) {
+        await disableWebPushNotifications();
+        setNotificationsEnabled(false);
+        setFeedbackMsg({ type: 'success', text: 'تم إيقاف إشعارات هذا الجهاز.' });
+      } else {
+        await enableWebPushNotifications();
+        setNotificationsEnabled(true);
+        setFeedbackMsg({ type: 'success', text: 'تم تفعيل إشعارات سنجوب على هذا الجهاز.' });
+      }
+    } catch (error) {
+      setFeedbackMsg({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'تعذر تغيير إعداد الإشعارات.',
+      });
+    } finally {
+      setIsNotificationBusy(false);
+    }
   };
 
   // ══════════════════════════════════════════════════════════════════
@@ -241,6 +278,17 @@ export const AccountPage: React.FC<AccountPageProps> = ({
           </button>
           <h1 className="text-lg font-black text-[#111827]">الإعدادات</h1>
         </div>
+
+        {feedbackMsg && (
+          <div className={`p-3 my-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+            feedbackMsg.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}>
+            {feedbackMsg.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
+            <span>{feedbackMsg.text}</span>
+          </div>
+        )}
 
         {/* Settings List */}
         <div className="bg-white rounded-2xl border border-[#F0F1F3] divide-y divide-[#F0F1F3] overflow-hidden shadow-xs">
@@ -264,13 +312,14 @@ export const AccountPage: React.FC<AccountPageProps> = ({
 
           <button
             type="button"
-            onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+            onClick={() => void handleNotificationToggle()}
+            disabled={isNotificationBusy}
             className="w-full flex items-center justify-between p-4 hover:bg-[#F9FAFB] active:bg-[#F3F4F6] transition-colors cursor-pointer text-right"
           >
             <span className="text-sm font-bold text-[#111827]">الإشعارات</span>
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-bold text-[#6B7280]">
-                {notificationsEnabled ? 'مفعلة' : 'معطلة'}
+                {isNotificationBusy ? 'جارٍ التحديث…' : notificationsEnabled ? 'مفعلة' : 'غير مفعلة'}
               </span>
               <ChevronLeft size={18} className="text-[#9CA3AF]" />
             </div>

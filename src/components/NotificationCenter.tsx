@@ -101,7 +101,6 @@ export function NotificationCenter({ stores = [] }: NotificationCenterProps) {
   const [type, setType] = useState<"promo" | "operational" | "alert" | "general">("promo");
   const [targetScreen, setTargetScreen] = useState("offers");
   const [targetId, setTargetId] = useState("");
-  const [targetUid, setTargetUid] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
@@ -163,6 +162,7 @@ export function NotificationCenter({ stores = [] }: NotificationCenterProps) {
       if (!session?.access_token) throw new Error("يرجى تسجيل الدخول بحساب الإدارة.");
 
       const token = session.access_token;
+      const targetUid = audience === 'single' ? session.user.id : undefined;
       const response = await fetch(apiUrl("/api/notifications"), {
         method: "POST",
         headers: {
@@ -353,6 +353,7 @@ export function NotificationCenter({ stores = [] }: NotificationCenterProps) {
                     { id: "clients", label: "العملاء", icon: ShoppingBag },
                     { id: "couriers", label: "المناديب", icon: Bike },
                     { id: "stores", label: "المتاجر", icon: StoreIcon },
+                    { id: "single", label: "جهازي للاختبار", icon: Smartphone },
                   ].map(({ id, label, icon: Icon }) => (
                     <button
                       key={id}
@@ -379,6 +380,11 @@ export function NotificationCenter({ stores = [] }: NotificationCenterProps) {
                     </button>
                   ))}
                 </div>
+                {audience === 'single' && (
+                  <p style={{ margin: '0.65rem 0 0', color: '#64748b', fontSize: '0.8rem' }}>
+                    سيُرسل الإشعار إلى حسابك الحالي فقط، وقد يصل إلى كل أجهزته المسجلة.
+                  </p>
+                )}
               </div>
 
               {/* Notification Type & Target Screen */}
