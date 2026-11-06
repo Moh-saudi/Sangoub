@@ -365,9 +365,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
             </div>
 
             {/* Flexible Row of Stores — Natural spacing, no empty grid gaps */}
-            <div className="flex items-start gap-4 overflow-x-auto overscroll-x-contain touch-pan-x snap-x snap-mandatory pb-2 w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex items-stretch gap-3 overflow-x-auto overscroll-x-contain touch-pan-x snap-x snap-mandatory pb-2 w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {stores.map((store) => (
-                <MerchantLogoCard key={store.id} store={store} className="w-[82px] sm:w-[94px] shrink-0 snap-start" />
+                <MerchantLogoCard key={store.id} store={store} className="w-[82vw] max-w-[320px] shrink-0 snap-start sm:w-[280px]" />
               ))}
             </div>
           </section>

@@ -2,7 +2,8 @@ import React from 'react';
 import type { Store } from '../../types';
 import { useStore } from '../context/StoreContext';
 import { getStoreLogo, getStoreSlug } from '../../utils/storeAssets';
-import { Star } from 'lucide-react';
+import { ArrowLeft, Bike, Clock3, Star } from 'lucide-react';
+import { formatEGP } from '../../utils/orderCalculations';
 
 interface MerchantLogoCardProps {
   store: Store;
@@ -26,8 +27,7 @@ export const MerchantLogoCard: React.FC<MerchantLogoCardProps> = ({ store, class
     navigate(`/stores/${storeSlug}`);
   };
 
-  const deliveryTimeClean = (store.deliveryTime || '15-25 دقيقة')
-    .replace(' دقيقة', 'د')
+  const deliveryTimeClean = (store.deliveryTime || '15–25 دقيقة')
     .replace(' للأدوار', '');
 
   return (
@@ -35,41 +35,49 @@ export const MerchantLogoCard: React.FC<MerchantLogoCardProps> = ({ store, class
       href={`/stores/${storeSlug}`}
       onClick={handleClick}
       title={store.name}
-      className={`group flex flex-col items-center gap-1.5 cursor-pointer select-none text-decoration-none transition-transform active:scale-95 ${className}`}
+      className={`group flex min-h-[168px] flex-col justify-between gap-3 rounded-3xl border border-[#E5E7EB] bg-white p-3.5 text-decoration-none shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#FF5900]/40 hover:shadow-md active:scale-[0.99] ${className}`}
       aria-label={`متجر ${store.name}`}
     >
-      {/* 1. Squircle Card with Rounded Corners like Talabat — image fills the entire card, ZERO overlay text */}
-      <div className="w-[74px] h-[74px] sm:w-[84px] sm:h-[84px] rounded-2xl sm:rounded-[20px] bg-[#F4F5F7] p-1.5 border border-[#EBECEF] group-hover:border-[#FF5900]/40 group-hover:shadow-sm transition-all duration-300 flex items-center justify-center overflow-hidden shrink-0">
-        <img
-          src={logoSrc}
-          alt={store.name}
-          className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
-          loading="lazy"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
-          }}
-        />
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="h-[88px] w-[88px] shrink-0 overflow-hidden rounded-2xl border border-[#F0F1F3] bg-[#F7F7F8] p-1.5 transition-colors group-hover:border-[#FF5900]/30">
+          <img
+            src={logoSrc}
+            alt={store.name}
+            className="h-full w-full rounded-xl object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
+            }}
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <span className="mb-1 block truncate text-[11px] font-bold text-[#6B7280]">
+            {store.type || 'متجر'}
+          </span>
+          <h3 className="line-clamp-2 text-[15px] font-black leading-5 text-[#111827] transition-colors group-hover:text-[#FF5900]">
+            {displayName}
+          </h3>
+          <div className="mt-2 flex items-center gap-1 text-xs font-bold text-[#374151]">
+            <Star size={13} className="fill-amber-400 text-amber-400" />
+            <span>{store.rating || 4.9}</span>
+            {store.status === 'open' && <span className="mr-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">مفتوح الآن</span>}
+            {store.status === 'busy' && <span className="mr-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">مشغول</span>}
+          </div>
+        </div>
       </div>
 
-      {/* 2. Store info UNDER the card — small font in Tajawal */}
-      <div className="flex flex-col items-center text-center w-full px-0.5">
-        <span
-          className="text-[11px] sm:text-[11.5px] font-bold text-[#1F2937] group-hover:text-[#FF5900] transition-colors line-clamp-1 leading-tight w-full font-tajawal"
-          style={{ fontFamily: "'Tajawal', sans-serif" }}
-        >
-          {displayName}
-        </span>
-        <div 
-          className="flex items-center justify-center gap-1 text-[9.5px] sm:text-[10px] text-[#6B7280] font-medium mt-0.5 font-tajawal"
-          style={{ fontFamily: "'Tajawal', sans-serif" }}
-        >
-          <span className="flex items-center gap-0.5 text-amber-600 font-bold">
-            <Star size={9} className="fill-amber-400 text-amber-400 inline" />
-            <span>{store.rating || 4.9}</span>
-          </span>
-          <span className="text-[#D1D5DB]">•</span>
+      <div className="flex items-center justify-between border-t border-[#F0F1F3] pt-2.5 text-[11px] font-bold text-[#6B7280]">
+        <span className="flex items-center gap-1.5">
+          <Clock3 size={13} className="text-[#FF5900]" />
           <span>{deliveryTimeClean}</span>
-        </div>
+          <span className="text-[#D1D5DB]">·</span>
+          <Bike size={13} className="text-[#FF5900]" />
+          <span>{store.deliveryFee === 0 ? 'توصيل مجاني' : formatEGP(store.deliveryFee)}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-1 text-[#FF5900]">
+          تصفح المتجر <ArrowLeft size={14} />
+        </span>
       </div>
     </a>
   );

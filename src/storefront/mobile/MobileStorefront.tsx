@@ -701,9 +701,9 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
               </a>
             </div>
 
-            <div className="flex items-start gap-4 overflow-x-auto no-scrollbar pb-2 pt-0.5 w-full overscroll-x-contain touch-pan-x">
+            <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 pt-0.5 w-full overscroll-x-contain touch-pan-x snap-x snap-mandatory">
               {stores.map((store) => (
-                <MerchantLogoCard key={store.id} store={store} className="w-[80px] shrink-0" />
+                <MerchantLogoCard key={store.id} store={store} className="w-[82vw] max-w-[320px] shrink-0 snap-start" />
               ))}
             </div>
           </section>
