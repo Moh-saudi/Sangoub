@@ -10,6 +10,22 @@ import { getMessaging } from "firebase-admin/messaging";
 // loading differences in serverless runtimes.
 const config = { projectId: "capital-talabat", firestoreDatabaseId: "(default)" };
 export function adminServices() {
+  const app = firebaseAdminApp();
+  return {
+    db: getFirestore(
+      app,
+      process.env.FIREBASE_DATABASE_ID || config.firestoreDatabaseId,
+    ),
+    messaging: getMessaging(app),
+  };
+}
+
+/** Initialize Firebase only as the FCM transport; notification data stays in Supabase. */
+export function firebaseMessagingService() {
+  return getMessaging(firebaseAdminApp());
+}
+
+function firebaseAdminApp() {
   const projectId = process.env.FIREBASE_PROJECT_ID || config.projectId;
   if (
     !process.env.FIRESTORE_EMULATOR_HOST &&
@@ -32,11 +48,5 @@ export function adminServices() {
             })
           : applicationDefault(),
     });
-  return {
-    db: getFirestore(
-      app,
-      process.env.FIREBASE_DATABASE_ID || config.firestoreDatabaseId,
-    ),
-    messaging: getMessaging(app),
-  };
+  return app;
 }

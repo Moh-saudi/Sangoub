@@ -1,9 +1,7 @@
 import {authenticatedApi} from '../lib/authenticatedApi';
 import { useState, useEffect, useRef } from "react";
-import { db } from "../lib/firebaseNotifications";
 import { supabase } from "../lib/supabase";
 import { apiUrl } from "../lib/apiUrl";
-import { collection, query, orderBy, limit, onSnapshot, Timestamp } from "firebase/firestore";
 import type { Store } from "../types";
 import { uploadCatalogImage } from "../lib/catalogImages";
 import {
@@ -134,7 +132,7 @@ export function NotificationCenter({ stores = [] }: NotificationCenterProps) {
   const [filterAudience, setFilterAudience] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
 
-  // الاستماع اللحظي لسجل الإشعارات
+  // مزامنة سجل الحملات المحفوظ في Supabase أثناء فتح مركز الإشعارات.
   useEffect(() => {
     let active=true,inflight=false;
     const load=async()=>{if(inflight)return;inflight=true;try{const data=await authenticatedApi('/api/notifications',{action:'list'});if(active)setHistory(data.notifications);}catch(e){if(active)setFeedback({success:false,message:e instanceof Error?e.message:'تعذر تحميل سجل الإشعارات.'});}finally{inflight=false;}};
@@ -733,7 +731,7 @@ export function NotificationCenter({ stores = [] }: NotificationCenterProps) {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "#94a3b8" }}>بروتوكول البث:</span>
-                  <span style={{ color: "#38bdf8" }}>FCM Topic Broadcast + Firestore Realtime</span>
+                  <span style={{ color: "#38bdf8" }}>Firebase Cloud Messaging + سجل الحملات في Supabase</span>
                 </div>
               </div>
             </div>
