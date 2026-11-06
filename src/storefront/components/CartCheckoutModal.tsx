@@ -82,10 +82,12 @@ export function CartCheckoutModal({
     return converted.replace(/\D/g, '').slice(0, 11);
   };
 
-  // Mandatory User Authentication Requirement
-  const isUserAuthenticated = Boolean(
-    user && user.id && user.fullName && user.fullName !== 'زائر بدون تسجيل' && user.phone
+  // User Authentication Requirement
+  const isLoggedIn = Boolean(
+    user && user.id && user.fullName && user.fullName !== 'زائر بدون تسجيل'
   );
+  const effectivePhone = user?.phone || (phone && /^01[0125][0-9]{8}$/.test(phone) ? phone : '');
+  const isUserAuthenticated = Boolean(isLoggedIn && effectivePhone);
 
   // Sync state whenever authenticated user profile changes
   useEffect(() => {
@@ -170,10 +172,21 @@ export function CartCheckoutModal({
     e.preventDefault();
     setError('');
 
-    if (!isUserAuthenticated) {
+    if (!isLoggedIn) {
       setError('يرجى تسجيل الدخول أو إنشاء حساب جديد أولاً لإتمام وتأكيد طلبك.');
       onRequestRegister();
       return;
+    }
+
+    if (!effectivePhone) {
+      setError('يرجى إدخال رقم هاتف صحيح (11 رقم يبدأ بـ 01) لتأكيد الطلب والتواصل مع المندوب.');
+      document.querySelector<HTMLInputElement>('input[type="tel"]')?.focus();
+      return;
+    }
+
+    if (user && user.id && !user.phone && effectivePhone) {
+      void supabase.from('profiles').update({ phone: effectivePhone }).eq('id', user.id);
+      setUser({ ...user, phone: effectivePhone });
     }
 
     if (!cartItems.length) {
@@ -460,7 +473,7 @@ export function CartCheckoutModal({
               </div>
 
               {/* 👤 AUTHENTICATION STATUS & MANDATORY REGISTRATION BANNER */}
-              {!isUserAuthenticated ? (
+              {!isLoggedIn ? (
                 <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-300 rounded-2xl p-4 shadow-xs space-y-3">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-3">
@@ -485,6 +498,25 @@ export function CartCheckoutModal({
                     </button>
                   </div>
                 </div>
+              ) : !effectivePhone ? (
+                <div className="bg-amber-50/90 border border-amber-300 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                      !
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs sm:text-sm font-black text-slate-900">{user?.fullName}</h4>
+                        <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                          مطلوب رقم هاتف للتوصيل
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-amber-800 mt-0.5">
+                        أدخل رقم هاتفك في الخانة بالأسفل لنتمكن من التواصل معك وتسليم الطلب.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
@@ -499,7 +531,7 @@ export function CartCheckoutModal({
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 font-mono mt-0.5" dir="ltr">
-                        {user?.phone}
+                        {effectivePhone}
                       </p>
                     </div>
                   </div>
@@ -798,16 +830,21 @@ export function CartCheckoutModal({
         {cartItems.length > 0 && (
           <footer className="p-4 sm:p-5 border-t border-slate-200 bg-white shrink-0">
             <button
-              onClick={!isUserAuthenticated ? onRequestRegister : handleSubmitOrder}
+              onClick={!isLoggedIn ? onRequestRegister : handleSubmitOrder}
               disabled={isSubmitting || (isUserAuthenticated && !isCashAllowed)}
               className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl p-4 font-black text-base flex justify-center items-center gap-2 shadow-lg shadow-orange-500/25 transition-all cursor-pointer"
             >
               {isSubmitting ? (
                 <span>جارٍ تأكيد وإرسال الطلب...</span>
-              ) : !isUserAuthenticated ? (
+              ) : !isLoggedIn ? (
                 <>
                   <span>تسجيل الدخول / إنشاء حساب للمتابعة • {formatEGP(total)}</span>
                   <User size={18} />
+                </>
+              ) : !effectivePhone ? (
+                <>
+                  <span>أدخل رقم الهاتف لتأكيد الطلب • {formatEGP(total)}</span>
+                  <Phone size={18} />
                 </>
               ) : (
                 <>

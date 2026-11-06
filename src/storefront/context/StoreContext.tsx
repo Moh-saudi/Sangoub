@@ -166,7 +166,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (
       path.startsWith('/my-orders') ||
       path.startsWith('/track') ||
-      path.startsWith('/checkout')
+      path.startsWith('/checkout') ||
+      path.startsWith('/admin') ||
+      path.startsWith('/merchant') ||
+      path.startsWith('/courier') ||
+      path.startsWith('/kitchen')
     ) {
       window.location.assign(path);
       return;

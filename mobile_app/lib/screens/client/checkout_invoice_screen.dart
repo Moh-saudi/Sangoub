@@ -138,7 +138,7 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
       return;
     }
 
-    if (auth.firebaseUser == null) {
+    if (!auth.isAuthenticated) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -157,9 +157,7 @@ class _CheckoutInvoiceScreenState extends State<CheckoutInvoiceScreen> {
 
       final profileName = (auth.currentUser?.name.isNotEmpty == true)
           ? auth.currentUser!.name
-          : (auth.firebaseUser?.displayName?.isNotEmpty == true
-              ? auth.firebaseUser!.displayName!
-              : '');
+          : '';
 
       final phone = (auth.currentUser?.phone.isNotEmpty == true)
           ? auth.currentUser!.phone

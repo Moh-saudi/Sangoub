@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'api_service.dart';
+import 'supabase_service.dart';
 
 /// خدمة التخزين السحابي Cloudflare R2 Object Storage
 /// مخصصة لرفع وتخزين واسترجاع صور الوجبات، لوجوهات المطاعم، فواتير الطلبات، والصور الشخصية
@@ -63,9 +63,10 @@ class CloudflareR2Service {
     required String userId,
     String contentType = 'image/jpeg',
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || user.uid != userId) throw Exception('يرجى تسجيل الدخول.');
-    final token = await user.getIdToken();
+    final user = SupabaseService().currentUser;
+    if (user == null || user.id != userId) throw Exception('يرجى تسجيل الدخول.');
+    final token = SupabaseService().client.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('انتهت جلسة تسجيل الدخول.');
     final response = await http.post(
       Uri.parse('${ApiService.baseUrl}/api/user-avatar'),
       headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},

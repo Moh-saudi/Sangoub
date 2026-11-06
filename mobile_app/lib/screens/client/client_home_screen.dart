@@ -147,10 +147,9 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   Widget _buildUserAvatar(AuthProvider auth) {
     // 1. صورة مخصصة قام المستخدم برفعها / 2. صورة حساب Google التي سجل بها
     final customAvatar = auth.currentUser?.avatarUrl?.trim();
-    final googleAvatar = auth.firebaseUser?.photoURL?.trim();
     final photoUrl = (customAvatar != null && customAvatar.isNotEmpty)
         ? customAvatar
-        : ((googleAvatar != null && googleAvatar.isNotEmpty) ? googleAvatar : null);
+        : null;
     final hasPhoto = photoUrl != null;
 
     return InkWell(
@@ -209,9 +208,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   Widget _buildAvatarInitials(AuthProvider auth) {
     final name = (auth.currentUser?.name.isNotEmpty == true)
         ? auth.currentUser!.name
-        : (auth.firebaseUser?.displayName?.isNotEmpty == true
-            ? auth.firebaseUser!.displayName!
-            : 'موظف العاصمة');
+        : 'موظف العاصمة';
     final parts = name.trim().split(' ').where((p) => p.isNotEmpty).toList();
     String initials = 'م';
     if (parts.length >= 2) {

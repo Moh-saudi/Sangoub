@@ -747,7 +747,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({
                 <span className="text-gray-300">•</span>
                 <button
                   type="button"
-                  onClick={() => navigate('/admin')}
+                  onClick={() => { window.location.assign('/admin'); }}
                   className="text-xs font-black text-[#FF5900] hover:text-[#e04f00] flex items-center gap-1 underline cursor-pointer"
                 >
                   <span>لوحة الإدارة</span>

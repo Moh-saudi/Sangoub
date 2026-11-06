@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'supabase_service.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -11,7 +11,7 @@ class ApiService {
   /// عنوان الخادم الإنتاجي مع إمكانية التخصيص بـ --dart-define=API_BASE_URL=...
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://capital-talabat.vercel.app',
+    defaultValue: 'https://sangoub.el7lm.com',
   );
 
   Future<bool> geideaAvailable() async {
@@ -25,6 +25,19 @@ class ApiService {
     if (token == null) throw Exception('يرجى تسجيل الدخول.');
     final response = await http.post(Uri.parse('$baseUrl/api/notifications'), headers: {'Content-Type':'application/json','Authorization':'Bearer $token'}, body: jsonEncode({'action':'register-token','token':deviceToken,'platform':platform}));
     if (response.statusCode != 200) throw Exception('تعذر تسجيل جهاز الإشعارات.');
+  }
+
+  Future<void> unregisterNotificationToken(String deviceToken) async {
+    final token = await _getIdToken();
+    if (token == null) return;
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/notifications'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      body: jsonEncode({'action': 'unregister-token', 'token': deviceToken}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('تعذر إلغاء ربط جهاز الإشعارات.');
+    }
   }
 
   Future<void> updateOwnProfile(Map<String, dynamic> data) async {
@@ -42,9 +55,7 @@ class ApiService {
   }
 
   Future<String?> _getIdToken() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return null;
-    return await user.getIdToken();
+    return SupabaseService().client.auth.currentSession?.accessToken;
   }
 
   /// 1. إنشاء طلب عبر خادم الويب الموثق (POST /api/orders)

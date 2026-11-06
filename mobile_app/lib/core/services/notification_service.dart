@@ -175,6 +175,13 @@ class NotificationService {
     }
   }
 
+  /// تعطيل ربط رمز الجهاز بالحساب الحالي قبل تسجيل الخروج.
+  Future<void> unregisterCurrentDeviceToken() async {
+    final token = await _fcm.getToken();
+    if (token == null || token.isEmpty) return;
+    await ApiService().unregisterNotificationToken(token);
+  }
+
   /// إظهار تنبيه محلي فوري عند تغير حالة الطلب
   Future<void> showOrderStageAlert({
     required String orderId,

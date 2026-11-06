@@ -366,7 +366,7 @@ export default function AdminApp() {
               <p className="text-sm text-slate-500">استخدم الحساب المعتمد للإدارة.</p>
               <button
                 disabled={busy}
-                onClick={() => action(async () => { await signInWithSupabaseGoogle(); })}
+                onClick={() => action(async () => { await signInWithSupabaseGoogle(window.location.origin + '/admin'); })}
                 className="admin-signin-google"
               >
                 <GoogleSignInMark />الدخول باستخدام Google

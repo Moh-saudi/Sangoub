@@ -1,7 +1,7 @@
 import 'api_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'supabase_service.dart';
 import '../../models/user_model.dart';
 import '../../models/store_model.dart';
 import '../../models/product_model.dart';
@@ -13,12 +13,8 @@ class FirebaseService {
   FirebaseService._internal();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   FirebaseFirestore get firestore => _firestore;
-  FirebaseAuth get auth => _auth;
-
-  User? get currentFirebaseUser => _auth.currentUser;
 
   // ─── 1. التحقق من صلاحيات الإدارة والفريق (admins/staff) ───────────────────
 
@@ -70,37 +66,6 @@ class FirebaseService {
     }
   }
 
-  /// إنشاء ملف موظف جديد موثّق وفق قواعد أمان Firestore
-  Future<void> createInitialUserProfile({
-    required User firebaseUser,
-    String? fullName,
-    String? phone,
-    String? ministry,
-    String? floor,
-    String? room,
-  }) async {
-    final uid = firebaseUser.uid;
-    final docRef = _firestore.collection('users').doc(uid);
-
-    final payload = {
-      'uid': uid,
-      'fullName': fullName ?? firebaseUser.displayName ?? 'موظف بالعاصمة الإدارية',
-      'email': firebaseUser.email ?? '',
-      'phone': phone ?? firebaseUser.phoneNumber ?? '',
-      'ministry': ministry ?? '',
-      'floorNumber': floor ?? '',
-      'roomNumber': room ?? '',
-      'role': 'employee',
-      'walletBalance': 0, // الرصيد الابتدائي صفر وفق العقد
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      if (firebaseUser.photoURL != null) 'avatarUrl': firebaseUser.photoURL,
-    };
-
-    await docRef.set(payload);
-    debugPrint('✅ تم إنشاء ملف المستخدم في Firestore: $uid');
-  }
-
   /// تحديث بيانات العنوان والتواصل للموظف
   Future<void> updateUserAddressProfile({
     required String uid,
@@ -110,7 +75,7 @@ class FirebaseService {
     required String floorNumber,
     required String roomNumber,
   }) async {
-    if (FirebaseAuth.instance.currentUser?.uid != uid) throw Exception('الحساب غير مصرح.');
+    if (SupabaseService().currentUser?.id != uid) throw Exception('الحساب غير مصرح.');
     await ApiService().updateOwnProfile({'fullName':fullName.trim(),'phone':phone.trim(),'ministry':ministry.trim(),'floorNumber':floorNumber.trim(),'roomNumber':roomNumber.trim()});
     debugPrint('✅ تم تحديث بيانات الموظف: $uid');
   }
@@ -120,7 +85,7 @@ class FirebaseService {
     required String uid,
     required String avatarUrl,
   }) async {
-    if (FirebaseAuth.instance.currentUser?.uid != uid) throw Exception('الحساب غير مصرح.');
+    if (SupabaseService().currentUser?.id != uid) throw Exception('الحساب غير مصرح.');
     await ApiService().updateOwnProfile({'avatarUrl':avatarUrl});
     debugPrint('✅ تم تحديث صورة الملف الشخصي: $uid');
   }

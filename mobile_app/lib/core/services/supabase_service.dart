@@ -17,15 +17,11 @@ class SupabaseService {
 
   /// تهيئة Supabase عند بدء التطبيق
   static Future<void> initialize({String? url, String? anonKey}) async {
-    try {
-      await Supabase.initialize(
-        url: url ?? supabaseUrl,
-        anonKey: anonKey ?? supabaseAnonKey,
-      );
-      debugPrint('Supabase initialized successfully for project tvnsqatkaqyubeznhnmu');
-    } catch (e) {
-      debugPrint('Supabase initialization error: $e');
-    }
+    await Supabase.initialize(
+      url: url ?? supabaseUrl,
+      anonKey: anonKey ?? supabaseAnonKey,
+    );
+    debugPrint('Supabase initialized successfully for project tvnsqatkaqyubeznhnmu');
   }
 
   User? get currentUser => client.auth.currentUser;
@@ -33,38 +29,69 @@ class SupabaseService {
 
   // ─── 1. الحساب الشخصي (Profiles) ───────────────────────────────────────────
   Future<UserModel?> getUserProfile(String uid) async {
-    try {
-      final data = await client
-          .from('profiles')
-          .select()
-          .eq('id', uid)
-          .maybeSingle();
-
-      if (data == null) return null;
-      return UserModel(
-        uid: uid,
-        fullName: data['full_name'] ?? '',
-        phone: data['phone'] ?? '',
-        email: data['email'] ?? '',
-        role: data['role'] ?? 'employee',
-        ministry: data['ministry'] ?? '',
-        floorNumber: data['floor_number'] ?? '',
-        roomNumber: data['room_number'] ?? '',
-        walletBalance: (data['wallet_balance'] as num?)?.toDouble() ?? 0.0,
-      );
-    } catch (e) {
-      debugPrint('getUserProfile Supabase error: $e');
-      return null;
+    if (client.auth.currentUser?.id != uid) {
+      throw const AuthException('غير مصرح بقراءة ملف هذا الحساب.');
     }
+
+    final data = await client.from('profiles').select().eq('id', uid).maybeSingle();
+    if (data == null) return null;
+
+    final authUser = client.auth.currentUser!;
+    final metadata = authUser.userMetadata ?? const <String, dynamic>{};
+    final assignments = await client
+        .from('user_roles')
+        .select('role_id, store_id')
+        .eq('user_id', uid);
+    final roleIds = List<Map<String, dynamic>>.from(assignments)
+        .map((row) => row['role_id']?.toString())
+        .whereType<String>()
+        .toSet();
+
+    final profileRole = (data['role'] ?? '').toString();
+    final assignedRole = roleIds.contains('super_admin')
+        ? 'admin'
+        : roleIds.contains('courier') || roleIds.contains('store_courier')
+            ? 'courier'
+            : roleIds.contains('store_owner') ||
+                    roleIds.contains('store_manager') ||
+                    roleIds.contains('kitchen_staff') ||
+                    roleIds.contains('store_accountant')
+                ? 'restaurant'
+                : null;
+    final role = profileRole == 'admin' ||
+            profileRole == 'courier' ||
+            profileRole == 'restaurant'
+        ? profileRole
+        : assignedRole ?? 'employee';
+    final storeAssignment = List<Map<String, dynamic>>.from(assignments)
+        .where((row) => row['store_id'] != null)
+        .firstOrNull;
+
+    String profileText(String key, String metadataKey) =>
+        (data[key] ?? metadata[metadataKey] ?? '').toString();
+
+    return UserModel(
+      id: uid,
+      name: profileText('full_name', 'full_name').trim().isEmpty
+          ? 'مستخدم جديد'
+          : profileText('full_name', 'full_name').trim(),
+      phone: profileText('phone', 'phone'),
+      email: (data['email'] ?? authUser.email ?? '').toString(),
+      role: UserRoleExtension.fromString(role),
+      ministryName: profileText('ministry', 'ministry'),
+      floor: profileText('floor_number', 'floor_number'),
+      officeNumber: profileText('room_number', 'room_number'),
+      walletBalance: (data['wallet_balance'] as num?)?.toDouble() ?? 0.0,
+      avatarUrl: (data['avatar_url'] ?? metadata['avatar_url'])?.toString(),
+      storeId: storeAssignment?['store_id']?.toString(),
+    );
   }
 
   Future<void> updateProfile(String uid, Map<String, dynamic> updates) async {
-    try {
-      await client.from('profiles').update(updates).eq('id', uid);
-    } catch (e) {
-      debugPrint('updateProfile Supabase error: $e');
-      rethrow;
+    if (client.auth.currentUser?.id != uid) {
+      throw const AuthException('غير مصرح بتحديث ملف هذا الحساب.');
     }
+    await client.from('profiles').update(updates).eq('id', uid);
   }
 
   // ─── 2. المتاجر والمنتجات (Stores & Products) ──────────────────────────────

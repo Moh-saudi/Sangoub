@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import '../../core/services/api_service.dart';
-import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -53,7 +52,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
     _phoneController = TextEditingController(text: user?.phone ?? '01012345678');
     _dobController = TextEditingController(text: '15 / 06 / 1992');
 
-    _loadSavedPreferences(user?.id ?? FirebaseAuth.instance.currentUser?.uid);
+    _loadSavedPreferences(user?.id);
   }
 
   @override
@@ -200,8 +199,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
   Future<void> _saveAllChanges() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final user = auth.currentUser;
-    final fbUser = FirebaseAuth.instance.currentUser;
-    final uid = user?.id ?? fbUser?.uid;
+    final uid = user?.id;
     if (uid == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -243,15 +241,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
         if (phone.isNotEmpty) 'phone': phone,
       });
 
-      // 3. تحديث اسم المستخدم في Firebase Auth
-      final firebaseUser = FirebaseAuth.instance.currentUser;
-      if (firebaseUser != null && fullName.isNotEmpty) {
-        try {
-          await firebaseUser.updateDisplayName(fullName);
-        } catch (_) {}
-      }
-
-      // 4. تحديث جلسة المستخدم في التطبيق محلياً
+      // تحديث بيانات المستخدم المعروضة من ملف Supabase.
       await auth.reloadUserSession();
 
       if (!mounted) return;

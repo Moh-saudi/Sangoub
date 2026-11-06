@@ -24,10 +24,9 @@ class UserProfileScreen extends StatelessWidget {
 
     // 1. صورة مخصصة قام المستخدم برفعها / 2. صورة حساب Google الرسمي
     final customAvatar = user?.avatarUrl?.trim();
-    final googleAvatar = auth.firebaseUser?.photoURL?.trim();
     final photoUrl = (customAvatar != null && customAvatar.isNotEmpty)
         ? customAvatar
-        : ((googleAvatar != null && googleAvatar.isNotEmpty) ? googleAvatar : null);
+        : null;
     final hasPhoto = photoUrl != null;
 
     return Scaffold(
