@@ -1,6 +1,6 @@
 import { authenticatedApi } from '../../lib/authenticatedApi';
 import { usableDeliveryAddress, pendingDeliveryAddressKey } from '../../services/deliveryAddress';
-import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import type { Product, Store, CartItem, Coupon, Profile } from '../../types';
 import { BRAND } from '../../brand';
 import { calculateCartSubtotal, calculateOrderTotal, applyCouponDiscount, cleanDisplayAddress } from '../../utils/orderCalculations';
