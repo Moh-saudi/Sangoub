@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import { createClient } from '@supabase/supabase-js';
 import type { Profile, Store, Product, Order } from '../types';
+import { playAirportChime } from '../utils/audioAlerts';
 // Removed static seedData stores
 export const INITIAL_STORES = [];
 export const INITIAL_PRODUCTS = [];
@@ -552,7 +553,12 @@ export function subscribeToAdminOrders(
   };
   void load();
   const channel = supabase.channel('admin-orders-feed')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => void load())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload: any) => {
+      if (payload.eventType === 'INSERT') {
+        void playAirportChime();
+      }
+      void load();
+    })
     .subscribe(status => onConnection?.(status === 'SUBSCRIBED'));
   const timer = window.setInterval(() => { if (!document.hidden) void load(); }, 30000);
   return () => { active = false; window.clearInterval(timer); void supabase.removeChannel(channel); onConnection?.(false); };

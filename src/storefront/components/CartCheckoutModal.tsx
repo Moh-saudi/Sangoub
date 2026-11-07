@@ -569,11 +569,11 @@ export function CartCheckoutModal({
         sessionStorage.removeItem(attemptKey);
 
         // 🔔 Register order confirmed notification for customer
-        const notifOrderNum = trackable.orderNumber || (trackable.orderId.includes('-') ? `SG-${trackable.orderId.replace(/^(ord-|order-)/i, '').slice(0, 6).toUpperCase()}` : `#${trackable.orderId.slice(0, 8)}`);
+        const notifOrderNum = trackable.orderNumber || (trackable.orderId.includes('-') ? `SG-${trackable.orderId.replace(/^(ord-|order-)/i, '').slice(0, 6).toUpperCase()}` : `${trackable.orderId.slice(0, 8).toUpperCase()}`);
         const newNotification = {
           id: `notif-${Date.now()}`,
           title: 'تم استلام وتأكيد طلبك بنجاح! 🎉',
-          body: `طلبك رقم ${notifOrderNum} قيد التجهيز الآن لدى ${currentStore.name}. سنوافيك بكل خطوة فوراً.`,
+          body: `طلبك رقم (${notifOrderNum}) قيد التجهيز الآن لدى ${currentStore.name}. سنوافيك بكل خطوة فوراً.`,
           type: 'order',
           targetScreen: 'orders',
           targetId: trackable.orderId,

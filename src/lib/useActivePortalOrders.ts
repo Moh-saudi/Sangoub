@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { operationsApi } from './operationsApi';
 import { supabase } from './supabase';
+import { playAirportChime } from '../utils/audioAlerts';
 export function useActivePortalOrders(uid: string | undefined, storeId?: string) {
   const [items, setItems] = useState<any[]>([]),
     [loading, setLoading] = useState(true),
@@ -65,6 +66,7 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
         if (!active) return;
         liveConnected = true;
         setLive(true);
+        void playAirportChime();
         clearTimeout(queued);
         queued = setTimeout(() => void load(), 100);
       })

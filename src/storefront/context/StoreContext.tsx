@@ -9,6 +9,7 @@ import { getSupabaseStores, getSupabaseProducts, KNOWN_STORE_ASSETS, subscribeTo
 import { getStoreSlug, matchStoreId } from '../../utils/storeAssets';
 
 import { StoreBanner, DEFAULT_SANGOUB_BANNERS } from '../types/banner';
+import { playAirportChime } from '../../utils/audioAlerts';
 import { 
   SUPERMARKET_CATEGORY_TEMPLATES, 
   STORE_TYPES, 
@@ -268,6 +269,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const showToast = useCallback((message: string, type: 'info' | 'error' | 'warning' = 'info') => {
     setToast({ message, type });
+    void playAirportChime();
     setTimeout(() => {
       setToast(prev => (prev?.message === message ? null : prev));
     }, 3500);

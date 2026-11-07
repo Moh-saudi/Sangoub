@@ -18,6 +18,7 @@ import {
   AlertCircle 
 } from 'lucide-react';
 import type { OrderStatus } from '../../types';
+import { playAirportChime } from '../../utils/audioAlerts';
 
 export interface TrackableOrder {
   orderId: string;
@@ -131,8 +132,9 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: realtimeFilter },
         (payload: any) => {
           if (payload.new) {
-            if (payload.new.status) {
+            if (payload.new.status && payload.new.status !== currentStatus) {
               setCurrentStatus(payload.new.status as OrderStatus);
+              void playAirportChime();
             }
             if (payload.new.payment_status) {
               setPaymentStatus(payload.new.payment_status);

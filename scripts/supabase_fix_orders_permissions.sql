@@ -64,26 +64,26 @@ BEGIN
   
   IF (TG_OP = 'INSERT') THEN
     v_title := 'تم استلام طلبك بنجاح! 🎉';
-    v_body := 'طلبك رقم #' || v_num || ' قيد المراجعة والتجهيز لدى المتجر.';
+    v_body := 'طلبك رقم (' || v_num || ') قيد المراجعة والتجهيز لدى المتجر.';
   ELSIF (TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status) THEN
     IF NEW.status = 'preparing' THEN
       v_title := 'طلبك قيد التجهيز الآن 👨‍🍳';
-      v_body := 'المتجر يقوم حالياً بتحضير وتغليف طلبك رقم #' || v_num || '.';
+      v_body := 'المتجر يقوم حالياً بتحضير وتغليف طلبك رقم (' || v_num || ').';
     ELSIF NEW.status = 'ready' THEN
       v_title := 'طلبك جاهز للاستلام! 📦';
-      v_body := 'تم تجهيز طلبك رقم #' || v_num || ' وفي انتظار استلام المندوب.';
+      v_body := 'تم تجهيز طلبك رقم (' || v_num || ') وفي انتظار استلام المندوب.';
     ELSIF NEW.status = 'with_courier' THEN
       v_title := 'المندوب في الطريق إليك 🛵';
-      v_body := 'استلم المندوب طلبك رقم #' || v_num || ' وهو متوجه إلى عنوانك الآن.';
+      v_body := 'استلم المندوب طلبك رقم (' || v_num || ') وهو متوجه إلى عنوانك الآن.';
     ELSIF NEW.status = 'delivered' THEN
       v_title := 'تم توصيل الطلب بنجاح! 🎉';
-      v_body := 'بالهناء والشفاء! تم تسليم طلبك رقم #' || v_num || '.';
+      v_body := 'بالهناء والشفاء! تم تسليم طلبك رقم (' || v_num || ').';
     ELSIF NEW.status = 'cancelled' THEN
       v_title := 'تم إلغاء الطلب';
-      v_body := 'تم إلغاء طلبك رقم #' || v_num || '.';
+      v_body := 'تم إلغاء طلبك رقم (' || v_num || ').';
     ELSE
       v_title := 'تحديث في حالة الطلب';
-      v_body := 'تم تغيير حالة طلبك رقم #' || v_num || ' إلى ' || NEW.status;
+      v_body := 'تم تغيير حالة طلبك رقم (' || v_num || ') إلى ' || NEW.status;
     END IF;
   ELSE
     RETURN NEW;
