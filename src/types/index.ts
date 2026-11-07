@@ -102,6 +102,8 @@ export interface Store {
   storeSubtypeId?: string;
   commissionRate?: number;
   coordinates?: Coordinates;
+  latitude?: number;
+  longitude?: number;
   taxRate?: number;
   taxRegistrationNumber?: string;
   pricesIncludeTax?: boolean;

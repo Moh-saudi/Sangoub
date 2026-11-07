@@ -15,11 +15,14 @@ import {
   Percent,
   CreditCard,
   Sparkles,
+  Compass,
+  ExternalLink,
 } from "lucide-react";
 import type { Store, StoreCategory } from "../types";
 import { storeCategories } from "../utils/catalogManagement";
 import { uploadCatalogImage, validateCatalogImage } from "../lib/catalogImages";
 import { getMerchantPaymentSettings, type MerchantPaymentInfo } from "../utils/merchantPaymentSettings";
+import { StoreLocationPickerModal } from "./StoreLocationPickerModal";
 
 export interface StoreEditorModalProps {
   store?: Store | null;
@@ -33,6 +36,9 @@ export interface StoreEditorModalProps {
     category: StoreCategory;
     status: "open" | "closed" | "busy";
     address: string;
+    latitude?: number;
+    longitude?: number;
+    preciseAddress?: string;
     minOrder: number;
     deliveryFee: number;
     deliveryTime: string;
@@ -60,7 +66,15 @@ export function StoreEditorModal({
   const [status, setStatus] = useState<"open" | "closed" | "busy">(store?.status || "open");
 
   // 2. Location
-  const [address, setAddress] = useState(store?.locationInDistrict || "");
+  const [address, setAddress] = useState(store?.locationInDistrict || store?.preciseAddress || "");
+  const [latitude, setLatitude] = useState<number | undefined>(
+    (store as any)?.latitude ?? (store?.coordinates?.latitude ?? undefined)
+  );
+  const [longitude, setLongitude] = useState<number | undefined>(
+    (store as any)?.longitude ?? (store?.coordinates?.longitude ?? undefined)
+  );
+  const [preciseAddress, setPreciseAddress] = useState<string>(store?.preciseAddress || "");
+  const [showLocationPicker, setShowLocationPicker] = useState<boolean>(false);
 
   // 3. Delivery & Ordering Settings
   const [minOrder, setMinOrder] = useState<number>(store?.minOrder ?? 20);
@@ -214,6 +228,9 @@ export function StoreEditorModal({
         category,
         status,
         address: trimmedAddress,
+        latitude,
+        longitude,
+        preciseAddress: preciseAddress || trimmedAddress,
         minOrder,
         deliveryFee,
         deliveryTime: deliveryTime.trim() || "15-25 دقيقة",
@@ -407,10 +424,69 @@ export function StoreEditorModal({
 
           {/* Section 2: Address & Location */}
           <div className="p-4 sm:p-5 bg-slate-50/70 rounded-2xl border border-slate-200 space-y-3">
-            <div className="flex items-center gap-2 pb-2 border-b border-slate-200 text-slate-800">
-              <MapPin size={17} className="text-orange-600" />
-              <h3 className="text-sm font-black">العنوان والموقع الجغرافي</h3>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <div className="flex items-center gap-2 text-slate-800">
+                <MapPin size={17} className="text-orange-600" />
+                <h3 className="text-sm font-black">العنوان والموقع الجغرافي</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLocationPicker(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer"
+              >
+                <Compass size={14} />
+                <span>📍 تحديد الموقع على الخريطة</span>
+              </button>
             </div>
+
+            {/* Coordinates / Map status badge */}
+            {latitude !== undefined && longitude !== undefined ? (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                  <span className="font-bold text-emerald-900 truncate">
+                    إحداثيات GPS المعتمدة:
+                    <span className="font-mono text-emerald-800 mr-1.5 dir-ltr">
+                      {latitude.toFixed(5)}, {longitude.toFixed(5)}
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={`https://maps.google.com/?q=${latitude},${longitude}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1"
+                  >
+                    <span>فتح Google Maps</span>
+                    <ExternalLink size={11} />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setShowLocationPicker(true)}
+                    className="text-[11px] font-bold text-orange-700 bg-orange-100 hover:bg-orange-200 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
+                  >
+                    تغيير
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 text-amber-800">
+                  <AlertCircle size={15} className="shrink-0 text-amber-600" />
+                  <span className="font-semibold text-[11.5px]">
+                    لم يتم تعيين إحداثيات المتجر بعد. اضغط على الزر لتحديد موقع المتجر على الخريطة بدقة.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowLocationPicker(true)}
+                  className="text-[11px] font-bold text-orange-700 bg-orange-100 hover:bg-orange-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0"
+                >
+                  اختر من الخريطة
+                </button>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -424,6 +500,9 @@ export function StoreEditorModal({
                 placeholder="مثال: الحي الحكومي - مبنى سنترال سنجوب - أمام الميدان الرئيسي"
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
               />
+              <p className="text-[11px] text-slate-500 mt-1">
+                💡 عند تحديد الموقع على الخريطة، يُملأ هذا الحقل باسم الشارع والحي تلقائيًا، ويمكنك إضافة علامة مميزة أو رقم المبنى.
+              </p>
             </div>
           </div>
 
@@ -835,6 +914,23 @@ export function StoreEditorModal({
           </div>
         </form>
       </div>
+
+      {showLocationPicker && (
+        <StoreLocationPickerModal
+          isOpen={showLocationPicker}
+          initialLat={latitude}
+          initialLng={longitude}
+          initialAddress={address}
+          onClose={() => setShowLocationPicker(false)}
+          onConfirm={(loc) => {
+            setLatitude(loc.lat);
+            setLongitude(loc.lng);
+            setAddress(loc.address);
+            setPreciseAddress(loc.address);
+            setShowLocationPicker(false);
+          }}
+        />
+      )}
     </div>
   );
 }

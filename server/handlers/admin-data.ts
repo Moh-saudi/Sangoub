@@ -8,13 +8,13 @@ import { supabaseAdminClient } from '../supabaseAdmin.ts';
 
 const fields:Record<string,string[]>={
   products:['id','storeId','storeName','name','nameEn','description','price','originalPrice','category','categoryId','barcode','merchantPosSku','verticalId','imageType','imageUrl','imageKey','inStock','archived','badge','isPopular','optionGroups','stockQuantity','minStockAlert','maxPerOrder','catalogProductId','offerTitle','isOccasion','occasionName','offerStartDate','offerEndDate'],
-  stores:['commissionRate','taxRate','taxRegistrationNumber','pricesIncludeTax','id','name','nameEn','locationInDistrict','address','type','category','status','deliveryTime','minOrder','deliveryFee','imageUrl','bannerUrl','logoUrl','logoKey','bannerKey','imageKey','logo','banner','rating','ratingCount','updatedAt','stoppedAt'],
+  stores:['commissionRate','taxRate','taxRegistrationNumber','pricesIncludeTax','id','name','nameEn','locationInDistrict','address','type','category','status','deliveryTime','minOrder','deliveryFee','imageUrl','bannerUrl','logoUrl','logoKey','bannerKey','imageKey','logo','banner','rating','ratingCount','updatedAt','stoppedAt','latitude','longitude','preciseAddress','coordinates'],
   coupons:['code','discountType','value','minOrder','title','description'],staff:['role','name','phone','storeId'],partnerApplications:['status'],jobApplications:['status'],
   orders:['orderStatus','courierId','courierName','courierPhone'],
 };
 const dbFields:Record<string,Record<string,string>>={
   products:{storeId:'store_id',name:'name',nameEn:'name_en',description:'description',price:'price',originalPrice:'original_price',category:'category',categoryId:'category_id',barcode:'barcode',merchantPosSku:'merchant_pos_sku',verticalId:'vertical_id',imageType:'image_type',imageUrl:'image_url',imageKey:'image_key',inStock:'is_available',archived:'archived',badge:'badge',isPopular:'is_popular',optionGroups:'options',stockQuantity:'stock_quantity',minStockAlert:'min_stock_alert',maxPerOrder:'max_per_order',catalogProductId:'catalog_product_id',offerTitle:'offer_title',isOccasion:'is_occasion',occasionName:'occasion_name',offerStartDate:'offer_start_date',offerEndDate:'offer_end_date'},
-  stores:{name:'name',nameEn:'name_en',locationInDistrict:'location_in_district',address:'location_in_district',type:'type',category:'category',status:'status',deliveryTime:'delivery_time',minOrder:'min_order',deliveryFee:'delivery_fee',imageUrl:'banner',bannerUrl:'banner',banner:'banner',logoUrl:'logo',logo:'logo',commissionRate:'commission_rate',taxRate:'tax_rate',taxRegistrationNumber:'tax_number',pricesIncludeTax:'prices_include_tax',rating:'rating',ratingCount:'rating_count',updatedAt:'updated_at'},
+  stores:{name:'name',nameEn:'name_en',locationInDistrict:'location_in_district',address:'location_in_district',type:'type',category:'category',status:'status',deliveryTime:'delivery_time',minOrder:'min_order',deliveryFee:'delivery_fee',imageUrl:'banner',bannerUrl:'banner',banner:'banner',logoUrl:'logo',logo:'logo',commissionRate:'commission_rate',taxRate:'tax_rate',taxRegistrationNumber:'tax_number',pricesIncludeTax:'prices_include_tax',rating:'rating',ratingCount:'rating_count',updatedAt:'updated_at',latitude:'latitude',longitude:'longitude',preciseAddress:'precise_address'},
   coupons:{code:'code',discountType:'discount_type',value:'value',minOrder:'min_order',title:'title',description:'description'},
 };
 const bad=(message='بيانات غير صالحة.')=>{throw new AdminError(400,message);};
@@ -61,6 +61,8 @@ const toApp=(type:string,row:any):any=>type==='products'?{
   minOrder:Number(row.min_order)||0,deliveryFee:Number(row.delivery_fee)||0,imageUrl:row.logo_url||row.logo,bannerUrl:row.banner_url||row.banner,
   logoUrl:row.logo_url||row.logo,commissionRate:row.commission_rate!=null?Number(row.commission_rate):undefined,taxRate:row.tax_rate!=null?Number(row.tax_rate):0,
   taxRegistrationNumber:row.tax_registration_number||row.tax_number,pricesIncludeTax:row.prices_include_tax!==false,rating:Number(row.rating)||5,ratingCount:Number(row.rating_count)||0,
+  latitude:row.latitude!=null?Number(row.latitude):undefined,longitude:row.longitude!=null?Number(row.longitude):undefined,preciseAddress:row.precise_address||'',
+  coordinates:row.latitude!=null&&row.longitude!=null?{latitude:Number(row.latitude),longitude:Number(row.longitude)}:undefined,
 }:type==='coupons'?{...row,discountType:row.discount_type,minOrder:row.min_order}:row;
 
 async function supabaseCatalogMutation(input:any,actor:any){
