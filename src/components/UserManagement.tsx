@@ -1955,7 +1955,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                           <option value="" disabled>-- اختر المتجر أو التاجر المعتمد --</option>
                           {stores.map((s) => (
                             <option key={s.id} value={s.id}>
-                              {s.name} ({s.locationInDistrict || s.type})
+                              {s.name} ({s.locationInDistrict ? s.locationInDistrict.replace(/^الحي الحكومي - /g, '') : s.type})
                             </option>
                           ))}
                         </select>
@@ -2198,10 +2198,10 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                             onChange={(e) => setSelectedStoreId(e.target.value)}
                             className="w-full h-9 px-3 border border-amber-300 rounded-lg text-xs bg-white font-bold text-slate-800 focus:outline-none focus:border-amber-600"
                           >
-                            <option value="">أسطول حر وعام (يخدم كل المتاجر والطلبات في نطاق الحي الحكومي)</option>
+                            <option value="">أسطول حر وعام (يخدم كل المتاجر والطلبات في كافة المناطق)</option>
                             {stores.map((s) => (
                               <option key={s.id} value={s.id}>
-                                مندوب خاص وحصري لـ: {s.name} ({s.locationInDistrict || s.type})
+                                مندوب خاص وحصري لـ: {s.name} ({s.locationInDistrict ? s.locationInDistrict.replace(/^الحي الحكومي - /g, '') : s.type})
                               </option>
                             ))}
                           </select>

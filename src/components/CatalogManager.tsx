@@ -115,17 +115,28 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
   const scopedProducts = fixedStoreId ? localProducts.filter((item) => matchStoreId(item.storeId, fixedStoreId)) : localProducts;
   const active = scopedProducts.filter((item) => !item.archived);
   const discounted = active.filter(hasProductOffer);
+  const isStoreOpen = (storeId: string) => {
+    const st = localStores.find(s => matchStoreId(s.id, storeId));
+    return st ? st.status === "open" : true;
+  };
+
   const metrics: [string, number][] = mode === "stores"
     ? [["متاجر مسجلة", localStores.length], ["مفتوحة", localStores.filter(store => store.status === "open").length], ["مشغولة", localStores.filter(store => store.status === "busy").length], ["مغلقة", localStores.filter(store => store.status === "closed").length]]
     : mode === "offers"
       ? (fixedStoreId 
-          ? [["عروض المتجر النشطة", discounted.length], ["ظاهرة لعملاء الحي", availableOffers(scopedProducts, localStores).length], ["أصناف العرض غير المتاحة", discounted.filter(product => !product.inStock).length], ["إجمالي أصناف المتجر", active.length]]
-          : [["عروض على المنتجات", discounted.length], ["ظاهرة للزوار", availableOffers(products, localStores).length], ["منتجات العرض غير المتاحة", discounted.filter(product => !product.inStock).length], ["متاجر لديها عروض", new Set(discounted.map(product => product.storeId)).size]])
-      : [["منتجات نشطة", active.length], ["متاحة بالمنيو", active.filter(item => item.inStock).length], ["غير متاحة", active.filter(item => !item.inStock).length], ["مؤرشفة", scopedProducts.filter(item => item.archived).length]];
+          ? [["عروض المتجر النشطة", discounted.length], ["ظاهرة للعملاء", availableOffers(scopedProducts, localStores).length], ["أصناف العرض غير المتاحة", discounted.filter(product => !product.inStock || !isStoreOpen(product.storeId)).length], ["إجمالي أصناف المتجر", active.length]]
+          : [["عروض على المنتجات", discounted.length], ["ظاهرة للزوار", availableOffers(products, localStores).length], ["منتجات العرض غير المتاحة", discounted.filter(product => !product.inStock || !isStoreOpen(product.storeId)).length], ["متاجر لديها عروض", new Set(discounted.map(product => product.storeId)).size]])
+      : [
+          ["منتجات نشطة", active.length], 
+          ["متاحة للطلب الآن", active.filter(item => item.inStock && isStoreOpen(item.storeId)).length], 
+          ["غير متاحة أو مغلقة", active.filter(item => !item.inStock || !isStoreOpen(item.storeId)).length], 
+          ["مؤرشفة", scopedProducts.filter(item => item.archived).length]
+        ];
   const filtered = scopedProducts.filter((item) => {
     const text = `${item.name} ${item.storeName} ${item.description}`.toLocaleLowerCase("ar");
+    const itemAvailable = item.inStock && isStoreOpen(item.storeId);
     return (mode !== "offers" || hasProductOffer(item)) && text.includes(search.trim().toLocaleLowerCase("ar")) && (!storeFilter || matchStoreId(item.storeId, storeFilter)) && (!category || item.category === category) &&
-      (availability === "archived" ? item.archived : !item.archived && (availability === "available" ? item.inStock : availability === "unavailable" ? !item.inStock : true));
+      (availability === "archived" ? item.archived : !item.archived && (availability === "available" ? itemAvailable : availability === "unavailable" ? !itemAvailable : true));
   }).sort((a,b) => sort === "price" ? a.price - b.price : sort === "sales" ? (performance.get(b.id)?.sold || 0) - (performance.get(a.id)?.sold || 0) : a.name.localeCompare(b.name, "ar"));
   const visibleStores = localStores.filter((store) => `${store.name} ${store.locationInDistrict}`.includes(search.trim()));
   useEffect(() => { setPage(0); }, [search, storeFilter, category, availability, sort, tab]);
@@ -228,8 +239,8 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
       {metrics.map(([label, value]) => {
         let targetAvail = '';
         if (label === 'منتجات نشطة') targetAvail = 'active';
-        else if (label === 'متاحة بالمنيو') targetAvail = 'available';
-        else if (label === 'غير متاحة') targetAvail = 'unavailable';
+        else if (label === 'متاحة للطلب الآن' || label === 'متاحة بالمنيو') targetAvail = 'available';
+        else if (label === 'غير متاحة أو مغلقة' || label === 'غير متاحة') targetAvail = 'unavailable';
         else if (label === 'مؤرشفة') targetAvail = 'archived';
 
         const isSelected = tab === 'products' && availability === targetAvail;

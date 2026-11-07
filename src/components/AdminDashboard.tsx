@@ -381,7 +381,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             }
                             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
                           >
-                            بدء التحضير بالمطعم
+                            بدء تجهيز الطلب
                           </button>
                         )}
 

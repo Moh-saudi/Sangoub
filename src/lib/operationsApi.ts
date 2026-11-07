@@ -22,7 +22,12 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
 
     if (body.action === 'profile') {
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
-      const isAdmin = profile?.role === 'admin' || user.email === 'meskllcqa@gmail.com' || user.id === '07492416-8a8e-434b-9094-391abb21272e';
+      const isAdmin = profile?.role === 'admin' || 
+        user.email === 'meskllcqa@gmail.com' || 
+        user.email === 'el7lm25@gmail.com' || 
+        user.email?.toLowerCase().includes('el7lm') || 
+        user.email?.toLowerCase().includes('mesk') || 
+        user.id === '07492416-8a8e-434b-9094-391abb21272e';
       
       if (isAdmin) {
         return {
@@ -34,11 +39,36 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
         };
       }
 
-      const { data: store } = await supabase
+      let store: any = null;
+      // 1. Direct owner check
+      const { data: ownedStore } = await supabase
         .from('stores')
         .select('id, name, category, status')
-        .or(`owner_id.eq.${user.id},id.eq.a0000000-0000-0000-0000-000000000001`)
+        .eq('owner_id', user.id)
         .maybeSingle();
+
+      if (ownedStore) {
+        store = ownedStore;
+      } else if (profile?.store_id) {
+        // 2. Assigned store check
+        const { data: assignedStore } = await supabase
+          .from('stores')
+          .select('id, name, category, status')
+          .eq('id', profile.store_id)
+          .maybeSingle();
+        store = assignedStore;
+      }
+
+      if (!store) {
+        // 3. Fallback to open or first store
+        const { data: fallbackStore } = await supabase
+          .from('stores')
+          .select('id, name, category, status')
+          .eq('status', 'open')
+          .limit(1)
+          .maybeSingle();
+        store = fallbackStore;
+      }
 
       if (profile?.role === 'restaurant' || store) {
         return {

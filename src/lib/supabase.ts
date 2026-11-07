@@ -109,7 +109,7 @@ export const KNOWN_STORE_ASSETS: Record<string, { logoUrl: string; bannerUrl: st
     logo: 'FOOD'
   },
   '55508f0e-f818-452e-b946-ab803fe9d637': {
-    name: 'كافيه الحي الحكومي',
+    name: 'كافيه سنجوب إكسبريس',
     logoUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=400&q=80',
     bannerUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=800&q=80',
     logo: 'CAFE'
@@ -221,7 +221,7 @@ export async function getSupabaseStores(): Promise<Store[]> {
       deliveryTime: '15-25 دقيقة',
       minOrder: 20,
       deliveryFee: 10,
-      locationInDistrict: 'الحي الحكومي - مركز سنجوب',
+      locationInDistrict: 'منصة سنجوب - المركز الرئيسي',
       logo: '/brand/sangoub-market-logo.jpg',
       logoUrl: '/brand/sangoub-market-logo.jpg',
       banner: '/brand/sangoub-market-logo.jpg',
@@ -331,7 +331,7 @@ export async function getSupabaseStore(storeId: string): Promise<Store | null> {
       deliveryTime: '15-25 دقيقة',
       minOrder: 20,
       deliveryFee: 10,
-      locationInDistrict: 'الحي الحكومي - مركز سنجوب',
+      locationInDistrict: 'منصة سنجوب - المركز الرئيسي',
       logo: '/brand/sangoub-market-logo.jpg',
       logoUrl: '/brand/sangoub-market-logo.jpg',
       banner: '/brand/sangoub-market-logo.jpg',

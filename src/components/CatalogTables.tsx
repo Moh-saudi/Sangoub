@@ -92,17 +92,29 @@ export function CatalogProductTable({
                   )}
                 </td>
                 <td>
-                  <span
-                    className={`badge admin-status ${
-                      product.archived
-                        ? 'catalog-archived bg-slate-200 text-slate-700 font-bold'
-                        : product.inStock
-                        ? 'status-delivered'
-                        : 'status-received'
-                    }`}
-                  >
-                    {product.archived ? 'مؤرشف 📦' : product.inStock ? 'متاح للطلب' : 'غير متاح'}
-                  </span>
+                  {product.archived ? (
+                    <span className="badge admin-status catalog-archived bg-slate-200 text-slate-700 font-bold">
+                      مؤرشف 📦
+                    </span>
+                  ) : matchedStore && matchedStore.status === 'closed' ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs" title="المتجر مغلق في قاعدة البيانات ولا يستقبل طلبات">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />
+                      المتجر مغلق ⛔
+                    </span>
+                  ) : matchedStore && matchedStore.status === 'busy' ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs" title="المتجر مشغول مؤقتاً">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                      المتجر مشغول ⏳
+                    </span>
+                  ) : product.inStock ? (
+                    <span className="badge admin-status status-delivered">
+                      متاح للطلب ✓
+                    </span>
+                  ) : (
+                    <span className="badge admin-status status-received">
+                      غير متاح ❌
+                    </span>
+                  )}
                 </td>
                 <td>
                   {stats?.sold || 0}

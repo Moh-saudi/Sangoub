@@ -117,4 +117,29 @@ AFTER INSERT OR UPDATE OF status ON public.orders
 FOR EACH ROW
 EXECUTE FUNCTION public.notify_order_status_change();
 
+-- 8. تفعيل تحديث المتاجر وربطها بالملاك والمديرين من لوحة الإدارة
+GRANT SELECT, INSERT, UPDATE ON public.stores TO authenticated, anon;
+DROP POLICY IF EXISTS "Public update stores" ON public.stores;
+CREATE POLICY "Public update stores" ON public.stores FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);
+
+-- 9. تفعيل تحديث المنتجات وتوافرها وحالات الإيقاف
+GRANT SELECT, INSERT, UPDATE ON public.products TO authenticated, anon;
+DROP POLICY IF EXISTS "Public update products" ON public.products;
+CREATE POLICY "Public update products" ON public.products FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);
+
+-- 10. تفعيل تحديث وقراءة ملفات المستخدمين وربط المتاجر
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO authenticated, anon;
+DROP POLICY IF EXISTS "Public update profiles" ON public.profiles;
+CREATE POLICY "Public update profiles" ON public.profiles FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Public insert profiles" ON public.profiles;
+CREATE POLICY "Public insert profiles" ON public.profiles FOR INSERT TO authenticated, anon WITH CHECK (true);
+
+-- 11. إضافة عمود store_id لجدول profiles لربط التجار بمتاجرهم مباشرة
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES public.stores(id) ON DELETE SET NULL;
+
+-- 12. تنظيف عناوين المتاجر من أي مسميات قديمة
+UPDATE public.stores 
+SET location_in_district = replace(location_in_district, 'الحي الحكومي - ', '')
+WHERE location_in_district LIKE '%الحي الحكومي%';
+
 
