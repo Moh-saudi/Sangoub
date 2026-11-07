@@ -26,14 +26,23 @@ interface OrderItemDisplay {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  pending: { label: 'قيد المراجعة', color: 'bg-amber-100 text-amber-800 border-amber-200' },
-  confirmed: { label: 'تم التأكيد', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  preparing: { label: 'جاري التجهيز بالمطعم/المتجر', color: 'bg-orange-100 text-orange-800 border-orange-200' },
-  picked_up: { label: 'المندوب استلم الطلب', color: 'bg-purple-100 text-purple-800 border-purple-200' },
-  delivering: { label: 'في الطريق إليك 🛵', color: 'bg-amber-100 text-amber-900 border-amber-300 font-bold' },
-  delivered: { label: 'تم التسليم بنجاح ✓', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-  cancelled: { label: 'ملغي', color: 'bg-red-100 text-red-800 border-red-200' },
+  pending: { label: 'قيد المراجعة', color: 'bg-amber-50 text-amber-800 border-amber-200' },
+  confirmed: { label: 'تم التأكيد', color: 'bg-blue-50 text-blue-800 border-blue-200' },
+  preparing: { label: 'جاري التجهيز', color: 'bg-orange-50 text-orange-800 border-orange-200' },
+  picked_up: { label: 'استلم المندوب الطلب', color: 'bg-purple-50 text-purple-800 border-purple-200' },
+  delivering: { label: 'في الطريق للتسليم', color: 'bg-amber-50 text-amber-900 border-amber-300' },
+  delivered: { label: 'تم التسليم بنجاح', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+  cancelled: { label: 'ملغي', color: 'bg-red-50 text-red-800 border-red-200' },
 };
+
+function formatOrderNumber(raw: string | undefined): string {
+  if (!raw) return 'SG-0000';
+  if (raw.startsWith('SG-')) return raw;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(raw) || raw.length > 10) {
+    return `SG-${raw.slice(0, 6).toUpperCase()}`;
+  }
+  return raw;
+}
 
 export const OrdersPage: React.FC<OrdersPageProps> = ({
   onBackToHome,
@@ -99,13 +108,13 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
             const st = STATUS_MAP[statusKey] || { label: 'قيد المعالجة', color: 'bg-gray-100 text-gray-800 border-gray-200' };
             loadedList.push({
               id: ord.id,
-              orderNumber: ord.id.slice(0, 8).toUpperCase(),
+              orderNumber: formatOrderNumber(ord.order_number || ord.id),
               createdAt: ord.created_at || new Date().toISOString(),
               status: statusKey,
               statusText: st.label,
               statusColor: st.color,
               total: Number(ord.total_amount) || 0,
-              paymentMethod: ord.payment_method === 'cash' ? 'الدفع نقدًا' : 'إلكتروني',
+              paymentMethod: ord.payment_method === 'cash' ? 'نقدًا عند الاستلام' : 'دفع إلكتروني',
               destination: ord.delivery_address || ord.delivery_ministry || 'العاصمة الإدارية',
               items: Array.isArray(ord.order_items) ? ord.order_items.map((i: any) => ({
                 name: i.product_name || 'صنف',
@@ -127,17 +136,17 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
   const mapTrackableToDisplay = (to: TrackableOrder): OrderItemDisplay => {
     const statusKey = to.orderStatus || 'delivering';
-    const st = STATUS_MAP[statusKey] || { label: 'جاري التوصيل 🛵', color: 'bg-amber-100 text-amber-900 border-amber-300' };
+    const st = STATUS_MAP[statusKey] || { label: 'في الطريق للتسليم', color: 'bg-amber-50 text-amber-900 border-amber-300' };
 
     return {
       id: to.orderId,
-      orderNumber: to.orderId,
+      orderNumber: formatOrderNumber(to.orderId),
       createdAt: to.createdAt || to.time || new Date().toISOString(),
       status: statusKey,
       statusText: st.label,
       statusColor: st.color,
       total: to.total || 0,
-      paymentMethod: to.paymentMethod === 'cash' ? 'الدفع نقدًا عند الاستلام' : 'دفع إلكتروني',
+      paymentMethod: to.paymentMethod === 'cash' ? 'نقدًا عند الاستلام' : 'دفع إلكتروني',
       destination: to.destination || 'عنوان التوصيل',
       items: to.items || [],
       rawOrder: to,
@@ -235,44 +244,38 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
     <div className={`w-full ${isMobile ? 'px-3 py-2 pb-24' : 'max-w-4xl mx-auto px-4 py-8'} select-none font-['Cairo',sans-serif]`} dir="rtl">
       
       {/* 1. Mobile-First Clean App Bar */}
-      <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-[#F0F1F3]">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between gap-3 pb-2.5 mb-2.5 border-b border-[#F0F1F3]">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onBackToHome}
-            className="w-9 h-9 rounded-full bg-white border border-[#E5E7EB] hover:bg-[#F9FAFB] active:scale-95 flex items-center justify-center text-[#111827] shadow-2xs transition-all cursor-pointer shrink-0"
+            className="w-8 h-8 rounded-full bg-white border border-[#E5E7EB] hover:bg-[#F9FAFB] active:scale-95 flex items-center justify-center text-[#111827] shadow-2xs transition-all cursor-pointer shrink-0"
             aria-label="الرجوع للرئيسية"
             title="رجوع"
           >
-            <ChevronRight size={20} />
+            <ChevronRight size={18} />
           </button>
           <div>
-            <h1 className="text-base sm:text-xl font-black text-[#111827] flex items-center gap-2">
+            <h1 className="text-sm sm:text-base font-extrabold text-[#111827] flex items-center gap-1.5">
               <span>طلباتك السابقة</span>
               {orders.length > 0 && (
-                <span className="text-xs bg-[#FFF2EC] text-[#FF5900] font-bold px-2 py-0.5 rounded-full">
+                <span className="text-[10px] bg-[#FFF2EC] text-[#FF5900] font-bold px-1.5 py-0.2 rounded-full">
                   {orders.length}
                 </span>
               )}
             </h1>
-            <p className="text-[11px] text-[#6B7280] font-medium hidden sm:block">
-              متابعة حالة الطلبات، فواتير الشراء، ومسار التوصيل المباشر
-            </p>
           </div>
         </div>
 
-        {/* Toggle Guest Lookup */}
+        {/* WhatsApp Customer Support Button */}
         <button
           type="button"
-          onClick={() => setShowGuestSearch(!showGuestSearch)}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
-            showGuestSearch
-              ? 'bg-[#FF5900] text-white border-[#FF5900]'
-              : 'bg-white text-[#6B7280] border-[#D1D5DB] hover:text-[#111827]'
-          }`}
+          onClick={() => window.open('https://wa.me/201017799580?text=' + encodeURIComponent('مرحباً خدمة عملاء سنجوب، أحتاج مساعدة بخصوص طلباتي'), '_blank')}
+          className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#E8F8EE] text-[#16A34A] border border-[#BBF7D0] hover:bg-[#DCFCE7] active:scale-95 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+          title="تواصل مع الدعم الفني عبر واتساب"
         >
-          <Phone size={13} />
-          <span>{showGuestSearch ? 'إغلاق البحث' : 'طلب زائر؟'}</span>
+          <Phone size={11} className="text-[#16A34A]" />
+          <span>الدعم الفني</span>
         </button>
       </div>
 
@@ -357,25 +360,25 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {filteredOrders.map((order) => (
             <div
               key={order.id}
-              className="bg-white rounded-2xl p-3.5 sm:p-4 border border-[#E5E7EB] hover:border-[#FF5900]/40 transition-all shadow-xs"
+              className="bg-white rounded-2xl p-3 sm:p-3.5 border border-[#E5E7EB] hover:border-[#FF5900]/40 transition-all shadow-2xs"
             >
               {/* Order Card Top: ID, Status Badge & Time */}
-              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#F0F1F3]">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#F0F1F3]">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-black text-xs sm:text-sm text-[#111827]">
-                    #{order.orderNumber}
+                  <span className="font-mono font-bold text-xs text-[#111827]">
+                    #{formatOrderNumber(order.orderNumber)}
                   </span>
-                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${order.statusColor}`}>
+                  <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md border ${order.statusColor}`}>
                     {order.statusText}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1 text-[11px] text-[#6B7280] font-medium">
-                  <Clock size={12} className="text-[#9CA3AF]" />
+                <div className="flex items-center gap-1 text-[10.5px] text-[#6B7280] font-medium">
+                  <Clock size={11} className="text-[#9CA3AF]" />
                   <span>
                     {new Date(order.createdAt).toLocaleString('ar-EG', {
                       month: 'short',
@@ -388,42 +391,42 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
               </div>
 
               {/* Order Items List */}
-              <div className="py-2.5">
-                <div className="space-y-1 text-xs text-[#374151]">
+              <div className="py-2">
+                <div className="space-y-1 text-[11px] text-[#374151]">
                   {order.items.length > 0 ? (
                     order.items.map((it, idx) => (
-                      <div key={idx} className="flex items-center justify-between py-0.5">
+                      <div key={idx} className="flex items-center justify-between py-0.2">
                         <span className="truncate max-w-[70%]">
-                          <strong className="text-[#111827] ml-1 font-black">{it.quantity}x</strong>
+                          <strong className="text-[#111827] ml-1 font-bold">{it.quantity}x</strong>
                           <span>{it.name}</span>
                         </span>
-                        <span className="text-[#6B7280] font-mono font-bold text-[11px]">
+                        <span className="text-[#6B7280] font-mono font-bold text-[10.5px]">
                           {formatEGP(it.price * it.quantity)}
                         </span>
                       </div>
                     ))
                   ) : (
-                    <p className="text-[#9CA3AF] text-xs">تفاصيل الأصناف مسجلة بالفاتورة</p>
+                    <p className="text-[#9CA3AF] text-[11px]">تفاصيل الأصناف مسجلة بالفاتورة</p>
                   )}
                 </div>
 
                 {/* Delivery Address */}
-                <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280] font-medium mt-2 pt-2 border-t border-dashed border-[#F0F1F3]">
-                  <MapPin size={13} className="text-[#FF5900] shrink-0" />
+                <div className="flex items-center gap-1 text-[10.5px] text-[#6B7280] font-medium mt-1.5 pt-1.5 border-t border-dashed border-[#F0F1F3]">
+                  <MapPin size={11} className="text-[#FF5900] shrink-0" />
                   <span className="truncate">{order.destination}</span>
                 </div>
               </div>
 
               {/* Card Bottom: Total Price & Track Action Button */}
-              <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-[#F0F1F3]">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#F0F1F3]">
+                <div className="flex items-center gap-1.5">
                   <div>
-                    <span className="text-[10px] text-[#6B7280] block font-bold">إجمالي الطلب</span>
-                    <strong className="text-sm sm:text-base font-black text-[#111827] leading-none">
+                    <span className="text-[9px] text-[#6B7280] block font-bold">إجمالي الطلب</span>
+                    <strong className="text-xs sm:text-sm font-black text-[#111827] leading-none">
                       {formatEGP(order.total)}
                     </strong>
                   </div>
-                  <span className="text-[10px] font-bold text-[#6B7280] bg-[#F9FAFB] px-2 py-0.5 rounded-md border border-[#E5E7EB]">
+                  <span className="text-[9.5px] font-medium text-[#6B7280] bg-[#F9FAFB] px-1.5 py-0.5 rounded-md border border-[#E5E7EB]">
                     {order.paymentMethod}
                   </span>
                 </div>
@@ -444,11 +447,15 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     };
                     onTrackOrder(trackObj);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FFF2EC] hover:bg-[#FFE6D9] active:scale-95 text-[#FF5900] text-xs font-black rounded-xl border border-[#FF5900]/30 transition-all cursor-pointer shadow-2xs"
+                  className="flex items-center gap-1 px-2.5 py-1 bg-orange-50 hover:bg-orange-100 active:scale-95 text-[#FF5900] text-[10.5px] font-bold rounded-lg border border-orange-200 transition-all cursor-pointer shadow-2xs"
                 >
-                  <span>تتبع الطلب بالخريطة 🛵</span>
-                  <ChevronLeft size={14} />
+                  <span>تتبع الطلب</span>
+                  <ChevronLeft size={13} />
                 </button>
+              </div>
+            </div>
+          ))}
+        </div>
               </div>
             </div>
           ))}

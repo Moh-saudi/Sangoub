@@ -536,6 +536,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } catch {}
 
+      // 2. Direct Supabase app_content fallback (for Cloudflare Pages)
+      if (!data) {
+        try {
+          const { data: row } = await supabase.from('app_content').select('content').eq('id', true).maybeSingle();
+          if (row?.content) {
+            data = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+          }
+        } catch {}
+      }
+
       if (data) {
         if (data.martBanner) {
           setMartBanner(data.martBanner);

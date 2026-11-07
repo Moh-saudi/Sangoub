@@ -32,3 +32,10 @@ CREATE POLICY "Users read own order items" ON public.order_items
 FOR SELECT TO authenticated, anon 
 USING (true);
 
+-- 5. تفعيل قراءة محتوى التطبيق وصور الأقسام المخصصة (app_content)
+GRANT SELECT ON public.app_content TO authenticated, anon;
+DROP POLICY IF EXISTS "Public read app_content" ON public.app_content;
+CREATE POLICY "Public read app_content" ON public.app_content 
+FOR SELECT TO authenticated, anon 
+USING (true);
+
