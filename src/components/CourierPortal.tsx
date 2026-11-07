@@ -371,7 +371,7 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-black text-emerald-900 flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                            عنوان التسليم بالحي الحكومي:
+                            عنوان وموقع التسليم للعميل:
                           </span>
                           <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-md">
                             وجهة التوصيل
@@ -379,14 +379,16 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                         </div>
                         <div className="space-y-1">
                           <p className="text-sm font-black text-slate-900">
-                            {order.ministry}
+                            {order.deliveryAddress || order.ministry || 'عنوان التوصيل'}
                           </p>
-                          <p className="text-xs text-emerald-950 font-bold">
-                            {order.floorNumber} — {order.roomNumber}
-                          </p>
+                          {order.floorNumber && order.floorNumber !== 'غير محدد' && (
+                            <p className="text-xs text-emerald-950 font-bold">
+                              {[order.floorNumber, order.roomNumber].filter(x => x && x !== 'غير محدد').join(' — ')}
+                            </p>
+                          )}
                           <div className="flex items-center justify-between pt-1 text-xs text-slate-700">
                             <span className="font-medium">
-                              الموظف: <strong>{order.profileName}</strong>
+                              العميل: <strong>{order.profileName || 'عميل سنجوب'}</strong>
                             </span>
                             <div className="flex items-center gap-1.5">
                               <a
@@ -415,19 +417,20 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-black text-amber-900 flex items-center gap-1">
                             <StoreIcon className="w-3.5 h-3.5 text-amber-700" />
-                            نقطة استلام الطلب بالفود كورت:
+                            نقطة استلام الطلب من المتجر:
                           </span>
                           <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-md">
-                            المطعم
+                            المتجر
                           </span>
                         </div>
                         <div>
                           <p className="text-sm font-black text-slate-900">
                             {order.items[0]?.product.storeName ||
-                              "فود كورت الحي الحكومي"}
+                              order.storeName ||
+                              "متجر سنجوب"}
                           </p>
                           <p className="text-xs text-amber-900 mt-0.5">
-                            مبنى الخدمات المركزية C2 — فود كورت الموظفين
+                            {order.storeName || "المتجر الشريك"}
                           </p>
                           <div className="flex items-center justify-between pt-2 text-xs">
                             <span className="text-slate-600">
@@ -634,18 +637,16 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-black text-slate-900">
-                              3. التحرك لمبنى {order.ministry} (
-                              {order.floorNumber})
+                              3. التحرك لعنوان التوصيل ({order.deliveryAddress || order.ministry || 'عنوان العميل'})
                             </span>
                             <span className="text-[10px] font-bold text-slate-500">
                               {checklist.onTheWayToMinistry
-                                ? "في الطريق للمصعد"
+                                ? "في الطريق للعميل"
                                 : "اضغط عند الانطلاق"}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-500 mt-0.5">
-                            الانطلاق بالدراجة السريعة ودخول بوابة مبنى الوزارة
-                            والمصعد متجهاً للمكتب.
+                            الانطلاق والتوجه مباشرة إلى عنوان التسليم المحدد.
                           </p>
                         </div>
                       </div>
@@ -673,12 +674,11 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-black text-slate-900">
-                              4. الوصول لمكتب الموظف وتسليم الوجبات (
-                              {order.roomNumber})
+                              4. الوصول وتسليم الطلب للعميل
                             </span>
                             <span className="text-[10px] font-bold text-slate-500">
                               {checklist.arrivedAtCustomerOffice
-                                ? "تم الوصول للمكتب"
+                                ? "تم الوصول للعميل"
                                 : "اضغط عند الوصول"}
                             </span>
                           </div>
@@ -800,7 +800,7 @@ export const CourierPortal: React.FC<CourierPortalProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 mt-1">
-                    {order.ministry} • {order.floorNumber} • {order.profileName}
+                    {order.deliveryAddress || order.ministry || 'عنوان التوصيل'} • {order.profileName || 'عميل سنجوب'}
                   </p>
                   {order.courierChecklist?.notes && (
                     <p className="text-[11px] text-slate-500 bg-slate-50 p-1.5 rounded-lg mt-1.5 border border-slate-100">

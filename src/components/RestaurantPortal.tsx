@@ -1128,7 +1128,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                                     </span>
                                   </div>
                                   <span className="text-[11px] text-slate-400 block truncate mt-0.5">
-                                    {order.ministry || order.items?.map(i => i.product.name).join('، ') || 'تفاصيل الطلب'}
+                                    {order.deliveryAddress || order.ministry || order.items?.map(i => i.product.name).join('، ') || 'تفاصيل الطلب'}
                                   </span>
                                 </div>
                               </div>
@@ -1652,7 +1652,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-700 mb-1">موقع الفرع في الحي الحكومي</label>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">موقع الفرع أو عنوان المتجر</label>
                           <input
                             type="text"
                             value={storeEditData.locationInDistrict || ''}
