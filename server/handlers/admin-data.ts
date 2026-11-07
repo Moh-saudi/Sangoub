@@ -14,12 +14,12 @@ const fields:Record<string,string[]>={
 };
 const dbFields:Record<string,Record<string,string>>={
   products:{storeId:'store_id',name:'name',nameEn:'name_en',description:'description',price:'price',originalPrice:'original_price',category:'category',categoryId:'category_id',barcode:'barcode',merchantPosSku:'merchant_pos_sku',verticalId:'vertical_id',imageType:'image_type',imageUrl:'image_url',imageKey:'image_key',inStock:'is_available',archived:'archived',badge:'badge',isPopular:'is_popular',optionGroups:'options',stockQuantity:'stock_quantity',minStockAlert:'min_stock_alert',maxPerOrder:'max_per_order',catalogProductId:'catalog_product_id',offerTitle:'offer_title',isOccasion:'is_occasion',occasionName:'occasion_name',offerStartDate:'offer_start_date',offerEndDate:'offer_end_date'},
-  stores:{name:'name',nameEn:'name_en',locationInDistrict:'location_in_district',address:'location_in_district',type:'type',category:'category',status:'status',deliveryTime:'delivery_time',minOrder:'min_order',deliveryFee:'delivery_fee',imageUrl:'banner',bannerUrl:'banner',banner:'banner',logoUrl:'logo',logo:'logo',commissionRate:'commission_rate',taxRate:'tax_rate',taxRegistrationNumber:'tax_number',rating:'rating',ratingCount:'rating_count',updatedAt:'updated_at'},
+  stores:{name:'name',nameEn:'name_en',locationInDistrict:'location_in_district',address:'location_in_district',type:'type',category:'category',status:'status',deliveryTime:'delivery_time',minOrder:'min_order',deliveryFee:'delivery_fee',imageUrl:'banner',bannerUrl:'banner',banner:'banner',logoUrl:'logo',logo:'logo',commissionRate:'commission_rate',taxRate:'tax_rate',taxRegistrationNumber:'tax_number',pricesIncludeTax:'prices_include_tax',rating:'rating',ratingCount:'rating_count',updatedAt:'updated_at'},
   coupons:{code:'code',discountType:'discount_type',value:'value',minOrder:'min_order',title:'title',description:'description'},
 };
 const bad=(message='بيانات غير صالحة.')=>{throw new AdminError(400,message);};
 const str=(v:any,max:number,required=false)=>(!required&&(v===undefined||v===null||v===''))||(typeof v==='string'&&v.length<=max&&(!required||v.trim().length>0));
-const num=(v:any,max:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=max;
+const num=(v:any,max:number)=>(typeof v==='number'||(typeof v==='string'&&v.trim()!==''&&!isNaN(Number(v))))&&Number.isFinite(Number(v))&&Number(v)>=0&&Number(v)<=max;
 function validate(type:string,id:string,d:any){
   if(type==='products'&&(!str(d.name,120,true)||!str(d.description,1000)||!num(d.price,100000)||typeof d.inStock!=='boolean'||!str(d.storeId,128,true)||!str(d.category,120,true)))bad('راجع اسم الصنف وسعره ومتجره.');
   if(type==='products'&&d.originalPrice!==undefined&&d.originalPrice!==null&&(!num(d.originalPrice,100000)||d.originalPrice<d.price))bad('السعر قبل الخصم غير صالح.');
@@ -28,9 +28,9 @@ function validate(type:string,id:string,d:any){
   if(type==='products'&&d.minStockAlert!==undefined&&!num(d.minStockAlert,10000))bad('حد التنبيه غير صالح.');
   if(type==='products'&&d.maxPerOrder!==undefined&&!num(d.maxPerOrder,1000))bad('الحد الأقصى للطلب غير صالح.');
   if(type==='products'&&d.catalogProductId!==undefined&&d.catalogProductId!==null&&!str(d.catalogProductId,128))bad('معرف الكتالوج العام غير صالح.');
-  if(type==='stores'&&d.commissionRate!==undefined&&!num(d.commissionRate,100))bad('نسبة التعاقد غير صالحة.');
+  if(type==='stores'&&d.commissionRate!==undefined&&d.commissionRate!==null&&d.commissionRate!==''&&!num(d.commissionRate,100))bad('نسبة التعاقد غير صالحة.');
   if(type==='stores'&&(!str(d.name,120,true)||!num(d.minOrder,100000)||!num(d.deliveryFee,1000)||!['open','closed','busy'].includes(d.status)))bad('راجع بيانات المتجر ورسومه.');
-  if(type==='stores'&&((d.taxRate!==undefined&&!num(d.taxRate,100))||(d.pricesIncludeTax!==undefined&&typeof d.pricesIncludeTax!=='boolean')||(d.taxRegistrationNumber!==undefined&&!str(d.taxRegistrationNumber,60))||(d.taxRate>0&&!str(d.taxRegistrationNumber,60,true))))bad('راجع نسبة الضريبة ورقم تسجيل المتجر.');
+  if(type==='stores'&&((d.taxRate!==undefined&&d.taxRate!==null&&d.taxRate!==''&&!num(d.taxRate,100))||(d.pricesIncludeTax!==undefined&&typeof d.pricesIncludeTax!=='boolean')||(d.taxRegistrationNumber!==undefined&&!str(d.taxRegistrationNumber,60))))bad('راجع نسبة الضريبة ورقم تسجيل المتجر.');
   if(type==='staff'&&(!['restaurant','courier'].includes(d.role)||!str(d.name,120,true)||!str(d.phone,30)))bad('راجع دور الموظف وبياناته.');
   if(type==='coupons'&&(d.code!==id||!['fixed','percent'].includes(d.discountType)||!num(d.value,d.discountType==='percent'?100:10000)||!num(d.minOrder,100000)))bad('راجع قيمة الخصم والحد الأدنى.');
   if(['partnerApplications','jobApplications'].includes(type)&&!['pending','contacted','approved','rejected'].includes(d.status))bad();
@@ -58,9 +58,9 @@ const toApp=(type:string,row:any):any=>type==='products'?{
   occasionName:row.occasion_name,offerStartDate:row.offer_start_date,offerEndDate:row.offer_end_date,
 }:type==='stores'?{
   ...row,id:row.id,nameEn:row.name_en,locationInDistrict:row.location_in_district,deliveryTime:row.delivery_time,
-  minOrder:row.min_order,deliveryFee:row.delivery_fee,imageUrl:row.logo_url||row.logo,bannerUrl:row.banner_url||row.banner,
-  logoUrl:row.logo_url||row.logo,commissionRate:row.commission_rate,taxRate:row.tax_rate,
-  taxRegistrationNumber:row.tax_registration_number||row.tax_number,pricesIncludeTax:row.prices_include_tax,ratingCount:row.rating_count,
+  minOrder:Number(row.min_order)||0,deliveryFee:Number(row.delivery_fee)||0,imageUrl:row.logo_url||row.logo,bannerUrl:row.banner_url||row.banner,
+  logoUrl:row.logo_url||row.logo,commissionRate:row.commission_rate!=null?Number(row.commission_rate):undefined,taxRate:row.tax_rate!=null?Number(row.tax_rate):0,
+  taxRegistrationNumber:row.tax_registration_number||row.tax_number,pricesIncludeTax:row.prices_include_tax!==false,rating:Number(row.rating)||5,ratingCount:Number(row.rating_count)||0,
 }:type==='coupons'?{...row,discountType:row.discount_type,minOrder:row.min_order}:row;
 
 async function supabaseCatalogMutation(input:any,actor:any){
@@ -88,10 +88,29 @@ async function supabaseCatalogMutation(input:any,actor:any){
   for(const [key,value] of Object.entries(patch))if(columns[key])values[columns[key]]=value;
   if(type==='products'&&patch.archived===true)values.is_available=false;
   if(type==='stores'){
-    if(patch.taxRegistrationNumber!==undefined)values.tax_number=patch.taxRegistrationNumber;
-    if(patch.logoUrl) values.logo = patch.logoUrl;
-    if(patch.bannerUrl) values.banner = patch.bannerUrl;
-    if(patch.address) values.location_in_district = patch.address;
+    if(patch.taxRegistrationNumber!==undefined) {
+      values.tax_number=patch.taxRegistrationNumber;
+      values.tax_registration_number=patch.taxRegistrationNumber;
+    }
+    if(patch.logoUrl || patch.logo) {
+      values.logo = patch.logoUrl || patch.logo;
+      values.logo_url = patch.logoUrl || patch.logo;
+    }
+    if(patch.bannerUrl || patch.banner) {
+      values.banner = patch.bannerUrl || patch.banner;
+      values.banner_url = patch.bannerUrl || patch.banner;
+    }
+    if(patch.address || patch.locationInDistrict) {
+      values.location_in_district = patch.address || patch.locationInDistrict;
+    }
+    if(patch.pricesIncludeTax !== undefined) {
+      values.prices_include_tax = Boolean(patch.pricesIncludeTax);
+    }
+    if(!current) {
+      values.rating = values.rating ?? 5.0;
+      values.rating_count = values.rating_count ?? 120;
+      values.delivery_time = values.delivery_time || '15-25 دقيقة';
+    }
     values.updated_at = new Date().toISOString();
   }
   if(current){

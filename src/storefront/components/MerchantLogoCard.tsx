@@ -39,16 +39,23 @@ export const MerchantLogoCard: React.FC<MerchantLogoCardProps> = ({ store, class
       aria-label={`متجر ${store.name}`}
     >
       <div className="flex min-w-0 items-center gap-3">
-        <div className="h-[88px] w-[88px] shrink-0 overflow-hidden rounded-2xl border border-[#F0F1F3] bg-[#F7F7F8] p-1.5 transition-colors group-hover:border-[#FF5900]/30">
+        <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-2xl border border-[#F0F1F3] bg-[#F7F7F8] p-1.5 transition-colors group-hover:border-[#FF5900]/30">
           <img
             src={logoSrc}
             alt={store.name}
-            className="h-full w-full rounded-xl object-cover transition-transform duration-300 group-hover:scale-105"
+            className={`h-full w-full rounded-xl object-cover transition-transform duration-300 group-hover:scale-105 ${store.status === 'closed' ? 'grayscale opacity-75' : ''}`}
             loading="lazy"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
             }}
           />
+          {store.status === 'closed' && (
+            <div className="absolute inset-1.5 bg-slate-900/50 rounded-xl flex items-center justify-center backdrop-blur-2xs">
+              <span className="text-[10px] font-black text-white bg-slate-900/90 px-2 py-0.5 rounded-md shadow-xs">
+                مغلق
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -62,7 +69,8 @@ export const MerchantLogoCard: React.FC<MerchantLogoCardProps> = ({ store, class
             <Star size={13} className="fill-amber-400 text-amber-400" />
             <span>{store.rating || 4.9}</span>
             {store.status === 'open' && <span className="mr-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">مفتوح الآن</span>}
-            {store.status === 'busy' && <span className="mr-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">مشغول</span>}
+            {store.status === 'busy' && <span className="mr-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">مشغول مؤقتاً</span>}
+            {store.status === 'closed' && <span className="mr-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">مغلق حالياً</span>}
           </div>
         </div>
       </div>

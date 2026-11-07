@@ -975,13 +975,45 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
         busy={busy}
         onClose={() => {
           setEditor(null);
-          setError("");
         }}
         onSave={async (payload) => {
-          await perform(async () => {
-            const storeId = payload.id;
+          const storeId = payload.id;
+          const ok = await perform(async () => {
+            // 1. Direct Sync to Supabase `stores` table
+            let directSupabaseSucceeded = false;
+            try {
+              const { error: supaErr } = await supabase.from("stores").upsert({
+                id: storeId,
+                name: payload.name,
+                name_en: payload.nameEn || null,
+                type: payload.type,
+                category: payload.category,
+                status: payload.status,
+                delivery_time: payload.deliveryTime,
+                min_order: payload.minOrder,
+                delivery_fee: payload.deliveryFee,
+                location_in_district: payload.address,
+                commission_rate: payload.commissionRate ?? null,
+                tax_rate: payload.taxRate,
+                tax_number: payload.taxRegistrationNumber || null,
+                tax_registration_number: payload.taxRegistrationNumber || null,
+                banner: payload.bannerUrl || null,
+                banner_url: payload.bannerUrl || null,
+                logo: payload.logoUrl || null,
+                logo_url: payload.logoUrl || null,
+                prices_include_tax: payload.pricesIncludeTax,
+                updated_at: new Date().toISOString(),
+              });
+              if (!supaErr) {
+                directSupabaseSucceeded = true;
+              } else {
+                console.warn("Direct Supabase store upsert warning:", supaErr);
+              }
+            } catch (supaErr) {
+              console.warn("Direct Supabase store upsert exception:", supaErr);
+            }
 
-            // 1. Save locally / Firebase
+            // 2. Save via authenticated server API (service_role)
             const storeDoc = {
               id: storeId,
               name: payload.name,
@@ -1006,31 +1038,13 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
               ratingCount: selectedStore?.ratingCount ?? 120,
               updatedAt: new Date().toISOString(),
             };
-            await saveRecord("stores", storeId, storeDoc);
-
-            // 2. Direct Sync to Supabase `stores` table
             try {
-              const { error: supaErr } = await supabase.from("stores").upsert({
-                id: storeId,
-                name: payload.name,
-                name_en: payload.nameEn || null,
-                type: payload.type,
-                category: payload.category,
-                status: payload.status,
-                delivery_time: payload.deliveryTime,
-                min_order: payload.minOrder,
-                delivery_fee: payload.deliveryFee,
-                location_in_district: payload.address,
-                commission_rate: payload.commissionRate ?? null,
-                tax_rate: payload.taxRate,
-                tax_number: payload.taxRegistrationNumber || null,
-                banner: payload.bannerUrl || null,
-                logo: payload.logoUrl || null,
-                updated_at: new Date().toISOString(),
-              });
-              if (supaErr) console.warn("Supabase store upsert warning:", supaErr);
-            } catch (supaErr) {
-              console.warn("Failed to sync store to Supabase:", supaErr);
+              await saveRecord("stores", storeId, storeDoc);
+            } catch (apiErr: any) {
+              console.warn("API saveRecord warning:", apiErr);
+              if (!directSupabaseSucceeded) {
+                throw apiErr;
+              }
             }
 
             // 3. Update InstaPay / Vodafone Cash payment settings
@@ -1041,6 +1055,10 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
               onProductsRefresh();
             }
           }, selectedStore ? "🎉 تم تحديث بيانات وشعار وغلاف المتجر بنجاح!" : "🎉 تمت إضافة المتجر الجديد إلى الكتالوج بنجاح!");
+
+          if (!ok) {
+            throw new Error("تعذر حفظ بيانات المتجر. يرجى مراجعة الحقول والاتصال والمحاولة مجددًا.");
+          }
         }}
       />
     )}

@@ -96,6 +96,7 @@ export function StoreEditorModal({
 
   // General States
   const [errorMsg, setErrorMsg] = useState("");
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   // Close on Escape key
@@ -191,6 +192,7 @@ export function StoreEditorModal({
     }
 
     setIsSaving(true);
+    setSaveSuccessMsg("");
     try {
       const storeId = store?.id || crypto.randomUUID();
       await onSave({
@@ -216,7 +218,10 @@ export function StoreEditorModal({
           instapayLink: paymentSettings.instapayLink?.trim() || "https://ipn.eg/",
         },
       });
-      onClose();
+      setSaveSuccessMsg("🎉 تم حفظ وتحديث بيانات وشعار وغلاف المتجر بنجاح!");
+      setTimeout(() => {
+        onClose();
+      }, 1200);
     } catch (err: any) {
       console.error("Save store error:", err);
       setErrorMsg(err?.message || "حدث خطأ أثناء حفظ بيانات المتجر.");
@@ -261,8 +266,15 @@ export function StoreEditorModal({
 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+          {saveSuccessMsg && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+              <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
+              <span>{saveSuccessMsg}</span>
+            </div>
+          )}
+
           {errorMsg && (
-            <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs font-bold flex items-center gap-2">
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs font-bold flex items-center gap-2 animate-fadeIn">
               <AlertCircle size={16} className="shrink-0 text-red-600" />
               <span>{errorMsg}</span>
             </div>

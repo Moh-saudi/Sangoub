@@ -305,7 +305,7 @@ export async function getSupabaseProducts(storeId?: string): Promise<Product[]> 
         return {
           id: row.id,
           storeId: isSangoub ? 'a0000000-0000-0000-0000-000000000001' : (row.store_id || storeId),
-          storeName: isSangoub ? 'سنجوب ماركت' : (row.stores?.name || 'صيدلية العاصمة المركزية - 24/7'),
+          storeName: isSangoub ? 'سنجوب ماركت' : (row.stores?.name || row.store_name || ''),
           name: row.name,
           nameEn: row.name_en || '',
           description: row.description || '',

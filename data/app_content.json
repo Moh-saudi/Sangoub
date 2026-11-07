@@ -116,8 +116,6 @@
     "bgGradient": "from-[#FF5900] via-[#FF6A1A] to-[#FF4500]"
   },
   "disabledStoreTypes": [
-    "REST",
-    "CAFE",
     "PHARM",
     "OUTDOOR",
     "SEASONAL",

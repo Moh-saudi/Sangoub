@@ -4,7 +4,7 @@ import { DeploymentVersion } from "./components/DeploymentVersion";
 import { operationsApi } from "./lib/operationsApi";
 import { adminApi } from "./lib/adminApi";
 import "./admin.css";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { LogOut, ShieldCheck, Loader2, Eye, EyeOff, Mail, LockKeyhole, ArrowLeft } from "lucide-react";
 import { supabase, signInWithSupabaseGoogle, signOutFromSupabase, getSupabaseStores, getSupabaseProducts, subscribeToCatalog, subscribeToAdminOrders } from "./lib/supabase";
 import { updateOrderRecord, approvePartner } from "./lib/firebase";
@@ -119,49 +119,48 @@ export default function AdminApp() {
     };
   }, [revision]);
 
+  // Direct Supabase catalog loading
+  const loadAdminCatalog = useCallback(() => {
+    Promise.all([
+      getSupabaseStores().catch(() => [] as Store[]),
+      getSupabaseProducts().catch(() => [] as Product[])
+    ]).then(([spStores, spProducts]) => {
+      const storeMap = new Map<string, Store>();
+      spStores.forEach(s => storeMap.set(s.id, s));
+
+      // Ensure "سنجوب ماركت" is present
+      if (!storeMap.has('a0000000-0000-0000-0000-000000000001')) {
+        storeMap.set('a0000000-0000-0000-0000-000000000001', {
+          id: 'a0000000-0000-0000-0000-000000000001',
+          name: 'سنجوب ماركت',
+          nameEn: 'Sangoub Market',
+          type: 'سوبرماركت ومستلزمات البيت اليومية',
+          category: 'supermarket',
+          logo: '/brand/sangoub-market-logo.jpg',
+          logoUrl: '/brand/sangoub-market-logo.jpg',
+          banner: '/brand/sangoub-market-logo.jpg',
+          bannerUrl: '/brand/sangoub-market-logo.jpg',
+          status: 'open',
+          rating: 5,
+          ratingCount: 1250,
+          deliveryTime: '15-25 دقيقة',
+          minOrder: 20,
+          deliveryFee: 10,
+          locationInDistrict: 'الحي الحكومي - مركز سنجوب',
+        });
+      }
+      const mergedStores = Array.from(storeMap.values());
+      setStores(mergedStores);
+      setProducts(spProducts);
+    }).catch(err => {
+      console.warn('[AdminApp] Supabase catalog load error:', err);
+    });
+  }, []);
+
   useEffect(() => {
     setOrders([]); setStores([]); setProducts([]); setStaff([]); setCoupons([]); setPartners([]); setJobs([]); setConnected(false);
     if (access !== "admin" || !profile) return;
     let active = true;
-
-    // Direct Supabase catalog loading
-    const loadAdminCatalog = () => {
-      Promise.all([
-        getSupabaseStores().catch(() => [] as Store[]),
-        getSupabaseProducts().catch(() => [] as Product[])
-      ]).then(([spStores, spProducts]) => {
-        if (!active) return;
-        const storeMap = new Map<string, Store>();
-        spStores.forEach(s => storeMap.set(s.id, s));
-
-        // Ensure "سنجوب ماركت" is present
-        if (!storeMap.has('a0000000-0000-0000-0000-000000000001')) {
-          storeMap.set('a0000000-0000-0000-0000-000000000001', {
-            id: 'a0000000-0000-0000-0000-000000000001',
-            name: 'سنجوب ماركت',
-            nameEn: 'Sangoub Market',
-            type: 'سوبرماركت ومستلزمات البيت اليومية',
-            category: 'supermarket',
-            logo: '/brand/sangoub-market-logo.jpg',
-            logoUrl: '/brand/sangoub-market-logo.jpg',
-            banner: '/brand/sangoub-market-logo.jpg',
-            bannerUrl: '/brand/sangoub-market-logo.jpg',
-            status: 'open',
-            rating: 5,
-            ratingCount: 1250,
-            deliveryTime: '15-25 دقيقة',
-            minOrder: 20,
-            deliveryFee: 10,
-            locationInDistrict: 'الحي الحكومي - مركز سنجوب',
-          });
-        }
-        const mergedStores = Array.from(storeMap.values());
-        setStores(mergedStores);
-        setProducts(spProducts);
-      }).catch(err => {
-        console.warn('[AdminApp] Supabase catalog load error:', err);
-      });
-    };
 
     loadAdminCatalog();
     void adminApi('users', { action: 'list' }).then(result => {
@@ -338,6 +337,7 @@ export default function AdminApp() {
             onError={report}
             onProductUpdate={handleProductUpdate}
             onProductDelete={handleProductDelete}
+            onProductsRefresh={loadAdminCatalog}
           >
             <AdminDashboard
               couriers={staff.filter((p) => p.role === "courier")}

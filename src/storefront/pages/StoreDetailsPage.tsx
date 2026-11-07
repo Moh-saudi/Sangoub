@@ -167,9 +167,26 @@ export const StoreDetailsPage: React.FC<StoreDetailsPageProps> = ({
               </div>
 
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-lg sm:text-2xl font-black text-[#111827]">{store.name}</h1>
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" title="مفتوح الآن" />
+                  {store.status === 'open' && (
+                    <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[11px] font-black border border-emerald-200">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>مفتوح</span>
+                    </span>
+                  )}
+                  {store.status === 'busy' && (
+                    <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full text-[11px] font-black border border-amber-200">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      <span>مشغول مؤقتاً</span>
+                    </span>
+                  )}
+                  {store.status === 'closed' && (
+                    <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full text-[11px] font-black border border-slate-300">
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      <span>مغلق حالياً</span>
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs sm:text-sm text-gray-500 font-medium mt-0.5">{store.type}</p>
                 {store.locationInDistrict && (
@@ -204,6 +221,19 @@ export const StoreDetailsPage: React.FC<StoreDetailsPageProps> = ({
               </div>
             </div>
           </div>
+
+          {store.status === 'closed' && (
+            <div className="mt-3 p-3.5 bg-red-50 border border-red-200 rounded-2xl text-red-800 text-xs font-bold flex items-center gap-2 shadow-xs">
+              <span className="text-base shrink-0">⛔</span>
+              <span>تنبيه: هذا المتجر مغلق حالياً ولا يستقبل طلبات جديدة. يمكنك تصفح قائمة الأصناف والأسعار.</span>
+            </div>
+          )}
+          {store.status === 'busy' && (
+            <div className="mt-3 p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-xs font-bold flex items-center gap-2 shadow-xs">
+              <span className="text-base shrink-0">⏳</span>
+              <span>تنبيه: هذا المتجر متوقف مؤقتاً أو مشغول حالياً في تحضير الطلبات، قد يستغرق التوصيل وقتاً أطول.</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -319,16 +349,22 @@ export const StoreDetailsPage: React.FC<StoreDetailsPageProps> = ({
 
                     <button
                       type="button"
+                      disabled={store.status === 'closed'}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (store.status === 'closed') return;
                         if (product.optionGroups && product.optionGroups.length > 0) {
                           setSelectedProductForModal(product);
                         } else {
                           addToCart(product, 1, {}, 0);
                         }
                       }}
-                      className="w-7 h-7 rounded-xl bg-orange-50 hover:bg-[#FF5900] text-[#FF5900] hover:text-white flex items-center justify-center transition shadow-2xs font-bold"
-                      title="أضف إلى السلة"
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center transition shadow-2xs font-bold ${
+                        store.status === 'closed'
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                          : 'bg-orange-50 hover:bg-[#FF5900] text-[#FF5900] hover:text-white cursor-pointer'
+                      }`}
+                      title={store.status === 'closed' ? "المتجر مغلق" : "أضف إلى السلة"}
                     >
                       <Plus size={15} />
                     </button>

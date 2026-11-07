@@ -266,24 +266,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // 3.2 Dynamic Active Stores (Filtered 100% dynamically based on disabledStoreTypes)
   const stores = useMemo(() => {
     return rawStores.filter((store) => {
-      if (store.status !== 'open') return false;
+      // Do NOT filter out closed or busy stores!
+      // All stores with status open, busy, or closed must be visible on the platform
+      // with their respective status labels (مفتوح الآن, مشغول مؤقتاً, مغلق حالياً).
       const sType = (store.type || '').toLowerCase();
       const sCat = (store.category || '').toLowerCase();
       const sName = (store.name || '').toLowerCase();
 
-      // Check if store matches any disabled store type
+      // Check if store matches any disabled store type (e.g. postponed types like PHARM)
       const isStoreTypeDisabled = disabledStoreTypes.some((code) => {
         const c = code.toUpperCase();
         if (c === 'PHARM') {
           return sType.includes('صيدل') || sCat.includes('pharm') || sName.includes('صيدل');
         }
-        if (c === 'REST') {
-          return sType.includes('مطعم') || sCat.includes('restaurant') || sType.includes('وجبات');
-        }
-        if (c === 'CAFE') {
-          return sType.includes('كافيه') || sCat.includes('cafe');
-        }
-        return sType.includes(c.toLowerCase()) || sCat.includes(c.toLowerCase());
+        return false;
       });
 
       return !isStoreTypeDisabled;
@@ -292,10 +288,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // 3.3 Dynamic Active Products (Filtered 100% dynamically based on disabledCategories & disabledStoreTypes & active stores)
   const products = useMemo(() => {
+    const storeMap = new Map<string, Store>(rawStores.map(s => [s.id, s]));
+    const storeNameMap = new Map<string, Store>(rawStores.map(s => [s.name, s]));
     const activeStoreIds = new Set(stores.map((s) => s.id));
     const activeStoreNames = new Set(stores.map((s) => s.name));
 
-    return rawProducts.filter((p) => {
+    return rawProducts.map((p) => {
+      // Enrich product with storeName from rawStores if missing
+      const storeObj = p.storeId ? storeMap.get(p.storeId) : (p.storeName ? storeNameMap.get(p.storeName) : undefined);
+      const effectiveStoreName = storeObj?.name || p.storeName || (p.storeId === 'a0000000-0000-0000-0000-000000000001' ? 'سنجوب ماركت' : '');
+      return {
+        ...p,
+        storeName: effectiveStoreName,
+      };
+    }).filter((p) => {
       if (p.archived || !p.inStock) return false;
 
       // 1. Must belong to an active, enabled store (or Sangoub)
@@ -307,7 +313,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       const pCat = (p.category || '').toLowerCase();
       const pCatId = (p.categoryId || '').toLowerCase();
-      const pStoreName = (p.storeName || '').toLowerCase();
 
       // 2. Filter out products from disabled categories (with full Arabic hamza normalization)
       const isCategoryDisabled = disabledCategories.some((term) => {
@@ -324,7 +329,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
       if (isCategoryDisabled) return false;
 
-      // 3. Fallback: If PHARM is in disabledStoreTypes or pharmacy is in disabledCategories, block all pharmacy products
+      // 3. Fallback: If PHARM is in disabledStoreTypes or pharmacy is in disabledCategories, block only real pharmacy items
       if (
         disabledStoreTypes.includes('PHARM') ||
         disabledCategories.some((c) => {
@@ -336,15 +341,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const isPharm = pharmTerms.some((term) => {
           const termNorm = term.replace(/[أإآ]/g, 'ا');
           const catNorm = pCat.replace(/[أإآ]/g, 'ا');
-          const storeNorm = pStoreName.replace(/[أإآ]/g, 'ا');
-          return catNorm.includes(termNorm) || storeNorm.includes(termNorm);
+          const pNameNorm = (p.name || '').toLowerCase().replace(/[أإآ]/g, 'ا');
+          return catNorm.includes(termNorm) || pNameNorm.includes(termNorm);
         });
         if (isPharm) return false;
       }
 
       return true;
     });
-  }, [rawProducts, stores, disabledCategories, disabledStoreTypes]);
+  }, [rawProducts, rawStores, stores, disabledCategories, disabledStoreTypes]);
 
   useEffect(() => {
     setIsLoadingCatalog(true);
