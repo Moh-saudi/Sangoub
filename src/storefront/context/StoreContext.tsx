@@ -239,7 +239,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // 3. Dynamic Admin App Content Controls (Synced with Admin App Content / CategoryManager)
-  const [disabledStoreTypes, setDisabledStoreTypes] = useState<string[]>(['REST', 'CAFE', 'PHARM']);
+  const [disabledStoreTypes, setDisabledStoreTypes] = useState<string[]>(['PHARM']);
   const [disabledCategories, setDisabledCategories] = useState<string[]>([
     'CAT-PHARMACY',
     'pharmacy',
@@ -368,11 +368,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
 
         if (sbStores && sbStores.length > 0) {
-          // Ensure "سنجوب ماركت" is always present with official logo & banner
-          const sangoubStore: Store = {
+          // Default baseline for platform central store if missing in database
+          const sangoubDefault: Store = {
             id: 'a0000000-0000-0000-0000-000000000001',
-            name: 'سنجوب ماركت',
-            nameEn: 'Sangoub Market',
+            name: 'متجر سنجوب إكسبريس المركزي',
+            nameEn: 'Sangoub Express Central',
             type: 'سوبرماركت ومستلزمات البيت اليومية',
             category: 'supermarket',
             logo: '/brand/sangoub-market-logo.jpg',
@@ -389,45 +389,81 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           };
 
           const enrichedStores: Store[] = sbStores.map((store) => {
-            if (store.id === sangoubStore.id || store.name?.includes('سنجوب')) {
-              return {
-                ...sangoubStore,
-                ...store,
-                logo: store.logo || sangoubStore.logo,
-                logoUrl: store.logoUrl || store.logo || sangoubStore.logoUrl,
-                banner: store.banner || sangoubStore.banner,
-                bannerUrl: store.bannerUrl || store.banner || sangoubStore.bannerUrl,
-              } as Store;
-            }
+            const isSangoub = store.id === sangoubDefault.id || store.name?.includes('سنجوب');
             const known =
               KNOWN_STORE_ASSETS[store.id] ||
               Object.values(KNOWN_STORE_ASSETS).find(
                 (k) =>
                   k.name &&
-                  (store.name.includes(k.name) || k.name.includes(store.name))
+                  (store.name?.includes(k.name) || k.name.includes(store.name || ''))
               );
-            const logoUrl =
-              store.logoUrl ||
-              (store.logo && store.logo.startsWith('http') ? store.logo : undefined) ||
-              known?.logoUrl;
-            const bannerUrl =
-              store.bannerUrl ||
-              (store.banner && store.banner.startsWith('http') ? store.banner : undefined) ||
-              known?.bannerUrl;
+
+            // 1. Choose best logo URL (prioritize http/https uploaded URLs)
+            const logoCandidates = [store.logoUrl, store.logo, known?.logoUrl, isSangoub ? sangoubDefault.logoUrl : undefined];
+            let resolvedLogo = '';
+            for (const c of logoCandidates) {
+              if (c && typeof c === 'string' && (c.startsWith('http://') || c.startsWith('https://') || c.startsWith('data:'))) {
+                resolvedLogo = c;
+                break;
+              }
+            }
+            if (!resolvedLogo) {
+              for (const c of logoCandidates) {
+                if (c && typeof c === 'string' && c.trim().length > 0 && !c.includes('sangoub-market-logo.jpg')) {
+                  resolvedLogo = c;
+                  break;
+                }
+              }
+            }
+            if (!resolvedLogo) {
+              resolvedLogo = isSangoub ? sangoubDefault.logoUrl : (known?.logoUrl || '/brand/sangoub-mark-white-128.png');
+            }
+
+            // 2. Choose best banner URL (prioritize http/https uploaded URLs)
+            const bannerCandidates = [store.bannerUrl, store.banner, store.imageUrl, known?.bannerUrl, isSangoub ? sangoubDefault.bannerUrl : undefined];
+            let resolvedBanner = '';
+            for (const c of bannerCandidates) {
+              if (c && typeof c === 'string' && (c.startsWith('http://') || c.startsWith('https://') || c.startsWith('data:'))) {
+                resolvedBanner = c;
+                break;
+              }
+            }
+            if (!resolvedBanner) {
+              for (const c of bannerCandidates) {
+                if (c && typeof c === 'string' && c.trim().length > 0 && !c.includes('sangoub-market-logo.jpg')) {
+                  resolvedBanner = c;
+                  break;
+                }
+              }
+            }
+            if (!resolvedBanner) {
+              resolvedBanner = isSangoub ? sangoubDefault.bannerUrl : (known?.bannerUrl || resolvedLogo);
+            }
 
             return {
+              ...(isSangoub ? sangoubDefault : {}),
               ...store,
-              logoUrl,
-              bannerUrl,
+              logo: resolvedLogo,
+              logoUrl: resolvedLogo,
+              banner: resolvedBanner,
+              bannerUrl: resolvedBanner,
+              imageUrl: resolvedBanner,
             } as Store;
           });
 
-          if (!enrichedStores.some((s) => s.id === sangoubStore.id)) {
-            enrichedStores.unshift(sangoubStore);
+          // Order stores: Central Sangoub store first, followed by all other authentic stores
+          const sangoubIdx = enrichedStores.findIndex(
+            (s) => s.id === sangoubDefault.id || s.name?.includes('سنجوب')
+          );
+          let orderedStores: Store[] = [];
+          if (sangoubIdx >= 0) {
+            const [sangoubStore] = enrichedStores.splice(sangoubIdx, 1);
+            orderedStores = [sangoubStore, ...enrichedStores];
+          } else {
+            orderedStores = [sangoubDefault, ...enrichedStores];
           }
 
-          const otherStores = enrichedStores.filter((s) => s.id !== sangoubStore.id);
-          setRawStores([sangoubStore, ...otherStores]);
+          setRawStores(orderedStores);
         }
       } catch (err) {
         console.warn('[Supabase Catalog] Fetch error:', err);

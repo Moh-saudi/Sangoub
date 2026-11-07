@@ -44,11 +44,11 @@ export const STORE_SLUG_TO_SUPABASE_UUID: Record<string, string> = {
 
 export function resolveSupabaseStoreUuid(rawId?: string): string {
   if (!rawId) throw new Error('معرّف المتجر مطلوب.');
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawId);
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
   if (isUuid) return rawId;
   const storeId = STORE_SLUG_TO_SUPABASE_UUID[rawId];
-  if (!storeId) throw new Error('المتجر المحدد غير معروف. حدّث قائمة المتاجر ثم أعد المحاولة.');
-  return storeId;
+  if (storeId) return storeId;
+  return rawId;
 }
 
 export const supabaseConfig = {
@@ -124,9 +124,48 @@ export async function getSupabaseStores(): Promise<Store[]> {
 
   const fetched: Store[] = (!error && data) ? (data || []).map((row: any) => {
     const known = KNOWN_STORE_ASSETS[row.id] || Object.values(KNOWN_STORE_ASSETS).find(k => k.name === row.name);
-    const logoUrl = (row.logo && row.logo.length > 4) ? row.logo : (row.logo_url || known?.logoUrl || '/brand/sangoub-mark-white-128.png');
-    const bannerUrl = (row.banner && row.banner.length > 4) ? row.banner : (row.banner_url || row.image_url || known?.bannerUrl || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=800&q=80');
-    const logo = (typeof row.logo === 'string' && row.logo.length > 0) ? row.logo : (known?.logo || 'STORE');
+    
+    // 1. Choose best logo URL (prioritize http/https uploaded URLs)
+    const logoCandidates = [row.logo, row.logo_url, known?.logoUrl, known?.logo];
+    let resolvedLogoUrl = '';
+    for (const c of logoCandidates) {
+      if (typeof c === 'string' && (c.startsWith('http://') || c.startsWith('https://') || c.startsWith('data:'))) {
+        resolvedLogoUrl = c;
+        break;
+      }
+    }
+    if (!resolvedLogoUrl) {
+      for (const c of logoCandidates) {
+        if (typeof c === 'string' && c.trim().length > 0 && !c.includes('sangoub-market-logo.jpg')) {
+          resolvedLogoUrl = c;
+          break;
+        }
+      }
+    }
+    if (!resolvedLogoUrl) {
+      resolvedLogoUrl = known?.logoUrl || '/brand/sangoub-mark-white-128.png';
+    }
+
+    // 2. Choose best banner URL (prioritize http/https uploaded URLs)
+    const bannerCandidates = [row.banner, row.banner_url, row.image_url, known?.bannerUrl];
+    let resolvedBannerUrl = '';
+    for (const c of bannerCandidates) {
+      if (typeof c === 'string' && (c.startsWith('http://') || c.startsWith('https://') || c.startsWith('data:'))) {
+        resolvedBannerUrl = c;
+        break;
+      }
+    }
+    if (!resolvedBannerUrl) {
+      for (const c of bannerCandidates) {
+        if (typeof c === 'string' && c.trim().length > 0 && !c.includes('sangoub-market-logo.jpg')) {
+          resolvedBannerUrl = c;
+          break;
+        }
+      }
+    }
+    if (!resolvedBannerUrl) {
+      resolvedBannerUrl = known?.bannerUrl || resolvedLogoUrl;
+    }
 
     return {
       id: row.id,
@@ -141,11 +180,11 @@ export async function getSupabaseStores(): Promise<Store[]> {
       minOrder: Number(row.min_order) || 20,
       deliveryFee: Number(row.delivery_fee) || 10,
       locationInDistrict: row.location_in_district || '',
-      logo,
-      banner: bannerUrl,
-      logoUrl,
-      bannerUrl,
-      imageUrl: bannerUrl,
+      logo: resolvedLogoUrl,
+      banner: resolvedBannerUrl,
+      logoUrl: resolvedLogoUrl,
+      bannerUrl: resolvedBannerUrl,
+      imageUrl: resolvedBannerUrl,
       commissionRate: row.commission_rate != null ? Number(row.commission_rate) : undefined,
       taxRate: row.tax_rate != null ? Number(row.tax_rate) : undefined,
     };
@@ -155,25 +194,14 @@ export async function getSupabaseStores(): Promise<Store[]> {
   const realStores: Store[] = [];
 
   // Ensure "سنجوب ماركت" is present as the platform's central store
-  const sangoubStore = fetched.find(s => s.id === 'a0000000-0000-0000-0000-000000000001' || s.name.includes('سنجوب'));
+  const sangoubStore = fetched.find(s => s.id === 'a0000000-0000-0000-0000-000000000001' || s.name?.includes('سنجوب'));
   if (sangoubStore) {
-    const sLogo = (sangoubStore.logoUrl && sangoubStore.logoUrl.length > 4) ? sangoubStore.logoUrl : '/brand/sangoub-market-logo.jpg';
-    const sBanner = (sangoubStore.bannerUrl && sangoubStore.bannerUrl.length > 4) ? sangoubStore.bannerUrl : '/brand/sangoub-market-logo.jpg';
-    realStores.push({
-      ...sangoubStore,
-      name: sangoubStore.name || 'سنجوب ماركت',
-      nameEn: sangoubStore.nameEn || 'Sangoub Market',
-      logo: sLogo,
-      logoUrl: sLogo,
-      banner: sBanner,
-      bannerUrl: sBanner,
-      imageUrl: sBanner,
-    });
+    realStores.push(sangoubStore);
   } else {
     realStores.push({
       id: 'a0000000-0000-0000-0000-000000000001',
-      name: 'سنجوب ماركت',
-      nameEn: 'Sangoub Market',
+      name: 'متجر سنجوب إكسبريس المركزي',
+      nameEn: 'Sangoub Express Central',
       type: 'سوبرماركت ومستلزمات البيت اليومية',
       category: 'supermarket',
       status: 'open',
@@ -191,9 +219,9 @@ export async function getSupabaseStores(): Promise<Store[]> {
     });
   }
 
-  // Add the remaining real stores from Supabase
+  // Add all other real stores from Supabase
   for (const s of fetched) {
-    if (s.id !== 'a0000000-0000-0000-0000-000000000001' && s.id !== '54a6c2f6-6c29-4177-ac65-32fadddea83d') {
+    if (s.id !== sangoubStore?.id) {
       realStores.push(s);
     }
   }
@@ -211,6 +239,43 @@ export async function getSupabaseStore(storeId: string): Promise<Store | null> {
       .maybeSingle();
 
     if (!error && data) {
+      const known = KNOWN_STORE_ASSETS[data.id] || Object.values(KNOWN_STORE_ASSETS).find(k => k.name === data.name);
+      const logoCandidates = [data.logo, data.logo_url, known?.logoUrl];
+      let resolvedLogoUrl = '';
+      for (const c of logoCandidates) {
+        if (typeof c === 'string' && (c.startsWith('http://') || c.startsWith('https://') || c.startsWith('data:'))) {
+          resolvedLogoUrl = c;
+          break;
+        }
+      }
+      if (!resolvedLogoUrl) {
+        for (const c of logoCandidates) {
+          if (typeof c === 'string' && c.trim().length > 0 && !c.includes('sangoub-market-logo.jpg')) {
+            resolvedLogoUrl = c;
+            break;
+          }
+        }
+      }
+      if (!resolvedLogoUrl) resolvedLogoUrl = known?.logoUrl || '/brand/sangoub-mark-white-128.png';
+
+      const bannerCandidates = [data.banner, data.banner_url, data.image_url, known?.bannerUrl];
+      let resolvedBannerUrl = '';
+      for (const c of bannerCandidates) {
+        if (typeof c === 'string' && (c.startsWith('http://') || c.startsWith('https://') || c.startsWith('data:'))) {
+          resolvedBannerUrl = c;
+          break;
+        }
+      }
+      if (!resolvedBannerUrl) {
+        for (const c of bannerCandidates) {
+          if (typeof c === 'string' && c.trim().length > 0 && !c.includes('sangoub-market-logo.jpg')) {
+            resolvedBannerUrl = c;
+            break;
+          }
+        }
+      }
+      if (!resolvedBannerUrl) resolvedBannerUrl = known?.bannerUrl || resolvedLogoUrl;
+
       return {
         id: storeId || data.id,
         uuid: data.id,
@@ -225,11 +290,11 @@ export async function getSupabaseStore(storeId: string): Promise<Store | null> {
         minOrder: Number(data.min_order) || 0,
         deliveryFee: Number(data.delivery_fee) || 10,
         locationInDistrict: data.location_in_district || '',
-        logo: data.logo || data.logo_url || '',
-        banner: data.banner || data.banner_url || '',
-        logoUrl: data.logo_url || data.logo || '',
-        bannerUrl: data.banner_url || data.banner || '',
-        imageUrl: data.image_url || '',
+        logo: resolvedLogoUrl,
+        banner: resolvedBannerUrl,
+        logoUrl: resolvedLogoUrl,
+        bannerUrl: resolvedBannerUrl,
+        imageUrl: resolvedBannerUrl,
         commissionRate: data.commission_rate != null ? Number(data.commission_rate) : undefined,
         taxRate: data.tax_rate != null ? Number(data.tax_rate) : undefined,
       } as Store;
@@ -241,8 +306,8 @@ export async function getSupabaseStore(storeId: string): Promise<Store | null> {
   if (storeId === 'a0000000-0000-0000-0000-000000000001' || storeId === 'sangoub-market') {
     return {
       id: 'a0000000-0000-0000-0000-000000000001',
-      name: 'سنجوب ماركت',
-      nameEn: 'Sangoub Market',
+      name: 'متجر سنجوب إكسبريس المركزي',
+      nameEn: 'Sangoub Express Central',
       type: 'سوبرماركت ومستلزمات البيت اليومية',
       category: 'supermarket',
       status: 'open',

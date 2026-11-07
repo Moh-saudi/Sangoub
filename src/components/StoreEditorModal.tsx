@@ -76,8 +76,19 @@ export function StoreEditorModal({
   const [pricesIncludeTax, setPricesIncludeTax] = useState<boolean>(store?.pricesIncludeTax !== false);
 
   // 5. Visual Identity (Images)
-  const initialBanner = store?.bannerUrl || store?.banner || store?.imageUrl || "";
-  const initialLogo = store?.logoUrl || (typeof store?.logo === "string" && store.logo.length > 4 ? store.logo : "") || "";
+  const initialBanner = (store?.bannerUrl && store.bannerUrl.startsWith('http'))
+    ? store.bannerUrl
+    : (store?.banner && store.banner.startsWith('http'))
+      ? store.banner
+      : (store?.imageUrl && store.imageUrl.startsWith('http'))
+        ? store.imageUrl
+        : (store?.bannerUrl || store?.banner || store?.imageUrl || "");
+
+  const initialLogo = (store?.logoUrl && store.logoUrl.startsWith('http'))
+    ? store.logoUrl
+    : (store?.logo && store.logo.startsWith('http'))
+      ? store.logo
+      : (store?.logoUrl || (typeof store?.logo === "string" && store.logo.length > 4 ? store.logo : "") || "");
   const [bannerUrl, setBannerUrl] = useState(initialBanner);
   const [logoUrl, setLogoUrl] = useState(initialLogo);
 

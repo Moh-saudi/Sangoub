@@ -12,6 +12,7 @@ import { MerchantLogoCard } from '../components/MerchantLogoCard';
 import { CategoryRail } from '../components/CategoryRail';
 import { formatEGP } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
+import { getStoreLogo } from '../../utils/storeAssets';
 import type { Product } from '../../types';
 import { 
   matchProductToCategory, 
@@ -525,7 +526,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                     className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] shrink-0 cursor-pointer active:scale-95"
                   >
                     <img
-                      src={merchant.logo || '/brand/sangoub-market-logo.jpg'}
+                      src={getStoreLogo(merchant)}
                       alt={merchant.name}
                       className="w-5 h-5 rounded-full object-cover border border-[#E5E7EB]"
                     />

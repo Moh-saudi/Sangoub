@@ -7,6 +7,7 @@ import { MerchantLogoCard } from '../components/MerchantLogoCard';
 import { CategoryRail } from '../components/CategoryRail';
 import { formatEGP } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
+import { getStoreLogo } from '../../utils/storeAssets';
 import type { Product } from '../../types';
 import { 
   matchProductToCategory, 
@@ -193,7 +194,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                     style={{ fontFamily: "'Tajawal', sans-serif" }}
                   >
                     <img
-                      src={merchant.logo || '/brand/sangoub-market-logo.jpg'}
+                      src={getStoreLogo(merchant)}
                       alt={merchant.name}
                       className="w-5 h-5 rounded-full object-cover"
                     />

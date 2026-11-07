@@ -5,11 +5,29 @@ import type { Store } from '../types';
  * Does not invent mock assets; strictly follows the database and dashboard.
  */
 export function getStoreLogo(store: Partial<Store>): string {
-  if (store.logoUrl && (store.logoUrl.startsWith('http') || store.logoUrl.startsWith('/'))) {
-    return store.logoUrl;
+  const candidates = [store.logoUrl, store.logo];
+  // 1. Prioritize uploaded network URLs (e.g. Supabase Storage / R2)
+  for (const c of candidates) {
+    if (typeof c === 'string' && (c.startsWith('http://') || c.startsWith('https://') || c.startsWith('data:'))) {
+      return c;
+    }
   }
-  if (store.logo && (store.logo.startsWith('http') || store.logo.startsWith('/'))) {
-    return store.logo;
+  // 2. Next prioritize non-default local asset paths
+  for (const c of candidates) {
+    if (
+      typeof c === 'string' &&
+      c.trim().length > 0 &&
+      c !== '/brand/sangoub-market-logo.jpg' &&
+      c !== '/brand/sangoub-mark-white-128.png'
+    ) {
+      return c;
+    }
+  }
+  // 3. Any non-empty string
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim().length > 0) {
+      return c;
+    }
   }
   if (store.id === 'a0000000-0000-0000-0000-000000000001' || store.name?.includes('سنجوب')) {
     return '/brand/sangoub-market-logo.jpg';
@@ -118,14 +136,26 @@ export function getProductSlug(productOrId?: { id?: string; name?: string; barco
  * Returns the store's authentic banner/cover image directly from its own registered data.
  */
 export function getStoreImage(store: Partial<Store>): string {
-  if (store.bannerUrl && (store.bannerUrl.startsWith('http') || store.bannerUrl.startsWith('/'))) {
-    return store.bannerUrl;
+  const candidates = [store.bannerUrl, store.banner, store.imageUrl];
+  for (const c of candidates) {
+    if (typeof c === 'string' && (c.startsWith('http://') || c.startsWith('https://') || c.startsWith('data:'))) {
+      return c;
+    }
   }
-  if (store.imageUrl && (store.imageUrl.startsWith('http') || store.imageUrl.startsWith('/'))) {
-    return store.imageUrl;
+  for (const c of candidates) {
+    if (
+      typeof c === 'string' &&
+      c.trim().length > 0 &&
+      c !== '/brand/sangoub-market-logo.jpg' &&
+      c !== '/brand/sangoub-mark-white-128.png'
+    ) {
+      return c;
+    }
   }
-  if (store.banner && (store.banner.startsWith('http') || store.banner.startsWith('/'))) {
-    return store.banner;
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim().length > 0) {
+      return c;
+    }
   }
   return getStoreLogo(store);
 }
