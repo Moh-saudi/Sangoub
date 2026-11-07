@@ -93,17 +93,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     }
   };
 
-    if (id) {
-      setNotificationsList((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-      );
-      setUnreadNotificationsCount((c) => Math.max(0, c - 1));
-    } else {
-      setNotificationsList((prev) => prev.map((n) => ({ ...n, is_read: true })));
-      setUnreadNotificationsCount(0);
-    }
-  };
-
   const handleNotificationClick = (item: any) => {
     if (!item.is_read) {
       void handleMarkAsRead(item.id);
