@@ -5,31 +5,42 @@
  * and zero reliance on external network downloads.
  */
 
+let hasUserInteracted = false;
 let sharedAudioCtx: AudioContext | null = null;
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
+  if (!hasUserInteracted) return null;
+
   const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
   if (!AudioCtxClass) return null;
 
   if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
-    sharedAudioCtx = new AudioCtxClass();
+    try {
+      sharedAudioCtx = new AudioCtxClass();
+    } catch {
+      return null;
+    }
   }
   return sharedAudioCtx;
 }
 
-// Ensure audio context is resumed on user gesture
+// Track user gesture to prevent browser autoplay warnings
 if (typeof window !== 'undefined') {
   const unlockAudio = () => {
-    const ctx = getAudioContext();
-    if (ctx && ctx.state === 'suspended') {
-      void ctx.resume();
-    }
-    window.removeEventListener('click', unlockAudio);
-    window.removeEventListener('touchstart', unlockAudio);
+    hasUserInteracted = true;
+    try {
+      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtxClass && !sharedAudioCtx) {
+        sharedAudioCtx = new AudioCtxClass();
+      }
+      if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+        void sharedAudioCtx.resume().catch(() => {});
+      }
+    } catch {}
   };
-  window.addEventListener('click', unlockAudio, { passive: true });
-  window.addEventListener('touchstart', unlockAudio, { passive: true });
+  window.addEventListener('click', unlockAudio, { passive: true, once: true });
+  window.addEventListener('touchstart', unlockAudio, { passive: true, once: true });
 }
 
 /**
@@ -37,6 +48,11 @@ if (typeof window !== 'undefined') {
  * F5 (698.46 Hz) -> A5 (880.00 Hz) -> C6 (1046.50 Hz) with warm acoustic bell harmonics.
  */
 export async function playAirportChime(): Promise<void> {
+  // If user hasn't clicked/tapped the screen yet, skip sound to prevent browser console warnings
+  if (!hasUserInteracted && typeof window !== 'undefined') {
+    return;
+  }
+
   // 1. Try to play external custom sound if configured
   try {
     const audio = new Audio('/sounds/airport_chime.mp3');
@@ -55,8 +71,9 @@ export async function playAirportChime(): Promise<void> {
     const ctx = getAudioContext();
     if (!ctx) return;
     if (ctx.state === 'suspended') {
-      await ctx.resume();
+      await ctx.resume().catch(() => {});
     }
+    if (ctx.state !== 'running') return;
 
     const now = ctx.currentTime;
 
@@ -100,7 +117,7 @@ export async function playAirportChime(): Promise<void> {
       harmonicOsc.start(startTime);
       harmonicOsc.stop(stopTime);
     });
-  } catch (err) {
-    console.warn('[AudioAlerts] Could not play airport chime:', err);
+  } catch {
+    // silent failure
   }
 }

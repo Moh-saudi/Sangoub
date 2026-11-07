@@ -180,40 +180,28 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
               <Bell size={18} />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-black text-slate-900 text-sm sm:text-base leading-tight">
-                  التنبيهات
-                </h3>
-                {unreadNotificationsCount > 0 && (
-                  <span className="text-[10px] font-bold bg-orange-500 text-white px-2 py-0.2 rounded-full">
-                    {unreadNotificationsCount} جديدة
-                  </span>
-                )}
-              </div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-black text-slate-900 text-sm sm:text-base leading-tight">
+                التنبيهات
+              </h3>
+              {unreadNotificationsCount > 0 && (
+                <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[11px] font-black flex items-center justify-center">
+                  {unreadNotificationsCount}
+                </span>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Airport Sound Preview Button */}
-            <button
-              type="button"
-              onClick={() => void playAirportChime()}
-              className="w-7 h-7 rounded-full bg-slate-100 hover:bg-orange-100 text-slate-500 hover:text-orange-600 flex items-center justify-center transition-colors cursor-pointer"
-              title="تجربة صوت نداء المطار ✈️"
-            >
-              <Volume2 size={14} />
-            </button>
-
+          <div className="flex items-center gap-1.5">
             {unreadNotificationsCount > 0 && (
               <button
                 type="button"
                 onClick={() => void handleMarkAsRead()}
-                className="text-[11px] font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 flex items-center justify-center transition-colors cursor-pointer"
                 title="تحديد الكل كمقروء"
+                aria-label="تحديد الكل كمقروء"
               >
-                <CheckCheck size={13} />
-                <span>قراءة الكل</span>
+                <CheckCheck size={15} />
               </button>
             )}
 
@@ -223,6 +211,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
               aria-label="إغلاق"
             >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
               <X size={15} />
             </button>
           </div>

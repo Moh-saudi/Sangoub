@@ -5,7 +5,7 @@ import { operationsApi } from "./lib/operationsApi";
 import { adminApi } from "./lib/adminApi";
 import "./admin.css";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { LogOut, ShieldCheck, Loader2, Eye, EyeOff, Mail, LockKeyhole, ArrowLeft } from "lucide-react";
+import { LogOut, ShieldCheck, Loader2, Eye, EyeOff, Mail, LockKeyhole, ArrowLeft, Bell } from "lucide-react";
 import { supabase, signInWithSupabaseGoogle, signOutFromSupabase, getSupabaseStores, getSupabaseProducts, subscribeToCatalog, subscribeToAdminOrders } from "./lib/supabase";
 import { updateOrderRecord, approvePartner } from "./lib/firebase";
 import { AdminWorkspace } from "./components/AdminWorkspace";
@@ -49,6 +49,7 @@ export default function AdminApp() {
   const [jobs, setJobs] = useState<JobApplication[]>([]);
   const [workAccount, setWorkAccount] = useState<any>(null);
   const [connected, setConnected] = useState(false);
+  const [showAdminNotifs, setShowAdminNotifs] = useState(false);
   const report = (err: unknown) => setError(message(err));
 
   useEffect(() => {
@@ -320,6 +321,73 @@ export default function AdminApp() {
             </div>
             <div id="admin-header-search" className="admin-header-search-slot" />
             <div className="flex flex-wrap gap-3 items-center text-xs">
+              {/* Admin Live Operational Notifications Bell */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminNotifs(!showAdminNotifs)}
+                  className="relative p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+                  title="إشعارات وتنبيهات الطلبات الحية"
+                >
+                  <Bell size={16} />
+                  {orders.filter(o => !o.orderStatus || o.orderStatus === 'received' || o.orderStatus === 'pending').length > 0 && (
+                    <span className="w-5 h-5 rounded-full bg-orange-600 text-white text-[10px] font-black flex items-center justify-center animate-pulse">
+                      {orders.filter(o => !o.orderStatus || o.orderStatus === 'received' || o.orderStatus === 'pending').length}
+                    </span>
+                  )}
+                </button>
+
+                {showAdminNotifs && (
+                  <div
+                    className="absolute left-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50 animate-in fade-in space-y-2 select-none"
+                    dir="rtl"
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <span className="font-black text-xs text-slate-800 flex items-center gap-1.5">
+                        <Bell size={14} className="text-orange-600" />
+                        <span>إشعارات الطلبات الواردة</span>
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400">
+                        {orders.length} طلب
+                      </span>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto space-y-1.5">
+                      {orders.length > 0 ? (
+                        orders.slice(0, 6).map((ord) => (
+                          <div
+                            key={ord.id}
+                            className="p-2 rounded-xl bg-slate-50 hover:bg-orange-50/70 border border-slate-100 transition text-xs space-y-1 cursor-pointer"
+                            onClick={() => {
+                              setShowAdminNotifs(false);
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono font-black text-slate-900 text-[11px]">
+                                #{ord.orderNumber || ord.id.slice(0, 8)}
+                              </span>
+                              <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-md ${
+                                ord.orderStatus === 'delivered' ? 'bg-emerald-100 text-emerald-800' : 'bg-orange-100 text-orange-800'
+                              }`}>
+                                {ord.orderStatus || 'received'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] text-slate-500">
+                              <span className="truncate max-w-[150px]">{ord.profileName || ord.ministry || 'طلب جديد'}</span>
+                              <strong className="text-orange-600 font-bold">{ord.total} ج.م</strong>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-center py-6 text-xs text-slate-400 font-bold">
+                          لا توجد طلبات واردة حالياً
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <span className="inline-flex gap-2 items-center text-orange-700 bg-orange-50 px-3 py-2 rounded-full">
                 <ShieldCheck size={15} />بوابة الإدارة فقط
               </span>

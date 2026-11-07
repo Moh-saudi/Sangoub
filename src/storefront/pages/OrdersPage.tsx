@@ -72,7 +72,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         const mapped = mapTrackableToDisplay(lastOrder);
         if (mapped) loadedList.push(mapped);
       }
-    } catch {}
+    } catch { }
 
     // Check localStorage history array if any
     try {
@@ -86,7 +86,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
           }
         }
       }
-    } catch {}
+    } catch { }
 
     // Direct Query from Supabase orders table (Sole Database Source of Truth)
     try {
@@ -242,7 +242,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
   return (
     <div className={`w-full ${isMobile ? 'px-3 py-2 pb-24' : 'max-w-4xl mx-auto px-4 py-8'} select-none font-['Cairo',sans-serif]`} dir="rtl">
-      
+
       {/* 1. Mobile-First Clean App Bar */}
       <div className="flex items-center justify-between gap-3 pb-2.5 mb-2.5 border-b border-[#F0F1F3]">
         <div className="flex items-center gap-2">
