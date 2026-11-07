@@ -848,19 +848,6 @@ export function CartCheckoutModal({
                 )}
               </div>
 
-                    {hasExistingAddress && (
-                      <button
-                        type="button"
-                        onClick={() => setIsEditingAddress(false)}
-                        className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                      >
-                        حفظ العنوان والرجوع للطلب ✓
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
               {/* 💳 PAYMENT METHOD SELECTION SECTION */}
               <div className="border border-slate-200 rounded-2xl p-3 sm:p-3.5 bg-white shadow-2xs space-y-2.5">
                 <div className="flex items-center gap-2 text-slate-900 font-bold text-xs sm:text-sm">
