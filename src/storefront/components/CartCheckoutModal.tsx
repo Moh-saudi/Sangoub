@@ -105,8 +105,16 @@ export function CartCheckoutModal({
     }
   }, [user]);
 
-  // Restore guest profile from localStorage if not logged in
+  // Restore guest profile / last phone from localStorage
   useEffect(() => {
+    if (!phone) {
+      try {
+        const lastPhone = localStorage.getItem('sangoub_last_phone');
+        if (lastPhone && /^01[0125][0-9]{8}$/.test(lastPhone)) {
+          setPhone(lastPhone);
+        }
+      } catch {}
+    }
     if (!user || user.fullName === 'زائر بدون تسجيل' || !user.phone) {
       try {
         const saved = localStorage.getItem('sangoub_guest_profile');
@@ -132,10 +140,9 @@ export function CartCheckoutModal({
   const [isEditingAddress, setIsEditingAddress] = useState(false);
 
   const hasExistingAddress = Boolean(
-    effectivePhone &&
-    ((streetAddress && streetAddress !== 'العاصمة وخامة المناطق' && streetAddress.trim().length > 3) ||
+    (streetAddress && streetAddress !== 'العاصمة وخامة المناطق' && streetAddress.trim().length > 3) ||
     (serviceArea?.name && serviceArea.name.trim().length > 3) ||
-    user?.ministry)
+    user?.ministry
   );
 
   // Coupon state
@@ -596,14 +603,38 @@ export function CartCheckoutModal({
                           </p>
                         )}
 
-                        <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5 font-medium">
-                          <span>المستلم: {fullName || user?.fullName}</span>
-                          <span>•</span>
-                          <span className="font-mono" dir="ltr">{effectivePhone || phone}</span>
-                          {hasWhatsApp && (
-                            <span className="text-emerald-600 text-[10px] font-bold">واتساب ✓</span>
-                          )}
-                        </p>
+                        {effectivePhone ? (
+                          <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5 font-medium">
+                            <span>المستلم: {fullName || user?.fullName}</span>
+                            <span>•</span>
+                            <span className="font-mono text-slate-700 font-bold" dir="ltr">{effectivePhone}</span>
+                            {hasWhatsApp && (
+                              <span className="text-emerald-600 text-[10px] font-bold">واتساب ✓</span>
+                            )}
+                          </p>
+                        ) : (
+                          <div className="mt-2.5 pt-2 border-t border-slate-200">
+                            <label className="block text-[11px] font-bold text-orange-900 mb-1">
+                              📱 رقم الهاتف للتواصل مع المندوب <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <Phone size={13} className="absolute right-3 top-2.5 text-orange-600" />
+                              <input
+                                type="tel"
+                                value={phone}
+                                onChange={(e) => {
+                                  const clean = sanitizePhone(e.target.value);
+                                  setPhone(clean);
+                                  try { localStorage.setItem('sangoub_last_phone', clean); } catch {}
+                                }}
+                                placeholder="أدخل رقم هاتفك (01xxxxxxxxx)"
+                                maxLength={11}
+                                autoFocus
+                                className="w-full pr-8 pl-3 py-1.5 bg-white border-2 border-orange-400 focus:border-orange-500 rounded-xl text-xs font-bold text-slate-900 focus:outline-none font-mono dir-ltr shadow-2xs"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -690,7 +721,11 @@ export function CartCheckoutModal({
                             dir="ltr"
                             maxLength={11}
                             value={phone}
-                            onChange={(e) => setPhone(sanitizePhone(e.target.value))}
+                            onChange={(e) => {
+                              const v = sanitizePhone(e.target.value);
+                              setPhone(v);
+                              try { localStorage.setItem('sangoub_last_phone', v); } catch {}
+                            }}
                             placeholder="01xxxxxxxxx"
                             required
                             className="w-full pr-8 pl-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-mono font-bold text-right"
@@ -990,7 +1025,15 @@ export function CartCheckoutModal({
           <footer className="p-3.5 sm:p-5 border-t border-slate-200 bg-white shrink-0">
             <button
               type="button"
-              onClick={!isLoggedIn ? onRequestRegister : handleSubmitOrder}
+              onClick={
+                !isLoggedIn
+                  ? onRequestRegister
+                  : !effectivePhone
+                  ? () => {
+                      document.querySelector<HTMLInputElement>('input[type="tel"]')?.focus();
+                    }
+                  : handleSubmitOrder
+              }
               disabled={isSubmitting || (isUserAuthenticated && !isCashAllowed)}
               className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl sm:rounded-2xl py-3 px-4 font-bold text-sm sm:text-[15px] flex justify-between items-center shadow-md shadow-orange-500/20 transition-all cursor-pointer"
             >
