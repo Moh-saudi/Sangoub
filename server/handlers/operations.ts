@@ -6,6 +6,7 @@ import { merchantActions, merchantAction } from '../merchantActions.ts';
 import { AdminError, adminError, validId } from '../adminRequest.ts';
 import { mobileCors } from '../mobileCors.ts';
 import { operationIdentity, requireOperationalAccess, rolloutReady } from '../operations.ts';
+import { sendPushToUsers } from './notifications.ts';
 
 export default async function handler(req: any, res: any) {
  res.setHeader('Cache-Control','no-store');
@@ -57,6 +58,24 @@ export default async function handler(req: any, res: any) {
     if (error.code==='23514') throw new AdminError(409,'بدأ تحضير الطلب أو تم دفعه إلكترونيًا؛ تواصل مع الدعم لمراجعته.');
     throw new AdminError(503,'تعذر إلغاء الطلب في Supabase.');
    }
+
+   void (async () => {
+     try {
+       const client = supabaseAdminClient();
+       const { data: ord } = await client.from('orders').select('customer_id, order_number').eq('id', input.orderId).maybeSingle();
+       if (ord?.customer_id) {
+         await sendPushToUsers([ord.customer_id], {
+           title: `تم إلغاء الطلب #${ord.order_number || ''}`,
+           body: `تم إلغاء طلبك بنجاح. تواصل معنا إذا كنت بحاجة لأي استفسار.`,
+           type: 'operational',
+           targetScreen: 'orders',
+           targetId: input.orderId,
+           data: { orderId: input.orderId },
+         });
+       }
+     } catch {}
+   })();
+
    return res.status(200).json(data||{ok:true});
   }
   if (input.action==='list') return res.status(200).json(await portalOrders({...input,action:'portal-active'},context));
@@ -84,6 +103,52 @@ export default async function handler(req: any, res: any) {
     if (error.code==='22023') throw new AdminError(400,'راجع الأصناف المؤكدة أو بيانات الملاحظة.');
     throw new AdminError(503,'تعذر تحديث تذكرة الطلب في Supabase.');
    }
+
+   if (input.action === 'prepare') {
+    void (async () => {
+      try {
+        const client = supabaseAdminClient();
+        const { data: ord } = await client.from('orders').select('customer_id, order_number, restaurant_name').eq('id', input.orderId).maybeSingle();
+        if (ord?.customer_id) {
+          if (input.next === 'preparing') {
+            await sendPushToUsers([ord.customer_id], {
+              title: `طلبك قيد التحضير الآن 👨‍🍳`,
+              body: `بدأ ${ord.restaurant_name || 'المتجر'} بتجهيز أصناف طلبك رقم #${ord.order_number || ''}.`,
+              type: 'operational',
+              targetScreen: 'track',
+              targetId: input.orderId,
+              data: { orderId: input.orderId },
+            });
+          } else if (input.next === 'ready') {
+            await sendPushToUsers([ord.customer_id], {
+              title: `طلبك جاهز للاستلام 📦`,
+              body: `تم تجهيز طلبك رقم #${ord.order_number || ''} وبانتظار استلام المندوب.`,
+              type: 'operational',
+              targetScreen: 'track',
+              targetId: input.orderId,
+              data: { orderId: input.orderId },
+            });
+
+            const { data: couriers } = await client.from('profiles').select('id').in('role', ['courier', 'store_courier']);
+            const courierIds = (couriers || []).map((c: any) => c.id).filter(Boolean);
+            if (courierIds.length) {
+              await sendPushToUsers(courierIds, {
+                title: `طلب جديد جاهز للتوصيل 🛵`,
+                body: `طلب جاهز للاستلام من ${ord.restaurant_name || 'المتجر'}. اضغط لمراجعة المهمة.`,
+                type: 'operational',
+                targetScreen: 'orders',
+                targetId: input.orderId,
+                data: { orderId: input.orderId },
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Fulfillment transition push failed:', e);
+      }
+    })();
+   }
+
    return res.status(200).json(data||{ok:true});
   }
   if (input.action==='pickup') return res.status(200).json(await portalOrders({...input,action:'courier-pickup'},context));

@@ -9,6 +9,7 @@ import { buildOrder } from '../orderBuilder.ts';
 import { mobileCors } from '../mobileCors.ts';
 import { GeideaGateway, ChatAmanGateway } from '../integrations.ts';
 import { CASH_PAYMENT_LIMIT_ERROR, CASH_PAYMENT_LIMIT_MESSAGE } from '../../src/utils/paymentPolicy.ts';
+import { sendPushToUsers } from './notifications.ts';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://tvnsqatkaqyubeznhnmu.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9ORqYV9HK0AbacKtYSRZiA_K7hcJ4yI';
@@ -219,12 +220,47 @@ export default async function handler(req: any, res: any) {
     const publicOrder = { ...order, id: row.id, orderNumber: row.order_number || order.orderNumber, orderStatus: appOrderStatus(row.status), paymentStatus: row.payment_status, createdAt: row.created_at };
     const payment = order.paymentMethod === 'geidea' ? await ensureOrderPayment(row.id, actor.email || '', actor.uid) : null;
 
-    if (saved.created && order.phone) {
-      void ChatAmanGateway.sendOrderConfirmation({
-        phone: order.phone, customerName: order.profileName, orderNumber: publicOrder.orderNumber,
-        totalAmount: order.total, currency: 'ج.م',
-        deliveryAddress: `${order.ministry}${order.floorNumber ? ` - دور ${order.floorNumber}` : ''}${order.roomNumber ? ` - شقة/مكتب ${order.roomNumber}` : ''}`.trim(),
-      }).catch(error => console.warn('Order confirmation delivery failed:', error?.message || 'provider-error'));
+    if (saved.created) {
+      // 1. Send push notification to the customer
+      void sendPushToUsers([actor.uid], {
+        title: `تم تأكيد طلبك بنجاح #${publicOrder.orderNumber} 🎉`,
+        body: `طلبك قيد المراجعة لدى المتجر بقيمة ${order.total} ج.م. يمكنك متابعته لحظة بلحظة.`,
+        type: 'operational',
+        targetScreen: 'track',
+        targetId: row.id,
+        data: { orderId: row.id },
+      }).catch(err => console.warn('Customer order notification failed:', err));
+
+      // 2. Send push notification to store staff / kitchen
+      void (async () => {
+        try {
+          const sIds = Array.isArray(order.storeIds) && order.storeIds.length ? order.storeIds : storeIds;
+          if (sIds.length) {
+            const { data: staff } = await admin.from('store_staff').select('user_id').in('store_id', sIds);
+            const staffUids = (staff || []).map((s: any) => s.user_id).filter(Boolean);
+            if (staffUids.length) {
+              await sendPushToUsers(staffUids, {
+                title: `طلب جديد #${publicOrder.orderNumber} 🛎️`,
+                body: `وصلك طلب جديد بقيمة ${order.total} ج.م. افتح شاشة المطبخ للمراجعة.`,
+                type: 'operational',
+                targetScreen: 'orders',
+                targetId: row.id,
+                data: { orderId: row.id },
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('Store staff notification failed:', e);
+        }
+      })();
+
+      if (order.phone) {
+        void ChatAmanGateway.sendOrderConfirmation({
+          phone: order.phone, customerName: order.profileName, orderNumber: publicOrder.orderNumber,
+          totalAmount: order.total, currency: 'ج.م',
+          deliveryAddress: `${order.ministry}${order.floorNumber ? ` - دور ${order.floorNumber}` : ''}${order.roomNumber ? ` - شقة/مكتب ${order.roomNumber}` : ''}`.trim(),
+        }).catch(error => console.warn('Order confirmation delivery failed:', error?.message || 'provider-error'));
+      }
     }
     return res.status(200).json({ order: publicOrder, requiresPaymentRedirect: Boolean(payment?.redirectUrl), redirectUrl: payment?.redirectUrl || null, sessionId: payment?.sessionId || null, paymentError: payment?.error || null });
   } catch (error: any) {

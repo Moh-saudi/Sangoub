@@ -3,6 +3,7 @@ import { supabaseIdentity } from '../supabaseIdentity.ts';
 import { supabaseAdminClient } from '../supabaseAdmin.ts';
 import { courierApprovalError } from '../../src/validation/accounts.ts';
 import { mobileCors } from '../mobileCors.ts';
+import { sendPushToUsers } from './notifications.ts';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://tvnsqatkaqyubeznhnmu.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9ORqYV9HK0AbacKtYSRZiA_K7hcJ4yI';
@@ -59,6 +60,25 @@ export default async function handler(req: any, res: any) {
     if (error) return res.status(503).json({ error: 'تعذر تأكيد التسليم من Supabase.' });
     const status = Number(data?.status) || 503;
     if (status !== 200) return res.status(status).json({ error: deliveryErrors[data?.error] || 'تعذر تأكيد تسليم الطلب.' });
+
+    void (async () => {
+      try {
+        const { data: ord } = await admin.from('orders').select('customer_id, order_number').eq('id', orderId).maybeSingle();
+        if (ord?.customer_id) {
+          await sendPushToUsers([ord.customer_id], {
+            title: `تم توصيل طلبك بنجاح 🎉`,
+            body: `شكراً لطلبك من سنجوب (طلب #${ord.order_number || ''})! نتمنى لك تجربة ممتعة، شاركنا تقييمك للطلب.`,
+            type: 'operational',
+            targetScreen: 'track',
+            targetId: orderId,
+            data: { orderId },
+          });
+        }
+      } catch (e) {
+        console.warn('Delivery completion notification failed:', e);
+      }
+    })();
+
     return res.status(200).json({ ok: true });
   } catch (error: any) {
     console.error('Order delivery API failed:', error?.code || 'request-error');

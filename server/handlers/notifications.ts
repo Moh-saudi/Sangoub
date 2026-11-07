@@ -195,6 +195,144 @@ async function listCampaigns(res: any) {
   return res.status(200).json({ ok: true, notifications });
 }
 
+export interface PushOptions {
+  title: string;
+  body: string;
+  type?: string;
+  targetScreen?: string;
+  targetId?: string;
+  imageUrl?: string | null;
+  campaignId?: string;
+  data?: Record<string, string>;
+}
+
+export async function sendPushToUsers(userIds: string[], options: PushOptions) {
+  if (!userIds.length) return { successCount: 0, failureCount: 0, recipientCount: 0, fcmDeliveryStatus: 'recorded_only' };
+  const admin = supabaseAdminClient();
+  const cleanTitle = options.title.trim().slice(0, 120);
+  const cleanBody = options.body.trim().slice(0, 500);
+  const type = options.type || 'operational';
+  const targetScreen = options.targetScreen || 'home';
+  const targetId = options.targetId;
+  const cleanImageUrl = options.imageUrl || null;
+
+  const dataPayload: Record<string, string> = {
+    type,
+    screen: targetScreen,
+    ...(targetId ? { targetId } : {}),
+    ...(options.campaignId ? { campaignId: options.campaignId } : {}),
+    ...(options.data || {}),
+  };
+
+  // 1. Store one in-app inbox row per recipient in Supabase
+  try {
+    for (const userChunk of chunk(userIds, 500)) {
+      const rows = userChunk.map((userId) => ({
+        user_id: userId,
+        ...(options.campaignId ? { campaign_id: options.campaignId } : {}),
+        title: cleanTitle,
+        body: cleanBody,
+        type,
+        data: dataPayload,
+        target_screen: targetScreen,
+        image_url: cleanImageUrl,
+        is_read: false,
+      }));
+      await admin.from('notifications').insert(rows);
+    }
+  } catch (err) {
+    console.warn('Could not insert in-app notifications:', err);
+  }
+
+  // 2. Fetch device FCM tokens
+  let devices: Array<{ id: string; user_id: string; token: string; platform: string }> = [];
+  try {
+    for (const userChunk of chunk(userIds, 500)) {
+      devices.push(...await fetchAllRows((from, to) => admin
+        .from('notification_devices')
+        .select('id,user_id,token,platform')
+        .eq('enabled', true)
+        .in('user_id', userChunk)
+        .range(from, to)));
+    }
+  } catch (err) {
+    console.warn('Could not fetch notification devices:', err);
+  }
+
+  if (!devices.length) {
+    return { successCount: 0, failureCount: 0, recipientCount: userIds.length, fcmDeliveryStatus: 'recorded_only' };
+  }
+
+  // 3. Send via FCM Multicast
+  let successCount = 0;
+  let failureCount = 0;
+  let fcmError: string | null = null;
+  const invalidDeviceIds: string[] = [];
+
+  try {
+    const messaging = firebaseMessagingService();
+    for (const batch of chunk(devices, 500)) {
+      const response = await messaging.sendEachForMulticast({
+        tokens: batch.map((device) => device.token),
+        notification: {
+          title: cleanTitle,
+          body: cleanBody,
+          ...(cleanImageUrl ? { imageUrl: cleanImageUrl } : {}),
+        },
+        data: dataPayload,
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: 'capital_orders_channel',
+            sound: 'default',
+            color: '#FF5900',
+          },
+        },
+        apns: { payload: { aps: { sound: 'default' } } },
+        webpush: {
+          headers: { Urgency: 'high' },
+          notification: {
+            icon: `${appOrigin}/brand/sangoub-mark-white-256.png`,
+            badge: `${appOrigin}/brand/sangoub-mark-white-64.png`,
+            tag: options.campaignId ? `sangoub-${options.campaignId}` : `sangoub-${Date.now()}`,
+            ...(cleanImageUrl ? { image: cleanImageUrl } : {}),
+          },
+          fcmOptions: { link: notificationWebLink(targetScreen, targetId) },
+        },
+      });
+      successCount += response.successCount;
+      failureCount += response.failureCount;
+      response.responses.forEach((result, index) => {
+        const code = result.error?.code || '';
+        if (!result.success && ['messaging/registration-token-not-registered', 'messaging/invalid-registration-token'].includes(code))
+          invalidDeviceIds.push(batch[index].id);
+      });
+    }
+  } catch (error: any) {
+    fcmError = error?.message || 'تعذر الاتصال بخدمة FCM.';
+    failureCount = devices.length - successCount;
+  }
+
+  // 4. Disable invalid tokens
+  if (invalidDeviceIds.length) {
+    try {
+      await admin.from('notification_devices')
+        .update({ enabled: false, updated_at: new Date().toISOString() })
+        .in('id', invalidDeviceIds);
+    } catch {}
+  }
+
+  const fcmDeliveryStatus = devices.length === 0
+    ? 'recorded_only'
+    : successCount === devices.length
+      ? 'delivered'
+      : successCount > 0
+        ? 'partial'
+        : 'failed';
+
+  return { successCount, failureCount, recipientCount: userIds.length, fcmDeliveryStatus, fcmError };
+}
+
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store');
   if (mobileCors(req, res)) return;
@@ -255,117 +393,26 @@ export default async function handler(req: any, res: any) {
     }).select('id').single();
     if (campaignError || !campaign) throw campaignError || new Error('Campaign insert was not confirmed.');
 
-    const dataPayload: Record<string, string> = {
-      campaignId: campaign.id,
+    const pushResult = await sendPushToUsers(userIds, {
+      title: cleanTitle,
+      body: cleanBody,
       type,
-      screen: targetScreen || 'home',
-      ...(targetId ? { targetId } : {}),
-    };
+      targetScreen,
+      targetId,
+      imageUrl: cleanImageUrl,
+      campaignId: campaign.id,
+    });
 
-    // Store one in-app inbox row per recipient in Supabase before sending the push.
-    for (const userChunk of chunk(userIds, 500)) {
-      const rows = userChunk.map((userId) => ({
-        user_id: userId,
-        campaign_id: campaign.id,
-        title: cleanTitle,
-        body: cleanBody,
-        type,
-        data: dataPayload,
-        target_screen: targetScreen || 'home',
-        image_url: cleanImageUrl,
-        is_read: false,
-      }));
-      const { error } = await admin.from('notifications').insert(rows);
-      if (error) throw error;
-    }
-
-    let successCount = 0;
-    let failureCount = 0;
-    let fcmError: string | null = null;
-    const invalidDeviceIds: string[] = [];
-    let devices: Array<{ id: string; user_id: string; token: string; platform: string }> = [];
-
-    if (userIds.length) {
-      for (const userChunk of chunk(userIds, 500)) {
-        devices.push(...await fetchAllRows((from, to) => admin
-          .from('notification_devices')
-          .select('id,user_id,token,platform')
-          .eq('enabled', true)
-          .in('user_id', userChunk)
-          .range(from, to)));
-      }
-    }
-
-    if (devices.length) {
-      try {
-        const messaging = firebaseMessagingService();
-        for (const batch of chunk(devices, 500)) {
-          const response = await messaging.sendEachForMulticast({
-            tokens: batch.map((device) => device.token),
-            notification: {
-              title: cleanTitle,
-              body: cleanBody,
-              ...(cleanImageUrl ? { imageUrl: cleanImageUrl } : {}),
-            },
-            data: dataPayload,
-            android: {
-              priority: 'high',
-              notification: {
-                channelId: 'capital_orders_channel',
-                sound: 'default',
-                color: '#FF5900',
-              },
-            },
-            apns: { payload: { aps: { sound: 'default' } } },
-            webpush: {
-              headers: { Urgency: 'high' },
-              notification: {
-                icon: `${appOrigin}/brand/sangoub-mark-white-256.png`,
-                badge: `${appOrigin}/brand/sangoub-mark-white-64.png`,
-                tag: `sangoub-${campaign.id}`,
-                ...(cleanImageUrl ? { image: cleanImageUrl } : {}),
-              },
-              fcmOptions: { link: notificationWebLink(targetScreen, targetId) },
-            },
-          });
-          successCount += response.successCount;
-          failureCount += response.failureCount;
-          response.responses.forEach((result, index) => {
-            const code = result.error?.code || '';
-            if (!result.success && ['messaging/registration-token-not-registered', 'messaging/invalid-registration-token'].includes(code))
-              invalidDeviceIds.push(batch[index].id);
-          });
-        }
-      } catch (error: any) {
-        fcmError = error?.message || 'تعذر الاتصال بخدمة FCM.';
-        failureCount = devices.length - successCount;
-      }
-    }
-
-    if (invalidDeviceIds.length) {
-      const { error } = await admin.from('notification_devices')
-        .update({ enabled: false, updated_at: new Date().toISOString() })
-        .in('id', invalidDeviceIds);
-      if (error) console.warn('Could not disable invalid FCM tokens:', error.code || 'database-error');
-    }
-
-    const fcmDeliveryStatus = devices.length === 0
-      ? 'recorded_only'
-      : successCount === devices.length
-        ? 'delivered'
-        : successCount > 0
-          ? 'partial'
-          : 'failed';
-    const status = fcmDeliveryStatus === 'delivered' || fcmDeliveryStatus === 'recorded_only'
-      ? fcmDeliveryStatus === 'delivered' ? 'sent' : 'recorded_only'
-      : successCount > 0 ? 'partial' : 'failed';
+    const status = pushResult.fcmDeliveryStatus === 'delivered' || pushResult.fcmDeliveryStatus === 'recorded_only'
+      ? pushResult.fcmDeliveryStatus === 'delivered' ? 'sent' : 'recorded_only'
+      : pushResult.successCount > 0 ? 'partial' : 'failed';
     const { error: updateError } = await admin.from('notification_campaigns').update({
       status,
-      fcm_delivery_status: fcmDeliveryStatus,
+      fcm_delivery_status: pushResult.fcmDeliveryStatus,
       recipient_count: userIds.length,
-      success_count: successCount,
-      failure_count: failureCount,
-      fcm_error: fcmError,
+      success_count: pushResult.successCount,
+      failure_count: pushResult.failureCount,
+      fcm_error: pushResult.fcmError,
       sent_at: new Date().toISOString(),
     }).eq('id', campaign.id);
     if (updateError) throw updateError;
