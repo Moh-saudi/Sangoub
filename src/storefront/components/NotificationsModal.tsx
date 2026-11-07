@@ -33,25 +33,11 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
 
   const fetchNotifications = async () => {
     setIsLoading(true);
-    // 1. Try serverless endpoint
-    try {
-      const data = await authenticatedApi('/api/notifications', { action: 'inbox' });
-      if (data && data.ok) {
-        setNotificationsList(data.notifications || []);
-        if (typeof data.unreadCount === 'number') {
-          setUnreadNotificationsCount(data.unreadCount);
-        }
-        setIsLoading(false);
-        return;
-      }
-    } catch {}
-
-    // 2. Direct Supabase fallback
     try {
       if (user?.id) {
         const { data: rows, error } = await supabase
           .from('notifications')
-          .select('*')
+          .select('id,title,body,type,data,is_read,created_at')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(50);
@@ -62,9 +48,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             title: r.title || 'إشعار جديد',
             body: r.body || '',
             type: r.type || 'operational',
-            targetScreen: r.target_screen || 'orders',
-            targetId: r.target_id || '',
-            is_read: Boolean(r.read_at),
+            targetScreen: r.data?.screen || 'orders',
+            targetId: r.data?.targetId || '',
+            is_read: Boolean(r.is_read),
             created_at: r.created_at,
           }));
           setNotificationsList(mapped);
@@ -80,23 +66,32 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   };
 
   const handleMarkAsRead = async (id?: string) => {
-    // 1. Try serverless endpoint
     try {
       if (id) {
-        await authenticatedApi('/api/notifications', { action: 'mark-read', id });
-      } else {
-        await authenticatedApi('/api/notifications', { action: 'mark-all-read' });
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', id)
+          .eq('user_id', user?.id);
+      } else if (user?.id) {
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('user_id', user.id)
+          .eq('is_read', false);
       }
-    } catch {
-      // 2. Direct Supabase fallback
-      try {
-        if (id) {
-          await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id);
-        } else if (user?.id) {
-          await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', user.id).is('read_at', null);
-        }
-      } catch {}
+    } catch {}
+
+    if (id) {
+      setNotificationsList((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      );
+      setUnreadNotificationsCount((c) => Math.max(0, c - 1));
+    } else {
+      setNotificationsList((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setUnreadNotificationsCount(0);
     }
+  };
 
     if (id) {
       setNotificationsList((prev) =>

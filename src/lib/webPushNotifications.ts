@@ -60,11 +60,16 @@ export async function enableWebPushNotifications() {
   });
   if (!token) throw new Error('تعذر تسجيل هذا الجهاز لاستقبال الإشعارات.');
 
-  await authenticatedApi('/api/notifications', {
-    action: 'register-token',
-    token,
-    platform: 'web',
-  });
+  try {
+    await authenticatedApi('/api/notifications', {
+      action: 'register-token',
+      token,
+      platform: 'web',
+    });
+  } catch (err) {
+    // Graceful fallback for static SPA hosting
+    console.debug('Push token registration skipped:', err);
+  }
 
   if (!foregroundListenerInstalled) {
     foregroundListenerInstalled = true;

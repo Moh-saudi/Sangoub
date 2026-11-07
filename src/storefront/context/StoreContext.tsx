@@ -536,20 +536,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } catch {}
 
-      // 2. Direct Supabase fallback if serverless endpoint is not present (e.g. Cloudflare SPA)
-      if (!data) {
-        try {
-          const { data: sbRow } = await supabase
-            .from('app_content')
-            .select('content')
-            .eq('id', true)
-            .maybeSingle();
-          if (sbRow?.content) {
-            data = sbRow.content;
-          }
-        } catch {}
-      }
-
       if (data) {
         if (data.martBanner) {
           setMartBanner(data.martBanner);
@@ -593,7 +579,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return;
         }
       }
-      // Fallback to default Sangoub banners if no slides returned
+      // Fallback to default Sangoub banners if no custom slides
       setBanners(DEFAULT_SANGOUB_BANNERS);
     } catch {
       setBanners(DEFAULT_SANGOUB_BANNERS);
@@ -1107,23 +1093,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setUnreadNotificationsCount(0);
       return;
     }
-    // 1. Try serverless endpoint if operational
     try {
-      const data = await authenticatedApi('/api/notifications', { action: 'inbox' });
-      if (data && data.ok) {
-        setUnreadNotificationsCount(typeof data.unreadCount === 'number' ? data.unreadCount : 0);
-        return;
-      }
-    } catch {}
-
-    // 2. Direct Supabase query fallback (Cloudflare SPA native)
-    try {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from('notifications')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
-        .is('read_at', null);
-      setUnreadNotificationsCount(count || 0);
+        .eq('is_read', false);
+      if (!error && typeof count === 'number') {
+        setUnreadNotificationsCount(count);
+      }
     } catch {
       // silent
     }
