@@ -132,9 +132,10 @@ export function CartCheckoutModal({
   const [isEditingAddress, setIsEditingAddress] = useState(false);
 
   const hasExistingAddress = Boolean(
-    (streetAddress && streetAddress !== 'العاصمة وخامة المناطق' && streetAddress.trim().length > 3) ||
+    effectivePhone &&
+    ((streetAddress && streetAddress !== 'العاصمة وخامة المناطق' && streetAddress.trim().length > 3) ||
     (serviceArea?.name && serviceArea.name.trim().length > 3) ||
-    user?.ministry
+    user?.ministry)
   );
 
   // Coupon state
@@ -812,35 +813,29 @@ export function CartCheckoutModal({
               </div>
 
               {/* 💳 PAYMENT METHOD SELECTION SECTION */}
-              <div className="border border-slate-200 rounded-2xl p-3.5 sm:p-4 bg-white shadow-2xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-900 font-bold text-xs sm:text-sm">
-                    <Banknote size={16} className="text-orange-600 shrink-0" />
-                    <span>طريقة الدفع</span>
-                  </div>
-                  <span className="text-[10px] text-slate-500 font-medium">اختر طريقة الدفع المناسبة</span>
+              <div className="border border-slate-200 rounded-2xl p-3 sm:p-3.5 bg-white shadow-2xs space-y-2.5">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-xs sm:text-sm">
+                  <CreditCard size={16} className="text-orange-600 shrink-0" />
+                  <span>طريقة الدفع</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {/* 1. Cash on Delivery */}
                   <div
                     onClick={() => setSelectedPaymentMethod('cash')}
-                    className={`p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                    className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
                       selectedPaymentMethod === 'cash'
-                        ? 'border-orange-500 bg-orange-50/40 shadow-xs'
+                        ? 'border-orange-500 bg-orange-50/50 shadow-xs'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        selectedPaymentMethod === 'cash' ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-600'
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        selectedPaymentMethod === 'cash' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
                       }`}>
-                        <Banknote size={16} />
+                        <Banknote size={18} />
                       </div>
-                      <div className="min-w-0">
-                        <h5 className="text-xs font-bold text-slate-900">نقدًا عند الاستلام (كاش)</h5>
-                        <p className="text-[10px] text-slate-500 truncate">ادفع نقدًا للمندوب عند الاستلام</p>
-                      </div>
+                      <span className="text-xs font-bold text-slate-900">نقدًا عند الاستلام (كاش)</span>
                     </div>
                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
                       selectedPaymentMethod === 'cash' ? 'border-orange-600 bg-orange-600' : 'border-slate-300'
@@ -849,25 +844,24 @@ export function CartCheckoutModal({
                     </div>
                   </div>
 
-                  {/* 2. Vodafone Cash & Wallets */}
+                  {/* 2. Vodafone Cash */}
                   <div
                     onClick={() => setSelectedPaymentMethod('vodafone_cash')}
-                    className={`p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                    className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
                       selectedPaymentMethod === 'vodafone_cash'
-                        ? 'border-orange-500 bg-orange-50/40 shadow-xs'
+                        ? 'border-orange-500 bg-orange-50/50 shadow-xs'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        selectedPaymentMethod === 'vodafone_cash' ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        <Smartphone size={16} />
+                      <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center p-1 shrink-0 overflow-hidden">
+                        <img
+                          src="/payments/vodafone-cash.png"
+                          alt="فودافون كاش"
+                          className="w-full h-full object-contain"
+                        />
                       </div>
-                      <div className="min-w-0">
-                        <h5 className="text-xs font-bold text-slate-900">فودافون كاش ومحافظ ذكية</h5>
-                        <p className="text-[10px] text-slate-500 truncate">تحويل محفظة إلكترونية للمندوب</p>
-                      </div>
+                      <span className="text-xs font-bold text-slate-900">فودافون كاش ومحافظ</span>
                     </div>
                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
                       selectedPaymentMethod === 'vodafone_cash' ? 'border-orange-600 bg-orange-600' : 'border-slate-300'
@@ -879,22 +873,21 @@ export function CartCheckoutModal({
                   {/* 3. InstaPay */}
                   <div
                     onClick={() => setSelectedPaymentMethod('instapay')}
-                    className={`p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                    className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
                       selectedPaymentMethod === 'instapay'
-                        ? 'border-orange-500 bg-orange-50/40 shadow-xs'
+                        ? 'border-orange-500 bg-orange-50/50 shadow-xs'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        selectedPaymentMethod === 'instapay' ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        <Zap size={16} />
+                      <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center p-1 shrink-0 overflow-hidden">
+                        <img
+                          src="/payments/instapay.png"
+                          alt="إنستاباي"
+                          className="w-full h-full object-contain"
+                        />
                       </div>
-                      <div className="min-w-0">
-                        <h5 className="text-xs font-bold text-slate-900">إنستاباي (InstaPay)</h5>
-                        <p className="text-[10px] text-slate-500 truncate">تحويل بنكي لحظي برقم الطلب</p>
-                      </div>
+                      <span className="text-xs font-bold text-slate-900">إنستاباي (InstaPay)</span>
                     </div>
                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
                       selectedPaymentMethod === 'instapay' ? 'border-orange-600 bg-orange-600' : 'border-slate-300'
@@ -906,22 +899,21 @@ export function CartCheckoutModal({
                   {/* 4. Bank Card (Visa / MasterCard) */}
                   <div
                     onClick={() => setSelectedPaymentMethod('card')}
-                    className={`p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                    className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
                       selectedPaymentMethod === 'card'
-                        ? 'border-orange-500 bg-orange-50/40 shadow-xs'
+                        ? 'border-orange-500 bg-orange-50/50 shadow-xs'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        selectedPaymentMethod === 'card' ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        <CreditCard size={16} />
+                      <div className="h-8 px-1.5 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                        <img
+                          src="/payments/visa-mastercard.png"
+                          alt="فيزا وماستركارد"
+                          className="h-5 w-auto object-contain"
+                        />
                       </div>
-                      <div className="min-w-0">
-                        <h5 className="text-xs font-bold text-slate-900">بطاقة بنكية (فيزا / ماستر)</h5>
-                        <p className="text-[10px] text-slate-500 truncate">دفع بالبطاقة مع المندوب (POS)</p>
-                      </div>
+                      <span className="text-xs font-bold text-slate-900">بطاقة بنكية (فيزا / ماستر)</span>
                     </div>
                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
                       selectedPaymentMethod === 'card' ? 'border-orange-600 bg-orange-600' : 'border-slate-300'
