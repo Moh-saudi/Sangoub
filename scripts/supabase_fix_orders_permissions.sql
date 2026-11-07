@@ -39,8 +39,8 @@ CREATE POLICY "Public read app_content" ON public.app_content
 FOR SELECT TO authenticated, anon 
 USING (true);
 
--- 6. تفعيل صلاحيات وقراءة وكتابة إشعارات العملاء التلقائية (notifications)
-GRANT SELECT, INSERT ON public.notifications TO authenticated, anon;
+-- 6. تفعيل صلاحيات وقراءة وكتابة وتحديث إشعارات العملاء التلقائية (notifications)
+GRANT SELECT, INSERT, UPDATE ON public.notifications TO authenticated, anon;
 
 DROP POLICY IF EXISTS "Users can read own notifications" ON public.notifications;
 CREATE POLICY "Users can read own notifications" ON public.notifications
@@ -50,6 +50,12 @@ USING (true);
 DROP POLICY IF EXISTS "Users can insert notifications" ON public.notifications;
 CREATE POLICY "Users can insert notifications" ON public.notifications
 FOR INSERT TO authenticated, anon
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Users can update own notifications" ON public.notifications;
+CREATE POLICY "Users can update own notifications" ON public.notifications
+FOR UPDATE TO authenticated, anon
+USING (true)
 WITH CHECK (true);
 
 -- 7. مشغل قاعدة البيانات لتسجيل الإشعار فور تحديث حالة الطلب
