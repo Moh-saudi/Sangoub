@@ -288,20 +288,31 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
     setFieldErrors({});
     setEditingUser(null);
     setFormAvatarUrl('');
+    const targetStoreId = fixedStoreId || stores[0]?.id || '';
     if (mode === 'merchant') {
       setFormRole('restaurant');
       setFormDuty('cashier');
-      setSelectedStoreId(fixedStoreId || stores[0]?.id || '');
     } else {
       setFormRole('employee');
       setFormDuty('manager');
-      setSelectedStoreId(stores[0]?.id || '');
     }
+    setSelectedStoreId(targetStoreId);
     setFormFullName('');
-    setFormAddress('العاصمة الإدارية الجديدة، القاهرة، مصر');
     setFormVehicleType('motorcycle');
-    setFormLatitude('30.011799');
-    setFormLongitude('31.74804');
+
+    const targetStore = stores.find((s) => s.id === targetStoreId || matchStoreId(s.id, targetStoreId));
+    if (targetStore) {
+      const addr = targetStore.preciseAddress || targetStore.locationInDistrict || (targetStore as any).address || 'القاهرة، مصر';
+      setFormAddress(addr);
+      const lat = targetStore.coordinates?.latitude ?? targetStore.latitude ?? (targetStore as any).lat ?? 30.011799;
+      const lng = targetStore.coordinates?.longitude ?? targetStore.longitude ?? (targetStore as any).lng ?? 31.74804;
+      setFormLatitude(String(lat));
+      setFormLongitude(String(lng));
+    } else {
+      setFormAddress('العاصمة الإدارية الجديدة، القاهرة، مصر');
+      setFormLatitude('30.011799');
+      setFormLongitude('31.74804');
+    }
     setIsFormModalOpen(true);
   }
 
@@ -356,17 +367,20 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
   // Handle Store Selection Change for Merchants
   function handleStoreChange(storeId: string) {
     setSelectedStoreId(storeId);
-    const store = stores.find((s) => s.id === storeId);
+    const store = stores.find((s) => s.id === storeId || matchStoreId(s.id, storeId) || String(s.id).toLowerCase() === String(storeId).toLowerCase());
     if (store) {
-      if (!formFullName || formFullName === 'مطعم' || formFullName.trim() === '') {
+      if (!formFullName || formFullName === 'مطعم' || formFullName.trim() === '' || formFullName === 'متجر جديد') {
         setFormFullName(store.name);
       }
-      if (store.locationInDistrict || store.preciseAddress) {
-        setFormAddress(store.preciseAddress || store.locationInDistrict || '');
+      const storeAddr = store.preciseAddress || store.locationInDistrict || (store as any).address || '';
+      if (storeAddr) {
+        setFormAddress(storeAddr);
       }
-      if (store.coordinates) {
-        setFormLatitude(String(store.coordinates.latitude));
-        setFormLongitude(String(store.coordinates.longitude));
+      const lat = store.coordinates?.latitude ?? store.latitude ?? (store as any).lat;
+      const lng = store.coordinates?.longitude ?? store.longitude ?? (store as any).lng;
+      if (lat != null && lng != null && !Number.isNaN(Number(lat)) && !Number.isNaN(Number(lng))) {
+        setFormLatitude(String(lat));
+        setFormLongitude(String(lng));
       }
     }
   }
@@ -1697,7 +1711,11 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                       {/* Role 2: Restaurant / Merchant */}
                       <button
                         type="button"
-                        onClick={() => setFormRole('restaurant')}
+                        onClick={() => {
+                          setFormRole('restaurant');
+                          const targetId = selectedStoreId || fixedStoreId || stores[0]?.id || '';
+                          if (targetId) handleStoreChange(targetId);
+                        }}
                         className={`p-3 rounded-xl border text-right transition-all cursor-pointer flex flex-col justify-between ${
                           formRole === 'restaurant'
                             ? 'border-emerald-600 bg-emerald-50/90 text-emerald-950 ring-2 ring-emerald-600/20 shadow-xs'
@@ -1927,19 +1945,23 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                 )}
 
                 {/* Role Specific: Restaurant / Merchant */}
-                {formRole === 'restaurant' && (
-                  <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-4 space-y-4">
-                    <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
-                      <h3 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                        <StoreIcon size={15} className="text-emerald-700" />
-                        <span>3. بيانات المتجر والشريك التجاري والموقع الجغرافي</span>
-                      </h3>
-                      <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-md font-bold">
-                        إدارة المتجر والموقع
-                      </span>
-                    </div>
+                {formRole === 'restaurant' && (() => {
+                  const activeMerchantStore = stores.find((s) => s.id === selectedStoreId || matchStoreId(s.id, selectedStoreId) || String(s.id).toLowerCase() === String(selectedStoreId).toLowerCase());
+                  const storeAddress = formAddress || activeMerchantStore?.preciseAddress || activeMerchantStore?.locationInDistrict || (activeMerchantStore as any)?.address || 'العنوان مسجل ومربوط بالمتجر';
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  return (
+                    <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-4 space-y-4">
+                      <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
+                        <h3 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                          <StoreIcon size={15} className="text-emerald-700" />
+                          <span>3. بيانات المتجر والشريك التجاري والموقع الجغرافي</span>
+                        </h3>
+                        <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-md font-bold">
+                          ربط مباشر مع قاعدة البيانات
+                        </span>
+                      </div>
+
+                      {/* Store Selector */}
                       <div>
                         <label className="block text-emerald-950 font-bold mb-1 flex items-center gap-1">
                           <StoreIcon size={14} className="text-emerald-700" />
@@ -1950,7 +1972,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                           required
                           value={selectedStoreId}
                           onChange={(e) => handleStoreChange(e.target.value)}
-                          className="w-full h-9 px-3 border border-emerald-300 rounded-lg text-xs bg-white font-bold text-slate-800 focus:outline-none focus:border-emerald-600"
+                          className="w-full h-10 px-3 border-2 border-emerald-400 focus:border-emerald-600 rounded-lg text-xs bg-white font-bold text-slate-800 shadow-2xs focus:outline-none"
                         >
                           <option value="" disabled>-- اختر المتجر أو التاجر المعتمد --</option>
                           {stores.map((s) => (
@@ -1961,139 +1983,126 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         </select>
                       </div>
 
-                      <div>
-                        <label className="block text-emerald-950 font-bold mb-1">المهمة التشغيلية بالمتجر</label>
-                        <select
-                          name="duty"
-                          defaultValue={editingUser?.duty || 'manager'}
-                          className="w-full h-9 px-3 border border-emerald-300 rounded-lg text-xs bg-white font-medium"
-                        >
-                          <option value="manager">مسؤول ومدير المتجر</option>
-                          <option value="preparer">شيف / مسؤول جمع وتحضير الطلبات</option>
-                        </select>
-                      </div>
-                    </div>
+                      {/* Store Details & Auto Address Display Card */}
+                      {activeMerchantStore && (
+                        <div className="bg-white rounded-xl p-3.5 border border-emerald-300 shadow-2xs space-y-3">
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                            <div className="flex items-center gap-2.5">
+                              {activeMerchantStore.logoUrl || activeMerchantStore.logo ? (
+                                <img
+                                  src={activeMerchantStore.logoUrl || activeMerchantStore.logo}
+                                  alt=""
+                                  className="w-9 h-9 rounded-lg object-cover border border-slate-200 shadow-2xs"
+                                />
+                              ) : (
+                                <span className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                                  <StoreIcon size={18} />
+                                </span>
+                              )}
+                              <div>
+                                <h4 className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                                  <span>{activeMerchantStore.name}</span>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                                    activeMerchantStore.status === 'closed'
+                                      ? 'bg-rose-100 text-rose-800'
+                                      : 'bg-emerald-100 text-emerald-800'
+                                  }`}>
+                                    {activeMerchantStore.status === 'closed' ? 'المتجر مغلق ⛔' : 'نشط ومتاح للطلب ✓'}
+                                  </span>
+                                </h4>
+                                <p className="text-[11px] text-slate-500">{activeMerchantStore.type || 'متجر مسجل بالمنصة'}</p>
+                              </div>
+                            </div>
 
-                    {/* GPS Actions Bar */}
-                    <div className="pt-2 border-t border-emerald-200/60 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleDetectGps}
-                        disabled={gpsDetecting || geocoding}
-                        className="h-9 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <MapPin size={15} />
-                        <span>{gpsDetecting ? 'جارٍ قراءة GPS بدقة...' : geocoding ? 'جارٍ استخراج العنوان التفصيلي...' : '📍 جلب اللوكيشن الفعلي عبر GPS الآن'}</span>
-                      </button>
+                            {formLatitude && formLongitude && (
+                              <a
+                                href={`https://maps.google.com/?q=${formLatitude},${formLongitude}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="h-7 px-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-lg font-bold text-[11px] flex items-center gap-1 transition-colors"
+                              >
+                                <ExternalLink size={12} />
+                                <span>معاينة الموقع بالخريطة</span>
+                              </a>
+                            )}
+                          </div>
 
-                      {formLatitude && formLongitude && (
-                        <a
-                          href={`https://maps.google.com/?q=${formLatitude},${formLongitude}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="h-9 px-3.5 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors"
-                        >
-                          <ExternalLink size={14} />
-                          <span>معاينة على الخريطة</span>
-                        </a>
+                          {/* Verified Store Address (Linked automatically, no GPS or reverse geocode required) */}
+                          <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-lg p-3 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-emerald-950 flex items-center gap-1">
+                                <MapPin size={14} className="text-emerald-700" />
+                                <span>العنوان المعتمد للمتجر (مربوط تلقائياً من بيانات المتجر):</span>
+                              </span>
+                              <span className="text-[10px] text-emerald-800 font-bold bg-white px-2 py-0.5 rounded border border-emerald-300 shadow-2xs">
+                                ✓ موثق بالنظام (بدون استعلامات GPS)
+                              </span>
+                            </div>
+                            <input
+                              name="locationAddress"
+                              value={formAddress || storeAddress}
+                              onChange={(e) => setFormAddress(e.target.value)}
+                              className="w-full h-9 px-3 border border-emerald-300 rounded-lg text-xs bg-white font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
+                              placeholder="عنوان المتجر المعتمد"
+                            />
+                            {formLatitude && formLongitude && (
+                              <p className="text-[10px] text-slate-500 font-mono pr-1 dir-ltr text-right">
+                                الإحداثيات: {formLatitude}, {formLongitude}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Operational Duties & Delivery Settings */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                            <div>
+                              <label className="block text-slate-700 font-bold mb-1 text-xs">المهمة التشغيلية بالمتجر</label>
+                              <select
+                                name="duty"
+                                defaultValue={editingUser?.duty || 'manager'}
+                                className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:border-emerald-600 focus:outline-none"
+                              >
+                                <option value="manager">مسؤول ومدير المتجر</option>
+                                <option value="preparer">شيف / مسؤول جمع وتحضير الطلبات</option>
+                                <option value="cashier">كاشير / مسؤول تسليم الطلبات</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-700 font-bold mb-1 text-xs">نصف قطر التغطية (كم)</label>
+                              <input
+                                name="coverageRadiusKm"
+                                type="number"
+                                step="0.5"
+                                min="1"
+                                max="50"
+                                defaultValue={activeMerchantStore.coverageRadiusKm || editingUser?.coverageRadiusKm || 8}
+                                className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-700 font-bold mb-1 text-xs">طريقة التوصيل الموصى بها</label>
+                              <select
+                                name="preferredDeliveryMethod"
+                                defaultValue={activeMerchantStore.preferredDeliveryMethod || editingUser?.preferredDeliveryMethod || 'auto'}
+                                className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                              >
+                                <option value="auto">تلقائي حسب المسافة المحسوبة للعميل</option>
+                                <option value="bicycle">دراجة هوائية (للمسافات &lt; 2 كم)</option>
+                                <option value="motorcycle">دراجة نارية بصندوق عازل (2-8 كم)</option>
+                                <option value="car">سيارة نقل للطلبات الكبيرة (&gt; 8 كم)</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
                       )}
+
+                      {/* Hidden synchronized location inputs for form submission */}
+                      <input type="hidden" name="latitude" value={formLatitude} />
+                      <input type="hidden" name="longitude" value={formLongitude} />
                     </div>
-
-                    {/* Coordinates & Coverage */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">خط العرض (Latitude) بدقة 6 خانات *</label>
-                        <input
-                          name="latitude"
-                          value={formLatitude}
-                          onChange={(e) => setFormLatitude(e.target.value)}
-                          placeholder="30.013056"
-                          required
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-mono dir-ltr"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">خط الطول (Longitude) بدقة 6 خانات *</label>
-                        <input
-                          name="longitude"
-                          value={formLongitude}
-                          onChange={(e) => setFormLongitude(e.target.value)}
-                          placeholder="31.705278"
-                          required
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-mono dir-ltr"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">نصف قطر التغطية (كم)</label>
-                        <input
-                          name="coverageRadiusKm"
-                          type="number"
-                          step="0.5"
-                          min="1"
-                          max="50"
-                          defaultValue={editingUser?.coverageRadiusKm || 8}
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">طريقة التوصيل الموصى بها</label>
-                        <select
-                          name="preferredDeliveryMethod"
-                          defaultValue={editingUser?.preferredDeliveryMethod || 'auto'}
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
-                        >
-                          <option value="auto">تلقائي حسب المسافة المحسوبة للعميل</option>
-                          <option value="bicycle">دراجة هوائية (للمسافات &lt; 2 كم)</option>
-                          <option value="motorcycle">دراجة نارية بصندوق عازل (2-8 كم)</option>
-                          <option value="car">سيارة نقل للطلبات الكبيرة (&gt; 8 كم)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Detailed Physical Address (Auto Geocoded) */}
-                    <div className="bg-white/95 p-3 rounded-xl border border-emerald-300/80 shadow-2xs space-y-1.5">
-                      <label className="block text-slate-800 font-bold flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-1.5">
-                          <MapPin size={14} className="text-emerald-700" />
-                          <span>العنوان التفصيلي للمقر / المتجر (يُكتب تلقائياً عند جلب اللوكيشن ويُسجل بقاعدة البيانات) *</span>
-                        </span>
-                        {geocoding && (
-                          <span className="text-[10px] text-teal-700 font-bold animate-pulse flex items-center gap-1">
-                            <RefreshCw size={11} className="animate-spin" />
-                            <span>جارٍ استخراج العنوان من الخرائط...</span>
-                          </span>
-                        )}
-                      </label>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <input
-                          name="locationAddress"
-                          value={formAddress}
-                          onChange={(e) => setFormAddress(e.target.value)}
-                          placeholder="مثال: شارع التسعين، عمارة 15 أو مقر العمل، العاصمة الإدارية الجديدة، مصر"
-                          required
-                          className="flex-1 h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:border-emerald-600 focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleManualReverseGeocode}
-                          disabled={geocoding || !formLatitude || !formLongitude}
-                          title="إعادة استخراج العنوان من الإحداثيات الحالية"
-                          className="h-9 px-3 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40 cursor-pointer shrink-0"
-                        >
-                          <RefreshCw size={12} className={geocoding ? 'animate-spin' : ''} />
-                          <span>استخراج من الإحداثيات</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {gpsError && (
-                      <p className="text-xs text-rose-600 bg-rose-50 p-2 rounded-md font-medium">{gpsError}</p>
-                    )}
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Role Specific: Courier KYC Profile */}
                 {formRole === 'courier' && (

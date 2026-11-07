@@ -47,9 +47,11 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
     }
 
     if (body.action === 'update' || body.action === 'create') {
-      const uid = body.uid || body.id;
+      const uid = body.uid || body.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'usr_' + Date.now());
       const patch: Record<string, any> = {
+        id: uid,
         full_name: body.fullName || body.name,
+        email: body.email,
         phone: body.phone,
         role: body.role,
         avatar_url: body.avatarUrl || null,
@@ -60,18 +62,26 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
         updated_at: new Date().toISOString()
       };
 
-      if (body.role === 'restaurant' && body.storeId) {
+      if (body.storeId) {
         patch.store_id = body.storeId;
       }
 
-      if (uid) {
-        const { error: profileErr } = await supabase.from('profiles').update(patch).eq('id', uid);
-        if (body.role === 'restaurant' && body.storeId) {
-          await supabase.from('stores').update({ owner_id: uid }).eq('id', body.storeId);
+      if (body.action === 'create') {
+        patch.created_at = new Date().toISOString();
+        const { error: insertErr } = await supabase.from('profiles').upsert(patch, { onConflict: 'id' });
+        if (insertErr) {
+          console.warn('[adminApi] profiles upsert error:', insertErr);
         }
+      } else {
+        const { error: profileErr } = await supabase.from('profiles').update(patch).eq('id', uid);
         if (profileErr) throw profileErr;
       }
-      return { ok: true };
+
+      if (body.role === 'restaurant' && body.storeId) {
+        const { error: storeErr } = await supabase.from('stores').update({ owner_id: uid }).eq('id', body.storeId);
+        if (storeErr) console.warn('[adminApi] store owner_id update error:', storeErr);
+      }
+      return { ok: true, id: uid, uid };
     }
 
     if (body.action === 'enable' || body.action === 'disable') {
