@@ -39,3 +39,76 @@ CREATE POLICY "Public read app_content" ON public.app_content
 FOR SELECT TO authenticated, anon 
 USING (true);
 
+-- 6. تفعيل صلاحيات وقراءة وكتابة إشعارات العملاء التلقائية (notifications)
+GRANT SELECT, INSERT ON public.notifications TO authenticated, anon;
+
+DROP POLICY IF EXISTS "Users can read own notifications" ON public.notifications;
+CREATE POLICY "Users can read own notifications" ON public.notifications
+FOR SELECT TO authenticated, anon
+USING (true);
+
+DROP POLICY IF EXISTS "Users can insert notifications" ON public.notifications;
+CREATE POLICY "Users can insert notifications" ON public.notifications
+FOR INSERT TO authenticated, anon
+WITH CHECK (true);
+
+-- 7. مشغل قاعدة البيانات لتسجيل الإشعار فور تحديث حالة الطلب
+CREATE OR REPLACE FUNCTION public.notify_order_status_change()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_title text;
+  v_body text;
+  v_num text;
+BEGIN
+  v_num := COALESCE(NEW.order_number, substring(NEW.id::text from 1 for 8));
+  
+  IF (TG_OP = 'INSERT') THEN
+    v_title := 'تم استلام طلبك بنجاح! 🎉';
+    v_body := 'طلبك رقم #' || v_num || ' قيد المراجعة والتجهيز لدى المتجر.';
+  ELSIF (TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status) THEN
+    IF NEW.status = 'preparing' THEN
+      v_title := 'طلبك قيد التجهيز الآن 👨‍🍳';
+      v_body := 'المتجر يقوم حالياً بتحضير وتغليف طلبك رقم #' || v_num || '.';
+    ELSIF NEW.status = 'ready' THEN
+      v_title := 'طلبك جاهز للاستلام! 📦';
+      v_body := 'تم تجهيز طلبك رقم #' || v_num || ' وفي انتظار استلام المندوب.';
+    ELSIF NEW.status = 'with_courier' THEN
+      v_title := 'المندوب في الطريق إليك 🛵';
+      v_body := 'استلم المندوب طلبك رقم #' || v_num || ' وهو متوجه إلى عنوانك الآن.';
+    ELSIF NEW.status = 'delivered' THEN
+      v_title := 'تم توصيل الطلب بنجاح! 🎉';
+      v_body := 'بالهناء والشفاء! تم تسليم طلبك رقم #' || v_num || '.';
+    ELSIF NEW.status = 'cancelled' THEN
+      v_title := 'تم إلغاء الطلب';
+      v_body := 'تم إلغاء طلبك رقم #' || v_num || '.';
+    ELSE
+      v_title := 'تحديث في حالة الطلب';
+      v_body := 'تم تغيير حالة طلبك رقم #' || v_num || ' إلى ' || NEW.status;
+    END IF;
+  ELSE
+    RETURN NEW;
+  END IF;
+
+  IF NEW.customer_id IS NOT NULL THEN
+    INSERT INTO public.notifications (user_id, title, body, type, data, is_read)
+    VALUES (
+      NEW.customer_id,
+      v_title,
+      v_body,
+      'order',
+      jsonb_build_object('orderId', NEW.id, 'orderNumber', v_num, 'status', NEW.status),
+      false
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_notify_order_status ON public.orders;
+CREATE TRIGGER trg_notify_order_status
+AFTER INSERT OR UPDATE OF status ON public.orders
+FOR EACH ROW
+EXECUTE FUNCTION public.notify_order_status_change();
+
+

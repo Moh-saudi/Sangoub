@@ -1107,32 +1107,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
 
-  const refreshNotifications = async () => {
-    if (!user || user.isGuest) {
-      setUnreadNotificationsCount(0);
-      return;
-    }
+  const refreshNotifications = useCallback(async () => {
+    let unreadCount = 0;
     try {
-      const { count, error } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('is_read', false);
-      if (!error && typeof count === 'number') {
-        setUnreadNotificationsCount(count);
+      const stored = localStorage.getItem('sangoub_guest_notifications');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        unreadCount += parsed.filter((n: any) => !n.is_read).length;
       }
-    } catch {
-      // silent
+    } catch {}
+
+    if (user && !user.isGuest && user.id) {
+      try {
+        const { count, error } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_read', false);
+        if (!error && typeof count === 'number') {
+          unreadCount += count;
+        }
+      } catch {
+        // silent
+      }
     }
-  };
+    setUnreadNotificationsCount(unreadCount);
+  }, [user]);
 
   useEffect(() => {
-    if (user && !user.isGuest) {
-      void refreshNotifications();
-    } else {
-      setUnreadNotificationsCount(0);
-    }
-  }, [user]);
+    void refreshNotifications();
+  }, [refreshNotifications]);
 
   const logout = async () => {
     try {

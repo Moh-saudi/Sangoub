@@ -26,7 +26,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen && user && !user.isGuest) {
+    if (isOpen) {
       void fetchNotifications();
     }
   }, [isOpen, user]);
@@ -34,45 +34,82 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   const fetchNotifications = async () => {
     setIsLoading(true);
     try {
-      if (user?.id) {
-        const { data: rows, error } = await supabase
-          .from('notifications')
-          .select('id,title,body,type,data,is_read,created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(50);
+      const localNotifs: any[] = [];
+      try {
+        const stored = localStorage.getItem('sangoub_guest_notifications');
+        if (stored) {
+          localNotifs.push(...JSON.parse(stored));
+        }
+      } catch {}
 
-        if (!error && Array.isArray(rows)) {
-          const mapped = rows.map((r: any) => ({
-            id: r.id,
-            title: r.title || 'إشعار جديد',
-            body: r.body || '',
-            type: r.type || 'operational',
-            targetScreen: r.data?.screen || 'orders',
-            targetId: r.data?.targetId || '',
-            is_read: Boolean(r.is_read),
-            created_at: r.created_at,
-          }));
-          setNotificationsList(mapped);
-          const unread = mapped.filter((n: any) => !n.is_read).length;
-          setUnreadNotificationsCount(unread);
+      let dbNotifs: any[] = [];
+      if (user?.id) {
+        try {
+          const { data: rows, error } = await supabase
+            .from('notifications')
+            .select('id,title,body,type,data,is_read,created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+          if (!error && Array.isArray(rows)) {
+            dbNotifs = rows.map((r: any) => ({
+              id: r.id,
+              title: r.title || 'إشعار جديد',
+              body: r.body || '',
+              type: r.type || 'order',
+              targetScreen: r.data?.screen || 'orders',
+              targetId: r.data?.orderId || r.data?.targetId || '',
+              is_read: Boolean(r.is_read),
+              created_at: r.created_at,
+            }));
+          }
+        } catch (dbErr) {
+          console.warn('Could not fetch notifications from Supabase:', dbErr);
         }
       }
-    } catch (err) {
-      console.warn('Could not fetch notifications from Supabase:', err);
+
+      // Combine DB and local notifications without duplicates
+      const mergedMap = new Map<string, any>();
+      [...dbNotifs, ...localNotifs].forEach((n) => {
+        if (!mergedMap.has(n.id)) {
+          mergedMap.set(n.id, n);
+        }
+      });
+
+      const merged = Array.from(mergedMap.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      setNotificationsList(merged);
+      const unread = merged.filter((n: any) => !n.is_read).length;
+      setUnreadNotificationsCount(unread);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleMarkAsRead = async (id?: string) => {
+    // 1. Update localStorage notifications
     try {
-      if (id) {
+      const stored = localStorage.getItem('sangoub_guest_notifications');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const updated = parsed.map((n: any) =>
+          !id || n.id === id ? { ...n, is_read: true } : n
+        );
+        localStorage.setItem('sangoub_guest_notifications', JSON.stringify(updated));
+      }
+    } catch {}
+
+    // 2. Update Supabase if user is logged in
+    try {
+      if (id && user?.id) {
         await supabase
           .from('notifications')
           .update({ is_read: true })
           .eq('id', id)
-          .eq('user_id', user?.id);
+          .eq('user_id', user.id);
       } else if (user?.id) {
         await supabase
           .from('notifications')

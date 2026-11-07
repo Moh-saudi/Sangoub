@@ -59,6 +59,8 @@ export function CartCheckoutModal({
     user,
     setUser,
     serviceArea,
+    refreshNotifications,
+    showToast,
   } = useStore();
 
   // Delivery & Customer Form (Universal: Home, Work, Anywhere)
@@ -565,6 +567,46 @@ export function CartCheckoutModal({
         localStorage.setItem('sangoub_guest_profile', JSON.stringify({ fullName: cleanName, phone: cleanPhone, streetAddress: cleanAddress, buildingNumber: buildingNumber.trim(), floorNumber: floorNumber.trim(), unitNumber: unitNumber.trim(), placeType, hasWhatsApp, customWhatsApp }));
         localStorage.setItem('sangoub_last_order', JSON.stringify(trackable));
         sessionStorage.removeItem(attemptKey);
+
+        // 🔔 Register order confirmed notification for customer
+        const notifOrderNum = trackable.orderNumber || (trackable.orderId.includes('-') ? `SG-${trackable.orderId.replace(/^(ord-|order-)/i, '').slice(0, 6).toUpperCase()}` : `#${trackable.orderId.slice(0, 8)}`);
+        const newNotification = {
+          id: `notif-${Date.now()}`,
+          title: 'تم استلام وتأكيد طلبك بنجاح! 🎉',
+          body: `طلبك رقم ${notifOrderNum} قيد التجهيز الآن لدى ${currentStore.name}. سنوافيك بكل خطوة فوراً.`,
+          type: 'order',
+          targetScreen: 'orders',
+          targetId: trackable.orderId,
+          is_read: false,
+          created_at: new Date().toISOString(),
+        };
+
+        const existingNotifs = JSON.parse(localStorage.getItem('sangoub_guest_notifications') || '[]');
+        existingNotifs.unshift(newNotification);
+        localStorage.setItem('sangoub_guest_notifications', JSON.stringify(existingNotifs.slice(0, 30)));
+
+        if (user?.id) {
+          void supabase.from('notifications').insert({
+            user_id: user.id,
+            title: newNotification.title,
+            body: newNotification.body,
+            type: 'order',
+            data: { orderId: trackable.orderId, orderNumber: notifOrderNum, screen: 'orders' },
+            is_read: false,
+          }).catch(() => {});
+        }
+
+        void refreshNotifications();
+        showToast(`تم استلام طلبك بنجاح! (${notifOrderNum})`, 'info');
+
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification('سنجوب - تأكيد الطلب! 🎉', {
+              body: `طلبك رقم ${notifOrderNum} قيد التجهيز لدى ${currentStore.name}.`,
+              icon: '/favicon.ico',
+            });
+          } catch {}
+        }
       } catch {}
 
       // Clear cart
