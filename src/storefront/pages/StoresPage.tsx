@@ -223,6 +223,26 @@ export const StoresPage: React.FC<StoresPageProps> = ({ onBackToHome, isMobile }
                         {store.deliveryFee === 0 ? 'توصيل مجاني' : `${formatEGP(store.deliveryFee)} توصيل`}
                       </span>
                     </div>
+
+                    {/* Store Open/Closed Status Badge */}
+                    <div className="absolute bottom-3 right-3">
+                      {store.status === 'closed' ? (
+                        <span className="bg-slate-900/85 backdrop-blur-xs text-white text-[11px] font-black px-2.5 py-1 rounded-xl shadow-xs flex items-center gap-1.5 border border-white/20">
+                          <span className="w-2 h-2 rounded-full bg-slate-400" />
+                          <span>مغلق حالياً</span>
+                        </span>
+                      ) : store.status === 'busy' ? (
+                        <span className="bg-amber-600/90 backdrop-blur-xs text-white text-[11px] font-black px-2.5 py-1 rounded-xl shadow-xs flex items-center gap-1.5 border border-white/20">
+                          <span className="w-2 h-2 rounded-full bg-amber-300 animate-pulse" />
+                          <span>متوقف مؤقتاً</span>
+                        </span>
+                      ) : (
+                        <span className="bg-emerald-600/90 backdrop-blur-xs text-white text-[11px] font-black px-2.5 py-1 rounded-xl shadow-xs flex items-center gap-1.5 border border-white/20">
+                          <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+                          <span>مفتوح الآن</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Store Details Header with Integrated Logo & Info */}
@@ -252,9 +272,21 @@ export const StoresPage: React.FC<StoresPageProps> = ({ onBackToHome, isMobile }
                         {/* Title & Category Info */}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-1">
-                            <h2 className="text-sm sm:text-base font-black text-[#131921] group-hover:text-[#FF5900] transition-colors truncate">
-                              {store.name}
-                            </h2>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <h2 className="text-sm sm:text-base font-black text-[#131921] group-hover:text-[#FF5900] transition-colors truncate">
+                                {store.name}
+                              </h2>
+                              {store.status === 'closed' && (
+                                <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded border border-slate-200 shrink-0">
+                                  مغلق
+                                </span>
+                              )}
+                              {store.status === 'busy' && (
+                                <span className="text-[10px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded border border-amber-200 shrink-0">
+                                  مشغول
+                                </span>
+                              )}
+                            </div>
                             {/* Rating */}
                             <div className="flex items-center gap-1 text-xs font-black text-[#131921] shrink-0 bg-[#FFFBEB] border border-amber-200/60 px-1.5 py-0.5 rounded-lg">
                               <Star size={12} className="text-amber-500 fill-amber-500" />

@@ -7,7 +7,7 @@ import { MerchantLogoCard } from '../components/MerchantLogoCard';
 import { CategoryRail } from '../components/CategoryRail';
 import { formatEGP } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
-import { getStoreLogo } from '../../utils/storeAssets';
+import { getStoreLogo, matchStoreId } from '../../utils/storeAssets';
 import type { Product } from '../../types';
 import { 
   matchProductToCategory, 
@@ -96,7 +96,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     }
 
     if (activeFilter === 'offers') {
-      list = list.filter((p) => (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم') || Boolean(p.offerTitle));
+      list = list.filter((p) => {
+        const isClosed = stores.some((s) => s.status === 'closed' && (matchStoreId(s.id, p.storeId) || s.id === p.storeId || (s.name && p.storeName === s.name)));
+        if (isClosed) return false;
+        return (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم') || Boolean(p.offerTitle);
+      });
     } else if (activeFilter === 'popular') {
       list = list.filter((p) => p.isPopular || p.badge?.includes('طلب') || p.badge?.includes('الأكثر'));
     } else if (activeFilter === 'fast_delivery') {
@@ -104,7 +108,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     }
 
     return list;
-  }, [products, selectedCategory, activeFilter]);
+  }, [products, selectedCategory, activeFilter, stores]);
 
   // URL query params listener (e.g. ?product=id or ?filter=offers from slider / notifications)
   useEffect(() => {
@@ -199,6 +203,17 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                       className="w-5 h-5 rounded-full object-cover"
                     />
                     <span>{merchant.name}</span>
+                    {merchant.status === 'closed' ? (
+                      <span className="text-[10px] text-gray-500 bg-gray-200/80 px-1.5 py-0.5 rounded-md font-bold">
+                        مغلق
+                      </span>
+                    ) : merchant.status === 'busy' ? (
+                      <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md font-bold">
+                        مشغول
+                      </span>
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="مفتوح الآن" />
+                    )}
                   </div>
                 ))}
               </div>

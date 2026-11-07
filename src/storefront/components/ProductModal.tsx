@@ -3,7 +3,7 @@ import type { Product } from '../../types';
 import { useStore } from '../context/StoreContext';
 import { formatEGP } from '../../utils/orderCalculations';
 import { getProductSpecifications } from '../../utils/productSpecifications';
-import { getStoreLogo, getStoreSlug, getProductSlug } from '../../utils/storeAssets';
+import { getStoreLogo, getStoreSlug, getProductSlug, matchStoreId } from '../../utils/storeAssets';
 import {
   X,
   Plus,
@@ -125,7 +125,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     }));
   };
 
+  const productStore = stores.find((s) => matchStoreId(s.id, product.storeId) || s.id === product.storeId || (s.name && product.storeName === s.name));
+  const isStoreClosed = productStore?.status === 'closed';
+
   const handleAddToCart = () => {
+    if (isStoreClosed) {
+      alert(`عذراً، متجر (${productStore?.name || 'المحدد'}) مغلق حالياً ولا يستقبل طلبات جديدة.`);
+      return;
+    }
     addToCart(product, quantity, selectedOptions, 0);
     setAddedSuccess(true);
     setTimeout(() => {
@@ -497,13 +504,20 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           {/* Add to Cart Button */}
           <button
             type="button"
+            disabled={isStoreClosed}
             onClick={handleAddToCart}
-            className={`flex-1 h-11 sm:h-12 px-3 sm:px-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center justify-between text-white transition-all shadow-md active:scale-98 cursor-pointer overflow-hidden ${
-              addedSuccess ? 'bg-emerald-600' : 'bg-[#FF5900] hover:bg-[#E04E00]'
+            className={`flex-1 h-11 sm:h-12 px-3 sm:px-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center justify-between text-white transition-all shadow-md overflow-hidden ${
+              isStoreClosed
+                ? 'bg-slate-400 cursor-not-allowed opacity-80'
+                : addedSuccess
+                ? 'bg-emerald-600 active:scale-98 cursor-pointer'
+                : 'bg-[#FF5900] hover:bg-[#E04E00] active:scale-98 cursor-pointer'
             }`}
           >
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              {addedSuccess ? (
+              {isStoreClosed ? (
+                <span>المتجر مغلق حالياً 🚫</span>
+              ) : addedSuccess ? (
                 <>
                   <Check size={16} strokeWidth={2.5} className="shrink-0" />
                   <span className="whitespace-nowrap font-black">تمت الإضافة!</span>

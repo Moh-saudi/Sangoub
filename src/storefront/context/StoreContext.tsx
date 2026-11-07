@@ -659,6 +659,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     selectedOptions: Record<string, string> = {},
     extraPrice = 0
   ) => {
+    // 0. Prevent adding products from closed stores
+    const productStore = stores.find(s => matchStoreId(s.id, product.storeId) || s.id === product.storeId);
+    if (productStore && productStore.status === 'closed') {
+      alert(`عذراً، متجر (${productStore.name || 'المحدد'}) مغلق حالياً ولا يستقبل طلبات جديدة في الوقت الحالي.`);
+      return;
+    }
+
     // Check if cart already has items from another store
     const currentStoreId = cartItems.length > 0 ? cartItems[0]?.product?.storeId : null;
     if (currentStoreId && !matchStoreId(currentStoreId, product.storeId)) {

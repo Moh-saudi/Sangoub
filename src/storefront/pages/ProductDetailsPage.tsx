@@ -178,7 +178,13 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
     }));
   };
 
+  const isStoreClosed = store?.status === 'closed';
+
   const handleAddToCart = () => {
+    if (isStoreClosed) {
+      alert(`عذراً، متجر (${store?.name || 'المحدد'}) مغلق حالياً ولا يستقبل طلبات جديدة.`);
+      return;
+    }
     addToCart(product, quantity, selectedOptions, 0);
     setAddedSuccess(true);
     setTimeout(() => setAddedSuccess(false), 2000);
@@ -478,13 +484,20 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
                 {/* Add to Cart Button */}
                 <button
                   type="button"
+                  disabled={isStoreClosed}
                   onClick={handleAddToCart}
-                  className={`flex-1 h-11 sm:h-12 px-3 sm:px-5 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center justify-between text-white transition-all shadow-md active:scale-98 cursor-pointer overflow-hidden ${
-                    addedSuccess ? 'bg-emerald-600' : 'bg-[#FF5900] hover:bg-[#E04E00]'
+                  className={`flex-1 h-11 sm:h-12 px-3 sm:px-5 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center justify-between text-white transition-all shadow-md overflow-hidden ${
+                    isStoreClosed
+                      ? 'bg-slate-400 cursor-not-allowed opacity-85'
+                      : addedSuccess
+                      ? 'bg-emerald-600 active:scale-98 cursor-pointer'
+                      : 'bg-[#FF5900] hover:bg-[#E04E00] active:scale-98 cursor-pointer'
                   }`}
                 >
                   <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                    {addedSuccess ? (
+                    {isStoreClosed ? (
+                      <span className="whitespace-nowrap font-black">المتجر مغلق حالياً 🚫</span>
+                    ) : addedSuccess ? (
                       <>
                         <Check size={18} strokeWidth={2.5} className="shrink-0" />
                         <span className="whitespace-nowrap font-black">تمت الإضافة!</span>
@@ -501,6 +514,13 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
                   </span>
                 </button>
               </div>
+
+              {isStoreClosed && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs font-bold flex items-center gap-2">
+                  <span className="text-base shrink-0">⛔</span>
+                  <span>تنبيه: متجر ({store?.name}) مغلق حالياً ولا يستقبل طلبات جديدة في الوقت الحالي.</span>
+                </div>
+              )}
 
             </div>
 

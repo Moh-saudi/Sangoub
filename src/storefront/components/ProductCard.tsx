@@ -3,8 +3,8 @@ import type { Product } from '../../types';
 import { useStore } from '../context/StoreContext';
 import { formatEGP } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
-import { Plus, Minus, Heart, ShoppingBag, Clock, Star, Check } from 'lucide-react';
-import { getProductSlug } from '../../utils/storeAssets';
+import { Plus, Minus, Heart, ShoppingBag, Clock, Star, Check, Lock } from 'lucide-react';
+import { getProductSlug, matchStoreId } from '../../utils/storeAssets';
 
 interface ProductCardProps {
   product: Product;
@@ -12,7 +12,10 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }) => {
-  const { cartItems, addToCart, updateQuantity, toggleWishlist, isWishlisted, isProductOrderedBefore, navigate } = useStore();
+  const { cartItems, addToCart, updateQuantity, toggleWishlist, isWishlisted, isProductOrderedBefore, navigate, stores } = useStore();
+
+  const productStore = stores.find((s) => matchStoreId(s.id, product.storeId) || s.id === product.storeId || (s.name && product.storeName === s.name));
+  const isStoreClosed = productStore?.status === 'closed';
 
   const cartItem = cartItems.find((item) => item.product.id === product.id);
   const quantity = cartItem ? cartItem.quantity : 0;
@@ -34,6 +37,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }
 
   const handleAddClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isStoreClosed) {
+      alert(`عذراً، متجر (${productStore?.name || product.storeName || 'المحدد'}) مغلق حالياً ولا يستقبل طلبات جديدة.`);
+      return;
+    }
     if (product.optionGroups && product.optionGroups.length > 0) {
       if (onOpenModal) {
         onOpenModal(product);
@@ -99,8 +106,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }
             <span className="text-[10px] font-bold">سنجوب</span>
           </div>
         )}
-        {/* Badges (Previously Ordered / Offers / Popular) */}
+        {/* Badges (Previously Ordered / Offers / Popular / Closed) */}
         <div className="absolute top-2 right-2 flex flex-col gap-1 items-end z-10">
+          {isStoreClosed && (
+            <span className="bg-slate-700/90 text-white text-[8px] sm:text-[8.5px] font-bold px-1.5 py-0.5 rounded-md shadow-xs">
+              مغلق حالياً
+            </span>
+          )}
           {orderedBefore && (
             <span className="bg-emerald-600 text-white text-[8px] sm:text-[8.5px] font-black px-1.5 py-0.5 rounded-md shadow-xs flex items-center gap-0.5">
               <Check size={9} strokeWidth={3} />
@@ -176,12 +188,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }
           ) : (
             <button
               type="button"
+              disabled={isStoreClosed}
               onClick={handleAddClick}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full sm:rounded-xl bg-[#FFF2EC] hover:bg-[#FF5900] text-[#FF5900] hover:text-white transition-all flex items-center justify-center shadow-2xs active:scale-95 cursor-pointer font-black"
-              aria-label={`إضافة ${product.name} إلى السلة`}
-              title="إضافة إلى السلة"
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full sm:rounded-xl transition-all flex items-center justify-center shadow-2xs font-black ${
+                isStoreClosed
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-75'
+                  : 'bg-[#FFF2EC] hover:bg-[#FF5900] text-[#FF5900] hover:text-white cursor-pointer active:scale-95'
+              }`}
+              aria-label={isStoreClosed ? `متجر ${product.name} مغلق حالياً` : `إضافة ${product.name} إلى السلة`}
+              title={isStoreClosed ? 'المتجر مغلق حالياً ولا يستقبل طلبات' : 'إضافة إلى السلة'}
             >
-              <Plus size={16} strokeWidth={2.5} />
+              {isStoreClosed ? <Lock size={13} /> : <Plus size={16} strokeWidth={2.5} />}
             </button>
           )}
         </div>

@@ -234,6 +234,12 @@ export function OffersManager({
 
   // Open modal for a new offer on a picked product
   const handlePickProduct = (product: Product) => {
+    const productStore = stores.find(s => matchStoreId(s.id, product.storeId) || s.id === product.storeId);
+    if (productStore && productStore.status === 'closed') {
+      alert(`لا يمكن تفعيل أو إضافة عرض لمتجر مغلق (${productStore.name}). يرجى فتح المتجر أولاً لتفعيل عروضه للعملاء.`);
+      return;
+    }
+
     setSelectedProduct(product);
     setIsPickerOpen(false);
     const orig = product.originalPrice && product.originalPrice > product.price
@@ -370,6 +376,12 @@ export function OffersManager({
   const handleSaveOffer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct) return;
+
+    const productStore = stores.find(s => matchStoreId(s.id, selectedProduct.storeId) || s.id === selectedProduct.storeId);
+    if (productStore && productStore.status === 'closed') {
+      alert(`لا يمكن تفعيل أو حفظ عرض لمتجر مغلق حالياً (${productStore.name}). يرجى فتح المتجر أولاً لتفعيل عروضه.`);
+      return;
+    }
 
     if (formSalePrice <= 0 || formOriginalPrice <= formSalePrice) {
       alert('السعر قبل الخصم يجب أن يكون أكبر من سعر البيع المخفض.');
@@ -1030,6 +1042,8 @@ export function OffersManager({
                   );
                 })
                 .map((p) => {
+                  const productStore = stores.find((s) => matchStoreId(s.id, p.storeId) || s.id === p.storeId);
+                  const isStoreClosed = productStore?.status === 'closed';
                   const hasOffer = typeof p.originalPrice === 'number' && p.originalPrice > p.price;
 
                   return (
@@ -1037,7 +1051,9 @@ export function OffersManager({
                       key={p.id}
                       type="button"
                       onClick={() => handlePickProduct(p)}
-                      className="w-full py-2.5 px-3 rounded-2xl hover:bg-orange-50/70 flex items-center justify-between gap-3 text-right transition cursor-pointer"
+                      className={`w-full py-2.5 px-3 rounded-2xl flex items-center justify-between gap-3 text-right transition ${
+                        isStoreClosed ? 'opacity-60 bg-slate-50 cursor-not-allowed' : 'hover:bg-orange-50/70 cursor-pointer'
+                      }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-11 h-11 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200/80">
@@ -1052,7 +1068,7 @@ export function OffersManager({
                         <div className="min-w-0">
                           <h4 className="text-xs font-bold text-slate-900 truncate">{p.name}</h4>
                           <span className="text-[10px] text-slate-400 block truncate">
-                            {p.category} {p.storeName ? `· ${p.storeName}` : ''}
+                            {p.category} {productStore?.name ? `· ${productStore.name}` : p.storeName ? `· ${p.storeName}` : ''}
                           </span>
                         </div>
                       </div>
@@ -1061,11 +1077,15 @@ export function OffersManager({
                         <strong className="text-xs font-black font-mono text-slate-900 block">
                           {formatEGP(p.price)}
                         </strong>
-                        {hasOffer && (
+                        {isStoreClosed ? (
+                          <span className="text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded inline-block mt-0.5">
+                            متجر مغلق 🚫
+                          </span>
+                        ) : hasOffer ? (
                           <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded inline-block mt-0.5">
                             عرض نشط حالياً 🔥
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </button>
                   );

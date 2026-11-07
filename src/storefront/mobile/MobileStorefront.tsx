@@ -12,7 +12,7 @@ import { MerchantLogoCard } from '../components/MerchantLogoCard';
 import { CategoryRail } from '../components/CategoryRail';
 import { formatEGP } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
-import { getStoreLogo } from '../../utils/storeAssets';
+import { getStoreLogo, matchStoreId } from '../../utils/storeAssets';
 import type { Product } from '../../types';
 import { 
   matchProductToCategory, 
@@ -196,7 +196,11 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     }
 
     if (activeFilter === 'offers') {
-      list = list.filter((p) => (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض'));
+      list = list.filter((p) => {
+        const isClosed = stores.some((s) => s.status === 'closed' && (matchStoreId(s.id, p.storeId) || s.id === p.storeId || (s.name && p.storeName === s.name)));
+        if (isClosed) return false;
+        return (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم') || Boolean(p.offerTitle);
+      });
     } else if (activeFilter === 'popular') {
       list = list.filter((p) => p.isPopular || p.badge?.includes('طلب'));
     } else if (activeFilter === 'fast_delivery') {
@@ -204,7 +208,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     }
 
     return list;
-  }, [products, searchQuery, selectedCategory, activeFilter]);
+  }, [products, searchQuery, selectedCategory, activeFilter, stores]);
 
   // Dynamic product count per category
   const categoryProductCounts = useMemo(() => {
@@ -531,6 +535,13 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                       className="w-5 h-5 rounded-full object-cover border border-[#E5E7EB]"
                     />
                     <span className="text-[9px] font-black text-[#1F2937]">{merchant.name}</span>
+                    {merchant.status === 'closed' ? (
+                      <span className="text-[8px] text-gray-500 bg-gray-200/80 px-1 py-0.2 rounded-md font-bold">مغلق</span>
+                    ) : merchant.status === 'busy' ? (
+                      <span className="text-[8px] text-amber-700 bg-amber-100 px-1 py-0.2 rounded-md font-bold">مشغول</span>
+                    ) : (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    )}
                   </div>
                 ))}
               </div>

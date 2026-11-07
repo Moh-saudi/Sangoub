@@ -669,7 +669,8 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
               .filter(p => !offerPickerSearch.trim() || `${p.name} ${p.storeName} ${p.category}`.toLowerCase().includes(offerPickerSearch.trim().toLowerCase()))
               .slice(0, 50)
               .map(p => {
-                const store = stores.find(s => s.id === p.storeId);
+                const store = localStores.find(s => matchStoreId(s.id, p.storeId) || s.id === p.storeId);
+                const isStoreClosed = store?.status === 'closed';
                 const hasOffer = Boolean(p.originalPrice && p.originalPrice > p.price);
 
                 return (
@@ -677,6 +678,10 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
                     key={p.id}
                     type="button"
                     onClick={() => {
+                      if (isStoreClosed) {
+                        alert(`لا يمكن تفعيل أو إضافة عرض لمنتج تابع لمتجر مغلق (${store?.name || 'المتجر'}). يرجى فتح المتجر أولاً لاستقبال العروض والطلبات.`);
+                        return;
+                      }
                       setIsNewOfferPickerOpen(false);
                       setOfferPickerSearch("");
                       setOfferModalProduct(p);
@@ -690,7 +695,9 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
                       setOfferEndDate((p as any).offerEndDate || "");
                       setOfferMaxPerOrder(p.maxPerOrder || 3);
                     }}
-                    className="w-full py-2.5 px-3 rounded-xl hover:bg-orange-50/70 flex items-center justify-between gap-3 text-right transition cursor-pointer"
+                    className={`w-full py-2.5 px-3 rounded-xl flex items-center justify-between gap-3 text-right transition ${
+                      isStoreClosed ? 'opacity-60 bg-slate-50 cursor-not-allowed' : 'hover:bg-orange-50/70 cursor-pointer'
+                    }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-100">
@@ -704,7 +711,11 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
 
                     <div className="text-left shrink-0">
                       <strong className="text-xs font-black font-mono text-orange-700 block">{formatEGP(p.price)}</strong>
-                      {hasOffer && <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded">عرض نشط 🔥</span>}
+                      {isStoreClosed ? (
+                        <span className="text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded inline-block">متجر مغلق 🚫</span>
+                      ) : hasOffer ? (
+                        <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded inline-block">عرض نشط 🔥</span>
+                      ) : null}
                     </div>
                   </button>
                 );
@@ -740,25 +751,32 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
           <form
             onSubmit={async (e) => {
               e.preventDefault();
+              const store = localStores.find(s => matchStoreId(s.id, offerModalProduct.storeId) || s.id === offerModalProduct.storeId);
+              if (store && store.status === 'closed') {
+                setError(`لا يمكن تفعيل أو حفظ عرض لمتجر مغلق حالياً (${store.name}). يرجى فتح المتجر أولاً لاستقبال العروض والطلبات.`);
+                return;
+              }
+
               const orig = Number(offerOrigPrice);
               const p = Number(offerPrice);
               if (!Number.isFinite(orig) || !Number.isFinite(p) || p <= 0 || orig <= p) {
                 setError("السعر قبل الخصم يجب أن يكون أكبر من سعر البيع المخفض.");
                 return;
               }
+              const offerPayload = {
+                price: p,
+                originalPrice: orig,
+                offerTitle: offerTitle.trim() || undefined,
+                isOccasion: Boolean(isOccasion),
+                occasionName: isOccasion && occasionName.trim() ? occasionName.trim() : undefined,
+                badge: offerBadge.trim() || (isOccasion ? occasionName.trim() : "عرض خاص 🔥"),
+                offerStartDate: offerStartDate || undefined,
+                offerEndDate: offerEndDate || undefined,
+                maxPerOrder: Number(offerMaxPerOrder) > 0 ? Number(offerMaxPerOrder) : undefined,
+                inStock: true
+              };
+
               await perform(async () => {
-                const offerPayload = {
-                  price: p,
-                  originalPrice: orig,
-                  offerTitle: offerTitle.trim() || undefined,
-                  isOccasion: Boolean(isOccasion),
-                  occasionName: isOccasion && occasionName.trim() ? occasionName.trim() : undefined,
-                  badge: offerBadge.trim() || (isOccasion ? occasionName.trim() : "عرض خاص 🔥"),
-                  offerStartDate: offerStartDate || undefined,
-                  offerEndDate: offerEndDate || undefined,
-                  maxPerOrder: Number(offerMaxPerOrder) > 0 ? Number(offerMaxPerOrder) : undefined,
-                  inStock: true
-                };
                 await saveRecord("products", offerModalProduct.id, offerPayload);
                 try {
                   await supabase.from("products").update({
@@ -768,6 +786,10 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
                   }).eq("id", offerModalProduct.id);
                 } catch (err) {
                   console.warn("Failed to sync offer to Supabase:", err);
+                }
+                setLocalProducts(prev => prev.map(item => item.id === offerModalProduct.id ? { ...item, ...offerPayload } : item));
+                if (onProductUpdate) {
+                  onProductUpdate({ ...offerModalProduct, ...offerPayload });
                 }
               }, `تم تفعيل وحفظ تفاصيل العرض بنجاح على "${offerModalProduct.name}"!`);
               setOfferModalProduct(null);
