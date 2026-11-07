@@ -181,7 +181,7 @@ export default function AdminApp() {
           deliveryTime: '15-25 دقيقة',
           minOrder: 20,
           deliveryFee: 10,
-          locationInDistrict: 'الحي الحكومي - مركز سنجوب',
+          locationInDistrict: 'منصة سنجوب - المركز الرئيسي',
         });
       }
       const mergedStores = Array.from(storeMap.values());
@@ -316,7 +316,7 @@ export default function AdminApp() {
               <img src={logo} alt="سنجوب" className="w-14 h-14 rounded-2xl object-contain" />
               <div>
                 <p className="font-black text-lg">سنجوب</p>
-                <p className="text-xs text-slate-500">لوحة الإدارة · الحي الحكومي</p>
+                <p className="text-xs text-slate-500">لوحة الإدارة العامة · منصة سنجوب</p>
               </div>
             </div>
             <div id="admin-header-search" className="admin-header-search-slot" />

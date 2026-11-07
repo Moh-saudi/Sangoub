@@ -39,13 +39,13 @@ export const RoleSwitcherBar: React.FC<RoleSwitcherBarProps> = ({
         };
       case 'restaurant':
         return {
-          label: 'مطعم / شيف الفود كورت',
+          label: 'متجر / مطعم شريك',
           bg: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
           icon: '🥘',
         };
       case 'courier':
         return {
-          label: 'مندوب دليفري الحي الحكومي',
+          label: 'كابتن توصيل دليفري',
           bg: 'bg-teal-500/15 text-teal-300 border-teal-500/30',
           icon: '🛵',
         };

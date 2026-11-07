@@ -65,11 +65,11 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-slate-900">
-            طلباتي بالحي الحكومي
+            متابعة وإدارة الطلبات
           </h2>
           <p className="text-xs text-slate-500">
-            متابعة حالة الوجبات وتحديثات مندوب التوصيل الميداني لمكتبك في
-            الوزارة
+            متابعة حالة الطلبات وتحديثات مندوب التوصيل الميداني حتى باب العميل
+
           </p>
         </div>
         <span className="text-xs font-semibold bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full border border-emerald-200">
@@ -86,7 +86,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             لا توجد طلبات حالية
           </h3>
           <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-            قم بالطلب من الفود كورت أو السوبر ماركت لتتبع وصول مندوبك إلى مكتبك
+            قم بالطلب لتتبع وصول مندوبك حتى عنوانك مباشرة
           </p>
         </div>
       ) : (
@@ -141,7 +141,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         )}
                       </div>
                       <div className="text-xs font-bold text-slate-700 truncate mt-0.5">
-                        {order.ministry} · {order.floorNumber}
+                        {order.deliveryAddress || order.ministry || 'عنوان التوصيل'}
                       </div>
                     </div>
                   </div>
@@ -193,7 +193,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                     {/* Visual Progress Steps Tracker */}
                     <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/70">
                       <div className="text-xs font-bold text-slate-800 mb-3 flex items-center justify-between">
-                        <span>خط سير توصيل الطلب للوزارة</span>
+                        <span>خط سير وتتبع الطلب</span>
                         <span className="text-[11px] text-emerald-700 font-bold">
                           {order.estimatedDelivery}
                         </span>
@@ -261,7 +261,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                             >
                               {checklist.paidRestaurant ? "✓" : "2"}
                             </span>
-                            <span>سداد حساب المطعم بالفود كورت</span>
+                            <span>تجهيز واستلام الطلب من المتجر</span>
                           </div>
 
                           <div
@@ -281,8 +281,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                               {checklist.onTheWayToMinistry ? "✓" : "3"}
                             </span>
                             <span>
-                              في الطريق لمبنى {order.ministry} (
-                              {order.floorNumber})
+                              في الطريق لعنوان التوصيل ({order.deliveryAddress || order.ministry || 'عنوان العميل'})
+
                             </span>
                           </div>
 
@@ -302,7 +302,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                             >
                               {checklist.collectedPayment ? "✓" : "4"}
                             </span>
-                            <span>تسليم المكتب واستلام الحساب</span>
+                            <span>تسليم الطلب للعميل واستلام الحساب</span>
                           </div>
                         </div>
 
@@ -326,7 +326,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                           </div>
                           <div>
                             <span className="text-[10px] text-emerald-800 font-bold block">
-                              مندوب الحي الحكومي المعين لطلبك:
+                              كابتن التوصيل المعين لطلبك:
                             </span>
                             <span className="text-xs font-black text-slate-900">
                               {order.courierName}
@@ -361,8 +361,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl flex items-center gap-2 text-xs text-amber-900">
                         <Clock className="w-4 h-4 text-amber-600 shrink-0" />
                         <span>
-                          جاري تعيين مندوب التوصيل الميداني من لوحة تحكم إدارة
-                          الفود كورت...
+                          جاري تعيين كابتن التوصيل من لوحة إدارة العمليات...
+
                         </span>
                       </div>
                     )}
@@ -411,7 +411,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                                   ? "إنستا باي (InstaPay)"
                                   : order.paymentMethod === "geidea"
                                     ? "بطاقة بنكية (Geidea)"
-                                    : "نقداً لمندوب الدور"}
+                                    : "نقداً عند الاستلام"}
                               </span>
                               {order.paymentStatus === "paid" && (
                                 <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
@@ -443,7 +443,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       <div className="text-[11px] text-slate-500 flex items-center gap-1">
                         <MapPin className="w-3.5 h-3.5 text-slate-400" />
                         <span>
-                          {order.roomNumber} ({order.floorNumber})
+                          {order.deliveryAddress || order.ministry || 'عنوان التوصيل'}
                         </span>
                       </div>
 

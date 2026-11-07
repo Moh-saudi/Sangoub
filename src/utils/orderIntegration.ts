@@ -53,8 +53,8 @@ export function cairoDay(value: string | Date): string {
 }
 
 export function dailyOperations(orders: Order[], day: string) {
-  const created = orders.filter((o) => Boolean(day) && cairoDay(o.createdAt) === day);
-  const delivered = orders.filter((o) => Boolean(day) && o.orderStatus === "delivered" && cairoDay(o.deliveredAt || "") === day);
+  const created = orders.filter((o) => Boolean(day) ? cairoDay(o.createdAt) === day : true);
+  const delivered = orders.filter((o) => Boolean(day) ? (o.orderStatus === "delivered" && cairoDay(o.deliveredAt || "") === day) : o.orderStatus === "delivered");
   return {
     created, delivered,
     active: orders.filter((o) => !["delivered", "cancelled"].includes(o.orderStatus)),

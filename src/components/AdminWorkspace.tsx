@@ -222,7 +222,7 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
             </div>
           ))}
         </nav>
-        <div className="admin-sidebar-location"><MapPin size={17} /><div><strong>الحي الحكومي</strong><small>العاصمة الإدارية الجديدة</small></div></div>
+        <div className="admin-sidebar-location"><MapPin size={17} /><div><strong>منصة سنجوب</strong><small>إدارة التجارة والتوصيل السريع</small></div></div>
         <a className="admin-public-link" href="/">عرض الموقع الرئيسي <ArrowUpRight size={16} /></a>
         <div className={`admin-connection ${connected ? "is-connected" : ""}`} role="status">
           <Radio size={16} />

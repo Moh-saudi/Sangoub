@@ -1119,7 +1119,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
                                     <span className="font-bold text-slate-900 text-xs truncate">
-                                      {order.profileName || 'عميل الحي الحكومي'}
+                                      {order.profileName || 'عميل سنجوب'}
                                     </span>
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                       isPending ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-600'

@@ -71,9 +71,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedOrderId,setSelectedOrderId]=useState('');
   const orderDialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{if(selectedOrderId)orderDialog.current?.showModal();else orderDialog.current?.close();},[selectedOrderId]);
-  useEffect(()=>{if(orderSearchRequest){setOrderSearch(orderSearchRequest.term);setStatusFilter('all');setMinistryFilter('');setActiveTab('orders');}},[orderSearchRequest?.key]);
+  useEffect(()=>{if(orderSearchRequest){setOrderSearch(orderSearchRequest.term);setStatusFilter('all');setAreaFilter('');setActiveTab('orders');}},[orderSearchRequest?.key]);
   const [orderSearch, setOrderSearch] = useState("");
-  const [ministryFilter, setMinistryFilter] = useState("");
+  const [areaFilter, setAreaFilter] = useState("");
   const [pendingOrders, setPendingOrders] = useState<string[]>([]);
   const [orderError, setOrderError] = useState("");
   const [orderMessage, setOrderMessage] = useState("");
@@ -89,9 +89,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Filtering orders
   const filteredOrders = orders.filter((order) => {
     const term = orderSearch.trim().toLowerCase();
+    const addr = order.deliveryAddress || order.ministry || order.address || "";
     return (statusFilter === "all" || order.orderStatus === statusFilter) &&
-      (!ministryFilter || order.ministry === ministryFilter) &&
-      [order.orderNumber, order.profileName, order.phone, order.ministry].some((value) => String(value || "").toLowerCase().includes(term));
+      (!areaFilter || addr.includes(areaFilter)) &&
+      [order.orderNumber, order.profileName, order.phone, addr].some((value) => String(value || "").toLowerCase().includes(term));
   });
   async function runOrderAction(id: string, action: () => Promise<void>) {
     setPendingOrders((ids) => [...ids, id]); setOrderError(""); setOrderMessage("");
@@ -162,8 +163,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {activeTab === "orders" && (
         <div className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-3">
-            <input aria-label="بحث الطلبات" value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="رقم الطلب أو اسم العميل أو الهاتف" className="p-3 border rounded-xl bg-white text-sm min-w-0" />
-            <select aria-label="وزارة الطلبات" value={ministryFilter} onChange={(event) => setMinistryFilter(event.target.value)} className="p-3 border rounded-xl bg-white text-sm min-w-0"><option value="">كل الوزارات</option>{[...new Set(orders.map((order) => order.ministry))].sort().map((name) => <option key={name}>{name}</option>)}</select>
+            <input aria-label="بحث الطلبات" value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="رقم الطلب أو اسم العميل أو الهاتف أو العنوان" className="p-3 border rounded-xl bg-white text-sm min-w-0" />
+            <select aria-label="عنوان أو منطقة الطلبات" value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)} className="p-3 border rounded-xl bg-white text-sm min-w-0">
+              <option value="">كل المناطق وعناوين التوصيل ({[...new Set(orders.map((o) => o.deliveryAddress || o.ministry || o.address || "").filter(Boolean))].length})</option>
+              {[...new Set(orders.map((order) => order.deliveryAddress || order.ministry || order.address || "").filter(Boolean))].sort().map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
           </div>
           {orderError && <p role="alert" className="p-3 bg-red-50 text-red-700 rounded-xl">{orderError}</p>}
           {orderMessage && <p role="status" className="p-3 bg-emerald-50 text-emerald-800 rounded-xl">{orderMessage}</p>}
@@ -202,7 +206,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          <section className="admin-panel compact-orders"><div className="compact-table-caption"><strong>سجل الطلبات</strong><span>عرض {filteredOrders.length} طلب</span></div><div className="admin-table-scroll"><table className="table table-hover align-middle admin-data-table"><thead><tr><th>رقم الطلب / العميل</th><th>الجهة / المكتب</th><th>الأصناف</th><th>القيمة</th><th>الحالة</th><th>المندوب</th><th>التاريخ</th><th>الإجراءات</th></tr></thead><tbody>{filteredOrders.map(order=><tr key={order.id}><td><button className="admin-order-link" onClick={()=>setSelectedOrderId(order.id)}>{order.orderNumber}</button><small>{order.profileName}</small></td><td>{order.ministry}<small>{order.floorNumber} · {order.roomNumber}</small></td><td><span className="compact-item-summary">{order.itemsSummary||order.items.map(item=>`${item.quantity}× ${item.product.name}`).join('، ')||order.legacySummary||'—'}</span></td><td className="whitespace-nowrap">{formatEGP(order.total)}</td><td><span className={`badge admin-status status-${order.orderStatus}`}>{adminOrderStatus[order.orderStatus]}</span></td><td>{order.courierName||'لم يُعيّن'}</td><td className="whitespace-nowrap">{order.createdAt?new Date(order.createdAt).toLocaleDateString('ar-EG',{timeZone:'Africa/Cairo'}):'—'}<small>{order.createdAt?new Date(order.createdAt).toLocaleTimeString('ar-EG',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit'}):''}</small></td><td><button className="compact-row-action btn btn-outline-secondary" aria-label={`تفاصيل الطلب ${order.orderNumber}`} onClick={()=>setSelectedOrderId(order.id)}>تفاصيل وإدارة</button></td></tr>)}</tbody></table></div>{!filteredOrders.length&&<p className="admin-empty">لا توجد طلبات مطابقة لهذا الفلتر</p>}</section>
+          <section className="admin-panel compact-orders"><div className="compact-table-caption"><strong>سجل الطلبات</strong><span>عرض {filteredOrders.length} طلب</span></div><div className="admin-table-scroll"><table className="table table-hover align-middle admin-data-table"><thead><tr><th>رقم الطلب / العميل</th><th>عنوان التوصيل</th><th>الأصناف</th><th>القيمة</th><th>الحالة</th><th>المندوب</th><th>التاريخ</th><th>الإجراءات</th></tr></thead><tbody>{filteredOrders.map(order=><tr key={order.id}><td><button className="admin-order-link" onClick={()=>setSelectedOrderId(order.id)}>{order.orderNumber}</button><small>{order.profileName || 'عميل سنجوب'}</small></td><td><span className="font-semibold block text-slate-800 truncate max-w-xs">{order.deliveryAddress || order.ministry || 'عنوان العميل'}</span>{order.floorNumber && order.floorNumber !== 'غير محدد' && <small className="text-slate-400 block">{[order.floorNumber, order.roomNumber].filter(x => x && x !== 'غير محدد').join(' · ')}</small>}</td><td><span className="compact-item-summary">{order.itemsSummary||order.items.map(item=>`${item.quantity}× ${item.product.name}`).join('، ')||order.legacySummary||'—'}</span></td><td className="whitespace-nowrap">{formatEGP(order.total)}</td><td><span className={`badge admin-status status-${order.orderStatus}`}>{adminOrderStatus[order.orderStatus]}</span></td><td>{order.courierName||'لم يُعيّن'}</td><td className="whitespace-nowrap">{order.createdAt?new Date(order.createdAt).toLocaleDateString('ar-EG',{timeZone:'Africa/Cairo'}):'—'}<small>{order.createdAt?new Date(order.createdAt).toLocaleTimeString('ar-EG',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit'}):''}</small></td><td><button className="compact-row-action btn btn-outline-secondary" aria-label={`تفاصيل الطلب ${order.orderNumber}`} onClick={()=>setSelectedOrderId(order.id)}>تفاصيل وإدارة</button></td></tr>)}</tbody></table></div>{!filteredOrders.length&&<p className="admin-empty">لا توجد طلبات مطابقة لهذا الفلتر</p>}</section>
           <dialog ref={orderDialog} className="admin-detail-drawer" aria-label="تفاصيل وإدارة الطلب" onCancel={()=>setSelectedOrderId('')} onClose={()=>setSelectedOrderId('')} dir="rtl"><div className="admin-dialog-heading"><h2>تفاصيل وإدارة الطلب</h2><button aria-label="إغلاق تفاصيل الطلب" onClick={()=>setSelectedOrderId('')}>إغلاق ×</button></div><div className="compact-order-details">
               {orders.filter(order=>order.id===selectedOrderId).map((order) => {
                 const statusInfo = getOrderStatusLabel(order.orderStatus);
@@ -220,7 +224,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </span>
                         <div className="text-xs">
                           <span className="font-bold text-slate-900">
-                            {order.profileName}
+                            {order.profileName || 'عميل سنجوب'}
                           </span>
                           <span className="text-slate-400 mx-1">·</span>
                           <span className="text-slate-600 font-mono">
@@ -241,16 +245,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </div>
 
-                    {/* Middle Info: Ministry Location & Items summary */}
+                    {/* Middle Info: Location & Items summary */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                       <div className="bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100 space-y-1">
                         <div className="font-bold text-emerald-950 flex items-center gap-1">
-                          <Building className="w-3.5 h-3.5 text-emerald-700" />
-                          <span>{order.ministry}</span>
+                          <MapPin className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>{order.deliveryAddress || order.ministry || 'عنوان التوصيل'}</span>
                         </div>
-                        <div className="text-slate-600">
-                          {order.floorNumber} · {order.roomNumber}
-                        </div>
+                        {order.floorNumber && order.floorNumber !== 'غير محدد' && (
+                          <div className="text-slate-600">
+                            {[order.floorNumber, order.roomNumber].filter(x => x && x !== 'غير محدد').join(' · ')}
+                          </div>
+                        )}
                         {order.scheduledDeliveryTime && (
                           <div className="text-[11px] font-bold text-orange-800 bg-orange-100/80 px-2 py-1 rounded-lg border border-orange-200 flex items-center gap-1 mt-1">
                             <Clock className="w-3.5 h-3.5 text-orange-600 shrink-0" />
@@ -262,7 +268,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         )}
                         {order.notes && (
                           <div className="text-[11px] text-amber-800">
-                            ملاحظة الموظف: {order.notes}
+                            ملاحظة العميل: {order.notes}
                           </div>
                         )}
                       </div>

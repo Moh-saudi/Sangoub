@@ -467,7 +467,7 @@ export default function MerchantApp() {
           <h2 className="text-lg font-black text-slate-900">حساب غير مصرح له كتاجر</h2>
           {error&&<p role="alert" className="text-red-700">{error}</p>}
           <p className="text-xs text-slate-600 leading-relaxed">
-            الحساب الحالي مسجل كـ (<strong>{profile?.role === "employee" ? "عميل بالحي الحكومي" : profile?.role || "مستخدم"}</strong>).
+            الحساب الحالي مسجل كـ (<strong>{profile?.role === "employee" ? "عميل متسوق" : profile?.role || "مستخدم"}</strong>).
             هذه البوابة مخصصة حصرياً للمطابخ والمتاجر الشريكة المعتمدة في سنجوب.
           </p>
           <div className="pt-2 flex flex-col gap-2">
