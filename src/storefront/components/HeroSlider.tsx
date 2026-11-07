@@ -195,7 +195,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
                     {/* Mascot Illustration */}
                     <div className="w-[32%] sm:w-[35%] h-full flex items-center justify-center shrink-0">
                       <img
-                        src={slide.mascotImg || '/assets/sangoub/mascot-cheerful.png'}
+                        src={slide.mascotImg || '/brand/sangoub-logo-256x256.png'}
                         alt="سنجوب Sangoub"
                         className="max-h-[115px] sm:max-h-[155px] md:max-h-[185px] w-auto object-contain drop-shadow-md"
                         onError={(e) => {

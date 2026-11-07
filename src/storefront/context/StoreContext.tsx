@@ -572,7 +572,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               : idx % 3 === 1 
               ? 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)' 
               : 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 100%)',
-            mascotImg: idx % 2 === 0 ? '/assets/sangoub/mascot-cheerful.png' : '/assets/sangoub/mascot-delivery.png'
+            mascotImg: idx % 2 === 0 ? '/brand/sangoub-logo-256x256.png' : '/brand/capital-talabat-mascot-logo-256x256.png'
           }));
           setBanners(mapped);
           setIsLoadingBanners(false);
@@ -1117,7 +1117,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const logout = async () => {
     try {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'global' }).catch(() => {});
+    } catch {}
+    try {
+      localStorage.removeItem('sangoub_last_phone');
+      localStorage.removeItem('sangoub_last_order');
+      sessionStorage.clear();
     } catch {}
     setUser(null);
   };

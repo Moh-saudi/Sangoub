@@ -99,9 +99,14 @@ export const AccountPage: React.FC<AccountPageProps> = ({
       setFirstName(parts[0] || '');
       setLastName(parts.slice(1).join(' ') || '');
       setPhone(user.phone && user.phone !== 'غير مسجل' ? user.phone : '');
-      if (user.avatarUrl) {
-        setAvatarUrl(user.avatarUrl);
-      }
+      setAvatarUrl(user.avatarUrl || '');
+    } else {
+      setEmail('');
+      setFirstName('');
+      setLastName('');
+      setPhone('');
+      setAvatarUrl('');
+      setAvatarError(false);
     }
   }, [user]);
 
@@ -230,7 +235,16 @@ export const AccountPage: React.FC<AccountPageProps> = ({
           console.warn('Could not disable web push token before logout:', error);
         }
       }
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'global' }).catch(() => {});
+      localStorage.removeItem('sangoub_last_phone');
+      localStorage.removeItem('sangoub_last_order');
+      sessionStorage.clear();
+      setAvatarUrl('');
+      setEmail('');
+      setFirstName('');
+      setLastName('');
+      setPhone('');
+      setAvatarError(false);
       setUser(null);
       setCurrentView('main');
     } catch {}
@@ -779,11 +793,11 @@ export const AccountPage: React.FC<AccountPageProps> = ({
 
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black text-[#111827] leading-tight">
+              <h1 className="text-sm font-extrabold text-[#111827] leading-tight">
                 {user && !user.isGuest ? user.fullName : 'زائر سنجوب الكريم'}
               </h1>
               {isAdmin && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-700 border border-purple-200">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
                   <ShieldCheck size={11} />
                   مدير النظام
                 </span>
@@ -791,22 +805,22 @@ export const AccountPage: React.FC<AccountPageProps> = ({
             </div>
 
             {isAdmin ? (
-              <div className="flex items-center gap-2 mt-1">
-                <p className="text-xs font-bold text-[#6B7280]">
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-[11px] font-bold text-[#6B7280]">
                   حساب الإدارة المعتمد
                 </p>
                 <span className="text-gray-300">•</span>
                 <button
                   type="button"
                   onClick={() => { window.location.assign('/admin'); }}
-                  className="text-xs font-black text-[#FF5900] hover:text-[#e04f00] flex items-center gap-1 underline cursor-pointer"
+                  className="text-[11px] font-bold text-[#FF5900] hover:text-[#e04f00] flex items-center gap-1 underline cursor-pointer"
                 >
                   <span>لوحة الإدارة</span>
-                  <ExternalLink size={11} />
+                  <ExternalLink size={10} />
                 </button>
               </div>
             ) : user && !user.isGuest ? (
-              <p className="text-xs font-bold text-[#6B7280] flex items-center gap-1 mt-0.5">
+              <p className="text-[11px] font-medium text-[#6B7280] flex items-center gap-1 mt-0.5">
                 <span>🇪🇬</span>
                 <span>مصر - العاصمة الإدارية</span>
               </p>
@@ -814,7 +828,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({
               <button
                 type="button"
                 onClick={() => navigate('/login')}
-                className="text-xs font-black text-[#FF5900] underline mt-0.5 cursor-pointer block text-right"
+                className="text-[11px] font-bold text-[#FF5900] underline mt-0.5 cursor-pointer block text-right"
               >
                 تسجيل الدخول / إنشاء حساب ⚡
               </button>
@@ -1021,6 +1035,21 @@ export const AccountPage: React.FC<AccountPageProps> = ({
           </div>
           <ChevronLeft size={18} className="text-[#9CA3AF]" />
         </button>
+
+        {/* Quick Accessible Logout Button if logged in */}
+        {user && !user.isGuest && (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full flex items-center justify-between p-4 hover:bg-red-50 text-red-600 transition-colors cursor-pointer text-right group border-t border-[#F0F1F3]"
+          >
+            <div className="flex items-center gap-3">
+              <LogOut size={20} className="text-red-500 group-hover:scale-105 transition-transform" />
+              <span className="text-sm font-black text-red-600">تسجيل الخروج من الحساب</span>
+            </div>
+            <ChevronLeft size={18} className="text-red-400" />
+          </button>
+        )}
 
       </div>
 

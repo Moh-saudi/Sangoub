@@ -490,7 +490,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                         {/* Mascot Illustration */}
                         <div className="w-[32%] h-full flex items-center justify-center shrink-0">
                           <img
-                            src={slide.mascotImg || '/assets/sangoub/mascot-cheerful.png'}
+                            src={slide.mascotImg || '/brand/sangoub-logo-256x256.png'}
                             alt="سنجوب Sangoub"
                             className="max-h-[102px] w-auto object-contain drop-shadow-md"
                             onError={(e) => {
