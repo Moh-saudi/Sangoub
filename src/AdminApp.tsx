@@ -28,6 +28,7 @@ function message(error: unknown): string {
 
 export default function AdminApp() {
   const loggedSession = useRef("");
+  const verifiedAdminId = useRef("");
   const [identity, setIdentity] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [access, setAccess] = useState<"checking" | "login" | "verify" | "denied" | "admin">("checking");
@@ -58,8 +59,9 @@ export default function AdminApp() {
   useEffect(() => {
     let active = true;
 
-    async function checkUser(user: any) {
+    async function checkUser(user: any, eventName?: string) {
       if (!user) {
+        verifiedAdminId.current = "";
         setIdentity(null);
         setProfile(null);
         setAccess("login");
@@ -67,16 +69,28 @@ export default function AdminApp() {
       }
 
       setIdentity(user);
-      setAccess("checking");
+
+      // If user is already verified as admin and the user ID hasn't changed,
+      // never disrupt the UI by unmounting to "checking" screen.
+      if (verifiedAdminId.current === user.id && access === "admin") {
+        return;
+      }
+
+      if (access !== "admin") {
+        setAccess("checking");
+      }
 
       try {
         const authority = await operationsApi('operations', { action: 'profile' });
+        if (!active) return;
         if (authority.role === 'admin') {
           const { data: prof } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .maybeSingle();
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .maybeSingle();
+          if (!active) return;
+          verifiedAdminId.current = user.id;
           setProfile((prof as Profile) || {
             id: user.id,
             fullName: authority.displayName || user.user_metadata?.full_name || user.email?.split("@")[0] || "مدير النظام",
@@ -86,38 +100,58 @@ export default function AdminApp() {
           setAccess("admin");
           setError("");
         } else {
+          verifiedAdminId.current = "";
           setProfile(null);
           setAccess("denied");
         }
       } catch (err) {
         if (active) {
-          report(err);
-          setAccess("denied");
+          // If already authenticated as admin, a background network blip should not immediately log out
+          if (verifiedAdminId.current !== user.id) {
+            report(err);
+            setAccess("denied");
+          }
         }
       }
     }
 
-    // Check the Supabase session; portal roles are verified by the server.
+    // 1. Check initial Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!active) return;
       if (session?.user) {
-        checkUser(session.user);
+        checkUser(session.user, 'INITIAL_GET_SESSION');
       } else {
         setAccess("login");
       }
     });
 
-    // 2. Listen to auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // 2. Listen to auth state changes (safeguarded against token refresh flickering)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!active) return;
-      checkUser(session?.user || null);
+      if (event === 'SIGNED_OUT') {
+        verifiedAdminId.current = "";
+        setIdentity(null);
+        setProfile(null);
+        setAccess("login");
+        return;
+      }
+      if (event === 'TOKEN_REFRESHED' && verifiedAdminId.current && session?.user?.id === verifiedAdminId.current) {
+        // Token refreshed in background - keep current admin UI completely uninterrupted
+        setIdentity(session.user);
+        return;
+      }
+      if (session?.user) {
+        checkUser(session.user, event);
+      } else if (!session) {
+        setAccess("login");
+      }
     });
 
     return () => {
       active = false;
       subscription.unsubscribe();
     };
-  }, [revision]);
+  }, [revision, access]);
 
   // Direct Supabase catalog loading
   const loadAdminCatalog = useCallback(() => {
@@ -243,6 +277,10 @@ export default function AdminApp() {
     setProducts(prev => prev.filter(p => p.id !== id));
   };
 
+  const handleStoreUpdate = (updated: Store) => {
+    setStores(prev => prev.map(s => s.id === updated.id ? updated : s));
+  };
+
   return (
     <div className={access === "admin" ? "admin-app min-h-screen bg-slate-50 text-slate-900" : "admin-signin"} dir="rtl">
       <a
@@ -337,6 +375,7 @@ export default function AdminApp() {
             onError={report}
             onProductUpdate={handleProductUpdate}
             onProductDelete={handleProductDelete}
+            onStoreUpdate={handleStoreUpdate}
             onProductsRefresh={loadAdminCatalog}
           >
             <AdminDashboard

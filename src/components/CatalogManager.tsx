@@ -32,12 +32,13 @@ import { EnterpriseProductModal } from "./EnterpriseProductModal";
 import { BulkProductImportModal } from "./BulkProductImportModal";
 import { StoreEditorModal } from "./StoreEditorModal";
 import { supabase } from "../lib/supabase";
+import { operationsApi } from "../lib/operationsApi";
 import { getMerchantPaymentSettings, updateMerchantPaymentSettings } from "../utils/merchantPaymentSettings";
 
 const input = "form-control w-full border border-slate-300 rounded-xl p-3 bg-white text-sm text-slate-900";
 const button = "rounded-xl px-4 py-2 text-sm font-bold border border-slate-200 disabled:opacity-40";
 
-export function CatalogManager({ products, stores, orders, searchRequest, mode, fixedStoreId, onProductUpdate, onProductDelete, onProductsRefresh }: {
+export function CatalogManager({ products, stores, orders, searchRequest, mode, fixedStoreId, onProductUpdate, onProductDelete, onStoreUpdate, onProductsRefresh }: {
   products: Product[];
   stores: Store[];
   orders: Order[];
@@ -46,12 +47,18 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
   fixedStoreId?: string;
   onProductUpdate?: (updated: Product) => void;
   onProductDelete?: (id: string) => void;
+  onStoreUpdate?: (updated: Store) => void;
   onProductsRefresh?: () => void;
 }) {
   const [localProducts, setLocalProducts] = useState<Product[]>(products);
   useEffect(() => {
     setLocalProducts(products);
   }, [products]);
+
+  const [localStores, setLocalStores] = useState<Store[]>(stores);
+  useEffect(() => {
+    setLocalStores(stores);
+  }, [stores]);
   const [offerPicker, setOfferPicker] = useState(false);
   const [assignStoreModal, setAssignStoreModal] = useState<{ product: Product; selectedStoreId: string } | null>(null);
   const [view, setView] = useState<"table" | "cards">("table");
@@ -109,18 +116,18 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
   const active = scopedProducts.filter((item) => !item.archived);
   const discounted = active.filter(hasProductOffer);
   const metrics: [string, number][] = mode === "stores"
-    ? [["متاجر مسجلة", stores.length], ["مفتوحة", stores.filter(store => store.status === "open").length], ["مشغولة", stores.filter(store => store.status === "busy").length], ["مغلقة", stores.filter(store => store.status === "closed").length]]
+    ? [["متاجر مسجلة", localStores.length], ["مفتوحة", localStores.filter(store => store.status === "open").length], ["مشغولة", localStores.filter(store => store.status === "busy").length], ["مغلقة", localStores.filter(store => store.status === "closed").length]]
     : mode === "offers"
       ? (fixedStoreId 
-          ? [["عروض المتجر النشطة", discounted.length], ["ظاهرة لعملاء الحي", availableOffers(scopedProducts, stores).length], ["أصناف العرض غير المتاحة", discounted.filter(product => !product.inStock).length], ["إجمالي أصناف المتجر", active.length]]
-          : [["عروض على المنتجات", discounted.length], ["ظاهرة للزوار", availableOffers(products, stores).length], ["منتجات العرض غير المتاحة", discounted.filter(product => !product.inStock).length], ["متاجر لديها عروض", new Set(discounted.map(product => product.storeId)).size]])
+          ? [["عروض المتجر النشطة", discounted.length], ["ظاهرة لعملاء الحي", availableOffers(scopedProducts, localStores).length], ["أصناف العرض غير المتاحة", discounted.filter(product => !product.inStock).length], ["إجمالي أصناف المتجر", active.length]]
+          : [["عروض على المنتجات", discounted.length], ["ظاهرة للزوار", availableOffers(products, localStores).length], ["منتجات العرض غير المتاحة", discounted.filter(product => !product.inStock).length], ["متاجر لديها عروض", new Set(discounted.map(product => product.storeId)).size]])
       : [["منتجات نشطة", active.length], ["متاحة بالمنيو", active.filter(item => item.inStock).length], ["غير متاحة", active.filter(item => !item.inStock).length], ["مؤرشفة", scopedProducts.filter(item => item.archived).length]];
   const filtered = scopedProducts.filter((item) => {
     const text = `${item.name} ${item.storeName} ${item.description}`.toLocaleLowerCase("ar");
     return (mode !== "offers" || hasProductOffer(item)) && text.includes(search.trim().toLocaleLowerCase("ar")) && (!storeFilter || matchStoreId(item.storeId, storeFilter)) && (!category || item.category === category) &&
       (availability === "archived" ? item.archived : !item.archived && (availability === "available" ? item.inStock : availability === "unavailable" ? !item.inStock : true));
   }).sort((a,b) => sort === "price" ? a.price - b.price : sort === "sales" ? (performance.get(b.id)?.sold || 0) - (performance.get(a.id)?.sold || 0) : a.name.localeCompare(b.name, "ar"));
-  const visibleStores = stores.filter((store) => `${store.name} ${store.locationInDistrict}`.includes(search.trim()));
+  const visibleStores = localStores.filter((store) => `${store.name} ${store.locationInDistrict}`.includes(search.trim()));
   useEffect(() => { setPage(0); }, [search, storeFilter, category, availability, sort, tab]);
   const resultCount = tab === "products" ? filtered.length : visibleStores.length;
   const lastPage = Math.max(0, Math.ceil(resultCount / pageSize) - 1);
@@ -130,7 +137,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
   const hasFilters = Boolean(search || (tab === "products" && (storeFilter || category || availability !== "active" || sort !== "name")));
   function clearFilters() { setSearch(""); setStoreFilter(""); setCategory(""); setAvailability("active"); setSort("name"); }
   const selectedProduct = editor?.kind === "products" ? products.find((item) => item.id === editor.id) : undefined;
-  const selectedStore = editor?.kind === "stores" ? stores.find((item) => item.id === editor.id) : undefined;
+  const selectedStore = editor?.kind === "stores" ? localStores.find((item) => item.id === editor.id) : undefined;
 
   async function perform(operation: () => Promise<void>, success: string) {
     setBusy(true); setError(""); setMessage("");
@@ -346,12 +353,12 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
             <div className="mb-4 bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <span className={`w-3 h-3 rounded-full ${stores.some(s => s.status === 'closed') ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+                  <span className={`w-3 h-3 rounded-full ${localStores.some(s => s.status === 'closed') ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
                   <div>
                     <h3 className="text-xs font-black text-slate-900">مراقبة توقف وتشغيل المتاجر (Store Stoppage Monitor)</h3>
                     <p className="text-[11px] text-slate-500">
-                      {stores.filter(s => s.status === 'closed').length > 0
-                        ? `يوجد ${stores.filter(s => s.status === 'closed').length} متجر متوقف حالياً عن استقبال الطلبات.`
+                      {localStores.filter(s => s.status === 'closed').length > 0
+                        ? `يوجد ${localStores.filter(s => s.status === 'closed').length} متجر متوقف حالياً عن استقبال الطلبات.`
                         : 'جميع المتاجر الشريكة تعمل وتستقبل الطلبات بشكل طبيعي.'}
                     </p>
                   </div>
@@ -422,8 +429,44 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
             onStatus={store => perform(async () => {
               const nextStatus = store.status === "open" ? "closed" : "open";
               const now = Date.now();
-              await saveRecord("stores", store.id, { status: nextStatus });
-              try { await supabase.from("stores").update({ status: nextStatus, updated_at: new Date().toISOString() }).eq("id", store.id); } catch {}
+
+              // 1. Optimistic UI update immediately
+              setLocalStores(prev => prev.map(s => s.id === store.id ? { ...s, status: nextStatus } : s));
+              onStoreUpdate?.({ ...store, status: nextStatus });
+
+              // 2. Direct Supabase update (authorized admin)
+              let directSucceeded = false;
+              try {
+                const { error: supaErr } = await supabase
+                  .from("stores")
+                  .update({ 
+                    status: nextStatus, 
+                    updated_at: new Date().toISOString(),
+                    stopped_at: nextStatus === 'closed' ? new Date().toISOString() : null
+                  })
+                  .eq("id", store.id);
+                if (!supaErr) {
+                  directSucceeded = true;
+                } else {
+                  console.warn("Direct Supabase status update warning:", supaErr);
+                }
+              } catch (e) {
+                console.warn("Direct Supabase status update exception:", e);
+              }
+
+              // 3. Authenticated server API update
+              try {
+                await operationsApi('operations', { action: 'set-store-status', storeId: store.id, status: nextStatus });
+              } catch (apiErr) {
+                try {
+                  await saveRecord("stores", store.id, { status: nextStatus });
+                } catch (saveErr) {
+                  console.warn("saveRecord fallback warning:", saveErr);
+                  if (!directSucceeded) throw saveErr;
+                }
+              }
+
+              // 4. Stoppage audit logs in localStorage
               const stoppageKey = 'sangoub_store_stoppage_' + store.id;
               const globalLogKey = 'sangoub_all_stores_stoppages_log';
               if (nextStatus === 'closed') {
@@ -432,10 +475,16 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
                 const logs = JSON.parse(localStorage.getItem(globalLogKey) || '[]');
                 logs.unshift({ ...rec, id: 'stop_' + now });
                 localStorage.setItem(globalLogKey, JSON.stringify(logs.slice(0, 50)));
+                setAdminStoppageLogs(logs.slice(0, 50));
               } else {
                 localStorage.removeItem(stoppageKey);
               }
-            }, "تم تحديث حالة المتجر وتوثيق التوقف.")}
+
+              // 5. Notify parent catalog refresh
+              if (onProductsRefresh) {
+                onProductsRefresh();
+              }
+            }, nextStatus === "closed" ? "تم إيقاف المتجر مؤقتاً بنجاح." : "تم فتح المتجر واستئناف استقبال الطلبات بنجاح.")}
             onDelete={store => { if (window.confirm(`هل أنت متأكد من حذف متجر "${store.name}" نهائياً من النظام؟`)) { perform(() => deleteRecord("stores", store.id), "تم حذف المتجر نهائياً من النظام."); } }}
           />
         </>
@@ -539,7 +588,41 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
           )}
         </div>
       </article>;
-    })}</div>{!filtered.length && <div className="p-10 text-center rounded-2xl border bg-white space-y-3"><Package className="mx-auto text-slate-300" /><p>{mode === "offers" ? "لا توجد عروض في هذا العرض. اختر منتجًا من زر إضافة عرض، أو راجع التصفية." : products.length ? "لا توجد منتجات تطابق البحث." : "لم تُضف منتجات بعد. أضف متجرًا ثم أول منتج حقيقي."}</p><button className={button} onClick={() => { setSearch(""); setCategory(""); setStoreFilter(""); setAvailability("active"); }}>مسح التصفية</button></div>}</> : <div className="grid md:grid-cols-2 gap-4">{pagedStores.map((store) => <article key={store.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden">{(store.banner || store.bannerUrl || store.imageUrl) && <img src={store.banner || store.bannerUrl || store.imageUrl} alt={store.name} className="h-36 w-full object-cover" />}<div className="p-5 space-y-3"><div className="flex gap-3 items-center">{(store.logo || store.logoUrl) && <img src={store.logo || store.logoUrl} alt={`شعار ${store.name}`} className="w-12 h-12 rounded-xl object-contain border" />}<div><h2 className="font-bold">{store.name}</h2><p className="text-xs text-slate-500">{store.type}</p></div></div><p className="text-sm text-slate-600">{store.locationInDistrict}</p><p className="text-xs">{active.filter((item) => item.storeId === store.id).length} منتج · الحد الأدنى {formatEGP(store.minOrder)} · التوصيل {formatEGP(store.deliveryFee)}</p><div className="flex gap-2 flex-wrap"><button disabled={busy} onClick={() => open("stores", store.id)} className={button}>تعديل المتجر والصور</button><button disabled={busy} onClick={() => perform(() => saveRecord("stores", store.id, { status: store.status === "open" ? "closed" : "open" }), "تم تحديث حالة المتجر.")} className={`${button} ${store.status === "open" ? "text-emerald-700" : "text-amber-700"}`}>{store.status === "open" ? "مفتوح — إغلاق مؤقت" : "مغلق أو مشغول — فتح"}</button><button disabled={busy} onClick={() => { if (window.confirm(`هل أنت متأكد من حذف متجر "${store.name}" نهائياً من النظام؟`)) { perform(() => deleteRecord("stores", store.id), "تم حذف المتجر نهائياً من النظام."); } }} className={`${button} text-red-600 hover:bg-red-50 border-red-200`}>حذف المتجر</button></div></div></article>)}{!visibleStores.length && <p className="p-8 bg-white border rounded-xl">لا توجد متاجر تطابق البحث. يمكنك إضافة متجر من الزر أعلاه.</p>}</div>}
+    })}</div>{!filtered.length && <div className="p-10 text-center rounded-2xl border bg-white space-y-3"><Package className="mx-auto text-slate-300" /><p>{mode === "offers" ? "لا توجد عروض في هذا العرض. اختر منتجًا من زر إضافة عرض، أو راجع التصفية." : products.length ? "لا توجد منتجات تطابق البحث." : "لم تُضف منتجات بعد. أضف متجرًا ثم أول منتج حقيقي."}</p><button className={button} onClick={() => { setSearch(""); setCategory(""); setStoreFilter(""); setAvailability("active"); }}>مسح التصفية</button></div>}</> : <div className="grid md:grid-cols-2 gap-4">{pagedStores.map((store) => <article key={store.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden">{(store.banner || store.bannerUrl || store.imageUrl) && <img src={store.banner || store.bannerUrl || store.imageUrl} alt={store.name} className="h-36 w-full object-cover" />}<div className="p-5 space-y-3"><div className="flex gap-3 items-center">{(store.logo || store.logoUrl) && <img src={store.logo || store.logoUrl} alt={`شعار ${store.name}`} className="w-12 h-12 rounded-xl object-contain border" />}<div><h2 className="font-bold">{store.name}</h2><p className="text-xs text-slate-500">{store.type}</p></div></div><p className="text-sm text-slate-600">{store.locationInDistrict}</p><p className="text-xs">{active.filter((item) => item.storeId === store.id).length} منتج · الحد الأدنى {formatEGP(store.minOrder)} · التوصيل {formatEGP(store.deliveryFee)}</p><div className="flex gap-2 flex-wrap"><button disabled={busy} onClick={() => open("stores", store.id)} className={button}>تعديل المتجر والصور</button><button disabled={busy} onClick={() => perform(async () => {
+  const nextStatus = store.status === "open" ? "closed" : "open";
+  const now = Date.now();
+  setLocalStores(prev => prev.map(s => s.id === store.id ? { ...s, status: nextStatus } : s));
+  onStoreUpdate?.({ ...store, status: nextStatus });
+  let directSucceeded = false;
+  try {
+    const { error: supaErr } = await supabase.from("stores").update({ 
+      status: nextStatus, 
+      updated_at: new Date().toISOString(),
+      stopped_at: nextStatus === 'closed' ? new Date().toISOString() : null
+    }).eq("id", store.id);
+    if (!supaErr) directSucceeded = true;
+  } catch {}
+  try {
+    await operationsApi('operations', { action: 'set-store-status', storeId: store.id, status: nextStatus });
+  } catch {
+    try { await saveRecord("stores", store.id, { status: nextStatus }); } catch (e) {
+      if (!directSucceeded) throw e;
+    }
+  }
+  const stoppageKey = 'sangoub_store_stoppage_' + store.id;
+  const globalLogKey = 'sangoub_all_stores_stoppages_log';
+  if (nextStatus === 'closed') {
+    const rec = { storeId: store.id, storeName: store.name, stoppedAt: now, stoppedBy: 'إدارة المنصة', status: 'closed' };
+    localStorage.setItem(stoppageKey, JSON.stringify(rec));
+    const logs = JSON.parse(localStorage.getItem(globalLogKey) || '[]');
+    logs.unshift({ ...rec, id: 'stop_' + now });
+    localStorage.setItem(globalLogKey, JSON.stringify(logs.slice(0, 50)));
+    setAdminStoppageLogs(logs.slice(0, 50));
+  } else {
+    localStorage.removeItem(stoppageKey);
+  }
+  if (onProductsRefresh) onProductsRefresh();
+}, store.status === "open" ? "تم إيقاف المتجر مؤقتاً بنجاح." : "تم فتح المتجر واستئناف استقبال الطلبات بنجاح.")} className={`${button} ${store.status === "open" ? "text-emerald-700" : "text-amber-700"}`}>{store.status === "open" ? "مفتوح — إغلاق مؤقت" : "مغلق أو مشغول — فتح"}</button><button disabled={busy} onClick={() => { if (window.confirm(`هل أنت متأكد من حذف متجر "${store.name}" نهائياً من النظام؟`)) { perform(() => deleteRecord("stores", store.id), "تم حذف المتجر نهائياً من النظام."); } }} className={`${button} text-red-600 hover:bg-red-50 border-red-200`}>حذف المتجر</button></div></div></article>)}{!visibleStores.length && <p className="p-8 bg-white border rounded-xl">لا توجد متاجر تطابق البحث. يمكنك إضافة متجر من الزر أعلاه.</p>}</div>}
     </>}
     {tab === "products" && view === "table" && resultCount > 0 && <p className="catalog-data-note">المبيعات من الأصناف المسلّمة. التوافر يحدد إمكانية الطلب ولا يمثل كمية المخزون.</p>}
     {resultCount > pageSize && <nav className="admin-pagination catalog-pagination" aria-label="صفحات الكتالوج"><span>صفحة {currentPage + 1} من {lastPage + 1}</span><div><button className="compact-row-action btn btn-outline-secondary" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}><ChevronRight size={15} />السابق</button><button className="compact-row-action btn btn-outline-secondary" disabled={currentPage >= lastPage} onClick={() => setPage(currentPage + 1)}>التالي<ChevronLeft size={15} /></button></div></nav>}
@@ -1046,6 +1129,41 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
                 throw apiErr;
               }
             }
+
+            // Update local stores state immediately
+            const updatedStoreObj: Store = {
+              id: storeId,
+              name: payload.name,
+              nameEn: payload.nameEn,
+              type: payload.type,
+              category: payload.category,
+              status: payload.status,
+              deliveryTime: payload.deliveryTime,
+              minOrder: payload.minOrder,
+              deliveryFee: payload.deliveryFee,
+              locationInDistrict: payload.address,
+              imageUrl: payload.bannerUrl,
+              bannerUrl: payload.bannerUrl,
+              banner: payload.bannerUrl,
+              logoUrl: payload.logoUrl,
+              logo: payload.logoUrl,
+              commissionRate: payload.commissionRate,
+              taxRate: payload.taxRate,
+              taxRegistrationNumber: payload.taxRegistrationNumber,
+              pricesIncludeTax: payload.pricesIncludeTax,
+              rating: selectedStore?.rating ?? 5,
+              ratingCount: selectedStore?.ratingCount ?? 120,
+            };
+            setLocalStores(prev => {
+              const idx = prev.findIndex(s => s.id === storeId);
+              if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = { ...next[idx], ...updatedStoreObj };
+                return next;
+              }
+              return [...prev, updatedStoreObj];
+            });
+            onStoreUpdate?.(updatedStoreObj);
 
             // 3. Update InstaPay / Vodafone Cash payment settings
             updateMerchantPaymentSettings(storeId, payload.paymentSettings);

@@ -79,12 +79,13 @@ function getInitialSection(): string {
   return "operations";
 }
 
-export function AdminWorkspace({ orders, stores, products, couriers, staff, coupons, initialManagementTab, connected, onError, onProductUpdate, onProductDelete, onProductsRefresh, children }: {
+export function AdminWorkspace({ orders, stores, products, couriers, staff, coupons, initialManagementTab, connected, onError, onProductUpdate, onProductDelete, onStoreUpdate, onProductsRefresh, children }: {
   orders: Order[]; stores: Store[]; products: Product[]; couriers: OperationsCourier[]; connected: boolean;
   staff: AdminStaff[]; coupons: Coupon[]; initialManagementTab?: string;
   onError: (error: unknown) => void; children: ReactNode;
   onProductUpdate?: (product: Product) => void;
   onProductDelete?: (id: string) => void;
+  onStoreUpdate?: (store: Store) => void;
   onProductsRefresh?: () => void;
 }) {
   const [tab, setTab] = useState(getInitialSection);
@@ -253,6 +254,7 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
             searchRequest={catalogRequest?.kind === tab ? catalogRequest : undefined}
             onProductUpdate={onProductUpdate}
             onProductDelete={onProductDelete}
+            onStoreUpdate={onStoreUpdate}
             onProductsRefresh={onProductsRefresh}
           />
         )}
