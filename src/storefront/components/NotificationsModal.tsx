@@ -215,10 +215,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             </button>
           </div>
         </div>
-              <X size={15} />
-            </button>
-          </div>
-        </div>
 
         {/* Modal Body */}
         <div className="overflow-y-auto space-y-2 flex-1 pr-0.5 -mr-0.5">
