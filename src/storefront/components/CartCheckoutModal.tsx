@@ -17,6 +17,9 @@ import {
   ShieldCheck,
   CheckCircle2,
   MessageSquare,
+  Smartphone,
+  CreditCard,
+  Zap,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatEGP, applyCouponDiscount } from '../../utils/orderCalculations';
@@ -125,8 +128,14 @@ export function CartCheckoutModal({
     }
   }, [user]);
 
-  const isCashAllowed = isCashPaymentAllowed(total);
-  const paymentMethod = 'cash' as const;
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'cash' | 'vodafone_cash' | 'instapay' | 'card'>('cash');
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+
+  const hasExistingAddress = Boolean(
+    (streetAddress && streetAddress !== 'العاصمة وخامة المناطق' && streetAddress.trim().length > 3) ||
+    (serviceArea?.name && serviceArea.name.trim().length > 3) ||
+    user?.ministry
+  );
 
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
@@ -215,11 +224,6 @@ export function CartCheckoutModal({
       return;
     }
 
-    if (!isCashAllowed) {
-      setError(CASH_PAYMENT_LIMIT_MESSAGE);
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -246,7 +250,7 @@ export function CartCheckoutModal({
         floorNumber: [buildingNumber.trim(), floorNumber.trim()].filter(Boolean).join(' / ') || 'غير محدد',
         roomNumber: unitNumber.trim() || 'غير محدد',
         notes: fullNotes,
-        paymentMethod,
+        paymentMethod: selectedPaymentMethod,
         tip: 0,
         ...(appliedCoupon?.code ? { couponCode: appliedCoupon.code } : {}),
         items: cartItems.map((item) => ({
@@ -258,7 +262,7 @@ export function CartCheckoutModal({
       };
 
       const quote = await authenticatedApi('/api/orders', { ...payload, action: 'quote' }) as any;
-      if (!quote.quote || quote.quote.total >= 300) throw new Error(CASH_PAYMENT_LIMIT_MESSAGE);
+      if (!quote?.quote) throw new Error('تعذر إعداد الفاتورة. يرجى المحاولة ثانية.');
       const created = await authenticatedApi('/api/orders', { ...payload, quoteHash: quote.quoteHash }) as any;
       const saved = created.order;
       if (!saved?.id) throw new Error('لم يؤكد الخادم حفظ الطلب. لم يتم تفريغ السلة.');
@@ -274,7 +278,7 @@ export function CartCheckoutModal({
         total: Number(saved.total) || 0,
         destination,
         time: currentTime,
-        paymentMethod: 'cash',
+        paymentMethod: selectedPaymentMethod,
         notes: fullNotes || undefined,
         createdAt: saved.createdAt,
         items: (saved.items || []).map((item: any) => {
@@ -548,223 +552,384 @@ export function CartCheckoutModal({
               )}
 
               {/* 📍 DELIVERY DETAILS SECTION */}
-              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/70 space-y-4">
+              <div className="border border-slate-200 rounded-2xl p-3.5 sm:p-4 bg-white shadow-2xs space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-900 font-black text-sm">
-                    <MapPin size={17} className="text-orange-600" />
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-xs sm:text-sm">
+                    <MapPin size={16} className="text-orange-600 shrink-0" />
                     <span>عنوان وتفاصيل التوصيل</span>
                   </div>
                   <button
                     type="button"
                     onClick={onOpenAreaModal}
-                    className="flex items-center gap-1.5 text-xs font-bold text-orange-700 hover:text-orange-800 bg-orange-100/70 hover:bg-orange-100 px-3 py-1.5 rounded-xl transition-colors"
+                    className="flex items-center gap-1 text-[11px] font-bold text-orange-700 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 px-2.5 py-1 rounded-xl transition-colors cursor-pointer"
                   >
-                    <Navigation size={13} />
-                    <span>تحديد على الخريطة</span>
+                    <Navigation size={12} />
+                    <span>تغيير على الخريطة</span>
                   </button>
                 </div>
 
-                {/* Location Type Selector (Segmented Pill - 100% Single Line on Mobile) */}
-                <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200/80">
-                  <button
-                    type="button"
-                    onClick={() => setPlaceType('home')}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
-                      placeType === 'home'
-                        ? 'bg-orange-600 text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
-                    }`}
-                  >
-                    <Home size={14} className="shrink-0" />
-                    <span>منزل</span>
-                  </button>
+                {/* If address exists and user is NOT in edit mode -> SHOW COMPACT SAVED ADDRESS CARD */}
+                {hasExistingAddress && !isEditingAddress ? (
+                  <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 mt-0.5 text-xs shadow-2xs">
+                        ✓
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-bold bg-orange-100 text-orange-800 px-2 py-0.2 rounded-md">
+                            {placeType === 'home' ? '🏠 المنزل' : placeType === 'work' ? '🏢 العمل' : '📍 موقعي'}
+                          </span>
+                          <span className="text-xs font-bold text-slate-900 line-clamp-1">
+                            {streetAddress || serviceArea?.name || user?.ministry}
+                          </span>
+                        </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setPlaceType('work')}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
-                      placeType === 'work'
-                        ? 'bg-orange-600 text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
-                    }`}
-                  >
-                    <Briefcase size={14} className="shrink-0" />
-                    <span>مكتب / عمل</span>
-                  </button>
+                        {(buildingNumber || floorNumber || unitNumber) && (
+                          <p className="text-[11px] text-slate-600 font-medium mt-1">
+                            {[
+                              buildingNumber && `عمارة ${buildingNumber}`,
+                              floorNumber && `الدور ${floorNumber}`,
+                              unitNumber && (placeType === 'work' ? `مكتب ${unitNumber}` : `شقة ${unitNumber}`),
+                            ].filter(Boolean).join(' • ')}
+                          </p>
+                        )}
 
-                  <button
-                    type="button"
-                    onClick={() => setPlaceType('other')}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
-                      placeType === 'other'
-                        ? 'bg-orange-600 text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
-                    }`}
-                  >
-                    <MapPin size={14} className="shrink-0" />
-                    <span>مكان آخر</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">
-                      اسم المستلم <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <User size={14} className="absolute right-3 top-3 text-slate-400" />
-                      <input
-                        type="text"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        placeholder="الاسم بالكامل"
-                        required
-                        className="w-full pr-8 pl-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
-                      />
+                        <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5 font-medium">
+                          <span>المستلم: {fullName || user?.fullName}</span>
+                          <span>•</span>
+                          <span className="font-mono" dir="ltr">{effectivePhone || phone}</span>
+                          {hasWhatsApp && (
+                            <span className="text-emerald-600 text-[10px] font-bold">واتساب ✓</span>
+                          )}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">
-                      رقم الهاتف للتواصل <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Phone size={14} className="absolute right-3 top-3 text-slate-400" />
-                      <input
-                        type="tel"
-                        inputMode="numeric"
-                        dir="ltr"
-                        maxLength={11}
-                        value={phone}
-                        onChange={(e) => setPhone(sanitizePhone(e.target.value))}
-                        placeholder="01xxxxxxxxx"
-                        required
-                        className="w-full pr-8 pl-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-mono font-bold text-right"
-                      />
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingAddress(true)}
+                      className="text-xs font-bold text-orange-600 hover:text-orange-700 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shrink-0 shadow-2xs hover:border-orange-300 transition-colors cursor-pointer"
+                    >
+                      تعديل ✏️
+                    </button>
+                  </div>
+                ) : (
+                  /* Expanded Editable Form */
+                  <div className="space-y-3 pt-1">
+                    {/* Location Type Selector */}
+                    <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200/80">
+                      <button
+                        type="button"
+                        onClick={() => setPlaceType('home')}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                          placeType === 'home'
+                            ? 'bg-orange-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+                        }`}
+                      >
+                        <Home size={13} className="shrink-0" />
+                        <span>منزل</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPlaceType('work')}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                          placeType === 'work'
+                            ? 'bg-orange-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+                        }`}
+                      >
+                        <Briefcase size={13} className="shrink-0" />
+                        <span>مكتب / عمل</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPlaceType('other')}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                          placeType === 'other'
+                            ? 'bg-orange-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+                        }`}
+                      >
+                        <MapPin size={13} className="shrink-0" />
+                        <span>مكان آخر</span>
+                      </button>
                     </div>
-                    {phone.length > 0 && phone.length < 11 && (
-                      <span className="text-[10px] text-amber-700 font-bold block mt-1">
-                        يجب أن يتكون الرقم من 11 رقماً ويبدأ بـ 01
-                      </span>
-                    )}
-                    {phone.length === 11 && /^01[0125][0-9]{8}$/.test(phone) && (
-                      <span className="text-[10px] text-emerald-600 font-bold block mt-1 flex items-center gap-1">
-                        <CheckCircle2 size={12} />
-                        رقم هاتف مصري معتمد ✓
-                      </span>
-                    )}
-                  </div>
 
-                  {/* 🟢 WhatsApp Confirmation with Official Logo (Without word "المعتمد") */}
-                  <div className="sm:col-span-2 bg-[#F0FDF4] border border-[#DCFCE7] rounded-2xl p-3 flex items-center justify-between">
-                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={hasWhatsApp}
-                        onChange={(e) => setHasWhatsApp(e.target.checked)}
-                        className="w-4 h-4 rounded text-[#16A34A] focus:ring-[#16A34A] accent-[#16A34A] cursor-pointer"
-                      />
-                      <span className="text-xs font-bold text-[#15803D]">
-                        هل عليه واتساب؟
-                      </span>
-                    </label>
-                    <div className="flex items-center gap-1.5" title="WhatsApp">
-                      <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="12" r="10.5" fill="#25D366" />
-                        <path
-                          d="M17.5 14.4c-.2-.1-1.3-.6-1.5-.7-.2-.1-.4-.1-.5.1-.2.2-.6.7-.7.9-.1.1-.3.2-.5.1-.2-.1-.9-.3-1.8-1.1-.7-.6-1.1-1.3-1.3-1.6-.1-.2 0-.4.1-.5.1-.1.2-.2.3-.4.1-.1.1-.2.2-.3 0-.1 0-.3-.1-.4s-.5-1.3-.7-1.7c-.2-.5-.4-.4-.5-.4h-.4c-.2 0-.5.1-.7.3-.2.2-.8.8-.8 2 0 1.2.9 2.3 1 2.5.1.2 1.7 2.6 4.1 3.7.6.3 1 .4 1.4.5.6.2 1.1.2 1.6.1.5-.1 1.3-.6 1.5-1.1.2-.5.2-1 .1-1.1-.1-.1-.3-.2-.5-.3z"
-                          fill="#ffffff"
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">
+                          اسم المستلم <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <User size={13} className="absolute right-3 top-2.5 text-slate-400" />
+                          <input
+                            type="text"
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            placeholder="الاسم بالكامل"
+                            required
+                            className="w-full pr-8 pl-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">
+                          رقم الهاتف للتواصل <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <Phone size={13} className="absolute right-3 top-2.5 text-slate-400" />
+                          <input
+                            type="tel"
+                            inputMode="numeric"
+                            dir="ltr"
+                            maxLength={11}
+                            value={phone}
+                            onChange={(e) => setPhone(sanitizePhone(e.target.value))}
+                            placeholder="01xxxxxxxxx"
+                            required
+                            className="w-full pr-8 pl-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-mono font-bold text-right"
+                          />
+                        </div>
+                        {phone.length > 0 && phone.length < 11 && (
+                          <span className="text-[10px] text-amber-700 font-bold block mt-1">
+                            يجب أن يتكون الرقم من 11 رقماً ويبدأ بـ 01
+                          </span>
+                        )}
+                        {phone.length === 11 && /^01[0125][0-9]{8}$/.test(phone) && (
+                          <span className="text-[10px] text-emerald-600 font-bold block mt-1 flex items-center gap-1">
+                            <CheckCircle2 size={12} />
+                            رقم هاتف مصري معتمد ✓
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="sm:col-span-2 bg-[#F0FDF4] border border-[#DCFCE7] rounded-xl p-2.5 flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={hasWhatsApp}
+                            onChange={(e) => setHasWhatsApp(e.target.checked)}
+                            className="w-4 h-4 rounded text-[#16A34A] focus:ring-[#16A34A] accent-[#16A34A] cursor-pointer"
+                          />
+                          <span className="text-xs font-bold text-[#15803D]">
+                            هل عليه واتساب؟
+                          </span>
+                        </label>
+                        <div className="flex items-center gap-1" title="WhatsApp">
+                          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="10.5" fill="#25D366" />
+                            <path
+                              d="M17.5 14.4c-.2-.1-1.3-.6-1.5-.7-.2-.1-.4-.1-.5.1-.2.2-.6.7-.7.9-.1.1-.3.2-.5.1-.2-.1-.9-.3-1.8-1.1-.7-.6-1.1-1.3-1.3-1.6-.1-.2 0-.4.1-.5.1-.1.2-.2.3-.4.1-.1.1-.2.2-.3 0-.1 0-.3-.1-.4s-.5-1.3-.7-1.7c-.2-.5-.4-.4-.5-.4h-.4c-.2 0-.5.1-.7.3-.2.2-.8.8-.8 2 0 1.2.9 2.3 1 2.5.1.2 1.7 2.6 4.1 3.7.6.3 1 .4 1.4.5.6.2 1.1.2 1.6.1.5-.1 1.3-.6 1.5-1.1.2-.5.2-1 .1-1.1-.1-.1-.3-.2-.5-.3z"
+                              fill="#ffffff"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-slate-700 font-bold mb-1">
+                          العنوان / المنطقة / الشارع <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={streetAddress}
+                          onChange={(e) => setStreetAddress(e.target.value)}
+                          placeholder="اسم الحي أو المنطقة أو الشارع الرئيسي..."
+                          required
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
                         />
-                      </svg>
+                      </div>
+
+                      <div className="sm:col-span-2 grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[10.5px] text-slate-700 font-bold mb-1 truncate">
+                            المبنى/العمارة
+                          </label>
+                          <input
+                            type="text"
+                            value={buildingNumber}
+                            onChange={(e) => setBuildingNumber(e.target.value)}
+                            placeholder="عمارة 15"
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10.5px] text-slate-700 font-bold mb-1 truncate">
+                            الدور/الطابق
+                          </label>
+                          <input
+                            type="text"
+                            value={floorNumber}
+                            onChange={(e) => setFloorNumber(e.target.value)}
+                            placeholder="الدور 2"
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10.5px] text-slate-700 font-bold mb-1 truncate">
+                            {placeType === 'work' ? 'رقم المكتب' : 'الشقة/الوحدة'}
+                          </label>
+                          <input
+                            type="text"
+                            value={unitNumber}
+                            onChange={(e) => setUnitNumber(e.target.value)}
+                            placeholder={placeType === 'work' ? 'مكتب 204' : 'شقة 12'}
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-slate-700 font-bold mb-1">علامة مميزة أو تعليمات التوصيل</label>
+                        <input
+                          type="text"
+                          value={deliveryNotes}
+                          onChange={(e) => setDeliveryNotes(e.target.value)}
+                          placeholder="مثال: بجوار صيدلية... أو الاتصال قبل الوصول"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
+                        />
+                      </div>
                     </div>
+
+                    {hasExistingAddress && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingAddress(false)}
+                        className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      >
+                        حفظ العنوان والرجوع للطلب ✓
+                      </button>
+                    )}
                   </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-slate-700 font-bold mb-1">
-                      العنوان / المنطقة / الشارع <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={streetAddress}
-                      onChange={(e) => setStreetAddress(e.target.value)}
-                      placeholder="اسم الحي أو المنطقة أو الشارع الرئيسي..."
-                      required
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
-                    />
-                  </div>
-
-                  {/* Compact 3-column row for Building, Floor, and Apartment on Mobile */}
-                  <div className="sm:col-span-2 grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-[11px] text-slate-700 font-bold mb-1 truncate">
-                        المبنى/العمارة
-                      </label>
-                      <input
-                        type="text"
-                        value={buildingNumber}
-                        onChange={(e) => setBuildingNumber(e.target.value)}
-                        placeholder="عمارة 15"
-                        className="w-full px-2.5 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] text-slate-700 font-bold mb-1 truncate">
-                        الدور/الطابق
-                      </label>
-                      <input
-                        type="text"
-                        value={floorNumber}
-                        onChange={(e) => setFloorNumber(e.target.value)}
-                        placeholder="الدور 2"
-                        className="w-full px-2.5 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] text-slate-700 font-bold mb-1 truncate">
-                        {placeType === 'work' ? 'رقم المكتب' : 'الشقة/الوحدة'}
-                      </label>
-                      <input
-                        type="text"
-                        value={unitNumber}
-                        onChange={(e) => setUnitNumber(e.target.value)}
-                        placeholder={placeType === 'work' ? 'مكتب 204' : 'شقة 12'}
-                        className="w-full px-2.5 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-slate-700 font-bold mb-1">علامة مميزة أو تعليمات التوصيل</label>
-                    <input
-                      type="text"
-                      value={deliveryNotes}
-                      onChange={(e) => setDeliveryNotes(e.target.value)}
-                      placeholder="مثال: بجوار صيدلية... أو الاتصال قبل الوصول"
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
-              <div className="rounded-2xl border-2 border-orange-200/80 bg-orange-50/30 p-4 space-y-2.5">
-                <div className="flex items-center gap-2">
-                  <Banknote size={20} className={isCashAllowed ? 'text-emerald-600' : 'text-slate-400'} aria-hidden="true" />
-                  <h4 className="text-sm font-black text-slate-900">الدفع نقدًا عند الاستلام</h4>
-                  <span className="mr-auto rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700">
-                    {isCashAllowed ? 'متاح لهذا الطلب' : 'غير متاح لهذا الإجمالي'}
-                  </span>
+              {/* 💳 PAYMENT METHOD SELECTION SECTION */}
+              <div className="border border-slate-200 rounded-2xl p-3.5 sm:p-4 bg-white shadow-2xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-xs sm:text-sm">
+                    <Banknote size={16} className="text-orange-600 shrink-0" />
+                    <span>طريقة الدفع</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-medium">اختر طريقة الدفع المناسبة</span>
                 </div>
-                <p className="text-xs leading-5 text-slate-600">
-                  ادفع للمندوب عند الاستلام. الكاش متاح عندما يكون إجمالي الفاتورة النهائي أقل من 300 جنيه، شاملًا التوصيل وبعد الخصم.
-                </p>
-                {!isCashAllowed && (
-                  <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">
-                    {CASH_PAYMENT_LIMIT_MESSAGE}
-                  </p>
-                )}
-                <p className="text-[11px] text-slate-500">الدفع الإلكتروني عبر Geidea مؤجل حاليًا.</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* 1. Cash on Delivery */}
+                  <div
+                    onClick={() => setSelectedPaymentMethod('cash')}
+                    className={`p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                      selectedPaymentMethod === 'cash'
+                        ? 'border-orange-500 bg-orange-50/40 shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        selectedPaymentMethod === 'cash' ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        <Banknote size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <h5 className="text-xs font-bold text-slate-900">نقدًا عند الاستلام (كاش)</h5>
+                        <p className="text-[10px] text-slate-500 truncate">ادفع نقدًا للمندوب عند الاستلام</p>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                      selectedPaymentMethod === 'cash' ? 'border-orange-600 bg-orange-600' : 'border-slate-300'
+                    }`}>
+                      {selectedPaymentMethod === 'cash' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
+
+                  {/* 2. Vodafone Cash & Wallets */}
+                  <div
+                    onClick={() => setSelectedPaymentMethod('vodafone_cash')}
+                    className={`p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                      selectedPaymentMethod === 'vodafone_cash'
+                        ? 'border-orange-500 bg-orange-50/40 shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        selectedPaymentMethod === 'vodafone_cash' ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        <Smartphone size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <h5 className="text-xs font-bold text-slate-900">فودافون كاش ومحافظ ذكية</h5>
+                        <p className="text-[10px] text-slate-500 truncate">تحويل محفظة إلكترونية للمندوب</p>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                      selectedPaymentMethod === 'vodafone_cash' ? 'border-orange-600 bg-orange-600' : 'border-slate-300'
+                    }`}>
+                      {selectedPaymentMethod === 'vodafone_cash' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
+
+                  {/* 3. InstaPay */}
+                  <div
+                    onClick={() => setSelectedPaymentMethod('instapay')}
+                    className={`p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                      selectedPaymentMethod === 'instapay'
+                        ? 'border-orange-500 bg-orange-50/40 shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        selectedPaymentMethod === 'instapay' ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        <Zap size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <h5 className="text-xs font-bold text-slate-900">إنستاباي (InstaPay)</h5>
+                        <p className="text-[10px] text-slate-500 truncate">تحويل بنكي لحظي برقم الطلب</p>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                      selectedPaymentMethod === 'instapay' ? 'border-orange-600 bg-orange-600' : 'border-slate-300'
+                    }`}>
+                      {selectedPaymentMethod === 'instapay' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
+
+                  {/* 4. Bank Card (Visa / MasterCard) */}
+                  <div
+                    onClick={() => setSelectedPaymentMethod('card')}
+                    className={`p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                      selectedPaymentMethod === 'card'
+                        ? 'border-orange-500 bg-orange-50/40 shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        selectedPaymentMethod === 'card' ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        <CreditCard size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <h5 className="text-xs font-bold text-slate-900">بطاقة بنكية (فيزا / ماستر)</h5>
+                        <p className="text-[10px] text-slate-500 truncate">دفع بالبطاقة مع المندوب (POS)</p>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                      selectedPaymentMethod === 'card' ? 'border-orange-600 bg-orange-600' : 'border-slate-300'
+                    }`}>
+                      {selectedPaymentMethod === 'card' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* COUPON INPUT */}

@@ -203,7 +203,7 @@ export interface CartItem {
   notes?: string;
 }
 
-export type PaymentMethod = "instapay" | "geidea" | "cash";
+export type PaymentMethod = "instapay" | "geidea" | "cash" | "vodafone_cash" | "card" | "wallet";
 
 export type OrderStatus =
   | "received"

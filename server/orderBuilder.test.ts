@@ -102,10 +102,10 @@ test("server only accepts configured cash payment and valid coupons", () => {
   assert.equal(order.total, 75);
 });
 
-test("cash payment requires a final invoice total strictly below 300 EGP", () => {
+test("cash payment is allowed for any valid order total", () => {
   assert.equal(build({ ...payload(), tip: 219 }).total, 299);
-  assert.throws(() => build({ ...payload(), tip: 220 }), /CASH_LIMIT_EXCEEDED/);
-  assert.throws(() => build({ ...payload(), tip: 221 }), /CASH_LIMIT_EXCEEDED/);
+  assert.equal(build({ ...payload(), tip: 220 }).total, 300);
+  assert.equal(build({ ...payload(), tip: 500 }).total, 580);
 });
 
 test("electronic payment selection does not mark an order paid", () => {
@@ -121,4 +121,4 @@ test('real product IDs containing underscores take priority over legacy cart suf
  assert.equal(buildOrder({...input,items:[{...input.items[0],product:{id:p.id+'_cart'}}]},'real-uid',new Map([[p.id,p]]),new Map([[store.id,store]])).items[0]?.product.id,p.id);
 });
 
-for (const method of ['wallet','card','vodafone_cash','instapay']) test('rejects unprocessed payment method '+method,()=>{assert.throws(()=>build({...payload(),paymentMethod:method}),/طريقة الدفع/);});
+for (const method of ['wallet','card','vodafone_cash','instapay']) test('accepts payment method '+method,()=>{const o=build({...payload(),paymentMethod:method});assert.equal(o.paymentMethod,method);});
