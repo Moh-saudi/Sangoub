@@ -43,6 +43,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
     isWishlisted,
     isProductOrderedBefore,
     navigate,
+    showToast,
   } = useStore();
 
   const [quantity, setQuantity] = useState(1);
@@ -182,7 +183,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
 
   const handleAddToCart = () => {
     if (isStoreClosed) {
-      alert(`عذراً، متجر (${store?.name || 'المحدد'}) مغلق حالياً ولا يستقبل طلبات جديدة.`);
+      showToast(`عذراً، متجر (${store?.name || 'المحدد'}) مغلق حالياً ولا يستقبل طلبات جديدة.`, 'warning');
       return;
     }
     addToCart(product, quantity, selectedOptions, 0);

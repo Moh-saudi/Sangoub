@@ -146,6 +146,7 @@ export interface StoreContextType {
   loginAsGuest: (name: string, phone: string) => void;
   registerSangoubAccount: (name: string, phone: string, address?: string) => void;
   logout: () => void;
+  showToast: (message: string, type?: 'info' | 'error' | 'warning') => void;
 }
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -263,6 +264,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [martBanner, setMartBanner] = useState<MartBannerConfig>(DEFAULT_MART_BANNER);
   const [sliderShowArrows, setSliderShowArrows] = useState(true);
   const [isLoadingBanners, setIsLoadingBanners] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type?: 'info' | 'error' | 'warning' } | null>(null);
+
+  const showToast = useCallback((message: string, type: 'info' | 'error' | 'warning' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(prev => (prev?.message === message ? null : prev));
+    }, 3500);
+  }, []);
 
   // 3.1 Raw Catalog Products & Stores from Database (Supabase)
   const [rawProducts, setRawProducts] = useState<Product[]>([]);
@@ -687,7 +696,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // 0. Prevent adding products from closed stores
     const productStore = stores.find(s => matchStoreId(s.id, product.storeId) || s.id === product.storeId);
     if (productStore && productStore.status === 'closed') {
-      alert(`عذراً، متجر (${productStore.name || 'المحدد'}) مغلق حالياً ولا يستقبل طلبات جديدة في الوقت الحالي.`);
+      showToast(`عذراً، متجر (${productStore.name || 'المحدد'}) مغلق حالياً ولا يستقبل طلبات جديدة في الوقت الحالي.`, 'warning');
       return;
     }
 
@@ -1196,9 +1205,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         loginAsGuest,
         registerSangoubAccount,
         logout,
+        showToast,
       }}
     >
       {children}
+      {toast && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-[9999] max-w-[92vw] sm:max-w-md w-fit bg-slate-900/95 backdrop-blur-md text-white text-xs font-bold py-2.5 px-4 rounded-2xl shadow-2xl flex items-center gap-2.5 border border-white/10 animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-auto"
+          dir="rtl"
+        >
+          <span className={`w-2 h-2 rounded-full shrink-0 ${toast.type === 'error' ? 'bg-red-400' : toast.type === 'warning' ? 'bg-amber-400' : 'bg-emerald-400'} animate-pulse`} />
+          <span className="leading-relaxed">{toast.message}</span>
+        </div>
+      )}
     </StoreContext.Provider>
   );
 };

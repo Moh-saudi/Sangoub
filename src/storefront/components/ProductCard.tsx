@@ -12,7 +12,7 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }) => {
-  const { cartItems, addToCart, updateQuantity, toggleWishlist, isWishlisted, isProductOrderedBefore, navigate, stores } = useStore();
+  const { cartItems, addToCart, updateQuantity, toggleWishlist, isWishlisted, isProductOrderedBefore, navigate, stores, showToast } = useStore();
 
   const productStore = stores.find((s) => matchStoreId(s.id, product.storeId) || s.id === product.storeId || (s.name && product.storeName === s.name));
   const isStoreClosed = productStore?.status === 'closed';
@@ -38,7 +38,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }
   const handleAddClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isStoreClosed) {
-      alert(`عذراً، متجر (${productStore?.name || product.storeName || 'المحدد'}) مغلق حالياً ولا يستقبل طلبات جديدة.`);
+      showToast(`عذراً، متجر (${productStore?.name || product.storeName || 'المحدد'}) مغلق حالياً ولا يستقبل طلبات جديدة.`, 'warning');
       return;
     }
     if (product.optionGroups && product.optionGroups.length > 0) {

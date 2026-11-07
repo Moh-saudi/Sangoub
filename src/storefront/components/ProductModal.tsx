@@ -38,6 +38,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     isWishlisted,
     isProductOrderedBefore,
     navigate,
+    showToast,
   } = useStore();
 
   const [quantity, setQuantity] = useState(1);
@@ -130,7 +131,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   const handleAddToCart = () => {
     if (isStoreClosed) {
-      alert(`عذراً، متجر (${productStore?.name || 'المحدد'}) مغلق حالياً ولا يستقبل طلبات جديدة.`);
+      showToast(`عذراً، متجر (${productStore?.name || 'المحدد'}) مغلق حالياً ولا يستقبل طلبات جديدة.`, 'warning');
       return;
     }
     addToCart(product, quantity, selectedOptions, 0);
