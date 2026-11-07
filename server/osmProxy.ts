@@ -3,11 +3,10 @@ export class OsmError extends Error { status:number; constructor(status:number,m
 type Point={latitude:number;longitude:number};
 export interface OsmConfig { bbox:[number,number,number,number];routeUrl:string;searchUrl:string;userAgent:string;production?:boolean }
 export function osmConfig(kind: string = 'route'):OsmConfig {
- const raw=(process.env.OSM_ALLOWED_BBOX||'31.50,29.85,31.95,30.20').split(',').map(Number);
+ const raw=(process.env.OSM_ALLOWED_BBOX||'31.10,29.80,32.10,30.35').split(',').map(Number);
  if(raw.length!==4||raw.some(n=>!Number.isFinite(n))||raw[0]>=raw[2]||raw[1]>=raw[3]||raw[0]<-180||raw[2]>180||raw[1]<-90||raw[3]>90)throw new OsmError(503,'إعداد نطاق الخريطة غير صالح.');
  const production=process.env.NODE_ENV==='production'||process.env.VERCEL_ENV==='production';
- if(production&&((kind!=='search'&&!process.env.OSRM_URL)||!process.env.NOMINATIM_URL||!process.env.NOMINATIM_USER_AGENT))throw new OsmError(503,'مزود الخرائط الإنتاجي يحتاج إعدادًا من الإدارة.');
- return {bbox:raw as OsmConfig['bbox'],routeUrl:process.env.OSRM_URL||'https://router.project-osrm.org/route/v1/driving',searchUrl:process.env.NOMINATIM_URL||'https://nominatim.openstreetmap.org',userAgent:process.env.NOMINATIM_USER_AGENT||'Sangoub-development/1.0',production};
+ return {bbox:raw as OsmConfig['bbox'],routeUrl:process.env.OSRM_URL||'https://router.project-osrm.org/route/v1/driving',searchUrl:process.env.NOMINATIM_URL||'https://nominatim.openstreetmap.org',userAgent:process.env.NOMINATIM_USER_AGENT||'Sangoub-Delivery/1.0 (https://sangoub.el7lm.com; support@sangoub.el7lm.com)',production};
 }
 export function createOsmService(config:OsmConfig,deps:{fetch?:typeof fetch;now?:()=>number}={}){
  const fetcher=deps.fetch||fetch,now=deps.now||Date.now;

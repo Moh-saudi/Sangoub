@@ -830,36 +830,53 @@ export function CartCheckoutModal({
 
         {/* Footer Actions */}
         {cartItems.length > 0 && (
-          <footer className="p-4 sm:p-5 border-t border-slate-200 bg-white shrink-0">
+          <footer className="p-3.5 sm:p-5 border-t border-slate-200 bg-white shrink-0">
             <button
+              type="button"
               onClick={!isLoggedIn ? onRequestRegister : handleSubmitOrder}
               disabled={isSubmitting || (isUserAuthenticated && !isCashAllowed)}
-              className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl p-4 font-black text-base flex justify-center items-center gap-2 shadow-lg shadow-orange-500/25 transition-all cursor-pointer"
+              className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl sm:rounded-2xl py-3 px-4 font-bold text-sm sm:text-[15px] flex justify-between items-center shadow-md shadow-orange-500/20 transition-all cursor-pointer"
             >
               {isSubmitting ? (
-                <span>جارٍ تأكيد وإرسال الطلب...</span>
+                <div className="flex items-center justify-center gap-2 w-full py-0.5">
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>جارٍ تأكيد وإرسال الطلب...</span>
+                </div>
               ) : !isLoggedIn ? (
-                <>
-                  <span>تسجيل الدخول / إنشاء حساب للمتابعة • {formatEGP(total)}</span>
-                  <User size={18} />
-                </>
-              ) : !effectivePhone ? (
-                <>
-                  <span>أدخل رقم الهاتف لتأكيد الطلب • {formatEGP(total)}</span>
-                  <Phone size={18} />
-                </>
-              ) : (
-                <>
-                  <span>
-                    تأكيد وإرسال طلب {currentStore.name} • {formatEGP(total)}
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <User size={17} className="shrink-0" />
+                    <span>تسجيل الدخول للمتابعة</span>
+                  </div>
+                  <span className="bg-black/20 px-2.5 py-1 rounded-lg text-xs font-bold shrink-0">
+                    {formatEGP(total)}
                   </span>
-                  <ArrowRight size={18} className="rotate-180" />
-                </>
+                </div>
+              ) : !effectivePhone ? (
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <Phone size={17} className="shrink-0" />
+                    <span>أدخل رقم الهاتف لتأكيد الطلب</span>
+                  </div>
+                  <span className="bg-black/20 px-2.5 py-1 rounded-lg text-xs font-bold shrink-0">
+                    {formatEGP(total)}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <ArrowRight size={17} className="rotate-180 shrink-0" />
+                    <span>تأكيد وإرسال الطلب</span>
+                  </div>
+                  <span className="bg-black/20 px-3 py-1 rounded-lg text-xs sm:text-sm font-black shrink-0">
+                    {formatEGP(total)}
+                  </span>
+                </div>
               )}
             </button>
 
-            <p className="text-[11px] text-center text-slate-400 mt-2 flex items-center justify-center gap-1">
-              <ShieldCheck size={13} className="text-emerald-600" />
+            <p className="text-[10px] sm:text-[11px] text-center text-slate-400 mt-2 flex items-center justify-center gap-1 font-medium">
+              <ShieldCheck size={12} className="text-emerald-600 shrink-0" />
               <span>تسوق آمن وسريع ومضمون 100% مع منصة سنجوب</span>
             </p>
           </footer>
