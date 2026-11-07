@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { authenticatedApi } from '../../lib/authenticatedApi';
+import { supabase } from '../../lib/supabase';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
 
   const fetchNotifications = async () => {
     setIsLoading(true);
+    // 1. Try serverless endpoint
     try {
       const data = await authenticatedApi('/api/notifications', { action: 'inbox' });
       if (data && data.ok) {
@@ -39,29 +41,71 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         if (typeof data.unreadCount === 'number') {
           setUnreadNotificationsCount(data.unreadCount);
         }
+        setIsLoading(false);
+        return;
+      }
+    } catch {}
+
+    // 2. Direct Supabase fallback
+    try {
+      if (user?.id) {
+        const { data: rows, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (!error && Array.isArray(rows)) {
+          const mapped = rows.map((r: any) => ({
+            id: r.id,
+            title: r.title || 'إشعار جديد',
+            body: r.body || '',
+            type: r.type || 'operational',
+            targetScreen: r.target_screen || 'orders',
+            targetId: r.target_id || '',
+            is_read: Boolean(r.read_at),
+            created_at: r.created_at,
+          }));
+          setNotificationsList(mapped);
+          const unread = mapped.filter((n: any) => !n.is_read).length;
+          setUnreadNotificationsCount(unread);
+        }
       }
     } catch (err) {
-      console.warn('Could not fetch notifications:', err);
+      console.warn('Could not fetch notifications from Supabase:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleMarkAsRead = async (id?: string) => {
+    // 1. Try serverless endpoint
     try {
       if (id) {
         await authenticatedApi('/api/notifications', { action: 'mark-read', id });
-        setNotificationsList((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-        );
-        setUnreadNotificationsCount((c) => Math.max(0, c - 1));
       } else {
         await authenticatedApi('/api/notifications', { action: 'mark-all-read' });
-        setNotificationsList((prev) => prev.map((n) => ({ ...n, is_read: true })));
-        setUnreadNotificationsCount(0);
       }
-    } catch (err) {
-      console.warn('Could not mark notification as read:', err);
+    } catch {
+      // 2. Direct Supabase fallback
+      try {
+        if (id) {
+          await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id);
+        } else if (user?.id) {
+          await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', user.id).is('read_at', null);
+        }
+      } catch {}
+    }
+
+    if (id) {
+      setNotificationsList((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      );
+      setUnreadNotificationsCount((c) => Math.max(0, c - 1));
+    } else {
+      setNotificationsList((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setUnreadNotificationsCount(0);
     }
   };
 

@@ -527,24 +527,46 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const refreshBanners = async () => {
     setIsLoadingBanners(true);
     try {
-      // 1. Try public server endpoint /api/app-content (official app content & campaign manager)
-      const res = await fetch('/api/app-content', { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.martBanner) {
+      let data: any = null;
+      // 1. Try public server endpoint /api/app-content if available
+      try {
+        const res = await fetch('/api/app-content', { cache: 'no-store' });
+        if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+          data = await res.json();
+        }
+      } catch {}
+
+      // 2. Direct Supabase fallback if serverless endpoint is not present (e.g. Cloudflare SPA)
+      if (!data) {
+        try {
+          const { data: sbRow } = await supabase
+            .from('app_content')
+            .select('content')
+            .eq('id', true)
+            .maybeSingle();
+          if (sbRow?.content) {
+            data = sbRow.content;
+          }
+        } catch {}
+      }
+
+      if (data) {
+        if (data.martBanner) {
           setMartBanner(data.martBanner);
         }
-        if (data && Array.isArray(data.disabledStoreTypes)) {
+        if (Array.isArray(data.disabledStoreTypes)) {
           setDisabledStoreTypes(data.disabledStoreTypes);
         }
-        if (data && Array.isArray(data.disabledCategories)) {
+        if (Array.isArray(data.disabledCategories)) {
           setDisabledCategories(data.disabledCategories);
         }
-        if (data && data.categoryOverrides && typeof data.categoryOverrides === 'object') {
+        if (data.categoryOverrides && typeof data.categoryOverrides === 'object') {
           setCategoryOverrides(data.categoryOverrides);
         }
-        if (data && data.config && typeof data.config.showArrows === 'boolean') { setSliderShowArrows(data.config.showArrows); }
-        if (data && Array.isArray(data.slides) && data.slides.length > 0) {
+        if (data.config && typeof data.config.showArrows === 'boolean') {
+          setSliderShowArrows(data.config.showArrows);
+        }
+        if (Array.isArray(data.slides) && data.slides.length > 0) {
           const mapped: StoreBanner[] = data.slides.map((s: any, idx: number) => ({
             id: s.id || `campaign-${idx}`,
             title: s.title || '',
@@ -573,8 +595,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       // Fallback to default Sangoub banners if no slides returned
       setBanners(DEFAULT_SANGOUB_BANNERS);
-    } catch (err) {
-      console.warn('Could not load dynamic banners, using defaults:', err);
+    } catch {
       setBanners(DEFAULT_SANGOUB_BANNERS);
     } finally {
       setIsLoadingBanners(false);
@@ -760,17 +781,43 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     let isMounted = true;
     const fetchCoupons = async () => {
+      // 1. Try /api/coupons if available
       try {
         const res = await fetch('/api/coupons');
-        if (res.ok) {
+        if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
           const data = await res.json();
           if (isMounted && Array.isArray(data.coupons)) {
             setActiveCoupons(data.coupons);
+            return;
           }
         }
-      } catch (e) {
-        console.warn('Could not load active coupons:', e);
-      }
+      } catch {}
+
+      // 2. Direct Supabase query fallback (Cloudflare SPA native)
+      try {
+        const { data, error } = await supabase
+          .from('coupons')
+          .select('code, discount_type, value, min_order, title, description, starts_at, expires_at, max_uses, used_count')
+          .eq('active', true);
+
+        if (!error && isMounted && data) {
+          const now = Date.now();
+          const valid = data.filter((c: any) => {
+            if (c.starts_at && new Date(c.starts_at).getTime() > now) return false;
+            if (c.expires_at && new Date(c.expires_at).getTime() <= now) return false;
+            if (c.max_uses != null && Number(c.used_count) >= Number(c.max_uses)) return false;
+            return true;
+          }).map((c: any) => ({
+            code: String(c.code).toUpperCase(),
+            discountType: c.discount_type,
+            value: Number(c.value),
+            minOrder: Number(c.min_order) || 0,
+            title: c.title || c.code,
+            description: c.description || '',
+          }));
+          setActiveCoupons(valid);
+        }
+      } catch {}
     };
     fetchCoupons();
     return () => { isMounted = false; };
@@ -784,18 +831,71 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const applyCoupon = async (code: string): Promise<{ success: boolean; message: string }> => {
     const clean = code.trim().toUpperCase();
     if (!clean) return { success: false, message: 'يرجى إدخال كود الخصم.' };
+    
+    // 1. Try serverless route if operational
     try {
       const res = await fetch('/api/coupons', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: clean, subtotal }),
       });
-      const data = await res.json();
-      if (data.valid && data.coupon) {
-        setAppliedCoupon(data.coupon);
-        return { success: true, message: data.message };
+      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+        const data = await res.json();
+        if (data.valid && data.coupon) {
+          setAppliedCoupon(data.coupon);
+          return { success: true, message: data.message };
+        }
+        return { success: false, message: data.message || 'كود الخصم غير متاح.' };
       }
-      return { success: false, message: data.message || 'كود الخصم غير متاح.' };
+    } catch {}
+
+    // 2. Direct Supabase verification fallback
+    try {
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('code', clean)
+        .maybeSingle();
+
+      if (error || !data) {
+        return { success: false, message: 'كود الخصم غير موجود أو غير صالح.' };
+      }
+      if (!data.active) {
+        return { success: false, message: 'كود الخصم غير مفعّل حالياً.' };
+      }
+      const now = Date.now();
+      if (data.starts_at && new Date(data.starts_at).getTime() > now) {
+        return { success: false, message: 'كود الخصم لم يبدأ بعد.' };
+      }
+      if (data.expires_at && new Date(data.expires_at).getTime() <= now) {
+        return { success: false, message: 'عذراً، انتهت صلاحية كود الخصم.' };
+      }
+      if (data.max_uses != null && Number(data.used_count) >= Number(data.max_uses)) {
+        return { success: false, message: 'تم استنفاد الحد الأقصى لاستخدام كود الخصم.' };
+      }
+      const minOrder = Number(data.min_order) || 0;
+      if (subtotal < minOrder) {
+        return { success: false, message: `الحد الأدنى لتطبيق هذا الكوبون هو ${minOrder} ج.م` };
+      }
+
+      let discountAmount = 0;
+      if (data.discount_type === 'percent') {
+        discountAmount = Math.round((subtotal * Number(data.value)) / 100);
+      } else {
+        discountAmount = Math.min(Number(data.value), subtotal);
+      }
+
+      const couponObj = {
+        code: data.code,
+        discountType: data.discount_type,
+        value: Number(data.value),
+        minOrder,
+        discountAmount,
+        title: data.title || data.code,
+        description: data.description || '',
+      };
+      setAppliedCoupon(couponObj);
+      return { success: true, message: `تم تفعيل خصم ${data.discount_type === 'percent' ? data.value + '%' : discountAmount + ' ج.م'} بنجاح!` };
     } catch {
       return { success: false, message: 'تعذر التحقق من كود الخصم حالياً.' };
     }
@@ -1007,11 +1107,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setUnreadNotificationsCount(0);
       return;
     }
+    // 1. Try serverless endpoint if operational
     try {
       const data = await authenticatedApi('/api/notifications', { action: 'inbox' });
       if (data && data.ok) {
         setUnreadNotificationsCount(typeof data.unreadCount === 'number' ? data.unreadCount : 0);
+        return;
       }
+    } catch {}
+
+    // 2. Direct Supabase query fallback (Cloudflare SPA native)
+    try {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .is('read_at', null);
+      setUnreadNotificationsCount(count || 0);
     } catch {
       // silent
     }
