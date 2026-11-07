@@ -109,9 +109,15 @@ export const KNOWN_STORE_ASSETS: Record<string, { logoUrl: string; bannerUrl: st
   },
   '55508f0e-f818-452e-b946-ab803fe9d637': {
     name: 'كافيه الحي الحكومي',
-    logoUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=200&q=80',
+    logoUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=400&q=80',
     bannerUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=800&q=80',
     logo: 'CAFE'
+  },
+  '54a6c2f6-6c29-4177-ac65-32fadddea83d': {
+    name: 'سوبر ماركت النخبة',
+    logoUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80',
+    bannerUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=800&q=80',
+    logo: 'MART'
   }
 };
 
@@ -354,14 +360,33 @@ export async function getSupabaseProducts(storeId?: string): Promise<Product[]> 
 
         // Authentic local & verified fallback for products with missing or broken image assets:
         if (!imageUrl || imageUrl.includes('548839140-29a749e1bc4e')) {
-          if (row.name?.includes('فطور') || row.name?.includes('وجبة')) {
-            imageUrl = '/images/breakfast.jpg';
-          } else if (row.name?.includes('مياه') || row.name?.includes('نستله')) {
+          const pName = (row.name || '').toLowerCase();
+          const pCat = (row.category || '').toLowerCase();
+
+          if (pName.includes('قهوة') || pName.includes('اسبريسو') || pName.includes('لاتيه') || pName.includes('كابتشينو')) {
+            imageUrl = 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=600&q=80';
+          } else if (pName.includes('كرواسون') || pName.includes('باتيه') || pName.includes('مخبوز') || pName.includes('خبز') || pName.includes('عيش')) {
+            imageUrl = 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=600&q=80';
+          } else if (pName.includes('فطور') || pName.includes('وجبة') || pName.includes('ساندوتش')) {
+            imageUrl = 'https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&w=600&q=80';
+          } else if (pName.includes('فول') || pName.includes('فلافل') || pName.includes('طعمية')) {
+            imageUrl = 'https://images.unsplash.com/photo-1593560708920-61dd98c46a4e?auto=format&fit=crop&w=600&q=80';
+          } else if (pName.includes('مياه') || pName.includes('نستله') || pName.includes('عصير') || pName.includes('بيبسي') || pName.includes('كولا')) {
             imageUrl = 'https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=600&q=80';
-          } else if (row.name?.includes('شاي') || row.name?.includes('ليبتون')) {
+          } else if (pName.includes('شاي') || pName.includes('ليبتون')) {
             imageUrl = 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=600&q=80';
-          } else if (row.name?.includes('برجر')) {
+          } else if (pName.includes('برجر')) {
             imageUrl = 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80';
+          } else if (pName.includes('شيبس') || pName.includes('شيبسي') || pName.includes('سناكس') || pName.includes('دوريتوس')) {
+            imageUrl = 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=600&q=80';
+          } else if (pName.includes('شوكولات') || pName.includes('بسكويت') || pName.includes('ويفر')) {
+            imageUrl = 'https://images.unsplash.com/photo-1549007994-cb92caebd54b?auto=format&fit=crop&w=600&q=80';
+          } else if (pName.includes('جبن') || pName.includes('لبن') || pName.includes('حليب') || pName.includes('زبادي')) {
+            imageUrl = 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80';
+          } else if (pCat.includes('منظف') || pName.includes('صابون') || pName.includes('مسحوق')) {
+            imageUrl = 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=600&auto=format&fit=crop&q=80';
+          } else {
+            imageUrl = '/brand/sangoub-market-logo.jpg';
           }
         } else if (imageUrl.includes('1585421514738-01798e348b17') || (row.category?.includes('منظفات') && imageUrl.includes('1585421514738'))) {
           // Replace mismatched medical gloves image with clean laundry & detergent image

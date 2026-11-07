@@ -14,21 +14,35 @@ export async function searchOsm(body:{query?:string;coordinates?:{latitude:numbe
  const abort=()=>controller.abort();options.signal?.addEventListener('abort',abort,{once:true});
  if(options.signal?.aborted)controller.abort();
  try{
+  // 1. Direct client reverse geocoding via OpenStreetMap Nominatim (Native, fast, no server proxy needed)
+  if(body.coordinates&&!options.signal?.aborted){
+    try{
+     const {latitude,longitude}=body.coordinates;
+     const directUrl=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${latitude}&lon=${longitude}&accept-language=ar`;
+     const res=await (options.fetch||fetch)(directUrl,{signal:controller.signal,headers:{'Accept':'application/json'}});
+     if(res.ok){
+      const r=await res.json();
+      if(r&&(r.display_name||r.address)){
+       return {results:[{place_id:String(r.place_id||''),display_name:String(r.display_name||''),lat:String(r.lat||latitude),lon:String(r.lon||longitude),address:r.address||{}}]};
+      }
+     }
+    }catch{}
+  }
+  // 2. Direct client query search via Nominatim
+  if(body.query&&!options.signal?.aborted){
+    try{
+     const directUrl=`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&q=${encodeURIComponent(body.query)}&accept-language=ar&countrycodes=eg`;
+     const res=await (options.fetch||fetch)(directUrl,{signal:controller.signal,headers:{'Accept':'application/json'}});
+     if(res.ok){
+      const r=await res.json();
+      if(Array.isArray(r)&&r.length>0){
+       return {results:r.map((item:any)=>({place_id:String(item.place_id||''),display_name:String(item.display_name||''),lat:String(item.lat||''),lon:String(item.lon||''),address:item.address||{}}))};
+      }
+     }
+    }catch{}
+  }
   return await requestOsm('search',body,{...options,signal:controller.signal});
  }catch(origErr){
-  if(body.coordinates&&!options.signal?.aborted){
-   try{
-    const {latitude,longitude}=body.coordinates;
-    const fallbackUrl=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${latitude}&lon=${longitude}&accept-language=ar`;
-    const res=await (options.fetch||fetch)(fallbackUrl,{signal:controller.signal,headers:{'Accept':'application/json'}});
-    if(res.ok){
-     const r=await res.json();
-     if(r&&(r.display_name||r.address)){
-      return {results:[{place_id:String(r.place_id||''),display_name:String(r.display_name||''),lat:String(r.lat||latitude),lon:String(r.lon||longitude),address:r.address||{}}]};
-     }
-    }
-   }catch{/* ignore fallback errors and rethrow original */}
-  }
   throw origErr;
  }finally{clearTimeout(timer);options.signal?.removeEventListener('abort',abort);}
 }

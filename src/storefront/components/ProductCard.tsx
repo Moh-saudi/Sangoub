@@ -90,22 +90,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }
 
       {/* Product Image Box (1:1 Ratio) */}
       <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#F9FAFB] mb-2">
-        {product.imageUrl ? (
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
-            }}
-          />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-[#9CA3AF]">
-            <ShoppingBag size={26} className="opacity-40 mb-1" />
-            <span className="text-[10px] font-bold">سنجوب</span>
-          </div>
-        )}
+        <img
+          src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
+          alt={product.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
+          }}
+        />
         {/* Badges (Previously Ordered / Offers / Popular / Closed) */}
         <div className="absolute top-2 right-2 flex flex-col gap-1 items-end z-10">
           {isStoreClosed && (

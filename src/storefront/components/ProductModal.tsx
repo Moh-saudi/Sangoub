@@ -205,11 +205,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           <div className="relative w-full aspect-16/10 bg-[#F8F9FA] flex items-center justify-center overflow-hidden border-b border-gray-100">
             {product.imageUrl ? (
               <img
-                src={product.imageUrl}
+                src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
                 alt={product.name}
                 className="w-full h-full object-contain p-4"
                 onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
+                  (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
                 }}
               />
             ) : (
@@ -426,10 +426,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                         <div className="w-full aspect-square rounded-lg bg-gray-50 overflow-hidden mb-1.5 flex items-center justify-center">
                           {sim.imageUrl ? (
                             <img
-                              src={sim.imageUrl}
+                              src={sim.imageUrl || '/brand/sangoub-market-logo.jpg'}
                               alt={sim.name}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                               loading="lazy"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
+                              }}
                             />
                           ) : (
                             <ShoppingBag size={20} className="text-gray-300" />

@@ -305,12 +305,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                       {/* Product Image & Badge */}
                       <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#F9FAFB] mb-2">
                         <img
-                          src={product.imageUrl || '/brand/sangoub-mark-white-128.png'}
+                          src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
                           alt={product.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           loading="lazy"
                           onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
+                            (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
                           }}
                         />
                         {discountPct > 0 && (
