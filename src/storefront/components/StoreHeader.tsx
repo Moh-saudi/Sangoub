@@ -15,7 +15,8 @@ import {
   Tag,
   Clock,
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  Bell
 } from 'lucide-react';
 
 interface StoreHeaderProps {
@@ -38,7 +39,9 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
     searchQuery, 
     setSearchQuery,
     user,
-    categories
+    categories,
+    unreadNotificationsCount,
+    setIsNotificationsModalOpen
   } = useStore();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -241,6 +244,22 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
                 </button>
               )}
 
+              {/* Notifications Bell Button */}
+              <button
+                type="button"
+                onClick={() => setIsNotificationsModalOpen(true)}
+                className="w-10 h-10 rounded-2xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] text-[#111827] hover:text-[#FF5900] flex items-center justify-center relative transition-all active:scale-95 cursor-pointer"
+                aria-label="الإشعارات والتنبيهات"
+                title="الإشعارات والتنبيهات"
+              >
+                <Bell size={18} />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#FF5900] text-white text-[9px] font-black flex items-center justify-center border border-white shadow-2xs">
+                    {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                  </span>
+                )}
+              </button>
+
               {/* Talabat Orange Cart Button */}
               <button
                 type="button"
@@ -268,23 +287,39 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
 
           {/* Mobile Location & Search Row (Only on mobile screens) */}
           <div className="block sm:hidden pb-3 pt-1 space-y-2">
-            {/* Mobile Location Button */}
-            <button
-              type="button"
-              onClick={onOpenAreaModal}
-              className="w-full flex items-center justify-between px-3 py-1.5 bg-[#F9FAFB] rounded-xl text-xs font-bold text-[#111827] border border-[#E5E7EB] cursor-pointer"
-            >
-              <div className="flex items-center gap-1.5 truncate">
-                <MapPin size={14} className="text-[#FF5900] shrink-0" />
-                <span className="truncate">
-                  التوصيل إلى: <strong className="text-[#FF5900]">{serviceArea.name}</strong>
-                </span>
-              </div>
-              <span className="text-[10px] text-[#6B7280] flex items-center gap-1 shrink-0">
-                {LAUNCH_CONFIG.showEta && <span>{serviceArea.deliveryTime}</span>}
-                <ChevronDown size={12} />
-              </span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              {/* Compact Mobile Location Button */}
+              <button
+                type="button"
+                onClick={onOpenAreaModal}
+                className="flex-1 flex items-center justify-between px-2.5 py-1.5 bg-[#F9FAFB] hover:bg-[#FFF5F0] rounded-xl text-xs font-bold text-[#111827] border border-[#E5E7EB] cursor-pointer min-w-0"
+                title="انقر لتغيير موقع التوصيل"
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <MapPin size={13} className="text-[#FF5900] shrink-0" />
+                  <span className="truncate text-[11px] font-black">
+                    {serviceArea.name || 'حدد موقعك'}
+                  </span>
+                </div>
+                <ChevronDown size={11} className="text-[#FF5900] shrink-0" />
+              </button>
+
+              {/* Mobile Notification Bell */}
+              <button
+                type="button"
+                onClick={() => setIsNotificationsModalOpen(true)}
+                className="w-8 h-8 rounded-xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] text-[#111827] flex items-center justify-center relative cursor-pointer active:scale-95 transition-all shrink-0"
+                aria-label="الإشعارات والتنبيهات"
+                title="الإشعارات"
+              >
+                <Bell size={15} />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#FF5900] text-white text-[9px] font-black flex items-center justify-center border border-white shadow-2xs">
+                    {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                  </span>
+                )}
+              </button>
+            </div>
 
             {/* Mobile Search Input */}
             <form onSubmit={handleSearchSubmit} className="flex items-center w-full bg-[#F3F4F6] rounded-xl border border-[#E5E7EB] focus-within:border-[#FF5900] focus-within:bg-white p-1">

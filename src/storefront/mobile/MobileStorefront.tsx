@@ -46,7 +46,8 @@ import {
   LayoutGrid,
   User,
   ArrowLeft,
-  Store as StoreIcon
+  Store as StoreIcon,
+  Bell
 } from 'lucide-react';
 
 import { 
@@ -90,7 +91,9 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     user,
     banners,
     martBanner,
-    handleBannerClick
+    handleBannerClick,
+    unreadNotificationsCount,
+    setIsNotificationsModalOpen
   } = useStore();
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -266,25 +269,41 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             </div>
           </button>
 
-          {/* 2. Compact Location Picker (Left side in RTL - 1 Tap to switch) */}
-          <button
-            type="button"
-            onClick={onOpenAreaModal}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] text-right active:scale-95 transition-all max-w-[170px] cursor-pointer"
-            aria-label="تغيير موقع التوصيل"
-            title="انقر لتغيير العنوان"
-          >
-            <div className="w-5 h-5 rounded-lg bg-[#FFF2EC] text-[#FF5900] flex items-center justify-center shrink-0">
-              <MapPin size={12} />
-            </div>
-            <div className="flex flex-col leading-tight truncate">
-              <span className="text-[8.5px] text-[#6B7280] font-bold">التوصيل إلى</span>
+          {/* 2. Left Side Actions: Compact Location + Notification Bell */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            {/* Compact Location Chip */}
+            <button
+              type="button"
+              onClick={onOpenAreaModal}
+              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] text-right active:scale-95 transition-all max-w-[130px] sm:max-w-[150px] cursor-pointer"
+              aria-label="تغيير موقع التوصيل"
+              title="انقر لتغيير العنوان"
+            >
+              <div className="w-5 h-5 rounded-lg bg-[#FFF2EC] text-[#FF5900] flex items-center justify-center shrink-0">
+                <MapPin size={11} />
+              </div>
               <span className="text-[11px] font-black text-[#111827] truncate">
                 {serviceArea.name || 'حدد موقعك'}
               </span>
-            </div>
-            <ChevronDown size={11} className="text-[#FF5900] shrink-0" />
-          </button>
+              <ChevronDown size={10} className="text-[#FF5900] shrink-0" />
+            </button>
+
+            {/* Notification Bell Button */}
+            <button
+              type="button"
+              onClick={() => setIsNotificationsModalOpen(true)}
+              className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] text-[#111827] flex items-center justify-center relative cursor-pointer active:scale-95 transition-all shrink-0"
+              aria-label="الإشعارات والتنبيهات"
+              title="الإشعارات"
+            >
+              <Bell size={15} />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#FF5900] text-white text-[9px] font-black flex items-center justify-center border border-white shadow-2xs">
+                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                </span>
+              )}
+            </button>
+          </div>
 
         </div>
 

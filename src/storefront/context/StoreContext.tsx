@@ -133,6 +133,13 @@ export interface StoreContextType {
   isProductOrderedBefore: (productId: string, productName?: string) => boolean;
   markProductAsOrdered: (productId: string, productName?: string) => void;
 
+  // Customer Notifications
+  unreadNotificationsCount: number;
+  setUnreadNotificationsCount: React.Dispatch<React.SetStateAction<number>>;
+  isNotificationsModalOpen: boolean;
+  setIsNotificationsModalOpen: (open: boolean) => void;
+  refreshNotifications: () => Promise<void>;
+
   // User & Profile
   user: Profile | null;
   setUser: (user: Profile | null) => void;
@@ -991,6 +998,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     throw new Error('إنشاء الحساب يتطلب التسجيل بالبريد أو Google وتأكيد الهوية.');
   };
 
+  // Customer In-App Notifications State
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
+
+  const refreshNotifications = async () => {
+    if (!user || user.isGuest) {
+      setUnreadNotificationsCount(0);
+      return;
+    }
+    try {
+      const data = await authenticatedApi('/api/notifications', { action: 'inbox' });
+      if (data && data.ok) {
+        setUnreadNotificationsCount(typeof data.unreadCount === 'number' ? data.unreadCount : 0);
+      }
+    } catch {
+      // silent
+    }
+  };
+
+  useEffect(() => {
+    if (user && !user.isGuest) {
+      void refreshNotifications();
+    } else {
+      setUnreadNotificationsCount(0);
+    }
+  }, [user]);
+
   const logout = async () => {
     try {
       await supabase.auth.signOut();
@@ -1049,6 +1083,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         markProductAsOrdered,
         user,
         setUser,
+        unreadNotificationsCount,
+        setUnreadNotificationsCount,
+        isNotificationsModalOpen,
+        setIsNotificationsModalOpen,
+        refreshNotifications,
         loginAsGuest,
         registerSangoubAccount,
         logout,

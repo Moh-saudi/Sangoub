@@ -75,16 +75,88 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Only initialize Firebase Messaging if Firebase configuration is provided
-if (firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.messagingSenderId && firebaseConfig.appId) {
+const isValidValue = (v: any): boolean =>
+  typeof v === 'string' && v.trim().length > 3 && v !== 'undefined' && v !== 'null';
+
+// Only initialize Firebase Messaging if complete and valid Firebase configuration is provided
+if (
+  isValidValue(firebaseConfig.apiKey) &&
+  isValidValue(firebaseConfig.projectId) &&
+  isValidValue(firebaseConfig.messagingSenderId) &&
+  isValidValue(firebaseConfig.appId)
+) {
   try {
     const firebaseApp = getApps().length
       ? getApps()[0]
       : initializeApp(firebaseConfig);
 
-    // Firebase owns background push delivery and notification-click handling for this worker.
+    // Firebase owns background push delivery and notification-click handling when configured
     getMessaging(firebaseApp);
   } catch (err) {
-    console.warn('Firebase Messaging SW initialization skipped:', err);
+    console.warn('Firebase Messaging SW initialization bypassed safely:', err);
   }
 }
+
+// Native Web Push and background notification handlers (works natively across all modern browsers)
+self.addEventListener('push', (event: any) => {
+  if (!event.data) return;
+  try {
+    let title = 'سنجوب | Sangoub';
+    let body = '';
+    let icon = '/brand/sangoub-mark-white-256.png';
+    let badge = '/brand/sangoub-mark-white-64.png';
+    let data: any = {};
+
+    try {
+      const json = event.data.json();
+      title = json.notification?.title || json.title || title;
+      body = json.notification?.body || json.body || body;
+      icon = json.notification?.icon || json.imageUrl || icon;
+      data = json.data || json;
+    } catch {
+      body = event.data.text() || body;
+    }
+
+    event.waitUntil(
+      self.registration.showNotification(title, {
+        body,
+        icon,
+        badge,
+        data,
+        dir: 'rtl',
+        lang: 'ar',
+      })
+    );
+  } catch (err) {
+    console.warn('Push event handling safely caught:', err);
+  }
+});
+
+self.addEventListener('notificationclick', (event: any) => {
+  try {
+    event.notification.close();
+    const screen = event.notification?.data?.screen || event.notification?.data?.targetScreen;
+    let targetUrl = '/';
+    if (screen === 'orders' || screen === 'track') {
+      targetUrl = '/my-orders';
+    } else if (screen === 'offers' || screen === 'coupons') {
+      targetUrl = '/offers';
+    }
+
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+        for (const client of windowClients) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            if ('navigate' in client) client.navigate(targetUrl);
+            return client.focus();
+          }
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl);
+        }
+      })
+    );
+  } catch (err) {
+    console.warn('Notification click handling safely caught:', err);
+  }
+});

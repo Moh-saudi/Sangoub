@@ -32,14 +32,10 @@ import {
   Camera,
   MessageSquare,
   ShieldCheck,
-  ExternalLink,
-  CheckCheck,
-  Clock,
-  Package
+  ExternalLink
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { disableWebPushNotifications, enableWebPushNotifications } from '../../lib/webPushNotifications';
-import { authenticatedApi } from '../../lib/authenticatedApi';
 import { PartnerRegisterModal } from '../components/PartnerRegisterModal';
 
 interface AccountPageProps {
@@ -55,17 +51,11 @@ export const AccountPage: React.FC<AccountPageProps> = ({
   onOpenAreaModal,
   isMobile = false,
 }) => {
-  const { user, setUser, serviceArea, navigate, activeCoupons } = useStore();
+  const { user, setUser, serviceArea, navigate, activeCoupons, unreadNotificationsCount, setIsNotificationsModalOpen } = useStore();
   const [currentView, setCurrentView] = useState<AccountView>('main');
   const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
   const [showCouponsModal, setShowCouponsModal] = useState(false);
   const [copiedCouponCode, setCopiedCouponCode] = useState<string | null>(null);
-
-  // Customer In-App Notifications State
-  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
-  const [notificationsList, setNotificationsList] = useState<any[]>([]);
-  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
-  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
   // Account Info Form State
   const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -112,78 +102,8 @@ export const AccountPage: React.FC<AccountPageProps> = ({
       if (user.avatarUrl) {
         setAvatarUrl(user.avatarUrl);
       }
-      void loadUserNotifications();
-    } else {
-      setNotificationsList([]);
-      setUnreadNotificationsCount(0);
     }
   }, [user]);
-
-  const loadUserNotifications = async () => {
-    if (!user || user.isGuest) return;
-    setIsLoadingNotifications(true);
-    try {
-      const data = await authenticatedApi('/api/notifications', { action: 'inbox' });
-      if (data && data.ok) {
-        setNotificationsList(data.notifications || []);
-        setUnreadNotificationsCount(typeof data.unreadCount === 'number' ? data.unreadCount : 0);
-      }
-    } catch (e) {
-      console.warn('Could not load user notifications:', e);
-    } finally {
-      setIsLoadingNotifications(false);
-    }
-  };
-
-  const handleMarkAsRead = async (id?: string) => {
-    try {
-      if (id) {
-        await authenticatedApi('/api/notifications', { action: 'mark-read', id });
-        setNotificationsList((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-        );
-        setUnreadNotificationsCount((c) => Math.max(0, c - 1));
-      } else {
-        await authenticatedApi('/api/notifications', { action: 'mark-all-read' });
-        setNotificationsList((prev) => prev.map((n) => ({ ...n, is_read: true })));
-        setUnreadNotificationsCount(0);
-      }
-    } catch (e) {
-      console.warn('Could not mark notification as read:', e);
-    }
-  };
-
-  const handleNotificationClick = (item: any) => {
-    if (!item.is_read) {
-      void handleMarkAsRead(item.id);
-    }
-    setShowNotificationsModal(false);
-    if (item.targetScreen === 'orders' || item.targetScreen === 'track') {
-      navigate('/my-orders');
-    } else if (item.targetScreen === 'offers') {
-      navigate('/offers');
-    } else if (item.targetScreen === 'coupons') {
-      setShowCouponsModal(true);
-    }
-  };
-
-  const formatTimeAgo = (dateStr: string) => {
-    if (!dateStr) return '';
-    try {
-      const d = new Date(dateStr);
-      const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
-      if (diffSec < 60) return 'الآن';
-      const diffMin = Math.floor(diffSec / 60);
-      if (diffMin < 60) return `منذ ${diffMin} دقيقة`;
-      const diffHours = Math.floor(diffMin / 60);
-      if (diffHours < 24) return `منذ ${diffHours} ساعة`;
-      const diffDays = Math.floor(diffHours / 24);
-      if (diffDays < 7) return `منذ ${diffDays} يوم`;
-      return d.toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' });
-    } catch {
-      return '';
-    }
-  };
 
   const userInitial = (user?.fullName || firstName || 'س').trim().charAt(0).toUpperCase();
 
@@ -968,8 +888,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({
               setFeedbackMsg({ type: 'error', text: 'سجّل الدخول أولاً لعرض إشعارات حسابك.' });
               return;
             }
-            setShowNotificationsModal(true);
-            void loadUserNotifications();
+            setIsNotificationsModalOpen(true);
           }}
           className="w-full flex items-center justify-between p-4 hover:bg-[#F9FAFB] active:bg-[#F3F4F6] transition-colors cursor-pointer text-right"
         >
@@ -1199,161 +1118,6 @@ export const AccountPage: React.FC<AccountPageProps> = ({
             >
               إغلاق
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Notifications Inbox Modal */}
-      {showNotificationsModal && (
-        <div
-          className="fixed inset-0 z-[130] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
-          onClick={() => setShowNotificationsModal(false)}
-        >
-          <div
-            className="bg-white rounded-3xl p-5 w-full max-w-md shadow-2xl space-y-4 max-h-[85vh] flex flex-col"
-            dir="rtl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#F0F1F3] shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-orange-50 text-[#FF5900] flex items-center justify-center">
-                  <Bell size={18} />
-                </div>
-                <div>
-                  <h3 className="font-black text-slate-900 text-base">التنبيهات والإشعارات</h3>
-                  {unreadNotificationsCount > 0 && (
-                    <span className="text-[10px] font-bold text-[#FF5900]">
-                      {unreadNotificationsCount} إشعار غير مقروء
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {unreadNotificationsCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => void handleMarkAsRead()}
-                    className="text-[11px] font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                    title="تعليم كل الإشعارات كمقروءة"
-                  >
-                    <CheckCheck size={13} />
-                    <span>قراءة الكل</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setShowNotificationsModal(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
-                  aria-label="إغلاق"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Body */}
-            <div className="overflow-y-auto space-y-2.5 flex-1 pr-0.5 -mr-0.5">
-              {isLoadingNotifications ? (
-                <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#FF5900]" />
-                  <span className="text-xs font-bold">جارٍ تحميل التنبيهات...</span>
-                </div>
-              ) : notificationsList.length > 0 ? (
-                notificationsList.map((item) => {
-                  const isOrder =
-                    item.type === 'operational' ||
-                    item.targetScreen === 'orders' ||
-                    item.targetScreen === 'track';
-                  const isOffer = item.targetScreen === 'offers' || item.targetScreen === 'coupons';
-
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => handleNotificationClick(item)}
-                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer relative ${
-                        !item.is_read
-                          ? 'bg-[#FFF7ED] border-[#FDBA74] shadow-xs'
-                          : 'bg-white hover:bg-slate-50 border-[#F0F1F3]'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                            isOrder
-                              ? 'bg-orange-100 text-[#FF5900]'
-                              : isOffer
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-blue-100 text-blue-600'
-                          }`}
-                        >
-                          {isOrder ? (
-                            <Package size={18} />
-                          ) : isOffer ? (
-                            <Tag size={18} />
-                          ) : (
-                            <Bell size={18} />
-                          )}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <h4
-                              className={`text-xs sm:text-sm font-black truncate ${
-                                !item.is_read ? 'text-slate-900' : 'text-slate-700'
-                              }`}
-                            >
-                              {item.title}
-                            </h4>
-                            <span className="text-[10px] text-slate-400 shrink-0 font-medium">
-                              {formatTimeAgo(item.createdAt)}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
-                            {item.body}
-                          </p>
-                          {(item.targetScreen === 'orders' ||
-                            item.targetScreen === 'track' ||
-                            item.targetScreen === 'offers') && (
-                            <div className="mt-2 flex items-center gap-1 text-[11px] font-black text-[#FF5900]">
-                              <span>عرض التفاصيل</span>
-                              <ChevronLeft size={13} />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Unread dot */}
-                      {!item.is_read && (
-                        <div className="absolute top-3 left-3 w-2 h-2 rounded-full bg-[#FF5900]" />
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-10 space-y-2">
-                  <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#FF5900] flex items-center justify-center mx-auto">
-                    <Bell size={24} />
-                  </div>
-                  <h4 className="font-bold text-slate-800 text-sm">لا توجد إشعارات حالياً</h4>
-                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                    ستصلك هنا إشعارات فورية بكل مرحلة من مراحل طلبك، والعروض الخاصة أولاً بأول.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="pt-2 border-t border-[#F0F1F3] shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowNotificationsModal(false)}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-              >
-                إغلاق
-              </button>
-            </div>
           </div>
         </div>
       )}

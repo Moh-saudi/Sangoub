@@ -8,6 +8,7 @@ import { CartCheckoutModal } from './components/CartCheckoutModal';
 import { SwitchStoreModal } from './components/SwitchStoreModal';
 import { SangoubAuthModal } from './components/SangoubAuthModal';
 import { OrderTrackingModal, type TrackableOrder } from './components/OrderTrackingModal';
+import { NotificationsModal } from './components/NotificationsModal';
 import { HomePage } from './pages/HomePage';
 import { MobileStorefront } from './mobile/MobileStorefront';
 import { StoresPage } from './pages/StoresPage';
@@ -39,7 +40,7 @@ function useIsMobile() {
 }
 
 const StorefrontRouter: React.FC = () => {
-  const { currentPath, navigate, cartItems, serviceArea, catalogError, user } = useStore();
+  const { currentPath, navigate, cartItems, serviceArea, catalogError, user, isNotificationsModalOpen, setIsNotificationsModalOpen } = useStore();
   const [areaModalOpen, setAreaModalOpen] = useState(false);
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
@@ -216,6 +217,12 @@ const StorefrontRouter: React.FC = () => {
           }
         }}
         order={activeOrder}
+      />
+
+      {/* 5. In-App Notifications & Alerts Modal */}
+      <NotificationsModal
+        isOpen={isNotificationsModalOpen}
+        onClose={() => setIsNotificationsModalOpen(false)}
       />
     </div>
   );
