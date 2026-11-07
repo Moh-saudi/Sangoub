@@ -66,16 +66,25 @@ registerRoute(
   }),
 );
 
-const firebaseApp = getApps().length
-  ? getApps()[0]
-  : initializeApp({
-      apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-      appId: import.meta.env.VITE_FIREBASE_APP_ID,
-    });
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+};
 
-// Firebase owns background push delivery and notification-click handling for this worker.
-getMessaging(firebaseApp);
+// Only initialize Firebase Messaging if Firebase configuration is provided
+if (firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.messagingSenderId && firebaseConfig.appId) {
+  try {
+    const firebaseApp = getApps().length
+      ? getApps()[0]
+      : initializeApp(firebaseConfig);
+
+    // Firebase owns background push delivery and notification-click handling for this worker.
+    getMessaging(firebaseApp);
+  } catch (err) {
+    console.warn('Firebase Messaging SW initialization skipped:', err);
+  }
+}
