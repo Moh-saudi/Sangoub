@@ -316,17 +316,23 @@ export function CartCheckoutModal({
 
       let saved: any = null;
 
-      // 1. Try authenticated API endpoint first (if backend serverless is running)
-      try {
-        const quote = await authenticatedApi('/api/orders', { ...payload, action: 'quote' }) as any;
-        if (quote?.quote) {
-          const created = await authenticatedApi('/api/orders', { ...payload, quoteHash: quote.quoteHash }) as any;
-          if (created?.order?.id) {
-            saved = created.order;
+      // On static web hosts (Cloudflare Pages/Workers without Node server), bypass /api/orders to prevent 405 console errors
+      const isStaticWeb = typeof window !== 'undefined' && 
+        (window.location.hostname.includes('el7lm.com') || window.location.hostname.includes('pages.dev') || window.location.hostname.includes('workers.dev'));
+
+      // 1. Try authenticated API endpoint first only when running on dev/full server
+      if (!isStaticWeb) {
+        try {
+          const quote = await authenticatedApi('/api/orders', { ...payload, action: 'quote' }) as any;
+          if (quote?.quote) {
+            const created = await authenticatedApi('/api/orders', { ...payload, quoteHash: quote.quoteHash }) as any;
+            if (created?.order?.id) {
+              saved = created.order;
+            }
           }
+        } catch (apiErr: any) {
+          console.warn('API /api/orders endpoint unreachable, proceeding with direct Supabase placement:', apiErr);
         }
-      } catch (apiErr: any) {
-        console.warn('API /api/orders endpoint unreachable, proceeding with direct Supabase placement:', apiErr);
       }
 
       // 2. Resilient Supabase direct placement (handles Cloudflare Pages static hosting)

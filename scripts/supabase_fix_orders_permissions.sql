@@ -31,3 +31,4 @@ DROP POLICY IF EXISTS "Users read own order items" ON public.order_items;
 CREATE POLICY "Users read own order items" ON public.order_items 
 FOR SELECT TO authenticated, anon 
 USING (true);
+
