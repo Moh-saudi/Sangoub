@@ -9,7 +9,7 @@ import {
   Copy, Check, MapPin, Bike, Navigation, AlertCircle, FileCheck, Stethoscope,
   Shield, Car, ExternalLink, Store as StoreIcon, UserCheck, PhoneCall, Building2,
   Calendar, Award, Eye, Edit3, Power, Trash2, Camera, Upload, User,
-  Clock, CheckCircle2, Wallet, DollarSign, Coins
+  Clock, CheckCircle2, Wallet, DollarSign, Coins, ChevronDown
 } from 'lucide-react';
 import { adminApi } from '../lib/adminApi';
 import type { Store, UserRole } from '../types';
@@ -231,6 +231,8 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [formFullName, setFormFullName] = useState('');
   const [selectedStoreId, setSelectedStoreId] = useState('');
+  const [isStoreSelectOpen, setIsStoreSelectOpen] = useState(false);
+  const [storeFilterText, setStoreFilterText] = useState('');
   const [formVehicleType, setFormVehicleType] = useState('motorcycle');
   const [formLatitude, setFormLatitude] = useState('');
   const [formLongitude, setFormLongitude] = useState('');
@@ -337,6 +339,8 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
 
   function closeFormModal() {
     setIsFormModalOpen(false);
+    setIsStoreSelectOpen(false);
+    setStoreFilterText('');
     setEditingUser(null);
     setFormAvatarUrl('');
     setError('');
@@ -1961,26 +1965,157 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         </span>
                       </div>
 
-                      {/* Store Selector */}
-                      <div>
-                        <label className="block text-emerald-950 font-bold mb-1 flex items-center gap-1">
-                          <StoreIcon size={14} className="text-emerald-700" />
-                          <span>اختيار المتجر / التاجر التابع له الحساب *</span>
+                      {/* Store Selector (Custom Interactive Dropdown) */}
+                      <div className="relative">
+                        <label className="block text-emerald-950 font-bold mb-1.5 flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-1">
+                            <StoreIcon size={14} className="text-emerald-700" />
+                            <span>اختيار المتجر / التاجر التابع له الحساب *</span>
+                          </span>
+                          <span className="text-[10px] text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded font-bold">
+                            انقر لاختيار المتجر مباشرة
+                          </span>
                         </label>
-                        <select
-                          name="storeId"
-                          required
-                          value={selectedStoreId}
-                          onChange={(e) => handleStoreChange(e.target.value)}
-                          className="w-full h-10 px-3 border-2 border-emerald-400 focus:border-emerald-600 rounded-lg text-xs bg-white font-bold text-slate-800 shadow-2xs focus:outline-none"
+
+                        {/* Hidden form input for submission */}
+                        <input type="hidden" name="storeId" value={selectedStoreId} required />
+
+                        {/* Custom Dropdown Trigger */}
+                        <button
+                          type="button"
+                          onClick={() => setIsStoreSelectOpen((prev) => !prev)}
+                          className="w-full min-h-[44px] px-3.5 py-2 border-2 border-emerald-500 hover:border-emerald-600 focus:border-emerald-700 rounded-xl text-xs bg-white font-bold text-slate-800 shadow-xs flex items-center justify-between gap-2 text-right transition-all cursor-pointer ring-2 ring-emerald-500/10"
                         >
-                          <option value="" disabled>-- اختر المتجر أو التاجر المعتمد --</option>
-                          {stores.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name} ({s.locationInDistrict ? s.locationInDistrict.replace(/^الحي الحكومي - /g, '') : s.type})
-                            </option>
-                          ))}
-                        </select>
+                          <div className="flex items-center gap-2.5 overflow-hidden">
+                            {activeMerchantStore?.logoUrl || activeMerchantStore?.logo ? (
+                              <img
+                                src={activeMerchantStore.logoUrl || activeMerchantStore.logo}
+                                alt=""
+                                className="w-7 h-7 rounded-lg object-cover border border-slate-200 shrink-0"
+                              />
+                            ) : (
+                              <span className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0">
+                                <StoreIcon size={14} />
+                              </span>
+                            )}
+                            <div className="truncate text-right">
+                              <p className="text-xs font-bold text-slate-900 truncate">
+                                {activeMerchantStore ? activeMerchantStore.name : '-- اضغط هنا لاختيار المتجر أو التاجر --'}
+                              </p>
+                              {activeMerchantStore && (
+                                <p className="text-[10px] text-slate-500 truncate font-normal">
+                                  {activeMerchantStore.locationInDistrict || activeMerchantStore.preciseAddress || activeMerchantStore.type}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <ChevronDown
+                            size={18}
+                            className={`text-emerald-700 transition-transform duration-200 shrink-0 ${
+                              isStoreSelectOpen ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </button>
+
+                        {/* Dropdown Menu Options */}
+                        {isStoreSelectOpen && (
+                          <>
+                            {/* Backdrop closer */}
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => setIsStoreSelectOpen(false)}
+                            />
+
+                            <div className="absolute top-full right-0 left-0 mt-1.5 z-50 bg-white border-2 border-emerald-400 rounded-xl shadow-2xl overflow-hidden max-h-72 flex flex-col animate-fadeIn">
+                              {/* Search inside stores if > 4 stores */}
+                              {stores.length > 4 && (
+                                <div className="p-2 border-b border-slate-100 bg-slate-50/80">
+                                  <input
+                                    type="text"
+                                    value={storeFilterText}
+                                    onChange={(e) => setStoreFilterText(e.target.value)}
+                                    placeholder="بحث سريع باسم المتجر أو العنوان..."
+                                    className="w-full h-8 px-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-emerald-600"
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                              )}
+
+                              <div className="overflow-y-auto divide-y divide-slate-100 p-1">
+                                {stores
+                                  .filter((s) => {
+                                    if (!storeFilterText.trim()) return true;
+                                    const q = storeFilterText.toLowerCase();
+                                    return (
+                                      s.name?.toLowerCase().includes(q) ||
+                                      s.locationInDistrict?.toLowerCase().includes(q) ||
+                                      s.type?.toLowerCase().includes(q)
+                                    );
+                                  })
+                                  .map((s) => {
+                                    const isSelected =
+                                      s.id === selectedStoreId ||
+                                      matchStoreId(s.id, selectedStoreId) ||
+                                      String(s.id).toLowerCase() === String(selectedStoreId).toLowerCase();
+
+                                    return (
+                                      <button
+                                        key={s.id}
+                                        type="button"
+                                        onClick={() => {
+                                          handleStoreChange(s.id);
+                                          setIsStoreSelectOpen(false);
+                                          setStoreFilterText('');
+                                        }}
+                                        className={`w-full p-2.5 rounded-lg text-right flex items-center justify-between gap-2.5 transition-all cursor-pointer ${
+                                          isSelected
+                                            ? 'bg-emerald-50 border border-emerald-300 text-emerald-950 font-bold'
+                                            : 'hover:bg-slate-50 text-slate-800'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2.5 overflow-hidden">
+                                          {s.logoUrl || s.logo ? (
+                                            <img
+                                              src={s.logoUrl || s.logo}
+                                              alt=""
+                                              className="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0"
+                                            />
+                                          ) : (
+                                            <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
+                                              <StoreIcon size={16} />
+                                            </span>
+                                          )}
+                                          <div className="truncate">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-bold text-slate-900">{s.name}</span>
+                                              <span
+                                                className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                                                  s.status === 'closed'
+                                                    ? 'bg-rose-100 text-rose-800'
+                                                    : 'bg-emerald-100 text-emerald-800'
+                                                }`}
+                                              >
+                                                {s.status === 'closed' ? 'مغلق' : 'مفتوح'}
+                                              </span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                                              📍 {s.locationInDistrict ? s.locationInDistrict.replace(/^الحي الحكومي - /g, '') : (s.preciseAddress || s.type)}
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        {isSelected && (
+                                          <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                                            <Check size={12} strokeWidth={3} />
+                                          </span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* Store Details & Auto Address Display Card */}
