@@ -696,26 +696,29 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
         {/* 6.5 POPULAR STORES HORIZONTAL SCROLL (Mobile) */}
         {stores.length > 0 && (
           <section aria-labelledby="mobile-stores-heading" className="mb-4">
-            <div className="flex items-center justify-between px-1 mb-3">
-              <h2 id="mobile-stores-heading" className="text-sm font-black text-[#111827]">
-                المتاجر
-              </h2>
+            <div className="flex items-center justify-between px-1 mb-2">
+              <div className="flex items-center gap-1.5">
+                <h2 id="mobile-stores-heading" className="text-xs sm:text-sm font-bold text-[#111827]">
+                  المتاجر
+                </h2>
+                <span className="text-[10px] text-[#6B7280] font-medium">({stores.length})</span>
+              </div>
               <a
                 href="/stores"
                 onClick={(e) => {
                   e.preventDefault();
                   navigate('/stores');
                 }}
-                className="text-[11px] font-bold text-[#FF5900] hover:underline flex items-center gap-0.5 text-decoration-none"
+                className="text-[10px] font-bold text-[#FF5900] hover:underline flex items-center gap-0.5 text-decoration-none"
               >
                 <span>عرض الكل</span>
-                <ChevronLeft size={12} />
+                <ChevronLeft size={11} />
               </a>
             </div>
 
-            <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 pt-0.5 w-full overscroll-x-contain touch-pan-x snap-x snap-mandatory">
+            <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-2 pt-0.5 w-full overscroll-x-contain touch-pan-x snap-x snap-mandatory">
               {stores.map((store) => (
-                <MerchantLogoCard key={store.id} store={store} className="w-[82vw] max-w-[320px] shrink-0 snap-start" />
+                <MerchantLogoCard key={store.id} store={store} className="w-[75vw] max-w-[260px] shrink-0 snap-start" />
               ))}
             </div>
           </section>

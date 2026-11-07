@@ -362,28 +362,31 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
 
         {/* 6. STORES SECTION — Talabat-style Squircle Logos */}
         {!LAUNCH_CONFIG.hideMerchantNames && stores.length > 0 && (
-          <section aria-labelledby="stores-heading" className="mb-8">
-            <div className="flex items-center justify-between px-1 mb-4">
-              <h2 id="stores-heading" className="text-base sm:text-lg font-black text-[#111827]">
-                المتاجر
-              </h2>
+          <section aria-labelledby="stores-heading" className="mb-6">
+            <div className="flex items-center justify-between px-1 mb-2.5">
+              <div className="flex items-center gap-1.5">
+                <h2 id="stores-heading" className="text-xs sm:text-sm font-bold text-[#111827]">
+                  المتاجر
+                </h2>
+                <span className="text-[10px] text-[#6B7280] font-medium">({stores.length})</span>
+              </div>
               <a
                 href="/stores"
                 onClick={(e) => {
                   e.preventDefault();
                   navigate('/stores');
                 }}
-                className="text-xs font-bold text-[#FF5900] hover:underline cursor-pointer flex items-center gap-1 text-decoration-none"
+                className="text-[10.5px] font-bold text-[#FF5900] hover:text-[#E04E00] flex items-center gap-0.5 text-decoration-none transition-colors"
               >
                 <span>عرض الكل</span>
-                <ChevronLeft size={13} />
+                <ChevronLeft size={11} />
               </a>
             </div>
 
             {/* Flexible Row of Stores — Natural spacing, no empty grid gaps */}
-            <div className="flex items-stretch gap-3 overflow-x-auto overscroll-x-contain touch-pan-x snap-x snap-mandatory pb-2 w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex items-stretch gap-2.5 overflow-x-auto overscroll-x-contain touch-pan-x snap-x snap-mandatory pb-2 w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {stores.map((store) => (
-                <MerchantLogoCard key={store.id} store={store} className="w-[82vw] max-w-[320px] shrink-0 snap-start sm:w-[280px]" />
+                <MerchantLogoCard key={store.id} store={store} className="w-[75vw] max-w-[270px] shrink-0 snap-start sm:w-[250px]" />
               ))}
             </div>
           </section>
