@@ -88,14 +88,25 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
   useEffect(() => {
     if (!isOpen || !order?.orderId) return;
 
+    const rawId = order.orderId?.trim() || '';
+    const cleanUuid = rawId.replace(/^(ord-|order-)/i, '');
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanUuid);
+
     // 1. Fetch live snapshot from Supabase directly
     const fetchLatest = async () => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('orders')
-          .select('status, payment_status, courier_checklist')
-          .eq('id', order.orderId)
-          .maybeSingle();
+          .select('id, status, payment_status, courier_checklist');
+
+        if (isUuid) {
+          query = query.eq('id', cleanUuid);
+        } else {
+          // If not UUID, match against order_number or client_request_id to avoid PostgreSQL 400 UUID syntax error
+          query = query.or(`order_number.eq.${rawId},client_request_id.eq.${rawId}`);
+        }
+
+        const { data, error } = await query.maybeSingle();
 
         if (!error && data) {
           if (data.status) setCurrentStatus(data.status as OrderStatus);
@@ -112,11 +123,12 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
     void fetchLatest();
 
     // 2. Real-time channel listener
+    const realtimeFilter = isUuid ? `id=eq.${cleanUuid}` : `order_number=eq.${rawId}`;
     const channel = supabase
-      .channel(`order-track-${order.orderId}`)
+      .channel(`order-track-${rawId}`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${order.orderId}` },
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: realtimeFilter },
         (payload: any) => {
           if (payload.new) {
             if (payload.new.status) {

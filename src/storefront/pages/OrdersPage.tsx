@@ -435,7 +435,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                   type="button"
                   onClick={() => {
                     const trackObj: TrackableOrder = {
-                      orderId: order.orderNumber,
+                      orderId: order.id || order.orderNumber,
+                      orderNumber: order.orderNumber,
                       orderStatus: order.status as any,
                       itemsCount: order.items.reduce((s, i) => s + i.quantity, 0) || 1,
                       total: order.total,
