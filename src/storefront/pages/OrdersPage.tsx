@@ -456,10 +456,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
             </div>
           ))}
         </div>
-              </div>
-            </div>
-          ))}
-        </div>
       )}
     </div>
   );
