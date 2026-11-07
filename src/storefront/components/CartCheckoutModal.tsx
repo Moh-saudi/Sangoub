@@ -138,6 +138,7 @@ export function CartCheckoutModal({
 
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'cash' | 'vodafone_cash' | 'instapay' | 'card'>('cash');
   const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
   // User Profile Phone State
   const [profilePhoneInput, setProfilePhoneInput] = useState(user?.phone || '');
@@ -215,14 +216,19 @@ export function CartCheckoutModal({
 
   if (!isOpen) return null;
 
-  const handleApplyCoupon = (e: React.FormEvent) => {
+  const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!couponCode.trim()) return;
-    const res = applyCoupon(couponCode.trim());
-    setCouponMessage({
-      text: res.message,
-      error: !res.success,
-    });
+    setIsApplyingCoupon(true);
+    try {
+      const res = await applyCoupon(couponCode.trim());
+      setCouponMessage({
+        text: res.message,
+        error: !res.success,
+      });
+    } finally {
+      setIsApplyingCoupon(false);
+    }
   };
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
@@ -978,10 +984,14 @@ export function CartCheckoutModal({
                 />
                 <button
                   type="button"
+                  disabled={isApplyingCoupon || !couponCode.trim()}
                   onClick={handleApplyCoupon}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors shrink-0"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer"
                 >
-                  تطبيق الكود
+                  {isApplyingCoupon && (
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  )}
+                  <span>تطبيق الكود</span>
                 </button>
               </div>
               {couponMessage && (

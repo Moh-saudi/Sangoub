@@ -3,22 +3,22 @@ import { useStore } from '../context/StoreContext';
 import { Tag, Sparkles, Percent, Truck, Coffee, ShoppingBag, ArrowLeft, Check } from 'lucide-react';
 
 export const OffersMiniSlider: React.FC = () => {
-  const { navigate, applyCoupon, appliedCoupon } = useStore();
+  const { navigate, applyCoupon, appliedCoupon, activeCoupons } = useStore();
   const [copiedCoupon, setCopiedCoupon] = React.useState<string | null>(null);
 
   const offerBadges = [
-    {
-      id: 'deal-1',
-      code: 'SANGOUB10',
+    ...(activeCoupons.length > 0 ? [{
+      id: 'deal-coupon',
+      code: activeCoupons[0].code,
       tag: 'كوبون خصم',
-      title: 'خصم 10% فوراً',
-      subtitle: 'استخدم كود SANGOUB10',
+      title: `خصم ${activeCoupons[0].discountType === 'percent' ? `${activeCoupons[0].value}%` : `${activeCoupons[0].value} ج.م`} فوراً`,
+      subtitle: `استخدم كود ${activeCoupons[0].code}`,
       icon: Percent,
       bg: '#FFF2EC',
       accent: '#FF5900',
       border: '#FFD4C2',
       isCoupon: true,
-    },
+    }] : []),
     {
       id: 'deal-2',
       path: '/categories',

@@ -114,7 +114,8 @@ export interface StoreContextType {
   discount: number;
   total: number;
   appliedCoupon: Coupon | null;
-  applyCoupon: (code: string) => { success: boolean; message: string };
+  activeCoupons: Coupon[];
+  applyCoupon: (code: string) => Promise<{ success: boolean; message: string }>;
   removeCoupon: () => void;
 
   // Multi-Store Switch Confirmation
@@ -746,12 +747,52 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCartItems(prev => prev.filter(item => item.id !== itemId));
   };
 
+  // 4.1 Real-time Active Coupons from Database
+  const [activeCoupons, setActiveCoupons] = useState<Coupon[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCoupons = async () => {
+      try {
+        const res = await fetch('/api/coupons');
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && Array.isArray(data.coupons)) {
+            setActiveCoupons(data.coupons);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load active coupons:', e);
+      }
+    };
+    fetchCoupons();
+    return () => { isMounted = false; };
+  }, []);
+
   const clearCart = () => {
     setCartItems([]);
     setAppliedCoupon(null);
   };
 
-  const applyCoupon = (_code:string) => ({success:false,message:'راجع كود الخصم في صفحة إتمام الطلب للتحقق منه من الخادم.'});
+  const applyCoupon = async (code: string): Promise<{ success: boolean; message: string }> => {
+    const clean = code.trim().toUpperCase();
+    if (!clean) return { success: false, message: 'يرجى إدخال كود الخصم.' };
+    try {
+      const res = await fetch('/api/coupons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: clean, subtotal }),
+      });
+      const data = await res.json();
+      if (data.valid && data.coupon) {
+        setAppliedCoupon(data.coupon);
+        return { success: true, message: data.message };
+      }
+      return { success: false, message: data.message || 'كود الخصم غير متاح.' };
+    } catch {
+      return { success: false, message: 'تعذر التحقق من كود الخصم حالياً.' };
+    }
+  };
 
   const removeCoupon = () => {
     setAppliedCoupon(null);
@@ -994,6 +1035,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         discount,
         total,
         appliedCoupon,
+        activeCoupons,
         applyCoupon,
         removeCoupon,
         pendingStoreSwitch,

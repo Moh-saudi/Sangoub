@@ -13,6 +13,8 @@ export default async function handler(req: any, res: any) {
       return await (await import("../server/handlers/partner-application.ts")).default(req, res);
     if (route === "user-avatar")
       return await (await import("../server/handlers/user-avatar.ts")).default(req, res);
+    if (route === "coupons")
+      return await (await import("../server/handlers/coupons.ts")).default(req, res);
     return res.status(404).json({ error: "المسار غير موجود." });
   } catch {
     return res.status(503).json({ error: "الخدمة غير متاحة حاليًا." });

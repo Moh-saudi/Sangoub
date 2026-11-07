@@ -51,9 +51,11 @@ export const AccountPage: React.FC<AccountPageProps> = ({
   onOpenAreaModal,
   isMobile = false,
 }) => {
-  const { user, setUser, serviceArea, navigate } = useStore();
+  const { user, setUser, serviceArea, navigate, activeCoupons } = useStore();
   const [currentView, setCurrentView] = useState<AccountView>('main');
   const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
+  const [showCouponsModal, setShowCouponsModal] = useState(false);
+  const [copiedCouponCode, setCopiedCouponCode] = useState<string | null>(null);
 
   // Account Info Form State
   const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -900,16 +902,26 @@ export const AccountPage: React.FC<AccountPageProps> = ({
           <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-md">قريباً</span>
         </div>
 
-        {/* Vouchers / Gifts - Solid */}
-        <div className="w-full flex items-center justify-between p-4 bg-white text-right cursor-default select-none">
+        {/* Vouchers / Gifts - Dynamic from Database */}
+        <button
+          type="button"
+          onClick={() => setShowCouponsModal(true)}
+          className="w-full flex items-center justify-between p-4 bg-white text-right hover:bg-slate-50 active:bg-slate-100 transition-colors cursor-pointer"
+        >
           <div className="flex items-center gap-3">
             <Tag size={20} className="text-[#111827]" />
             <span className="text-sm font-bold text-[#111827]">الهدايا والكوبونات</span>
           </div>
-          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-            كود SANGOUB10 متاح عند الدفع
-          </span>
-        </div>
+          {activeCoupons.length > 0 ? (
+            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+              كود {activeCoupons[0].code} متاح ({activeCoupons[0].discountType === 'percent' ? `${activeCoupons[0].value}%` : `${activeCoupons[0].value} ج.م`})
+            </span>
+          ) : (
+            <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-md">
+              قريباً
+            </span>
+          )}
+        </button>
 
         {/* Sangoub Plus - Solid */}
         <div className="w-full flex items-center justify-between p-4 bg-white text-right cursor-default select-none">
@@ -981,6 +993,99 @@ export const AccountPage: React.FC<AccountPageProps> = ({
         isOpen={isPartnerModalOpen}
         onClose={() => setIsPartnerModalOpen(false)}
       />
+
+      {/* Coupons Details Modal */}
+      {showCouponsModal && (
+        <div
+          className="fixed inset-0 z-[130] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          dir="rtl"
+          onClick={() => setShowCouponsModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-slate-900 font-black text-base">
+                <Tag className="text-[#FF5900]" size={20} />
+                <span>الهدايا وكوبونات الخصم</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCouponsModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {activeCoupons.length > 0 ? (
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+                {activeCoupons.map((coupon) => (
+                  <div
+                    key={coupon.code}
+                    className="p-3.5 rounded-2xl border border-emerald-200 bg-emerald-50/60 flex items-center justify-between gap-3 shadow-2xs"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-black text-sm bg-white border border-emerald-300 text-emerald-800 px-2 py-0.5 rounded-lg select-all">
+                          {coupon.code}
+                        </span>
+                        <span className="text-xs font-bold text-emerald-700">
+                          خصم {coupon.discountType === 'percent' ? `${coupon.value}%` : `${coupon.value} ج.م`}
+                        </span>
+                      </div>
+                      {coupon.description && (
+                        <p className="text-[11px] text-slate-600">{coupon.description}</p>
+                      )}
+                      {coupon.minOrder > 0 && (
+                        <p className="text-[10px] text-slate-500 font-bold">
+                          الحد الأدنى للطلب: {coupon.minOrder} ج.م
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try { navigator.clipboard.writeText(coupon.code); } catch {}
+                        setCopiedCouponCode(coupon.code);
+                        setTimeout(() => setCopiedCouponCode(null), 2000);
+                      }}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 flex items-center gap-1 cursor-pointer"
+                    >
+                      {copiedCouponCode === coupon.code ? (
+                        <>
+                          <Check size={13} strokeWidth={3} />
+                          <span>تم النسخ ✓</span>
+                        </>
+                      ) : (
+                        <span>نسخ الكود</span>
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 space-y-2">
+                <Tag size={36} className="mx-auto text-slate-300" />
+                <h4 className="font-bold text-slate-800 text-sm">لا توجد كوبونات خصم نشطة حالياً</h4>
+                <p className="text-xs text-slate-500">
+                  تابعنا أولاً بأول لمعرفة أحدث الهدايا والكوبونات الحصرية من سنجوب!
+                </p>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowCouponsModal(false)}
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

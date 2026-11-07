@@ -16,6 +16,10 @@
       "destination": "/api/public?handler=user-avatar"
     },
     {
+      "source": "/api/coupons",
+      "destination": "/api/public?handler=coupons"
+    },
+    {
       "source": "/api/osm/:action",
       "destination": "/api/operations?osmAction=:action"
     },

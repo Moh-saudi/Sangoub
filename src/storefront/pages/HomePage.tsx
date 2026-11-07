@@ -56,6 +56,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     activeStoreTypes,
     applyCoupon, 
     appliedCoupon, 
+    activeCoupons,
     navigate,
     cartItems,
     subtotal,
@@ -128,8 +129,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     }
   }, [products]);
 
+  const featuredCoupon = activeCoupons[0];
+
   const handleCopyCoupon = () => {
-    applyCoupon('SANGOUB10');
+    if (!featuredCoupon) return;
+    applyCoupon(featuredCoupon.code);
     setCouponCopied(true);
     setTimeout(() => setCouponCopied(false), 2500);
   };
@@ -392,8 +396,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
           </section>
         )}
 
-        {/* 7. VOUCHER & PROMO COUPON CARD (Hidden during soft launch) */}
-        {LAUNCH_CONFIG.showCouponField && (
+        {/* 7. VOUCHER & PROMO COUPON CARD (Dynamic from database) */}
+        {LAUNCH_CONFIG.showCouponField && featuredCoupon && (
           <section className="mb-6">
             <div className="bg-gradient-to-r from-[#FFF5F0] via-white to-[#FFF5F0] border border-[#FFD4C2] rounded-2xl p-3.5 sm:p-4 shadow-xs flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-3">
@@ -403,14 +407,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                 <div className="leading-tight">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="bg-[#FF5900] text-white text-[9px] font-black px-2 py-0.2 rounded-full">
-                      خصم 10%
+                      خصم {featuredCoupon.discountType === 'percent' ? `${featuredCoupon.value}%` : `${featuredCoupon.value} ج.م`}
                     </span>
                     <span className="text-xs font-black text-[#111827] font-mono">
-                      SANGOUB10
+                      {featuredCoupon.code}
                     </span>
                   </div>
                   <p className="text-[10px] text-[#6B7280]">
-                    وفّر 10% فوراً على أول طلب لك في العاصمة
+                    {featuredCoupon.description || (featuredCoupon.minOrder > 0 ? `الحد الأدنى للطلب: ${featuredCoupon.minOrder} ج.م` : 'متاح لجميع الطلبات')}
                   </p>
                 </div>
               </div>
@@ -419,12 +423,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                 type="button"
                 onClick={handleCopyCoupon}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
-                  couponCopied || appliedCoupon?.code === 'SANGOUB10'
+                  couponCopied || appliedCoupon?.code === featuredCoupon.code
                     ? 'bg-[#10B981] text-white'
                     : 'bg-[#FF5900] hover:bg-[#E04E00] text-white active:scale-95'
                 }`}
               >
-                {couponCopied || appliedCoupon?.code === 'SANGOUB10' ? (
+                {couponCopied || appliedCoupon?.code === featuredCoupon.code ? (
                   <>
                     <Check size={14} strokeWidth={3} />
                     <span>تم التطبيق!</span>
