@@ -31,6 +31,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 export const STORE_SLUG_TO_SUPABASE_UUID: Record<string, string> = {
   'sangoub-market': 'a0000000-0000-0000-0000-000000000001',
+  'sangoub-express': 'a0000000-0000-0000-0000-000000000001',
   'capital-pharmacy': 'b1111111-2222-3333-4444-555555555501',
   'capital-falafel': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
   'store-foul-hind': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
@@ -41,6 +42,11 @@ export const STORE_SLUG_TO_SUPABASE_UUID: Record<string, string> = {
   'store-ministry-coffee': '55508f0e-f818-452e-b946-ab803fe9d637',
   'store-karam-elsham': '27d12743-8106-4ef0-ba3c-84abefdb75d6',
   'store-taza-bakery': '55508f0e-f818-452e-b946-ab803fe9d637',
+  'abu-tarek': '3dfaad80-6616-45b3-8716-47127039bf85',
+  'koshary-abu-tarek': '3dfaad80-6616-45b3-8716-47127039bf85',
+  'store-koshary-abu-tarek': '3dfaad80-6616-45b3-8716-47127039bf85',
+  'hyperone': '40f443c5-bca2-4a77-b7da-f95271055415',
+  'store-hyperone': '40f443c5-bca2-4a77-b7da-f95271055415',
 };
 
 export function resolveSupabaseStoreUuid(rawId?: string): string {
@@ -420,6 +426,12 @@ export async function getSupabaseProducts(storeId?: string): Promise<Product[]> 
           imageType: row.image_type || 'croissant',
           badge: row.badge || undefined,
           isPopular: Boolean(row.badge),
+          offerStatus: row.offer_status || (row.original_price && Number(row.original_price) > Number(row.price) ? 'approved' : undefined),
+          offerProposedPrice: row.offer_proposed_price ? Number(row.offer_proposed_price) : undefined,
+          offerRejectionReason: row.offer_rejection_reason || undefined,
+          offerStartDate: row.offer_start_date || undefined,
+          offerEndDate: row.offer_end_date || undefined,
+          offerTitle: row.offer_title || undefined,
           optionGroups: row.options || [],
         };
       }) as Product[];

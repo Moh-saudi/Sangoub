@@ -100,6 +100,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
       list = list.filter((p) => {
         const isClosed = stores.some((s) => s.status === 'closed' && (matchStoreId(s.id, p.storeId) || s.id === p.storeId || (s.name && p.storeName === s.name)));
         if (isClosed) return false;
+        if (p.offerStatus === 'pending_approval' || p.offerStatus === 'rejected') return false;
         return (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم') || Boolean(p.offerTitle);
       });
     } else if (activeFilter === 'popular') {

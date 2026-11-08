@@ -193,6 +193,9 @@ export interface Product {
   occasionName?: string;
   offerStartDate?: string;
   offerEndDate?: string;
+  offerStatus?: 'pending_approval' | 'approved' | 'rejected';
+  offerProposedPrice?: number;
+  offerRejectionReason?: string;
   optionGroups?: ProductOptionGroup[];
 }
 

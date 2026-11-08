@@ -1,5 +1,6 @@
 import { authenticatedApi } from './authenticatedApi';
-import { supabase } from './supabase';
+import { supabase, resolveSupabaseStoreUuid } from './supabase';
+import systemAccounts from '../data/systemAccounts.json';
 
 function mapOrderRow(row: any) {
   const appStatus = row.status === 'assigned' || row.status === 'picked_up' ? 'with_courier' : (row.status || 'received');
@@ -74,13 +75,25 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     if (body.action === 'profile') {
       let profile: any = null;
       try {
-        const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+        const { data: p } = await supabase
+          .from('profiles')
+          .select('*')
+          .or(`id.eq.${user.id},email.eq.${user.email}`)
+          .maybeSingle();
         profile = p;
       } catch (err) {
         console.warn('[operationsApi] profiles fetch warning:', err);
       }
 
-      const isAdmin = profile?.role === 'admin' || 
+      // 0. System accounts lookup fallback (e.g. tarek@san.com, central@sangoub.com)
+      const systemAccount = (systemAccounts as any[]).find(
+        (acc: any) => acc.email?.toLowerCase() === user.email?.toLowerCase()
+      );
+
+      const effectiveRole = profile?.role || systemAccount?.role || 'employee';
+      const effectiveStoreId = profile?.store_id || systemAccount?.storeId || null;
+
+      const isAdmin = effectiveRole === 'admin' || 
         user.email === 'meskllcqa@gmail.com' || 
         user.email === 'el7lm25@gmail.com' || 
         user.email?.toLowerCase().includes('el7lm') || 
@@ -90,8 +103,8 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       if (isAdmin) {
         let adminStore: any = null;
         try {
-          if (profile?.store_id) {
-            const { data: s } = await supabase.from('stores').select('id, name, category, status').eq('id', profile.store_id).maybeSingle();
+          if (effectiveStoreId) {
+            const { data: s } = await supabase.from('stores').select('id, name, category, status').eq('id', effectiveStoreId).maybeSingle();
             adminStore = s;
           }
           if (!adminStore) {
@@ -113,7 +126,7 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
             category: adminStore.category,
             status: adminStore.status,
           } : null,
-          displayName: profile?.full_name || 'مدير النظام',
+          displayName: profile?.full_name || systemAccount?.fullName || 'مدير النظام',
           destination: 'admin_web',
           capabilities: ['operations_v2'],
         };
@@ -143,43 +156,37 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
         };
       }
 
-      let store: any = null;
-      // 1. Direct owner check
-      const { data: ownedStore } = await supabase
-        .from('stores')
-        .select('id, name, category, status')
-        .eq('owner_id', user.id)
-        .maybeSingle();
+      // Check merchant store strictly without blindly fallback to central supermarket!
+      if (effectiveRole === 'restaurant') {
+        let store: any = null;
 
-      if (ownedStore) {
-        store = ownedStore;
-      } else if (profile?.store_id) {
-        // 2. Assigned store check
-        const { data: assignedStore } = await supabase
-          .from('stores')
-          .select('id, name, category, status')
-          .eq('id', profile.store_id)
-          .maybeSingle();
-        store = assignedStore;
-      }
+        // 1. Check assigned store by ID
+        if (effectiveStoreId) {
+          const { data: assignedStore } = await supabase
+            .from('stores')
+            .select('id, name, category, status')
+            .eq('id', resolveSupabaseStoreUuid(effectiveStoreId))
+            .maybeSingle();
+          if (assignedStore) store = assignedStore;
+        }
 
-      if (!store) {
-        // 3. Fallback to open or first store
-        const { data: fallbackStore } = await supabase
-          .from('stores')
-          .select('id, name, category, status')
-          .eq('status', 'open')
-          .limit(1)
-          .maybeSingle();
-        store = fallbackStore;
-      }
+        // 2. Direct owner check in database
+        if (!store) {
+          const { data: ownedStore } = await supabase
+            .from('stores')
+            .select('id, name, category, status')
+            .or(`owner_id.eq.${user.id}${profile?.id ? `,owner_id.eq.${profile.id}` : ''}`)
+            .maybeSingle();
+          if (ownedStore) store = ownedStore;
+        }
 
-      if (profile?.role === 'restaurant' || store) {
+        const finalStoreId = store?.id || effectiveStoreId || null;
+
         return {
           uid: user.id,
           role: 'restaurant',
-          duty: 'manager',
-          storeId: store?.id || 'a0000000-0000-0000-0000-000000000001',
+          duty: profile?.duty || systemAccount?.duty || 'manager',
+          storeId: finalStoreId,
           store: store ? {
             id: store.id,
             name: store.name,
@@ -187,7 +194,7 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
             status: store.status,
             preparationType: store.category === 'supermarket' ? 'picking' : 'kitchen'
           } : null,
-          displayName: profile?.full_name || 'مدير المتجر',
+          displayName: profile?.full_name || systemAccount?.fullName || 'مدير المتجر',
           destination: 'store_preparation',
           capabilities: ['operations_v2'],
         };

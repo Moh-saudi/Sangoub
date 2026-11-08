@@ -98,7 +98,18 @@ export default function MerchantApp() {
       try {
         const authority = await operationsApi('operations', { action: 'profile' });
         if (authority.role === 'restaurant' || authority.role === 'admin') {
-          const storeId = resolveSupabaseStoreUuid(authority.storeId || 'a0000000-0000-0000-0000-000000000001');
+          const storeId = authority.storeId 
+            ? resolveSupabaseStoreUuid(authority.storeId) 
+            : (authority.role === 'admin' ? 'a0000000-0000-0000-0000-000000000001' : '');
+
+          if (authority.role === 'restaurant' && !storeId) {
+            if (active) {
+              setAccess("denied");
+              setError("حساب الشريك التجاري قيد الاعتماد وتعيين المتجر من قِبل الإدارة المركزية. يرجى مراجعة إدارة المنظومة لربط متجرك.");
+            }
+            return;
+          }
+
           const { data: prof } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
           if (active) {
             setProfile({
@@ -119,7 +130,7 @@ export default function MerchantApp() {
 
         if (active) {
           setAccess("denied");
-          setError("هذا الحساب غير مرتبط بمتجر معتمد في المنظومة. تواصل مع الإدارة لاعتماده.");
+          setError("هذا الحساب غير مسجل كشريك تجاري معتمد في المنظومة. تواصل مع الإدارة لاعتماده.");
         }
       } catch (e: any) {
         if (active) {

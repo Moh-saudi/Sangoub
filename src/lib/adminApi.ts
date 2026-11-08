@@ -202,6 +202,15 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
       if (raw.inStock !== undefined || raw.is_available !== undefined) patch.is_available = Boolean(raw.inStock ?? raw.is_available);
       if (raw.archived !== undefined) patch.archived = Boolean(raw.archived);
       if (raw.options !== undefined) patch.options = raw.options;
+      if (raw.offerTitle !== undefined || raw.offer_title !== undefined) patch.offer_title = raw.offerTitle || raw.offer_title || null;
+      if (raw.offerStatus !== undefined || raw.offer_status !== undefined) patch.offer_status = raw.offerStatus || raw.offer_status || null;
+      if (raw.offerProposedPrice !== undefined || raw.offer_proposed_price !== undefined) {
+        const op = raw.offerProposedPrice ?? raw.offer_proposed_price;
+        patch.offer_proposed_price = op ? Number(op) : null;
+      }
+      if (raw.offerRejectionReason !== undefined || raw.offer_rejection_reason !== undefined) patch.offer_rejection_reason = raw.offerRejectionReason || raw.offer_rejection_reason || null;
+      if (raw.offerStartDate !== undefined || raw.offer_start_date !== undefined) patch.offer_start_date = raw.offerStartDate || raw.offer_start_date || null;
+      if (raw.offerEndDate !== undefined || raw.offer_end_date !== undefined) patch.offer_end_date = raw.offerEndDate || raw.offer_end_date || null;
 
       if (raw.storeId || raw.store_id) {
         patch.store_id = resolveSupabaseStoreUuid(raw.storeId || raw.store_id);

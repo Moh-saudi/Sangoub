@@ -366,9 +366,28 @@ SET full_name = EXCLUDED.full_name,
     role = EXCLUDED.role,
     store_id = EXCLUDED.store_id;
 
-UPDATE public.stores
-SET owner_id = 'a0000000-0000-0000-0000-000000000099'
-WHERE id = 'a0000000-0000-0000-0000-000000000001';
+-- 17. إضافة حقول دورة اعتماد العروض وضوابط الأسعار
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS offer_status TEXT DEFAULT 'approved';
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS offer_proposed_price NUMERIC(10, 2);
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS offer_rejection_reason TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS offer_start_date TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS offer_end_date TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS offer_title TEXT;
+
+-- 18. تسجيل منيو وأصناف حقيقية لمتجر كشري أبو طارق (3dfaad80-6616-45b3-8716-47127039bf85)
+INSERT INTO public.products (
+  id, store_id, name, name_en, description, price, original_price, category, is_available, archived, image_url, offer_status
+)
+VALUES 
+  ('3df00001-0000-0000-0000-000000000001', '3dfaad80-6616-45b3-8716-47127039bf85', 'علبة كشري أبو طارق سوبر لوكس', 'Abu Tarek Koshary Super Lux', 'الخلطة الأصلية الشهيرة مع عدس وحمص وصلصة حارة وتقلية مقرمشة ودقة مميزة', 45.00, NULL, 'وجبات وكشري', true, false, 'https://images.unsplash.com/photo-1541518763669-27fef04b14ea?auto=format&fit=crop&w=600&q=80', 'approved'),
+  ('3df00001-0000-0000-0000-000000000002', '3dfaad80-6616-45b3-8716-47127039bf85', 'طاجن مكرونة باللحمة المفرومة فرن', 'Oven Pasta Tagine with Minced Meat', 'طاجن مكرونة بصلصة الطماطم الغنية واللحمة المفرومة المتبلة المخبوزة بالفرن', 55.00, NULL, 'طواجن فرن', true, false, 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=600&q=80', 'approved'),
+  ('3df00001-0000-0000-0000-000000000003', '3dfaad80-6616-45b3-8716-47127039bf85', 'علبة كشري عائلي فاميلي كينج', 'Abu Tarek Family Koshary Box', 'حجم عائلي كبير يكفي 3 أفراد مع أكياس صلصة ودقة وتقلية مضاعفة', 85.00, NULL, 'وجبات وكشري', true, false, 'https://images.unsplash.com/photo-1541518763669-27fef04b14ea?auto=format&fit=crop&w=600&q=80', 'approved'),
+  ('3df00001-0000-0000-0000-000000000004', '3dfaad80-6616-45b3-8716-47127039bf85', 'أرز باللبن أبو طارق بالمكسرات والقشطة', 'Abu Tarek Rice Pudding with Nuts', 'حلوى الأرز باللبن البلدي الطازج مع خلطة مكسرات محمصة وقشطة بلدي', 25.00, NULL, 'حلويات', true, false, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=600&q=80', 'approved')
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  price = EXCLUDED.price,
+  category = EXCLUDED.category;
+
 
 
 

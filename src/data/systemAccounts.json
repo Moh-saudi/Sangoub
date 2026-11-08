@@ -19,6 +19,44 @@
     "walletBalance": 0
   },
   {
+    "uid": "dfc169d4-9556-4923-9904-fc14ad04886e",
+    "fullName": "محمد ابوطارق",
+    "email": "tarek@san.com",
+    "phone": "0123456789",
+    "role": "restaurant",
+    "storeId": "3dfaad80-6616-45b3-8716-47127039bf85",
+    "duty": "manager",
+    "disabled": false,
+    "emailVerified": true,
+    "providers": [
+      "email"
+    ],
+    "createdAt": "2024-01-01T08:00:00.000Z",
+    "lastSignInAt": "2024-10-31T08:30:00.000Z",
+    "currentAddress": "كشري ابو طارق",
+    "locationAddress": "كشري ابو طارق",
+    "walletBalance": 0
+  },
+  {
+    "uid": "40f443c5-bca2-4a77-b7da-f95271055415",
+    "fullName": "إدارة هايبروان",
+    "email": "hyper@san.com",
+    "phone": "01234567891",
+    "role": "restaurant",
+    "storeId": "40f443c5-bca2-4a77-b7da-f95271055415",
+    "duty": "manager",
+    "disabled": false,
+    "emailVerified": true,
+    "providers": [
+      "email"
+    ],
+    "createdAt": "2024-01-01T08:00:00.000Z",
+    "lastSignInAt": "2024-10-31T08:30:00.000Z",
+    "currentAddress": "هايبروان",
+    "locationAddress": "هايبروان",
+    "walletBalance": 0
+  },
+  {
     "uid": "07492416-8a8e-434b-9094-391abb21272e",
     "fullName": "مدير المنظومة (المشرف العام)",
     "email": "meskllcqa@gmail.com",

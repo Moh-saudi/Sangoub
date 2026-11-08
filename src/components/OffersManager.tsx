@@ -21,7 +21,11 @@ import {
   ShoppingBag,
   SlidersHorizontal,
   ChevronDown,
-  Info
+  Info,
+  CheckCircle,
+  XCircle,
+  ShieldCheck,
+  Clock3,
 } from 'lucide-react';
 import type { Product, Store, Order } from '../types';
 import { formatEGP } from '../utils/orderCalculations';
@@ -29,6 +33,7 @@ import { matchStoreId } from '../utils/storeAssets';
 import { getStoreSlug } from '../utils/storeAssets';
 import { saveRecord } from '../lib/firebase';
 import { supabase } from '../lib/supabase';
+import { adminApi } from '../lib/adminApi';
 
 export interface OffersManagerProps {
   products: Product[];
@@ -63,27 +68,30 @@ export function OffersManager({
   fixedStoreId,
 }: OffersManagerProps) {
   
-  // Filter products scoped to store if fixedStoreId is provided
+  // Filter products scoped strictly to store if fixedStoreId is provided (Merchant Store Isolation)
   const scopedProducts = useMemo(() => {
     if (!fixedStoreId) return products.filter((p) => !p.archived);
-    return products.filter((p) => !p.archived && matchStoreId(p.storeId, fixedStoreId));
+    return products.filter((p) => !p.archived && (matchStoreId(p.storeId, fixedStoreId) || p.storeId === fixedStoreId));
   }, [products, fixedStoreId]);
 
   // Current store object (if fixedStoreId)
   const currentStore = useMemo(() => {
     if (!fixedStoreId) return undefined;
-    return stores.find((s) => matchStoreId(s.id, fixedStoreId));
+    return stores.find((s) => matchStoreId(s.id, fixedStoreId) || s.id === fixedStoreId);
   }, [stores, fixedStoreId]);
 
-  // All active offers: items with valid originalPrice > price
-  const activeOffers = useMemo(() => {
-    return scopedProducts.filter(
-      (p) => typeof p.originalPrice === 'number' && p.originalPrice > p.price
-    );
+  // All offers: items with valid originalPrice > price OR with offer status (pending approval, approved, rejected)
+  const allOffers = useMemo(() => {
+    return scopedProducts.filter((p) => {
+      const hasClassicOffer = typeof p.originalPrice === 'number' && p.originalPrice > p.price;
+      const hasOfferStatus = Boolean(p.offerStatus) || Boolean(p.offerProposedPrice) || Boolean(p.offerTitle);
+      return hasClassicOffer || hasOfferStatus;
+    });
   }, [scopedProducts]);
 
   // ── Filters & Search State ──
   const [searchQuery, setSearchQuery] = useState('');
+  const [approvalFilter, setApprovalFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'in_stock' | 'occasion' | 'hot' | 'out_of_stock'>('all');
   const [discountTier, setDiscountTier] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -114,47 +122,63 @@ export function OffersManager({
 
   const showFeedback = (text: string, type: 'success' | 'error' = 'success') => {
     setFeedbackMsg({ text, type });
-    setTimeout(() => setFeedbackMsg(null), 4500);
+    setTimeout(() => setFeedbackMsg(null), 5000);
   };
 
   // ── Metrics Calculation ──
   const metrics = useMemo(() => {
-    const totalOffers = activeOffers.length;
-    const inStockOffers = activeOffers.filter((o) => o.inStock).length;
-    const occasionOffers = activeOffers.filter((o) => Boolean(o.isOccasion)).length;
-    const hotDeals = activeOffers.filter((o) => {
-      const disc = Math.round((1 - o.price / (o.originalPrice || o.price)) * 100);
+    const totalOffers = allOffers.length;
+    const pendingOffers = allOffers.filter((o) => o.offerStatus === 'pending_approval').length;
+    const approvedOffers = allOffers.filter(
+      (o) => o.offerStatus === 'approved' || (!o.offerStatus && typeof o.originalPrice === 'number' && o.originalPrice > o.price)
+    ).length;
+    const rejectedOffers = allOffers.filter((o) => o.offerStatus === 'rejected').length;
+    const inStockOffers = allOffers.filter((o) => o.inStock !== false).length;
+    const occasionOffers = allOffers.filter((o) => Boolean(o.isOccasion)).length;
+    const hotDeals = allOffers.filter((o) => {
+      const orig = o.originalPrice || o.price;
+      const sale = o.offerProposedPrice || o.price;
+      const disc = orig > 0 ? Math.round((1 - sale / orig) * 100) : 0;
       return disc >= 30;
     }).length;
 
-    const avgDiscount = totalOffers > 0
+    const validSavingsItems = allOffers.filter((o) => o.offerStatus !== 'rejected');
+    const avgDiscount = validSavingsItems.length > 0
       ? Math.round(
-          activeOffers.reduce((acc, o) => acc + (1 - o.price / (o.originalPrice || o.price)), 0) /
-            totalOffers *
-            100
+          validSavingsItems.reduce((acc, o) => {
+            const orig = o.originalPrice || o.price;
+            const sale = o.offerProposedPrice || o.price;
+            return acc + (orig > 0 ? (1 - sale / orig) : 0);
+          }, 0) / validSavingsItems.length * 100
         )
       : 0;
 
-    const totalSavings = activeOffers.reduce(
-      (acc, o) => acc + ((o.originalPrice || o.price) - o.price),
-      0
-    );
+    const totalSavings = validSavingsItems.reduce((acc, o) => {
+      const orig = o.originalPrice || o.price;
+      const sale = o.offerProposedPrice || o.price;
+      return acc + Math.max(0, orig - sale);
+    }, 0);
 
-    return { totalOffers, inStockOffers, occasionOffers, hotDeals, avgDiscount, totalSavings };
-  }, [activeOffers]);
+    return { totalOffers, pendingOffers, approvedOffers, rejectedOffers, inStockOffers, occasionOffers, hotDeals, avgDiscount, totalSavings };
+  }, [allOffers]);
 
   // Unique categories in scoped products
   const availableCategories = useMemo(() => {
     const set = new Set<string>();
-    activeOffers.forEach((p) => {
+    allOffers.forEach((p) => {
       if (p.category) set.add(p.category);
     });
     return Array.from(set);
-  }, [activeOffers]);
+  }, [allOffers]);
 
   // Filtered & Sorted Offers List
   const filteredOffers = useMemo(() => {
-    return activeOffers.filter((product) => {
+    return allOffers.filter((product) => {
+      // 0. Approval Workflow Filter
+      if (approvalFilter === 'pending' && product.offerStatus !== 'pending_approval') return false;
+      if (approvalFilter === 'approved' && product.offerStatus !== 'approved' && (product.offerStatus === 'pending_approval' || product.offerStatus === 'rejected')) return false;
+      if (approvalFilter === 'rejected' && product.offerStatus !== 'rejected') return false;
+
       // 1. Text Search
       if (searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase();
@@ -169,17 +193,21 @@ export function OffersManager({
       }
 
       // 2. Status Filter
-      if (statusFilter === 'in_stock' && !product.inStock) return false;
-      if (statusFilter === 'out_of_stock' && product.inStock) return false;
+      if (statusFilter === 'in_stock' && product.inStock === false) return false;
+      if (statusFilter === 'out_of_stock' && product.inStock !== false) return false;
       if (statusFilter === 'occasion' && !product.isOccasion) return false;
       if (statusFilter === 'hot') {
-        const disc = Math.round((1 - product.price / (product.originalPrice || product.price)) * 100);
+        const orig = product.originalPrice || product.price;
+        const sale = product.offerProposedPrice || product.price;
+        const disc = orig > 0 ? Math.round((1 - sale / orig) * 100) : 0;
         if (disc < 30) return false;
       }
 
       // 3. Discount Tier
       if (discountTier !== 'all') {
-        const disc = Math.round((1 - product.price / (product.originalPrice || product.price)) * 100);
+        const orig = product.originalPrice || product.price;
+        const sale = product.offerProposedPrice || product.price;
+        const disc = orig > 0 ? Math.round((1 - sale / orig) * 100) : 0;
         if (discountTier === '10-20' && (disc < 10 || disc > 20)) return false;
         if (discountTier === '20-35' && (disc <= 20 || disc > 35)) return false;
         if (discountTier === '35-50' && (disc <= 35 || disc > 50)) return false;
@@ -198,25 +226,30 @@ export function OffersManager({
 
       return true;
     }).sort((a, b) => {
-      const discA = Math.round((1 - a.price / (a.originalPrice || a.price)) * 100);
-      const discB = Math.round((1 - b.price / (b.originalPrice || b.price)) * 100);
-      const savingsA = (a.originalPrice || a.price) - a.price;
-      const savingsB = (b.originalPrice || b.price) - b.price;
+      const origA = a.originalPrice || a.price;
+      const saleA = a.offerProposedPrice || a.price;
+      const origB = b.originalPrice || b.price;
+      const saleB = b.offerProposedPrice || b.price;
+
+      const discA = origA > 0 ? Math.round((1 - saleA / origA) * 100) : 0;
+      const discB = origB > 0 ? Math.round((1 - saleB / origB) * 100) : 0;
+      const savingsA = Math.max(0, origA - saleA);
+      const savingsB = Math.max(0, origB - saleB);
 
       if (sortBy === 'discount_desc') return discB - discA;
-      if (sortBy === 'price_asc') return a.price - b.price;
-      if (sortBy === 'price_desc') return b.price - a.price;
+      if (sortBy === 'price_asc') return saleA - saleB;
+      if (sortBy === 'price_desc') return saleB - saleA;
       if (sortBy === 'savings_desc') return savingsB - savingsA;
       if (sortBy === 'name') return a.name.localeCompare(b.name, 'ar');
       return 0;
     });
-  }, [activeOffers, searchQuery, statusFilter, discountTier, categoryFilter, storeFilter, sortBy, fixedStoreId]);
+  }, [allOffers, approvalFilter, searchQuery, statusFilter, discountTier, categoryFilter, storeFilter, sortBy, fixedStoreId]);
 
   // Open modal for editing an existing offer
   const handleEditOffer = (product: Product) => {
     setSelectedProduct(product);
     const orig = product.originalPrice || product.price;
-    const sale = product.price;
+    const sale = product.offerProposedPrice && product.offerProposedPrice > 0 ? product.offerProposedPrice : product.price;
     const disc = orig > sale ? Math.round((1 - sale / orig) * 100) : 20;
 
     setFormOriginalPrice(orig);
@@ -230,6 +263,95 @@ export function OffersManager({
     setFormStartDate(product.offerStartDate || new Date().toISOString().split('T')[0]);
     setFormEndDate(product.offerEndDate || '');
     setIsModalOpen(true);
+  };
+
+  // Admin Approval: Approve & activate merchant's offer on public storefront
+  const handleApproveOffer = async (product: Product) => {
+    try {
+      setIsSubmitting(true);
+      const targetSalePrice = product.offerProposedPrice && product.offerProposedPrice > 0
+        ? product.offerProposedPrice
+        : product.price;
+      const targetOrigPrice = product.originalPrice || product.price;
+
+      const payload = {
+        storeId: product.storeId,
+        name: product.name,
+        price: Number(targetSalePrice),
+        originalPrice: Number(targetOrigPrice),
+        offerStatus: 'approved' as const,
+        offerProposedPrice: null,
+        offerRejectionReason: null,
+        badge: product.badge || '🔥 عرض خاص',
+        inStock: true,
+      };
+
+      await saveRecord('products', product.id, payload);
+
+      await adminApi('data', {
+        action: 'save',
+        collection: 'products',
+        id: product.id,
+        data: payload,
+      }).catch((err) => console.warn('adminApi offer approve notice:', err));
+
+      product.price = Number(targetSalePrice);
+      product.originalPrice = Number(targetOrigPrice);
+      product.offerStatus = 'approved';
+      product.offerProposedPrice = undefined;
+      product.offerRejectionReason = undefined;
+
+      showFeedback(`✓ تم اعتماد وتفعيل العرض الترويجي بنجاح على "${product.name}" ونشره لعملاء المتجر!`);
+    } catch (err: any) {
+      showFeedback(err?.message || 'تعذر اعتماد العرض. يرجى المحاولة مجدداً.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Admin Rejection: Reject merchant's offer with reason
+  const handleRejectOffer = async (product: Product) => {
+    const reason = window.prompt(
+      `أدخل سبب رفض العرض لـ "${product.name}" ليظهر للتاجر في لوحة التحكم الخاصة به:`,
+      'نسبة الخصم أو السعر المقترح غير متوافق مع معايير التسعير المعتمدة'
+    );
+    if (!reason || !reason.trim()) return;
+
+    try {
+      setIsSubmitting(true);
+      const restorePrice = product.originalPrice || product.price;
+
+      const payload = {
+        storeId: product.storeId,
+        name: product.name,
+        price: Number(restorePrice),
+        originalPrice: null,
+        offerStatus: 'rejected' as const,
+        offerProposedPrice: null,
+        offerRejectionReason: reason.trim(),
+      };
+
+      await saveRecord('products', product.id, payload);
+
+      await adminApi('data', {
+        action: 'save',
+        collection: 'products',
+        id: product.id,
+        data: payload,
+      }).catch((err) => console.warn('adminApi offer reject notice:', err));
+
+      product.price = Number(restorePrice);
+      product.originalPrice = undefined;
+      product.offerStatus = 'rejected';
+      product.offerProposedPrice = undefined;
+      product.offerRejectionReason = reason.trim();
+
+      showFeedback(`تم رفض العرض لـ "${product.name}" وتوضيح السبب للتاجر.`);
+    } catch (err: any) {
+      showFeedback(err?.message || 'تعذر تسجيل الرفض. يرجى المحاولة مجدداً.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Open modal for a new offer on a picked product
@@ -316,40 +438,55 @@ export function OffersManager({
     }
   };
 
-  // Cancel / Delete Offer and restore original price
+  // Cancel / Delete Offer or withdraw pending approval
   const handleCancelOffer = async (product: Product) => {
+    const isPending = product.offerStatus === 'pending_approval';
     const orig = product.originalPrice || product.price;
-    if (
-      !window.confirm(
-        `هل أنت متأكد من إلغاء العرض عن "${product.name}" واستعادة السعر الأصلي الطبيعي (${formatEGP(
-          orig
-        )})؟`
-      )
-    ) {
+    const confirmPrompt = isPending
+      ? `هل أنت متأكد من سحب وإلغاء طلب العرض الترويجي المعلق لـ "${product.name}"؟`
+      : `هل أنت متأكد من إلغاء العرض عن "${product.name}" واستعادة السعر الأصلي الطبيعي (${formatEGP(orig)})؟`;
+
+    if (!window.confirm(confirmPrompt)) {
       return;
     }
 
     try {
       setIsSubmitting(true);
-      await saveRecord('products', product.id, {
+      const payload = {
         storeId: product.storeId,
         name: product.name,
-        price: orig,
+        price: Number(orig),
         originalPrice: null,
         offerTitle: null,
         isOccasion: false,
         occasionName: null,
         badge: null,
+        offerStatus: null,
+        offerProposedPrice: null,
+        offerRejectionReason: null,
         inStock: product.inStock !== false,
-      });
+      };
+
+      await saveRecord('products', product.id, payload);
+
+      await adminApi('data', {
+        action: 'save',
+        collection: 'products',
+        id: product.id,
+        data: payload,
+      }).catch((err) => console.warn('adminApi offer cancel notice:', err));
 
       try {
         await supabase
           .from('products')
           .update({
-            price: orig,
+            price: Number(orig),
             original_price: null,
             badge: null,
+            offer_title: null,
+            offer_status: null,
+            offer_proposed_price: null,
+            offer_rejection_reason: null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', product.id);
@@ -357,14 +494,21 @@ export function OffersManager({
         console.warn('Supabase offer cancel notice:', err);
       }
 
-      product.price = orig;
+      product.price = Number(orig);
       product.originalPrice = undefined;
       product.offerTitle = undefined;
       product.isOccasion = false;
       product.occasionName = undefined;
       product.badge = undefined;
+      product.offerStatus = undefined;
+      product.offerProposedPrice = undefined;
+      product.offerRejectionReason = undefined;
 
-      showFeedback(`تم إلغاء العرض بنجاح واستعادة السعر الأساسي لـ "${product.name}".`);
+      showFeedback(
+        isPending
+          ? `تم سحب طلب العرض بنجاح للصنف "${product.name}".`
+          : `تم إلغاء العرض واستعادة السعر الأساسي لـ "${product.name}".`
+      );
     } catch (err: any) {
       showFeedback(err?.message || 'تعذر إلغاء العرض. يرجى المحاولة مجدداً.', 'error');
     } finally {
@@ -372,7 +516,7 @@ export function OffersManager({
     }
   };
 
-  // Save new / updated offer
+  // Save new / updated offer (Supports Central Admin Approval Workflow)
   const handleSaveOffer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct) return;
@@ -388,6 +532,10 @@ export function OffersManager({
       return;
     }
 
+    const isMerchantMode = Boolean(fixedStoreId);
+    const targetStatus = isMerchantMode ? 'pending_approval' : 'approved';
+    const activePrice = isMerchantMode ? Number(formOriginalPrice) : Number(formSalePrice);
+
     try {
       setIsSubmitting(true);
       const payload = {
@@ -395,7 +543,7 @@ export function OffersManager({
         name: selectedProduct.name,
         description: selectedProduct.description || '',
         category: selectedProduct.category || 'عام',
-        price: Number(formSalePrice),
+        price: activePrice,
         originalPrice: Number(formOriginalPrice),
         offerTitle: formOfferTitle.trim() || `${selectedProduct.name} - عرض خاص`,
         isOccasion: Boolean(formIsOccasion),
@@ -404,19 +552,35 @@ export function OffersManager({
         offerStartDate: formStartDate || undefined,
         offerEndDate: formEndDate || undefined,
         maxPerOrder: Number(formMaxPerOrder) > 0 ? Number(formMaxPerOrder) : undefined,
+        offerStatus: targetStatus as any,
+        offerProposedPrice: isMerchantMode ? Number(formSalePrice) : undefined,
+        offerRejectionReason: undefined,
         inStock: true,
       };
 
       await saveRecord('products', selectedProduct.id, payload);
 
+      await adminApi('data', {
+        action: 'save',
+        collection: 'products',
+        id: selectedProduct.id,
+        data: payload,
+      }).catch((err) => console.warn('adminApi offer save notice:', err));
+
       try {
         await supabase
           .from('products')
           .update({
-            price: Number(formSalePrice),
+            price: activePrice,
             original_price: Number(formOriginalPrice),
             is_available: true,
             badge: payload.badge,
+            offer_title: payload.offerTitle,
+            offer_status: targetStatus,
+            offer_proposed_price: isMerchantMode ? Number(formSalePrice) : null,
+            offer_rejection_reason: null,
+            offer_start_date: payload.offerStartDate || null,
+            offer_end_date: payload.offerEndDate || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', selectedProduct.id);
@@ -426,7 +590,12 @@ export function OffersManager({
 
       Object.assign(selectedProduct, payload);
       setIsModalOpen(false);
-      showFeedback(`تم تفعيل وحفظ العرض الترويجي بنجاح على "${selectedProduct.name}"!`);
+
+      if (isMerchantMode) {
+        showFeedback(`🟡 تم إرسال طلب العرض للإدارة المركزية بنجاح! سيتم مراجعته واعتماده قبل ظهوره لعملاء المتجر.`);
+      } else {
+        showFeedback(`🟢 تم تفعيل واعتماد العرض الترويجي بنجاح على "${selectedProduct.name}"!`);
+      }
     } catch (err: any) {
       showFeedback(err?.message || 'تعذر حفظ بيانات العرض. يرجى التأكد من الاتصال والمحاولة مجدداً.', 'error');
     } finally {
@@ -509,15 +678,44 @@ export function OffersManager({
       </div>
 
       {/* ════════════════════════════════════════════════════════════
-          2. METRIC CARDS (INTERACTIVE COUNTERS)
+          1.1 STANDARDIZED OFFERS ROADMAP & GUIDELINES BANNER
+          ════════════════════════════════════════════════════════════ */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-teal-500/10 rounded-3xl p-5 border border-amber-200/80 shadow-2xs">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-900 flex items-center justify-center shrink-0 mt-0.5">
+            <ShieldCheck size={22} className="text-amber-700" />
+          </div>
+          <div className="space-y-1 text-xs">
+            <h3 className="font-black text-slate-900 text-sm flex items-center gap-2">
+              <span>خريطة ومعايير العروض الترويجية والاعتماد المركزي</span>
+              <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full font-bold">
+                ضوابط موحدة
+              </span>
+            </h3>
+            <p className="text-slate-600 leading-relaxed text-[11px]">
+              <strong>1. خصوصية وعزل المتجر:</strong> يقتصر ظهور وإدارة المنتجات حصرياً على أصناف المتجر التابع للشريك، ولا تظهر أصناف المتاجر الأخرى.
+              <br />
+              <strong>2. معايير التسعير:</strong> تتراوح نسبة الخصم بين 5% و 85% ويُشترط أن يكون السعر الأساسي أعلى من سعر التخفيض لحماية حقوق العميل والتاجر.
+              <br />
+              <strong>3. دورة الاعتماد المركزية:</strong> عند إضافة التاجر لأي عرض جديد، يُسجل كـ <span className="font-bold text-amber-800">"قيد مراجعة واعتماد الإدارة المركزية"</span> لحماية واجهة المتجر من أي تسعير خاطئ، ويتم تفعيله مباشرة على المتجر فور مراجعة واعتماد الإدارة.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════
+          2. METRIC CARDS (INTERACTIVE APPROVAL & CAMPAIGN COUNTERS)
           ════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {/* Card 1: Total Active Offers */}
+        {/* Card 1: Total Offers */}
         <button
           type="button"
-          onClick={() => setStatusFilter('all')}
+          onClick={() => {
+            setApprovalFilter('all');
+            setStatusFilter('all');
+          }}
           className={`bg-white rounded-2xl p-4 border text-right transition-all cursor-pointer ${
-            statusFilter === 'all'
+            approvalFilter === 'all' && statusFilter === 'all'
               ? 'border-orange-500 ring-2 ring-orange-500/20 bg-orange-50/20 shadow-xs'
               : 'border-slate-200 hover:border-slate-300 shadow-2xs'
           }`}
@@ -531,73 +729,85 @@ export function OffersManager({
           <span className="text-2xl font-black text-slate-900 font-mono mt-1 block">
             {metrics.totalOffers}
           </span>
-          <span className="text-[10px] text-slate-400 font-bold block mt-0.5">صنف مخفّض بالمنيو</span>
+          <span className="text-[10px] text-slate-400 font-bold block mt-0.5">صنف بالمنظومة</span>
         </button>
 
-        {/* Card 2: In Stock & Live */}
+        {/* Card 2: Pending Approval 🟡 */}
         <button
           type="button"
-          onClick={() => setStatusFilter('in_stock')}
+          onClick={() => {
+            setApprovalFilter('pending');
+            setStatusFilter('all');
+          }}
+          className={`bg-white rounded-2xl p-4 border text-right transition-all cursor-pointer relative ${
+            approvalFilter === 'pending'
+              ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/30 shadow-xs'
+              : 'border-slate-200 hover:border-slate-300 shadow-2xs'
+          }`}
+        >
+          {metrics.pendingOffers > 0 && (
+            <span className="absolute -top-1 -left-1 w-3 h-3 bg-amber-500 rounded-full animate-ping" />
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-amber-700">بانتظار الاعتماد</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Clock3 size={16} />
+            </div>
+          </div>
+          <span className="text-2xl font-black text-amber-700 font-mono mt-1 block">
+            {metrics.pendingOffers}
+          </span>
+          <span className="text-[10px] text-amber-600 font-bold block mt-0.5">مراجعة الإدارة المركزية</span>
+        </button>
+
+        {/* Card 3: Approved & Live 🟢 */}
+        <button
+          type="button"
+          onClick={() => {
+            setApprovalFilter('approved');
+            setStatusFilter('all');
+          }}
           className={`bg-white rounded-2xl p-4 border text-right transition-all cursor-pointer ${
-            statusFilter === 'in_stock'
+            approvalFilter === 'approved'
               ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/20 shadow-xs'
               : 'border-slate-200 hover:border-slate-300 shadow-2xs'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-emerald-700">متاح للطلب الآن</span>
+            <span className="text-[11px] font-bold text-emerald-700">معتمدة ونشطة</span>
             <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 size={16} />
+              <CheckCircle size={16} />
             </div>
           </div>
           <span className="text-2xl font-black text-emerald-700 font-mono mt-1 block">
-            {metrics.inStockOffers}
+            {metrics.approvedOffers}
           </span>
-          <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">جاهز للتوصيل الفوري</span>
+          <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">مفعّلة على المتجر للعملاء</span>
         </button>
 
-        {/* Card 3: Occasion Campaigns */}
+        {/* Card 4: Rejected 🔴 */}
         <button
           type="button"
-          onClick={() => setStatusFilter('occasion')}
+          onClick={() => {
+            setApprovalFilter('rejected');
+            setStatusFilter('all');
+          }}
           className={`bg-white rounded-2xl p-4 border text-right transition-all cursor-pointer ${
-            statusFilter === 'occasion'
-              ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/20 shadow-xs'
-              : 'border-slate-200 hover:border-slate-300 shadow-2xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-indigo-700">عروض المناسبات</span>
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <Sparkles size={16} />
-            </div>
-          </div>
-          <span className="text-2xl font-black text-indigo-700 font-mono mt-1 block">
-            {metrics.occasionOffers}
-          </span>
-          <span className="text-[10px] text-indigo-500 font-bold block mt-0.5">مواسم وأعياد خاصة</span>
-        </button>
-
-        {/* Card 4: Hot Deals 30%+ */}
-        <button
-          type="button"
-          onClick={() => setStatusFilter('hot')}
-          className={`bg-white rounded-2xl p-4 border text-right transition-all cursor-pointer ${
-            statusFilter === 'hot'
+            approvalFilter === 'rejected'
               ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20 shadow-xs'
               : 'border-slate-200 hover:border-slate-300 shadow-2xs'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-rose-700">صفقات كبرى 30%+</span>
+            <span className="text-[11px] font-bold text-rose-700">مرفوضة من الإدارة</span>
             <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-              <Flame size={16} />
+              <XCircle size={16} />
             </div>
           </div>
           <span className="text-2xl font-black text-rose-700 font-mono mt-1 block">
-            {metrics.hotDeals}
+            {metrics.rejectedOffers}
           </span>
-          <span className="text-[10px] text-rose-500 font-bold block mt-0.5">خصومات قوية مشجعة</span>
+          <span className="text-[10px] text-rose-500 font-bold block mt-0.5">تتطلب تعديل السعر/الشروط</span>
         </button>
 
         {/* Card 5: Average Discount % */}
@@ -643,21 +853,20 @@ export function OffersManager({
             )}
           </div>
 
-          {/* Quick Status Filter Tabs */}
+          {/* Primary Approval Workflow Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 text-xs font-bold scrollbar-none">
             {[
-              { id: 'all', label: 'جميع العروض', count: metrics.totalOffers },
-              { id: 'in_stock', label: '🟢 متاح للطلب', count: metrics.inStockOffers },
-              { id: 'occasion', label: '🌙 مناسبات', count: metrics.occasionOffers },
-              { id: 'hot', label: '🔥 30%+ وفر', count: metrics.hotDeals },
-              { id: 'out_of_stock', label: '⏸️ غير متاح', count: metrics.totalOffers - metrics.inStockOffers },
+              { id: 'all', label: 'الكل', count: metrics.totalOffers },
+              { id: 'pending', label: 'بانتظار الاعتماد 🟡', count: metrics.pendingOffers },
+              { id: 'approved', label: 'معتمدة ونشطة 🟢', count: metrics.approvedOffers },
+              { id: 'rejected', label: 'مرفوضة 🔴', count: metrics.rejectedOffers },
             ].map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setStatusFilter(tab.id as any)}
+                onClick={() => setApprovalFilter(tab.id as any)}
                 className={`px-3 py-1.5 rounded-xl shrink-0 transition-all flex items-center gap-1.5 cursor-pointer ${
-                  statusFilter === tab.id
+                  approvalFilter === tab.id
                     ? 'bg-slate-900 text-white shadow-2xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
@@ -665,7 +874,7 @@ export function OffersManager({
                 <span>{tab.label}</span>
                 <span
                   className={`px-1.5 py-0.2 rounded-md text-[10px] ${
-                    statusFilter === tab.id ? 'bg-slate-800 text-slate-200' : 'bg-slate-200 text-slate-700'
+                    approvalFilter === tab.id ? 'bg-slate-800 text-slate-200' : 'bg-slate-200 text-slate-700'
                   }`}
                 >
                   {tab.count}
@@ -673,6 +882,31 @@ export function OffersManager({
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Secondary Quick Status Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full pb-1 text-xs font-bold scrollbar-none border-t border-slate-100 pt-2.5">
+          <span className="text-[10px] text-slate-400 font-bold ml-1 shrink-0">حالة التوفر:</span>
+          {[
+            { id: 'all', label: 'كل الحالات' },
+            { id: 'in_stock', label: '🟢 متاح للطلب الفوري' },
+            { id: 'occasion', label: '🌙 مناسبات ومواسم' },
+            { id: 'hot', label: '🔥 خصم 30%+ وفر' },
+            { id: 'out_of_stock', label: '⏸️ موقوف مؤقتاً' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setStatusFilter(tab.id as any)}
+              className={`px-2.5 py-1 rounded-lg shrink-0 text-[11px] font-bold transition-all cursor-pointer ${
+                statusFilter === tab.id
+                  ? 'bg-orange-600 text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <span>{tab.label}</span>
+            </button>
+          ))}
         </div>
 
         {/* Secondary Filter Dropdowns */}
@@ -814,15 +1048,24 @@ export function OffersManager({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredOffers.map((product) => {
             const orig = product.originalPrice || product.price;
-            const sale = product.price;
-            const discountPercent = Math.round((1 - sale / orig) * 100);
-            const savingsAmount = orig - sale;
+            const sale = product.offerProposedPrice && product.offerProposedPrice > 0 ? product.offerProposedPrice : product.price;
+            const discountPercent = orig > 0 ? Math.round((1 - sale / orig) * 100) : 0;
+            const savingsAmount = Math.max(0, orig - sale);
             const store = stores.find((s) => s.id === product.storeId);
+            const isPending = product.offerStatus === 'pending_approval';
+            const isRejected = product.offerStatus === 'rejected';
+            const isApproved = product.offerStatus === 'approved' || (!product.offerStatus && typeof product.originalPrice === 'number' && product.originalPrice > product.price);
 
             return (
               <div
                 key={product.id}
-                className="bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group"
+                className={`bg-white rounded-3xl border overflow-hidden shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group ${
+                  isPending
+                    ? 'border-amber-300 ring-2 ring-amber-400/20'
+                    : isRejected
+                    ? 'border-rose-300 ring-2 ring-rose-400/20'
+                    : 'border-slate-200/90'
+                }`}
               >
                 <div>
                   {/* Image & Badges Ribbon */}
@@ -847,8 +1090,29 @@ export function OffersManager({
                       <span>خصم {discountPercent}%</span>
                     </div>
 
-                    {/* Top Left: Occasion or Custom Badge */}
+                    {/* Top Left: Occasion, Approval Status, or Custom Badge */}
                     <div className="absolute top-3 left-3 flex flex-col gap-1 items-start">
+                      {isPending && (
+                        <span className="bg-amber-500/95 backdrop-blur-xs text-white px-2.5 py-0.5 rounded-lg text-[10px] font-black shadow-xs flex items-center gap-1">
+                          <Clock3 size={11} />
+                          <span>بانتظار اعتماد الإدارة</span>
+                        </span>
+                      )}
+
+                      {isRejected && (
+                        <span className="bg-rose-600/95 backdrop-blur-xs text-white px-2.5 py-0.5 rounded-lg text-[10px] font-black shadow-xs flex items-center gap-1">
+                          <XCircle size={11} />
+                          <span>مرفوض من الإدارة</span>
+                        </span>
+                      )}
+
+                      {isApproved && (
+                        <span className="bg-emerald-600/95 backdrop-blur-xs text-white px-2.5 py-0.5 rounded-lg text-[10px] font-black shadow-xs flex items-center gap-1">
+                          <CheckCircle size={11} />
+                          <span>معتمد ونشط بالمتجر</span>
+                        </span>
+                      )}
+
                       {product.isOccasion ? (
                         <span className="bg-indigo-600/95 backdrop-blur-xs text-white px-2.5 py-0.5 rounded-lg text-[10px] font-bold shadow-xs flex items-center gap-1">
                           <span>🌙 {product.occasionName || 'مناسبة خاصة'}</span>
@@ -862,12 +1126,12 @@ export function OffersManager({
                       {/* In-Stock Indicator */}
                       <span
                         className={`px-2 py-0.5 rounded-lg text-[9px] font-bold shadow-2xs ${
-                          product.inStock
+                          product.inStock !== false
                             ? 'bg-emerald-500 text-white'
                             : 'bg-rose-500 text-white'
                         }`}
                       >
-                        {product.inStock ? '🟢 متاح للطلب' : '⏸️ موقوف مؤقتاً'}
+                        {product.inStock !== false ? '🟢 متاح للطلب' : '⏸️ موقوف مؤقتاً'}
                       </span>
                     </div>
 
@@ -905,10 +1169,37 @@ export function OffersManager({
                       )}
                     </div>
 
+                    {/* Approval Notice Box */}
+                    {isPending && (
+                      <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 space-y-1">
+                        <div className="flex items-center gap-1 font-bold">
+                          <Clock3 size={13} className="text-amber-700 shrink-0" />
+                          <span>طلب عرض ترويجي قيد المراجعة المركزية:</span>
+                        </div>
+                        <p className="text-[10px] text-amber-800 leading-relaxed">
+                          السعر الأساسي الحالي: <strong>{formatEGP(orig)}</strong> · السعر المخفض المطلوب اعتماده: <strong>{formatEGP(sale)}</strong>
+                        </p>
+                      </div>
+                    )}
+
+                    {isRejected && (
+                      <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-200 text-[11px] text-rose-900 space-y-1">
+                        <div className="flex items-center gap-1 font-bold">
+                          <XCircle size={13} className="text-rose-700 shrink-0" />
+                          <span>سبب رفض العرض من الإدارة:</span>
+                        </div>
+                        <p className="text-[10px] text-rose-800 leading-relaxed">
+                          {product.offerRejectionReason || 'لم يستوفِ الشروط والضوابط التسعيرية المعتمدة.'}
+                        </p>
+                      </div>
+                    )}
+
                     {/* Pricing & Real Savings Box */}
                     <div className="p-3 bg-gradient-to-r from-orange-50/70 to-amber-50/60 rounded-2xl border border-orange-200/80 flex items-center justify-between">
                       <div>
-                        <span className="text-[10px] font-bold text-slate-400 block">السعر بعد الخصم:</span>
+                        <span className="text-[10px] font-bold text-slate-400 block">
+                          {isPending ? 'السعر المقترح للتخفيض:' : 'السعر بعد الخصم:'}
+                        </span>
                         <div className="flex items-baseline gap-2 mt-0.5">
                           <strong className="text-base font-black text-slate-900 font-mono">
                             {formatEGP(sale)}
@@ -941,40 +1232,66 @@ export function OffersManager({
                 </div>
 
                 {/* Card Actions Footer */}
-                <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleToggleAvailability(product)}
-                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer ${
-                      product.inStock
-                        ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
-                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                    }`}
-                    title="تغيير حالة التوافر الفوري للطلب"
-                  >
-                    {product.inStock ? 'إيقاف مؤقت' : 'تفعيل للطلب'}
-                  </button>
+                <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                  {/* Admin Direct Approval / Rejection Controls for Pending Offers */}
+                  {!fixedStoreId && isPending ? (
+                    <div className="flex items-center gap-2 w-full">
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={() => handleApproveOffer(product)}
+                        className="flex-1 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
+                      >
+                        <Check size={14} />
+                        <span>اعتماد وتفعيل</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={() => handleRejectOffer(product)}
+                        className="py-1.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                      >
+                        <X size={14} />
+                        <span>رفض مع سبب</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAvailability(product)}
+                        className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                          product.inStock !== false
+                            ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+                            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                        }`}
+                        title="تغيير حالة التوافر الفوري للطلب"
+                      >
+                        {product.inStock !== false ? 'إيقاف مؤقت' : 'تفعيل للطلب'}
+                      </button>
 
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleEditOffer(product)}
-                      className="px-3 py-1.5 rounded-xl bg-white hover:bg-orange-50 text-orange-700 border border-slate-200 hover:border-orange-200 text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
-                    >
-                      <Edit2 size={12} />
-                      <span>تعديل</span>
-                    </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleEditOffer(product)}
+                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-orange-50 text-orange-700 border border-slate-200 hover:border-orange-200 text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                        >
+                          <Edit2 size={12} />
+                          <span>{isRejected ? 'إعادة تقديم' : 'تعديل'}</span>
+                        </button>
 
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={() => handleCancelOffer(product)}
-                      className="p-1.5 rounded-xl text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition cursor-pointer"
-                      title="إلغاء الخصم واستعادة السعر الأصلي"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
+                        <button
+                          type="button"
+                          disabled={isSubmitting}
+                          onClick={() => handleCancelOffer(product)}
+                          className="p-1.5 rounded-xl text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition cursor-pointer"
+                          title={isPending ? 'سحب طلب العرض' : 'إلغاء الخصم واستعادة السعر الأصلي'}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -983,7 +1300,7 @@ export function OffersManager({
       )}
 
       {/* ════════════════════════════════════════════════════════════
-          5. MODAL: STEP 1 - PRODUCT PICKER
+          5. MODAL: STEP 1 - PRODUCT PICKER (STRICT STORE ISOLATION)
           ════════════════════════════════════════════════════════════ */}
       {isPickerOpen && (
         <div
@@ -1001,7 +1318,7 @@ export function OffersManager({
                 <div>
                   <h3 className="text-sm font-black text-slate-900">اختر الصنف المراد تطبيق العرض عليه</h3>
                   <p className="text-[11px] text-slate-500">
-                    {currentStore ? `أصناف منيو ${currentStore.name}` : 'جميع أصناف الكتالوج'}
+                    {currentStore ? `أصناف منيو متجر ${currentStore.name}` : 'جميع أصناف الكتالوج'}
                   </p>
                 </div>
               </div>
@@ -1029,67 +1346,83 @@ export function OffersManager({
               </div>
             </div>
 
-            {/* Products List */}
+            {/* Products List (Scoped strictly to store) */}
             <div className="flex-1 overflow-y-auto p-3 divide-y divide-slate-100">
-              {scopedProducts
-                .filter((p) => {
-                  if (!pickerSearch.trim()) return true;
-                  const q = pickerSearch.trim().toLowerCase();
-                  return (
-                    p.name.toLowerCase().includes(q) ||
-                    (p.category || '').toLowerCase().includes(q) ||
-                    (p.storeName || '').toLowerCase().includes(q)
-                  );
-                })
-                .map((p) => {
-                  const productStore = stores.find((s) => matchStoreId(s.id, p.storeId) || s.id === p.storeId);
-                  const isStoreClosed = productStore?.status === 'closed';
-                  const hasOffer = typeof p.originalPrice === 'number' && p.originalPrice > p.price;
+              {scopedProducts.length === 0 ? (
+                <div className="p-8 text-center space-y-3">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                    <Package size={28} />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800">
+                    لم يتم العثور على أي أصناف مسجلة لهذا المتجر
+                  </h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                    {currentStore ? `أصناف منيو متجر "${currentStore.name}" لم تُضف بعد.` : 'لا توجد منتجات مسجلة.'}
+                    <br />
+                    يرجى أولاً إدراج منتجات المنيو من تبويب "المنيو والأصناف" ثم العودة لتفعيل العروض والتخفيضات عليها.
+                  </p>
+                </div>
+              ) : (
+                scopedProducts
+                  .filter((p) => {
+                    if (!pickerSearch.trim()) return true;
+                    const q = pickerSearch.trim().toLowerCase();
+                    return (
+                      p.name.toLowerCase().includes(q) ||
+                      (p.category || '').toLowerCase().includes(q) ||
+                      (p.storeName || '').toLowerCase().includes(q)
+                    );
+                  })
+                  .map((p) => {
+                    const productStore = stores.find((s) => matchStoreId(s.id, p.storeId) || s.id === p.storeId);
+                    const isStoreClosed = productStore?.status === 'closed';
+                    const hasOffer = typeof p.originalPrice === 'number' && p.originalPrice > p.price;
 
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => handlePickProduct(p)}
-                      className={`w-full py-2.5 px-3 rounded-2xl flex items-center justify-between gap-3 text-right transition ${
-                        isStoreClosed ? 'opacity-60 bg-slate-50 cursor-not-allowed' : 'hover:bg-orange-50/70 cursor-pointer'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-11 h-11 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200/80">
-                          {p.imageUrl ? (
-                            <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-300 text-lg">
-                              🍽️
-                            </div>
-                          )}
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handlePickProduct(p)}
+                        className={`w-full py-2.5 px-3 rounded-2xl flex items-center justify-between gap-3 text-right transition ${
+                          isStoreClosed ? 'opacity-60 bg-slate-50 cursor-not-allowed' : 'hover:bg-orange-50/70 cursor-pointer'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-11 h-11 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200/80">
+                            {p.imageUrl ? (
+                              <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-300 text-lg">
+                                🍽️
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-bold text-slate-900 truncate">{p.name}</h4>
+                            <span className="text-[10px] text-slate-400 block truncate">
+                              {p.category} {productStore?.name ? `· ${productStore.name}` : p.storeName ? `· ${p.storeName}` : ''}
+                            </span>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-bold text-slate-900 truncate">{p.name}</h4>
-                          <span className="text-[10px] text-slate-400 block truncate">
-                            {p.category} {productStore?.name ? `· ${productStore.name}` : p.storeName ? `· ${p.storeName}` : ''}
-                          </span>
-                        </div>
-                      </div>
 
-                      <div className="text-left shrink-0">
-                        <strong className="text-xs font-black font-mono text-slate-900 block">
-                          {formatEGP(p.price)}
-                        </strong>
-                        {isStoreClosed ? (
-                          <span className="text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded inline-block mt-0.5">
-                            متجر مغلق 🚫
-                          </span>
-                        ) : hasOffer ? (
-                          <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded inline-block mt-0.5">
-                            عرض نشط حالياً 🔥
-                          </span>
-                        ) : null}
-                      </div>
-                    </button>
-                  );
-                })}
+                        <div className="text-left shrink-0">
+                          <strong className="text-xs font-black font-mono text-slate-900 block">
+                            {formatEGP(p.price)}
+                          </strong>
+                          {isStoreClosed ? (
+                            <span className="text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded inline-block mt-0.5">
+                              متجر مغلق 🚫
+                            </span>
+                          ) : hasOffer ? (
+                            <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded inline-block mt-0.5">
+                              عرض نشط حالياً 🔥
+                            </span>
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })
+              )}
             </div>
           </div>
         </div>
@@ -1416,22 +1749,33 @@ export function OffersManager({
               </div>
 
               {/* Modal Actions */}
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50 active:scale-95"
-                >
-                  <Check size={14} />
-                  <span>{isSubmitting ? 'جارٍ تفعيل العرض…' : 'حفظ وتفعيل العرض'}</span>
-                </button>
+              <div className="pt-2 space-y-2 border-t border-slate-100 shrink-0">
+                {Boolean(fixedStoreId) && (
+                  <p className="text-[10px] text-amber-800 bg-amber-50 p-2 rounded-xl border border-amber-200 leading-relaxed font-bold">
+                    📌 سيتم إرسال تفاصيل العرض الترويجي للإدارة المركزية لاعتماده رسمياً؛ لضمان التوافق التسعيري قبل ظهوره للعملاء بالمتجر.
+                  </p>
+                )}
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50 active:scale-95"
+                  >
+                    <Check size={14} />
+                    <span>
+                      {isSubmitting
+                        ? (fixedStoreId ? 'جارٍ إرسال الطلب…' : 'جارٍ تفعيل العرض…')
+                        : (fixedStoreId ? 'إرسال العرض للاعتماد المركزي' : 'اعتماد وتفعيل العرض')}
+                    </span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>
