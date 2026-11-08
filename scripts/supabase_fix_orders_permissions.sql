@@ -6,9 +6,9 @@
 -- 1. السماح للمستخدمين بتشغيل دالة إنشاء الطلب الآمنة
 GRANT EXECUTE ON FUNCTION public.create_sangoub_order(uuid, text, jsonb, jsonb, text) TO authenticated, anon;
 
--- 2. إعطاء الصلاحيات لجداول الطلبات والعناصر
-GRANT SELECT, INSERT ON public.orders TO authenticated, anon;
-GRANT SELECT, INSERT ON public.order_items TO authenticated, anon;
+-- 2. إعطاء الصلاحيات الكاملة لجداول الطلبات والعناصر (قراءة، إنشاء، وتحديث الحالات)
+GRANT ALL ON public.orders TO authenticated, anon;
+GRANT ALL ON public.order_items TO authenticated, anon;
 
 -- 3. تفعيل سياسات الأمان للطلب المباشر
 DROP POLICY IF EXISTS "Users can insert own orders" ON public.orders;
@@ -31,6 +31,21 @@ DROP POLICY IF EXISTS "Users read own order items" ON public.order_items;
 CREATE POLICY "Users read own order items" ON public.order_items 
 FOR SELECT TO authenticated, anon 
 USING (true);
+
+-- 4.1 تفعيل سياسات تحديث الطلبات وحالات التجهيز والتوصيل (منع خطأ 403 Forbidden)
+DROP POLICY IF EXISTS "Users can update orders" ON public.orders;
+DROP POLICY IF EXISTS "Public update orders" ON public.orders;
+CREATE POLICY "Public update orders" ON public.orders 
+FOR UPDATE TO authenticated, anon 
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Users can update order items" ON public.order_items;
+DROP POLICY IF EXISTS "Public update order_items" ON public.order_items;
+CREATE POLICY "Public update order_items" ON public.order_items 
+FOR UPDATE TO authenticated, anon 
+USING (true)
+WITH CHECK (true);
 
 -- 5. تفعيل قراءة محتوى التطبيق وصور الأقسام المخصصة (app_content)
 GRANT SELECT ON public.app_content TO authenticated, anon;
