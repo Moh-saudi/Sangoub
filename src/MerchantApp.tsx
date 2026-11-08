@@ -376,15 +376,19 @@ export default function MerchantApp() {
 
   async function merchantMutation(input:object){setError('');try{await operationsApi('operations',input);await Promise.all([refreshMerchant.current(),feed.refresh()]);}catch(e){setError(customerMessage(e,'تعذر حفظ التعديل.'));throw e;}}
   async function handleKitchenChange(id:string,_storeId:string,stage:'preparing'|'ready'){await merchantMutation({action:'legacy-prepare',id,next:stage});}
-  async function handleAssignCourier(orderId: string, courierId: string) {
+  async function handleAssignCourier(orderId: string, courierId: string, courierName?: string, courierPhone?: string) {
     const courier = couriers.find((c) => c.id === courierId);
-    const targetOrder = activeItems.find((o) => o.id === orderId);
+    const feedItems = Array.isArray(feed?.items) ? feed.items : [];
+    const allKnownOrders = [...feedItems, ...(orders || []), ...(history || [])];
+    const targetOrder = allKnownOrders.find((o) => o.id === orderId);
+    const resolvedName = courierName || courier?.name || 'كابتن توصيل';
+    const resolvedPhone = courierPhone || courier?.phone || '';
     await merchantMutation({
       action: 'assign-courier',
       orderId,
       courierId,
-      courierName: courier?.name || 'كابتن توصيل',
-      courierPhone: courier?.phone || '',
+      courierName: resolvedName,
+      courierPhone: resolvedPhone,
       orderNumber: targetOrder?.orderNumber || '',
       nextStatus: 'ready'
     });

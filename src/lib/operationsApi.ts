@@ -317,13 +317,34 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     }
 
     if (body.action === 'assign-courier' && body.orderId && body.courierId) {
-      await supabase.from('orders').update({
+      let courierName = body.courierName;
+      let courierPhone = body.courierPhone;
+      if (!courierName || !courierPhone) {
+        try {
+          const { data: prof } = await supabase.from('profiles').select('full_name, phone').eq('id', body.courierId).maybeSingle();
+          if (prof) {
+            courierName = courierName || prof.full_name || 'كابتن توصيل';
+            courierPhone = courierPhone || prof.phone || '';
+          }
+        } catch {}
+      }
+
+      const { error: updateErr } = await supabase.from('orders').update({
         courier_id: body.courierId,
-        courier_name: body.courierName || 'كابتن توصيل',
-        courier_phone: body.courierPhone || null,
+        courier_name: courierName || 'كابتن توصيل',
+        courier_phone: courierPhone || null,
         status: body.nextStatus || 'ready',
         updated_at: new Date().toISOString()
       }).eq('id', body.orderId);
+
+      if (updateErr) {
+        console.warn('[operationsApi] assign-courier update fallback:', updateErr);
+        const { error: fallbackErr } = await supabase.from('orders').update({
+          courier_id: body.courierId,
+          status: body.nextStatus || 'ready'
+        }).eq('id', body.orderId);
+        if (fallbackErr) throw fallbackErr;
+      }
 
       // Create notification for courier
       try {

@@ -105,7 +105,7 @@ interface RestaurantPortalProps {
     coordinates?: { latitude: number; longitude: number };
     status?: "available" | "busy" | "offline";
   }>;
-  onAssignCourier?: (orderId: string, courierId: string) => Promise<void>;
+  onAssignCourier?: (orderId: string, courierId: string, courierName?: string, courierPhone?: string) => Promise<void>;
   onUpdateOrderStatus: (orderId: string, status: Order["orderStatus"]) => void;
   onUpdateProductStock: (productId: string, inStock: boolean) => void;
   onUpdateProductInventory?: (productId: string, updates: { stockQuantity?: number; minStockAlert?: number; maxPerOrder?: number; inStock?: boolean }) => Promise<void>;

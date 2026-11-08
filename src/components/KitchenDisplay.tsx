@@ -60,7 +60,7 @@ export function KitchenDisplay({
   fixedStoreId?: string;
   connected: boolean;
   couriers?: Array<any>;
-  onAssignCourier?: (orderId: string, courierId: string) => Promise<void>;
+  onAssignCourier?: (orderId: string, courierId: string, courierName?: string, courierPhone?: string) => Promise<void>;
   onChange: (id: string, storeId: string, stage: "preparing" | "ready") => Promise<void>;
   onNavigateRadar?: () => void;
 }) {
@@ -126,7 +126,7 @@ export function KitchenDisplay({
     const courier = fleetCouriers.find(c => c.id === courierId);
     try {
       if (onAssignCourier) {
-        await onAssignCourier(order.id, courierId);
+        await onAssignCourier(order.id, courierId, courier?.name, courier?.phone);
       } else {
         await operationsApi('operations', {
           action: 'assign-courier',
