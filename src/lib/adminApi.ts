@@ -1,5 +1,5 @@
 import { authenticatedApi } from './authenticatedApi';
-import { supabase } from './supabase';
+import { supabase, resolveSupabaseStoreUuid } from './supabase';
 
 export async function adminApi(endpoint: 'users' | 'data', body: any) {
   const isStaticWeb = typeof window !== 'undefined' && 
@@ -148,15 +148,71 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
     }
 
     if (body.action === 'save' && body.collection === 'stores') {
-      const { data, error } = await supabase.from('stores').update(body.data).eq('id', body.id).select().maybeSingle();
-      if (error) throw error;
-      return { ok: true, data };
+      const raw = body.data || {};
+      const patch: Record<string, any> = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (raw.name !== undefined) patch.name = raw.name;
+      if (raw.nameEn !== undefined || raw.name_en !== undefined) patch.name_en = raw.nameEn || raw.name_en || null;
+      if (raw.type !== undefined) patch.type = raw.type;
+      if (raw.category !== undefined) patch.category = raw.category;
+      if (raw.logo !== undefined || raw.logoUrl !== undefined) patch.logo = raw.logo || raw.logoUrl;
+      if (raw.banner !== undefined || raw.bannerUrl !== undefined) patch.banner = raw.banner || raw.bannerUrl;
+      if (raw.status !== undefined) patch.status = raw.status;
+      if (raw.deliveryTime !== undefined || raw.delivery_time !== undefined) patch.delivery_time = raw.deliveryTime || raw.delivery_time;
+      if (raw.minOrder !== undefined || raw.min_order !== undefined) patch.min_order = Number(raw.minOrder ?? raw.min_order);
+      if (raw.deliveryFee !== undefined || raw.delivery_fee !== undefined) patch.delivery_fee = Number(raw.deliveryFee ?? raw.delivery_fee);
+      if (raw.preciseAddress !== undefined || raw.precise_address !== undefined) patch.precise_address = raw.preciseAddress || raw.precise_address;
+      if (raw.locationInDistrict !== undefined || raw.location_in_district !== undefined) patch.location_in_district = raw.locationInDistrict || raw.location_in_district;
+      if (raw.latitude !== undefined) patch.latitude = Number(raw.latitude);
+      if (raw.longitude !== undefined) patch.longitude = Number(raw.longitude);
+      if (raw.commissionRate !== undefined || raw.commission_rate !== undefined) patch.commission_rate = Number(raw.commissionRate ?? raw.commission_rate);
+      if (raw.taxRate !== undefined || raw.tax_rate !== undefined) patch.tax_rate = Number(raw.taxRate ?? raw.tax_rate);
+
+      const storeId = resolveSupabaseStoreUuid(body.id);
+      const { error } = await supabase.from('stores').update(patch).eq('id', storeId);
+      if (error) {
+        console.warn('[adminApi] store update error:', error);
+        throw error;
+      }
+      return { ok: true, id: storeId };
     }
 
     if (body.action === 'save' && body.collection === 'products') {
-      const { data, error } = await supabase.from('products').update(body.data).eq('id', body.id).select().maybeSingle();
-      if (error) throw error;
-      return { ok: true, data };
+      const raw = body.data || {};
+      const patch: Record<string, any> = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (raw.name !== undefined) patch.name = raw.name;
+      if (raw.nameEn !== undefined || raw.name_en !== undefined) patch.name_en = raw.nameEn || raw.name_en || null;
+      if (raw.description !== undefined) patch.description = raw.description || '';
+      if (raw.price !== undefined && raw.price !== null) patch.price = Number(raw.price);
+      if (raw.originalPrice !== undefined || raw.original_price !== undefined) {
+        const orig = raw.originalPrice ?? raw.original_price;
+        patch.original_price = orig ? Number(orig) : null;
+      }
+      if (raw.category !== undefined) patch.category = raw.category || 'عام';
+      if (raw.categoryId !== undefined || raw.category_id !== undefined) patch.category_id = raw.categoryId || raw.category_id || null;
+      if (raw.barcode !== undefined) patch.barcode = raw.barcode || null;
+      if (raw.merchantPosSku !== undefined || raw.merchant_pos_sku !== undefined) patch.merchant_pos_sku = raw.merchantPosSku || raw.merchant_pos_sku || null;
+      if (raw.badge !== undefined || raw.offerBadge !== undefined) patch.badge = raw.badge || raw.offerBadge || null;
+      if (raw.imageUrl !== undefined || raw.image_url !== undefined) patch.image_url = raw.imageUrl || raw.image_url || null;
+      if (raw.inStock !== undefined || raw.is_available !== undefined) patch.is_available = Boolean(raw.inStock ?? raw.is_available);
+      if (raw.archived !== undefined) patch.archived = Boolean(raw.archived);
+      if (raw.options !== undefined) patch.options = raw.options;
+
+      if (raw.storeId || raw.store_id) {
+        patch.store_id = resolveSupabaseStoreUuid(raw.storeId || raw.store_id);
+      }
+
+      const { error } = await supabase.from('products').update(patch).eq('id', body.id);
+      if (error) {
+        console.warn('[adminApi] products update error:', error);
+        throw error;
+      }
+      return { ok: true, id: body.id };
     }
   }
 
