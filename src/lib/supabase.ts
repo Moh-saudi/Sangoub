@@ -247,7 +247,23 @@ export async function getSupabaseStores(): Promise<Store[]> {
 }
 
 export async function getSupabaseStore(storeId: string): Promise<Store | null> {
-  const targetUuid = resolveSupabaseStoreUuid(storeId);
+  if (!storeId) return null;
+  const cleanId = String(storeId).trim().toLowerCase();
+  const INVALID_STORE_IDS = ['offers', 'cart', 'checkout', 'undefined', 'null', 'dashboard', 'orders', 'products', 'inventory', 'settings'];
+  if (INVALID_STORE_IDS.includes(cleanId)) return null;
+
+  let targetUuid: string;
+  try {
+    targetUuid = resolveSupabaseStoreUuid(storeId);
+  } catch {
+    return null;
+  }
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid);
+  if (!isUuid) {
+    return null;
+  }
+
   try {
     const { data, error } = await supabase
       .from('stores')
@@ -353,11 +369,18 @@ export async function getSupabaseProducts(storeId?: string): Promise<Product[]> 
   try {
     let query = supabase.from('products').select('*, stores(name)');
     if (storeId) {
-      const targetUuid = resolveSupabaseStoreUuid(storeId);
-      if (storeId === 'a0000000-0000-0000-0000-000000000001' || targetUuid === 'a0000000-0000-0000-0000-000000000001') {
-        query = query.in('store_id', ['a0000000-0000-0000-0000-000000000001', '54a6c2f6-6c29-4177-ac65-32fadddea83d']);
-      } else {
-        query = query.eq('store_id', targetUuid);
+      const cleanId = String(storeId).trim().toLowerCase();
+      const INVALID_STORE_IDS = ['offers', 'cart', 'checkout', 'undefined', 'null', 'dashboard', 'orders', 'products', 'inventory', 'settings'];
+      if (!INVALID_STORE_IDS.includes(cleanId)) {
+        let targetUuid = storeId;
+        try { targetUuid = resolveSupabaseStoreUuid(storeId); } catch {}
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid);
+
+        if (storeId === 'a0000000-0000-0000-0000-000000000001' || targetUuid === 'a0000000-0000-0000-0000-000000000001') {
+          query = query.in('store_id', ['a0000000-0000-0000-0000-000000000001', '54a6c2f6-6c29-4177-ac65-32fadddea83d']);
+        } else if (isUuid) {
+          query = query.eq('store_id', targetUuid);
+        }
       }
     }
     const { data, error } = await query;

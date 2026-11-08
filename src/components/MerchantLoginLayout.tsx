@@ -4,6 +4,12 @@ import { MapPin, Headphones, ArrowUpLeft, Store as StoreIcon, Truck, ChartNoAxes
 import type { Store } from '../types';
 import './merchant-login.css';
 
+const PORTAL_SECTIONS = new Set([
+  'dashboard', 'orders', 'products', 'offers', 'inventory', 
+  'customers', 'reports', 'payments', 'settings', 'support', 
+  'tracking', 'couriers', 'kitchen', 'menu'
+]);
+
 /** Public store branding is presentation only; membership is verified by the server. */
 export function MerchantLoginLayout({ children, onSupport }: { children: ReactNode; onSupport: () => void }) {
   const [store, setStore] = useState<Store | null>(null);
@@ -12,13 +18,15 @@ export function MerchantLoginLayout({ children, onSupport }: { children: ReactNo
   useEffect(() => {
     let id = new URLSearchParams(location.search).get('store');
     if (!id) { try { id = decodeURIComponent(location.pathname.match(/^\/merchant\/([^/]+)\/?$/)?.[1] || ''); } catch { id = ''; } }
-    if (!id) return;
+    if (!id || PORTAL_SECTIONS.has(id.toLowerCase())) return;
     if (!/^[\w-]{1,200}$/.test(id)) { setStoreState('missing'); return; }
     setStoreState('loading');
     let active = true;
     let storeUuid: string;
     try { storeUuid = resolveSupabaseStoreUuid(id); }
     catch { setStoreState('missing'); return; }
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storeUuid);
+    if (!isUuid) { setStoreState('missing'); return; }
     const load = async () => {
       const value = await getSupabaseStore(id).catch(() => null);
       if (!active) return;

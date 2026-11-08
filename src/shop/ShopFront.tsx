@@ -1328,6 +1328,7 @@ export default function ShopFront() {
   let storeId = "";
   try {
     storeId = match ? decodeURIComponent(match[1]) : "";
+    if (storeId.toLowerCase() === 'offers') storeId = "";
   } catch {
     /* Invalid store links render an empty state. */
   }
