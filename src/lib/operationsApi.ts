@@ -126,6 +126,91 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       };
     }
 
+    if (body.action === 'portal-active') {
+      let query = supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .not('order_status', 'in', '("delivered","cancelled")')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      const { data: orders, error } = await query;
+      if (error) console.warn('[operationsApi] portal-active query warning:', error);
+      return { items: orders || [], truncated: false };
+    }
+
+    if (body.action === 'store-dashboard') {
+      const targetStoreId = body.storeId;
+      let storesQuery = supabase.from('stores').select('*');
+      let productsQuery = supabase.from('products').select('*');
+      if (targetStoreId) {
+        productsQuery = productsQuery.eq('store_id', targetStoreId);
+      }
+      const [storesRes, productsRes] = await Promise.all([
+        storesQuery,
+        productsQuery.limit(100)
+      ]);
+      return {
+        stores: storesRes.data || [],
+        products: productsRes.data || [],
+        productsNextCursor: null
+      };
+    }
+
+    if (body.action === 'store-products') {
+      let query = supabase.from('products').select('*');
+      if (body.storeId) {
+        query = query.eq('store_id', body.storeId);
+      }
+      const { data: prods } = await query.limit(100);
+      return { products: prods || [], productsNextCursor: null };
+    }
+
+    if (body.action === 'shared-catalog') {
+      let query = supabase.from('products').select('*').limit(50);
+      if (body.query) {
+        query = query.ilike('name', `%${body.query}%`);
+      }
+      const { data: prods } = await query;
+      return { items: prods || [], nextCursor: null };
+    }
+
+    if (body.action === 'legacy-prepare' && body.id) {
+      const stage = body.next || 'preparing';
+      const nextStatus = stage === 'ready' ? 'ready_for_pickup' : 'preparing';
+      await supabase.from('orders').update({
+        preparation_stage: stage,
+        order_status: nextStatus
+      }).eq('id', body.id);
+      return { ok: true };
+    }
+
+    if (body.action === 'set-product-stock' && body.id) {
+      await supabase.from('products').update({ is_available: Boolean(body.inStock) }).eq('id', body.id);
+      return { ok: true };
+    }
+
+    if (body.action === 'inspect') {
+      return { tickets: [] };
+    }
+
+    if (body.action === 'resolve-issue') {
+      return { ok: true };
+    }
+
+    if (typeof body.action === 'string' && body.action.startsWith('store-')) {
+      return { items: [], nextCursor: null, truncated: false };
+    }
+
+    if (body.action === 'courier-tasks') {
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .in('order_status', ['ready_for_pickup', 'assigned_to_courier', 'with_courier'])
+        .order('created_at', { ascending: false });
+      return { tasks: orders || [], items: orders || [] };
+    }
+
     if (body.action === 'set-store-status' && body.storeId && body.status) {
       await supabase.from('stores').update({ status: body.status }).eq('id', body.storeId);
       return { ok: true };
@@ -152,6 +237,25 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     }
   }
 
-  // Fallback
+  // 3. Direct Supabase Fallback for app-content
+  if (endpoint === 'app-content') {
+    if (body.action === 'admin' || body.action === 'get') {
+      const { data: row } = await supabase.from('app_content').select('content').eq('id', true).maybeSingle();
+      return row?.content || {};
+    }
+    if (body.action === 'save' || body.content) {
+      await supabase.from('app_content').upsert({ id: true, content: body.content || body });
+      return { ok: true };
+    }
+    return { ok: true };
+  }
+
+  // On static web (Cloudflare Pages), there is no backend API endpoint so never call /api/*
+  if (isStaticWeb) {
+    console.warn(`[operationsApi] Handled unmapped static request for ${endpoint}:`, body?.action);
+    return { ok: true, items: [], nextCursor: null, truncated: false };
+  }
+
+  // Fallback only if local server exists
   return await authenticatedApi('/api/' + endpoint, body);
 }

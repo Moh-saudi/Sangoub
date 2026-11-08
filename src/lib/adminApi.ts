@@ -160,5 +160,11 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
     }
   }
 
+  // On static web (Cloudflare Pages), there is no backend API endpoint so never call /api/*
+  if (isStaticWeb) {
+    console.warn(`[adminApi] Handled unmapped static request for ${endpoint}:`, body?.action);
+    return { ok: true, items: [] };
+  }
+
   return await authenticatedApi('/api/admin-' + endpoint, body);
 }
