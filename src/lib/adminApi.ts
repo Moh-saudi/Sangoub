@@ -24,25 +24,33 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
         .limit(200);
       if (error) console.warn('[adminApi] users.list error:', error);
       
-      const { data: storesList } = await supabase.from('stores').select('id, owner_id');
+      const { data: storesList } = await supabase.from('stores').select('id, name, logo, logo_url, owner_id');
+      const storeMap = new Map((storesList || []).map(s => [s.id, s]));
       const storeOwnerMap = new Map((storesList || []).filter(s => s.owner_id).map(s => [s.owner_id, s.id]));
 
       return {
-        users: (profiles || []).map(p => ({
-          uid: p.id,
-          id: p.id,
-          fullName: p.full_name,
-          email: p.email,
-          phone: p.phone,
-          role: p.role,
-          storeId: p.store_id || storeOwnerMap.get(p.id) || '',
-          courierStatus: p.courier_status,
-          vehicleType: p.vehicle_type,
-          hasThermalBox: p.has_thermal_box,
-          hasThermalBackpack: p.has_thermal_backpack,
-          disabled: p.courier_status === 'suspended',
-          createdAt: p.created_at,
-        }))
+        users: (profiles || []).map(p => {
+          const sId = p.store_id || storeOwnerMap.get(p.id) || '';
+          const st = storeMap.get(sId);
+          const resolvedAvatar = p.avatar_url || (p.role === 'restaurant' && st ? (st.logo_url || st.logo) : null);
+
+          return {
+            uid: p.id,
+            id: p.id,
+            fullName: p.full_name,
+            email: p.email,
+            phone: p.phone,
+            role: p.role,
+            avatarUrl: resolvedAvatar || null,
+            storeId: sId,
+            courierStatus: p.courier_status,
+            vehicleType: p.vehicle_type,
+            hasThermalBox: p.has_thermal_box,
+            hasThermalBackpack: p.has_thermal_backpack,
+            disabled: p.courier_status === 'suspended',
+            createdAt: p.created_at,
+          };
+        })
       };
     }
 

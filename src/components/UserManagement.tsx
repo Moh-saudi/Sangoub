@@ -3,13 +3,14 @@ import { placeAddress } from '../services/deliveryAddress';
 import { validateAccount, cairoToday } from '../validation/accounts';
 import { formatEGP } from "../utils/orderCalculations";
 import { matchStoreId } from '../utils/storeAssets';
+import { AccountAccessDialog } from './AccountAccessDialog';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import {
   Plus, Search, RefreshCw, Users, X, ShieldCheck, ChevronLeft, ChevronRight,
   Copy, Check, MapPin, Bike, Navigation, AlertCircle, FileCheck, Stethoscope,
   Shield, Car, ExternalLink, Store as StoreIcon, UserCheck, PhoneCall, Building2,
   Calendar, Award, Eye, Edit3, Power, Trash2, Camera, Upload, User,
-  Clock, CheckCircle2, Wallet, DollarSign, Coins, ChevronDown
+  Clock, CheckCircle2, Wallet, DollarSign, Coins, ChevronDown, Send, Sparkles, Key
 } from 'lucide-react';
 import { adminApi } from '../lib/adminApi';
 import type { Store, UserRole } from '../types';
@@ -133,6 +134,14 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
   const [viewingUser, setViewingUser] = useState<AccountRecord | null>(null);
   const [deleteConfirmationUser, setDeleteConfirmationUser] = useState<AccountRecord | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [accessAccount, setAccessAccount] = useState<{
+    email: string;
+    role: string;
+    fullName?: string;
+    phone?: string;
+    password?: string;
+    storeName?: string;
+  } | null>(null);
 
   // Form State
   const [formRole, setFormRole] = useState<UserRole>('employee');
@@ -496,8 +505,20 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
       setIsFormModalOpen(false);
       setEditingUser(null);
       setFormAvatarUrl('');
-      setNotice(editingUser ? 'تم حفظ بيانات الحساب في Supabase.' : 'تم إنشاء الحساب وإرسال دعوة تعيين كلمة المرور عبر Supabase.');
+      setNotice(editingUser ? 'تم حفظ وتحديث بيانات الحساب بنجاح.' : 'تم اعتماد وإنشاء الحساب في المنظومة بنجاح.');
       setRevision((v) => v + 1);
+
+      if (!editingUser) {
+        const targetStore = stores.find(s => s.id === (payload.storeId || selectedStoreId) || matchStoreId(s.id, payload.storeId || selectedStoreId));
+        setAccessAccount({
+          email: payload.email,
+          role: payload.role,
+          fullName: payload.fullName || payload.name,
+          phone: payload.phone,
+          password: formPassword || 'San@123456!',
+          storeName: targetStore?.name || ''
+        });
+      }
     } catch (e) {
       setFieldErrors((e as any).fields||{});setError((e as Error).message);
     } finally {
@@ -1076,7 +1097,8 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
               {visibleUsers.map((user, index) => {
                 const isCourier = user.role === 'courier';
                 const isMerchant = user.role === 'restaurant';
-                const store = stores.find((s) => s.id === user.storeId);
+                const store = stores.find((s) => s.id === user.storeId || matchStoreId(s.id, user.storeId));
+                const displayAvatar = user.avatarUrl || (isMerchant && store ? (store.logoUrl || store.logo) : null);
 
                 return (
                   <tr key={user.uid} className="hover:bg-slate-50/70 transition-colors">
@@ -1087,17 +1109,25 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
 
                     {/* Account Name, Avatar & Nickname - Clicking opens the Full Profile Modal */}
                     <td className="py-3 px-3.5">
-                      <div className="flex items-center gap-2.5">
-                        {user.avatarUrl ? (
+                      <div className="flex items-center gap-3">
+                        {displayAvatar ? (
                           <img
-                            src={user.avatarUrl}
+                            src={displayAvatar}
                             alt={user.fullName || 'User'}
                             referrerPolicy="no-referrer"
                             onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
-                            className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0 shadow-2xs"
+                            className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500 shrink-0 shadow-xs ring-2 ring-emerald-500/10"
                           />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs shrink-0 border border-slate-200">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2 shadow-2xs ${
+                            isCourier
+                              ? 'bg-amber-100 text-amber-800 border-amber-300'
+                              : isMerchant
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : user.role === 'admin'
+                              ? 'bg-slate-800 text-white border-slate-700'
+                              : 'bg-purple-100 text-purple-800 border-purple-300'
+                          }`}>
                             {(user.fullName || user.email || '?').charAt(0).toUpperCase()}
                           </div>
                         )}
@@ -1299,7 +1329,25 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                           تعديل
                         </button>
 
-                        <span className="px-2 py-1 text-[11px] text-slate-500">إدارة الدخول عبر Supabase</span>
+                        {/* Send Login Credentials & Portal Link */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const userStore = stores.find(s => s.id === user.storeId || matchStoreId(s.id, user.storeId));
+                            setAccessAccount({
+                              email: user.email,
+                              role: user.role,
+                              fullName: user.fullName,
+                              phone: user.phone,
+                              storeName: userStore?.name || ''
+                            });
+                          }}
+                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px] font-bold rounded-md transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                          title="إرسال بيانات الدخول المعتمدة ورابط البوابة للمستخدم عبر واتساب"
+                        >
+                          <Send size={12} className="text-emerald-700 shrink-0" />
+                          <span>إرسال بيانات الدخول</span>
+                        </button>
                         {/* Toggle Status */}
                         <button
                           type="button"
@@ -2515,7 +2563,10 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                   </div>
                 )}
 
-                <p className="p-3.5 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900">تُنشأ الحسابات عبر Supabase Auth، ويُرسل للمستخدم رابط آمن لتعيين كلمة المرور. لا تشارك كلمة مرور مؤقتة.</p>
+                <p className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/80 text-xs text-emerald-950 font-bold flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-emerald-700 shrink-0" />
+                  <span>يتم تأمين واعتماد الحساب رسمياً في المنظومة، وتستطيع إرسال بيانات الدخول المعتمدة ورابط البوابة للمستخدم عبر واتساب فور الحفظ.</span>
+                </p>
 
                 {Object.keys(fieldErrors).length > 0 && (
                   <div role="alert" className="p-3 border border-red-200 bg-red-50 text-red-800 rounded-xl">
@@ -2568,6 +2619,19 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
             </div>
           </div>
         </div>
+      )}
+
+      {/* Account Access Dialog (إرسال بيانات الدخول المعتمدة عبر واتساب) */}
+      {accessAccount && (
+        <AccountAccessDialog
+          email={accessAccount.email}
+          role={accessAccount.role}
+          fullName={accessAccount.fullName}
+          phone={accessAccount.phone}
+          password={accessAccount.password}
+          storeName={accessAccount.storeName}
+          onClose={() => setAccessAccount(null)}
+        />
       )}
 
       {/* 6. POP-UP MODAL: Full Comprehensive Profile Inspection (نهج بطاقة المعاينة الشاملة - زر العين) */}
@@ -2813,7 +2877,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
               <h3 className="text-base font-black">تأكيد حذف الحساب نهائياً</h3>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              هل أنت متأكد من حذف حساب (<strong>{deleteConfirmationUser.fullName || deleteConfirmationUser.email}</strong>)؟ سيتم حذف حسابه من Supabase Auth. الحسابات المرتبطة بطلبات لا يمكن حذفها؛ عطّلها بدلًا من ذلك.
+              هل أنت متأكد من حذف حساب (<strong>{deleteConfirmationUser.fullName || deleteConfirmationUser.email}</strong>)؟ سيتم إلغاء صلاحياته وحذف حسابه نهائياً من المنظومة. الحسابات المرتبطة بطلبات تشغيل لا يمكن حذفها؛ عطّلها بدلًا من ذلك.
             </p>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
