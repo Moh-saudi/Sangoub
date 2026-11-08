@@ -4,13 +4,15 @@
 
 :root {
   color-scheme: light;
-  --font-ui: 'Cairo', 'Tajawal', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --color-ink: #2D3142;
-  --color-muted: #6B7280;
+  --font-heading: 'Cairo', system-ui, -apple-system, sans-serif;
+  --font-body: 'Tajawal', system-ui, -apple-system, sans-serif;
+  --font-ui: var(--font-body);
+  --color-ink: #0F172A;
+  --color-muted: #64748B;
   --color-subtle: #edf2f3;
-  --color-line: #E7E9EE;
+  --color-line: #E2E8F0;
   --color-surface: #fff;
-  --color-canvas: #F8F9FA;
+  --color-canvas: #F8FAFC;
   --color-primary: #FF5900;
   --color-on-primary: #2D3142;
   --color-primary-hover: #b83f00;
@@ -92,4 +94,12 @@ img { max-width: 100%; }
 
 .font-tajawal {
   font-family: 'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.font-heading {
+  font-family: var(--font-heading) !important;
+}
+
+.font-body {
+  font-family: var(--font-body) !important;
 }

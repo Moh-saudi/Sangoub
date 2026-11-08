@@ -5,6 +5,9 @@ import { formatEGP } from "../utils/orderCalculations";
 import { matchStoreId, getStoreLogo } from '../utils/storeAssets';
 import { KNOWN_STORE_ASSETS } from '../lib/supabase';
 import { AccountAccessDialog } from './AccountAccessDialog';
+import { PageHeader } from './common/PageHeader';
+import { Badge } from './common/Badge';
+import { StatCard } from './common/StatCard';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import {
   Plus, Search, RefreshCw, Users, X, ShieldCheck, ChevronLeft, ChevronRight,
@@ -650,163 +653,129 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
   }, [users, baseUsers, fixedStoreId, roleFilter, verificationFilter]);
 
   return (
-    <section className="space-y-4 max-w-7xl mx-auto" aria-label="إدارة وسجل الحسابات" dir="rtl">
-      {/* 1. Header & Breadcrumbs */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            {/* Breadcrumb */}
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium mb-1">
-              <span>{mode === 'merchant' ? 'بوابة الشريك المعتمد' : 'الرئيسية'}</span>
-              <span>&gt;</span>
-              <span>{mode === 'merchant' ? (stores.find(s => matchStoreId(s.id, fixedStoreId))?.name || 'إدارة المتجر') : 'إدارة المنظومة'}</span>
-              <span>&gt;</span>
-              <span className="text-teal-700 font-bold">{mode === 'merchant' ? 'طاقم العمل والورديات اليومية' : 'سجل جهات التحضير والمناديب والتجار'}</span>
-            </div>
+    <section className="space-y-5 max-w-7xl mx-auto font-body" aria-label="إدارة وسجل الحسابات" dir="rtl">
+      {/* 1. Unified PageHeader Token (Design System Specification) */}
+      <PageHeader
+        breadcrumbs={[
+          { label: mode === 'merchant' ? 'بوابة الشريك المعتمد' : 'لوحة الإدارة' },
+          { label: mode === 'merchant' ? (stores.find(s => matchStoreId(s.id, fixedStoreId))?.name || 'إدارة المتجر') : 'الحسابات والتشغيل' },
+          { label: mode === 'merchant' ? 'طاقم العمل والورديات' : 'سجل المناديب والتجار والمستخدمين' }
+        ]}
+        title={mode === 'merchant'
+          ? `طاقم العمل والورديات — ${stores.find(s => matchStoreId(s.id, fixedStoreId))?.name || 'المتجر'}`
+          : 'سجل وإدارة المناديب والتجار والمستخدمين'}
+        description={mode === 'merchant'
+          ? 'إدارة حسابات الكباتن، الكاشير، المحاسب، والشيف مع تقفيل الورديات اليومية وتسوية العهد المالية.'
+          : 'إدارة وتصنيف المناديب والمتاجر، ومتابعة الفحص الطبي والجنائي وإحداثيات الموقع بدقة.'}
+        actions={
+          <button
+            type="button"
+            onClick={openCreateForm}
+            className="h-10 px-4 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-xs sm:text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2 cursor-pointer font-heading shrink-0"
+          >
+            <Plus size={16} />
+            <span>{mode === 'merchant' ? 'إضافة موظف / كابتن جديد' : 'إضافة مستخدم جديد'}</span>
+          </button>
+        }
+      />
 
-            {/* Title & Subtitle */}
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-              {mode === 'merchant'
-                ? `طاقم العمل والورديات — ${stores.find(s => matchStoreId(s.id, fixedStoreId))?.name || 'المتجر'}`
-                : 'سجل وإدارة جهات التحضير والمناديب والتجار'}
-            </h1>
-            <p className="text-[11.5px] text-slate-500 mt-0.5">
-              {mode === 'merchant'
-                ? 'إدارة حسابات الكباتن، الكاشير، المحاسب، والشيف، مع تقفيل الورديات اليومية وتسوية العهد يوم بيوم.'
-                : 'إدارة وتصنيف المناديب والمتاجر، ومتابعة الفحص الطبي والجنائي وإحداثيات الموقع بدقة.'}
-            </p>
-          </div>
+      {/* Merchant Sub-tabs (Accounts vs Daily Shifts) */}
+      {mode === 'merchant' && (
+        <div className="flex items-center gap-2 bg-white rounded-xl border border-slate-200 p-2 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setMerchantSubTab('accounts')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer font-body ${
+              merchantSubTab === 'accounts'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            <Users size={14} />
+            <span>حسابات طاقم الفرع والطيارين</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+              merchantSubTab === 'accounts' ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {displayUsersCount}
+            </span>
+          </button>
 
-          {/* Action Button */}
-          <div className="shrink-0">
-            <button
-              type="button"
-              onClick={openCreateForm}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
-            >
-              <Plus size={15} />
-              <span>{mode === 'merchant' ? '+ إضافة موظف / كابتن جديد' : '+ إضافة مستخدم'}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setMerchantSubTab('shifts')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer font-body ${
+              merchantSubTab === 'shifts'
+                ? 'bg-orange-600 text-white shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            <Clock size={14} />
+            <span>ورديات العمل والتقفيل اليومي (Z-Report)</span>
+            {shifts.some(s => s.status === 'open') && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            )}
+          </button>
         </div>
+      )}
 
-        {/* Merchant Sub-tabs (Accounts vs Daily Shifts) */}
-        {mode === 'merchant' && (
-          <div className="flex items-center gap-2 border-t border-slate-100 pt-3 mt-3">
-            <button
-              type="button"
-              onClick={() => setMerchantSubTab('accounts')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-                merchantSubTab === 'accounts'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              <Users size={14} />
-              <span>حسابات طاقم الفرع والطيارين</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                merchantSubTab === 'accounts' ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'
-              }`}>
-                {displayUsersCount}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMerchantSubTab('shifts')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-                merchantSubTab === 'shifts'
-                  ? 'bg-orange-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              <Clock size={14} />
-              <span>ورديات العمل والتقفيل اليومي (Z-Report)</span>
-              {shifts.some(s => s.status === 'open') && (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              )}
-            </button>
+      {/* Success / Alert Banner */}
+      {notice && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-medium flex items-center justify-between font-body animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <Check size={16} className="text-emerald-600 shrink-0" />
+            <span>{notice}</span>
           </div>
-        )}
-
-        {/* Success / Alert Banner (Exact Image 3 Style) */}
-        {notice && (
-          <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200/90 text-emerald-800 rounded-lg text-xs font-medium flex items-center justify-between animate-fadeIn">
-            <div className="flex items-center gap-2">
-              <Check size={15} className="text-emerald-600 shrink-0" />
-              <span>{notice}</span>
-            </div>
-            <button type="button" onClick={() => setNotice('')} className="text-emerald-600 hover:text-emerald-800 text-xs font-bold cursor-pointer">
-              إغلاق
-            </button>
-          </div>
-        )}
-
-        {/* Global Error Notice */}
-        {error && !isFormModalOpen && (
-          <div className="mt-3 p-2.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs font-medium flex items-center gap-2">
-            <AlertCircle size={15} className="text-rose-600 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-      </div>
-
-      {/* 2. KPI Summary Row (Exact Image 3 Proportions & Icons) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {/* Card 1: Total Users */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[11px] font-bold text-slate-500">إجمالي الحسابات</p>
-            <p className="text-lg sm:text-xl font-black text-slate-900 mt-0.5">{kpiData.total}</p>
-          </div>
-          <div className="w-9 h-9 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
-            <Building2 size={17} />
-          </div>
+          <button type="button" onClick={() => setNotice('')} className="text-emerald-700 hover:text-emerald-900 text-xs font-bold cursor-pointer font-body">
+            إغلاق
+          </button>
         </div>
+      )}
 
-        {/* Card 2: Couriers */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[11px] font-bold text-slate-500">مناديب التوصيل</p>
-            <p className="text-lg sm:text-xl font-black text-amber-700 mt-0.5">{kpiData.couriers}</p>
-          </div>
-          <div className="w-9 h-9 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-            <Bike size={17} />
-          </div>
+      {/* Global Error Notice */}
+      {error && !isFormModalOpen && (
+        <div className="p-3 bg-rose-50 border border-rose-200 text-rose-900 rounded-xl text-xs font-medium flex items-center gap-2 font-body animate-in fade-in">
+          <AlertCircle size={16} className="text-rose-600 shrink-0" />
+          <span>{error}</span>
         </div>
+      )}
 
-        {/* Card 3: Merchants */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[11px] font-bold text-slate-500">المتاجر والشركاء</p>
-            <p className="text-lg sm:text-xl font-black text-blue-700 mt-0.5">{kpiData.merchants}</p>
-          </div>
-          <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-            <StoreIcon size={17} />
-          </div>
-        </div>
-
-        {/* Card 4: Employees */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[11px] font-bold text-slate-500">عملاء المنظومة</p>
-            <p className="text-lg sm:text-xl font-black text-purple-700 mt-0.5">{kpiData.employees}</p>
-          </div>
-          <div className="w-9 h-9 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-            <Users size={17} />
-          </div>
-        </div>
-
-        {/* Card 5: Verified & Active */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[11px] font-bold text-slate-500">مفعلة ومعتمدة</p>
-            <p className="text-lg sm:text-xl font-black text-emerald-700 mt-0.5">{kpiData.verified}</p>
-          </div>
-          <div className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <Check size={17} />
-          </div>
-        </div>
+      {/* 2. Unified Stat Widgets (Design System Specification) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <StatCard
+          title="إجمالي الحسابات"
+          value={kpiData.total}
+          subtitle="كافة القيود المسجلة"
+          icon={<Building2 size={20} />}
+          iconBg="bg-slate-100 text-slate-700"
+        />
+        <StatCard
+          title="مناديب التوصيل"
+          value={kpiData.couriers}
+          subtitle="الكباتن والأسطول"
+          icon={<Bike size={20} />}
+          iconBg="bg-amber-50 text-amber-700 border border-amber-100"
+        />
+        <StatCard
+          title="المتاجر والشركاء"
+          value={kpiData.merchants}
+          subtitle="المطاعم والهايبر"
+          icon={<StoreIcon size={20} />}
+          iconBg="bg-teal-50 text-teal-700 border border-teal-100"
+        />
+        <StatCard
+          title="عملاء المنظومة"
+          value={kpiData.employees}
+          subtitle="الأفراد والمقرات"
+          icon={<Users size={20} />}
+          iconBg="bg-purple-50 text-purple-700 border border-purple-100"
+        />
+        <StatCard
+          title="مفعلة ومعتمدة"
+          value={kpiData.verified}
+          subtitle="جاهزة للتشغيل الفوري"
+          icon={<ShieldCheck size={20} />}
+          iconBg="bg-emerald-50 text-emerald-700 border border-emerald-100"
+        />
       </div>
 
       {/* 3. Search & Filter Bar (Image 3 Style) */}
@@ -1133,21 +1102,21 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
           )}
         </div>
       ) : (
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+      <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm font-body">
         <div className="overflow-x-auto">
           <table className="w-full text-right border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold text-[11px]">
-                <th className="py-2.5 px-3 text-center w-10">#</th>
-                <th className="py-2.5 px-3">اسم الحساب / الشهرة</th>
-                <th className="py-2.5 px-3">النوع والتصنيف</th>
-                <th className="py-2.5 px-3">الفحص الطبي والجنائي</th>
-                <th className="py-2.5 px-3">الوسيلة / اللوكيشن</th>
-                <th className="py-2.5 px-3 text-center">الحالة</th>
-                <th className="py-2.5 px-3 text-center min-w-[320px]">التحكم والإجراءات</th>
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold text-[11px] font-heading">
+              <tr>
+                <th className="px-4 py-3 text-center w-12 font-heading">#</th>
+                <th className="px-4 py-3 font-heading">اسم الحساب / الشهرة</th>
+                <th className="px-4 py-3 font-heading">النوع والتصنيف</th>
+                <th className="px-4 py-3 font-heading">الفحص الطبي والجنائي</th>
+                <th className="px-4 py-3 font-heading">الوسيلة / اللوكيشن</th>
+                <th className="px-4 py-3 text-center font-heading">الحالة</th>
+                <th className="px-4 py-3 text-center min-w-[320px] font-heading">التحكم والإجراءات</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 font-body">
               {visibleUsers.map((user, index) => {
                 const isCourier = user.role === 'courier';
                 const isMerchant = user.role === 'restaurant';
@@ -1329,19 +1298,11 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                       )}
                     </td>
 
-                    {/* Status Pill (Single Word: نشط / موقوف) */}
-                    <td className="py-3 px-3.5 text-center">
-                      {!user.disabled ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <span>نشط</span>
-                          <Check size={12} />
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                          <span>موقوف</span>
-                          <X size={12} />
-                        </span>
-                      )}
+                    {/* Status Pill (Single Word: نشط / موقوف via Badge Token) */}
+                    <td className="px-4 py-3 align-middle text-center font-body">
+                      <Badge variant={user.disabled ? "suspended" : "active"} size="sm">
+                        {user.disabled ? "موقوف" : "نشط"}
+                      </Badge>
                     </td>
 
                     {/* Action Buttons: Send Login Credentials + Preview + Edit + Status Toggle + Delete */}
