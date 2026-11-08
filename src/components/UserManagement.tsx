@@ -1244,7 +1244,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                       ) : isMerchant ? (
                         <div className="text-[11px] text-slate-600 font-medium">
                           {user.duty === 'manager' ? 'مسؤول المتجر المعتمد' : 'مسؤول تجهيز وتحضير'}
-                          <p className="text-[10px] text-slate-400">{user.emailVerified ? 'البريد موثق ✓' : 'في انتظار التوثيق'}</p>
+                          <p className="text-[10px] text-slate-400">{user.emailVerified !== false ? 'البريد موثق ✓' : 'في انتظار التوثيق'}</p>
                         </div>
                       ) : (
                         <div className="text-[11px] text-slate-500">
@@ -2762,8 +2762,8 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
               {/* Section 4: System & Metadata */}
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1 text-[11px] text-slate-500">
                 <div className="flex items-center justify-between">
-                  <span>البريد الإلكتروني: <strong className="text-slate-700" dir="ltr">{viewingUser.email}</strong> ({viewingUser.emailVerified ? 'موثق ✓' : 'غير موثق'})</span>
-                  <span>الرصيد المالي المسجل: <strong className="text-slate-800 font-mono">{formatEGP(viewingUser.walletBalance)}</strong></span>
+                  <span>البريد الإلكتروني: <strong className="text-slate-700" dir="ltr">{viewingUser.email}</strong> ({viewingUser.emailVerified !== false ? 'موثق ✓' : 'غير موثق'})</span>
+                  <span>الرصيد المالي المسجل: <strong className="text-slate-800 font-mono">{formatEGP(Number(viewingUser.walletBalance) || 0)}</strong></span>
                 </div>
                 <div className="flex items-center justify-between text-[10px]">
                   <span>تاريخ الإنشاء: {new Date(viewingUser.createdAt).toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' })}</span>
