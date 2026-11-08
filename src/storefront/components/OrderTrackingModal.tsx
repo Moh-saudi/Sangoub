@@ -4,7 +4,7 @@ import { useStore } from '../context/StoreContext';
 import { supabase } from '../../lib/supabase';
 import { 
   CheckCircle2, 
-  ChefHat, 
+  Package, 
   Bike, 
   PackageCheck, 
   X, 
@@ -188,10 +188,10 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
   const isCancelled = currentStatus === 'cancelled';
 
   const STAGES = [
-    { id: 'received', title: 'تم الاستلام', icon: CheckCircle2, desc: 'تم استلام وتأكيد طلبك بالمطعم' },
-    { id: 'preparing', title: 'قيد التجهيز', icon: ChefHat, desc: 'المتجر يجهز أصنافك طازجة الآن' },
+    { id: 'received', title: 'تم الاستلام', icon: CheckCircle2, desc: 'تم استلام وتأكيد طلبك بنجاح' },
+    { id: 'preparing', title: 'قيد التجهيز', icon: Package, desc: 'المتجر يجهز ويغلف أصناف طلبك الآن' },
     { id: 'with_courier', title: 'مع المندوب', icon: Bike, desc: 'المندوب استلم الطلب وهو في الطريق إليك' },
-    { id: 'delivered', title: 'تم التوصيل', icon: PackageCheck, desc: 'بالهناء والشفاء! تم تسليم طلبك بنجاح' },
+    { id: 'delivered', title: 'تم التوصيل', icon: PackageCheck, desc: 'تم تسليم طلبك بنجاح ✓' },
   ];
 
   // Collection status logic

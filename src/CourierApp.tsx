@@ -48,7 +48,7 @@ import {
 
 const states: Record<string, { label: string; color: string; icon: any }> = {
   received: { label: 'تم استلام الطلب', color: 'bg-slate-100 text-slate-800 border-slate-200', icon: Clock },
-  preparing: { label: 'جاري التحضير بالمطعم', color: 'bg-amber-50 text-amber-800 border-amber-200', icon: Clock },
+  preparing: { label: 'جارٍ التجهيز بالمتجر', color: 'bg-amber-50 text-amber-800 border-amber-200', icon: Clock },
   ready: { label: 'جاهز للاستلام من المتجر', color: 'bg-emerald-50 text-emerald-800 border-emerald-200', icon: PackageCheck },
   with_courier: { label: 'في الطريق للعميل', color: 'bg-blue-50 text-blue-800 border-blue-200', icon: Bike },
   delivered: { label: 'تم التسليم بنجاح', color: 'bg-emerald-50 text-emerald-800 border-emerald-200', icon: CheckCircle2 },

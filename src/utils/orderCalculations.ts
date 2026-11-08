@@ -122,11 +122,11 @@ export function getOrderStatusLabel(status: OrderStatus): { text: string; step: 
     case 'received':
       return { text: 'تم استلام الطلب بنجاح', step: 1, colorClass: 'text-amber-600 bg-amber-50 border-amber-200' };
     case 'preparing':
-      return { text: 'مقبول وجاري التحضير بالمطعم', step: 2, colorClass: 'text-blue-600 bg-blue-50 border-blue-200' };
+      return { text: 'مقبول وجارٍ تجهيز الطلب بالمتجر', step: 2, colorClass: 'text-blue-600 bg-blue-50 border-blue-200' };
     case 'with_courier':
       return { text: 'تم التسليم للمندوب وهو في الطريق إليك', step: 4, colorClass: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
     case 'ready':
-      return { text: 'جاهز للاستلام بالمطعم', step: 3, colorClass: 'text-orange-700 bg-orange-50 border-orange-200' };
+      return { text: 'جاهز ومغلف للاستلام بالمتجر', step: 3, colorClass: 'text-orange-700 bg-orange-50 border-orange-200' };
     case 'delivered':
       return { text: 'تم تسليم الطلب بنجاح ✓', step: 5, colorClass: 'text-teal-700 bg-teal-50 border-teal-200' };
     case 'cancelled':
