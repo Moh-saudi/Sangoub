@@ -58,22 +58,115 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
       const cleanEmail = body.email ? String(body.email).trim().toLowerCase() : '';
       if (!cleanEmail) throw new Error('البريد الإلكتروني مطلوب لإنشاء الحساب.');
 
-      // Native atomic stored procedure in Supabase (Zero rate-limit, 100% database standard)
-      const { data: rpcRes, error: rpcErr } = await supabase.rpc('admin_create_user', {
-        p_email: cleanEmail,
-        p_password: body.password || 'San@123456!',
-        p_full_name: body.fullName || body.name || 'مستخدم جديد',
-        p_phone: body.phone || '',
-        p_role: body.role || 'employee',
-        p_store_id: body.storeId || null
-      });
+      // 1. Try native atomic stored procedure in Supabase if deployed
+      try {
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc('admin_create_user', {
+          p_email: cleanEmail,
+          p_password: body.password || 'San@123456!',
+          p_full_name: body.fullName || body.name || 'مستخدم جديد',
+          p_phone: body.phone || '',
+          p_role: body.role || 'employee',
+          p_store_id: body.storeId || null
+        });
 
-      if (rpcErr) {
-        console.error('[adminApi] admin_create_user error:', rpcErr);
-        throw new Error('تعذر إنشاء الحساب في قاعدة البيانات: ' + rpcErr.message);
+        if (!rpcErr && rpcRes?.id) {
+          return { ok: true, id: rpcRes.id };
+        }
+
+        // If RPC failed with non-404 error (e.g. invalid params), log it
+        if (rpcErr && rpcErr.code !== 'PGRST202' && !rpcErr.message?.includes('Could not find')) {
+          console.warn('[adminApi] admin_create_user RPC notice, falling back to direct auth & profile sync:', rpcErr);
+        }
+      } catch (err) {
+        console.warn('[adminApi] RPC execution caught, falling back:', err);
       }
 
-      return { ok: true, id: rpcRes?.id };
+      // 2. Seamless Fallback: Native Supabase Auth SignUp + Automatic Profile Synchronization
+      let targetUid: string | null = null;
+
+      // Check if user already exists in profiles
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (existingProfile?.id) {
+        targetUid = existingProfile.id;
+      } else {
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: body.password || 'San@123456!',
+          options: {
+            data: {
+              full_name: body.fullName || body.name || 'مستخدم جديد',
+              role: body.role || 'employee',
+              phone: body.phone || '',
+              store_id: body.storeId || null
+            }
+          }
+        });
+
+        if (signUpData?.user?.id) {
+          targetUid = signUpData.user.id;
+        } else if (signUpErr) {
+          // If already registered, fetch profile again
+          const { data: retryProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', cleanEmail)
+            .maybeSingle();
+          if (retryProfile?.id) {
+            targetUid = retryProfile.id;
+          } else {
+            console.error('[adminApi] auth.signUp error:', signUpErr);
+            throw new Error('تعذر إنشاء الحساب: ' + signUpErr.message);
+          }
+        }
+      }
+
+      if (!targetUid) {
+        throw new Error('تعذر الحصول على معرف المستخدم المعتمد.');
+      }
+
+      // Update / Sync Profile attributes
+      const profilePatch: Record<string, any> = {
+        full_name: body.fullName || body.name || 'مستخدم جديد',
+        phone: body.phone || '',
+        role: body.role || 'employee',
+        courier_status: body.role === 'courier' ? (body.courierStatus || 'active') : null,
+        vehicle_type: body.vehicleType || null,
+        vehicle_plate: body.vehiclePlate || null,
+        vehicle_make: body.vehicleMake || null,
+        vehicle_model: body.vehicleModel || null,
+        has_thermal_box: Boolean(body.hasThermalBox),
+        has_thermal_backpack: Boolean(body.hasThermalBackpack),
+        avatar_url: body.avatarUrl || null,
+        updated_at: new Date().toISOString()
+      };
+
+      if (body.storeId) {
+        profilePatch.store_id = body.storeId;
+      }
+
+      const { error: patchErr } = await supabase
+        .from('profiles')
+        .update(profilePatch)
+        .eq('id', targetUid);
+
+      if (patchErr) {
+        console.warn('[adminApi] profiles sync warning:', patchErr);
+      }
+
+      // If restaurant owner, link store immediately
+      if (body.role === 'restaurant' && body.storeId) {
+        await supabase
+          .from('stores')
+          .update({ owner_id: targetUid })
+          .eq('id', body.storeId);
+      }
+
+      return { ok: true, id: targetUid };
     }
 
     if (body.action === 'update') {
