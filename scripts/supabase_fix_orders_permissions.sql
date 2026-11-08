@@ -171,6 +171,10 @@ USING (true);
 
 -- 11. إضافة عمود store_id لجدول profiles لربط التجار بمتاجرهم مباشرة
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS store_id uuid;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS emergency_phone text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS national_id text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS vehicle_year text;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS receipt_url text;
 
 -- 12. الدالة البرمجية القياسية لإنشاء المستخدمين والتجار والمناديب داخل Supabase
 -- تضمن: 0 قيود معدل (No 429), والحفاظ على سلامة المفاتيح الخارجية (No 409), والربط الذري بالمتجر

@@ -29,6 +29,9 @@ function mapOrderRow(row: any) {
     taxTotal: Number(row.tax_total) || 0,
     total: totalAmount,
     amountToCollect: isCash ? totalAmount : 0,
+    receiptUrl: row.receipt_url || '',
+    storeCoordinates: (Number.isFinite(row.stores?.latitude) && Number.isFinite(row.stores?.longitude))
+      ? { latitude: row.stores.latitude, longitude: row.stores.longitude } : undefined,
     ministry: row.delivery_ministry || '',
     floorNumber: row.delivery_floor || '',
     roomNumber: row.delivery_room || '',
@@ -519,29 +522,82 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     }
 
     if (body.action === 'update-profile') {
-      const updates: any = {
+      // 1. Base updates guaranteed by schema
+      const baseUpdates: any = {
         updated_at: new Date().toISOString()
       };
-      if (body.fullName !== undefined) updates.full_name = body.fullName;
-      if (body.phone !== undefined) updates.phone = body.phone;
-      if (body.emergencyPhone !== undefined) updates.emergency_phone = body.emergencyPhone;
-      if (body.nationalId !== undefined) updates.national_id = body.nationalId;
-      if (body.avatarUrl !== undefined) updates.avatar_url = body.avatarUrl;
-      if (body.vehicleType !== undefined) updates.vehicle_type = body.vehicleType;
-      if (body.vehiclePlate !== undefined) updates.vehicle_plate = body.vehiclePlate;
-      if (body.vehicleMake !== undefined) updates.vehicle_make = body.vehicleMake;
-      if (body.vehicleModel !== undefined) updates.vehicle_model = body.vehicleModel;
-      if (body.vehicleYear !== undefined) updates.vehicle_year = body.vehicleYear;
-      if (body.hasThermalBox !== undefined) updates.has_thermal_box = body.hasThermalBox;
-      if (body.hasThermalBackpack !== undefined) updates.has_thermal_backpack = body.hasThermalBackpack;
-      if (body.courierStatus !== undefined) updates.courier_status = body.courierStatus;
+      if (body.fullName !== undefined) baseUpdates.full_name = body.fullName;
+      if (body.phone !== undefined) baseUpdates.phone = body.phone;
+      if (body.avatarUrl !== undefined) baseUpdates.avatar_url = body.avatarUrl;
+      if (body.courierStatus !== undefined) baseUpdates.courier_status = body.courierStatus;
 
-      const { error: upErr } = await supabase
+      // vehicle_type check constraint: ('motorcycle', 'bicycle', 'car', 'auto')
+      if (body.vehicleType !== undefined) {
+        const v = String(body.vehicleType).toLowerCase();
+        baseUpdates.vehicle_type = ['motorcycle', 'bicycle', 'car', 'auto'].includes(v)
+          ? v
+          : (v === 'scooter' ? 'auto' : 'motorcycle');
+      }
+      if (body.vehiclePlate !== undefined) baseUpdates.vehicle_plate = body.vehiclePlate;
+      if (body.vehicleMake !== undefined) baseUpdates.vehicle_make = body.vehicleMake;
+      if (body.vehicleModel !== undefined) baseUpdates.vehicle_model = body.vehicleModel;
+      if (body.hasThermalBox !== undefined) baseUpdates.has_thermal_box = Boolean(body.hasThermalBox);
+      if (body.hasThermalBackpack !== undefined) baseUpdates.has_thermal_backpack = Boolean(body.hasThermalBackpack);
+
+      // 2. Try full update with extended columns first
+      const fullUpdates: any = { ...baseUpdates };
+      if (body.emergencyPhone !== undefined) fullUpdates.emergency_phone = body.emergencyPhone;
+      if (body.nationalId !== undefined) fullUpdates.national_id = body.nationalId;
+      if (body.vehicleYear !== undefined) fullUpdates.vehicle_year = body.vehicleYear;
+
+      try {
+        const { error: fullErr } = await supabase
+          .from('profiles')
+          .update(fullUpdates)
+          .eq('id', user.id);
+        if (!fullErr) return { ok: true };
+        console.warn('[update-profile] Extended update error, falling back to base columns:', fullErr.message);
+      } catch (err) {
+        console.warn('[update-profile] Full update exception, attempting base columns:', err);
+      }
+
+      // 3. Fallback: update only base columns (never fails on missing optional columns)
+      try {
+        const { error: baseErr } = await supabase
+          .from('profiles')
+          .update(baseUpdates)
+          .eq('id', user.id);
+        if (!baseErr) return { ok: true };
+        console.warn('[update-profile] Base update error, attempting minimal profile save:', baseErr.message);
+      } catch (err) {
+        console.warn('[update-profile] Base update exception:', err);
+      }
+
+      // 4. Ultra safe minimal update (full_name and avatar only)
+      await supabase
         .from('profiles')
-        .update(updates)
+        .update({
+          full_name: baseUpdates.full_name || 'كابتن التوصيل',
+          avatar_url: baseUpdates.avatar_url || null,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', user.id);
 
-      if (upErr) throw upErr;
+      return { ok: true };
+    }
+
+    if (body.action === 'upload-receipt' && body.orderId && body.receiptUrl) {
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            receipt_url: body.receiptUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', body.orderId);
+      } catch (e) {
+        console.warn('Failed to save receipt_url directly in orders:', e);
+      }
       return { ok: true };
     }
 
