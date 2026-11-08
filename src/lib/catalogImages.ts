@@ -15,32 +15,41 @@ export async function uploadCatalogImage(
 ): Promise<{ key: string; url: string }> {
   validateCatalogImage(file);
 
-  // 1. Try Cloudflare R2 first via /api/catalog-images
-  try {
-    const target = await authenticatedApi("/api/catalog-images", {
-      action: "upload",
-      collection,
-      id,
-      contentType: file.type,
-      size: file.size,
-    });
+  const isStaticWeb = typeof window !== 'undefined' && 
+    (window.location.hostname.includes('el7lm.com') || 
+     window.location.hostname.includes('pages.dev') || 
+     window.location.hostname.includes('workers.dev') ||
+     window.location.hostname.includes('github.io') ||
+     window.location.hostname.includes('vercel.app'));
 
-    if (target?.uploadUrl && target?.publicUrl) {
-      const response = await fetch(target.uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-          "Cache-Control": "public, max-age=31536000, immutable",
-        },
+  // 1. Try Cloudflare R2 first via /api/catalog-images ONLY if backend server exists
+  if (!isStaticWeb) {
+    try {
+      const target = await authenticatedApi("/api/catalog-images", {
+        action: "upload",
+        collection,
+        id,
+        contentType: file.type,
+        size: file.size,
       });
 
-      if (response.ok) {
-        return { key: target.key as string, url: target.publicUrl as string };
+      if (target?.uploadUrl && target?.publicUrl) {
+        const response = await fetch(target.uploadUrl, {
+          method: "PUT",
+          body: file,
+          headers: {
+            "Content-Type": file.type,
+            "Cache-Control": "public, max-age=31536000, immutable",
+          },
+        });
+
+        if (response.ok) {
+          return { key: target.key as string, url: target.publicUrl as string };
+        }
       }
+    } catch (err) {
+      console.warn("Cloudflare R2 not configured or unavailable, using Supabase Storage fallback:", err);
     }
-  } catch (err) {
-    console.warn("Cloudflare R2 not configured or unavailable, using Supabase Storage fallback:", err);
   }
 
   // 2. High-speed Fallback: Supabase Storage Bucket 'catalog-images'
@@ -88,15 +97,24 @@ export async function saveCatalogWithImages(
 export async function deleteCatalogImage(key: string): Promise<void> {
   if (!key) return;
 
-  // Try Cloudflare R2 delete first
-  try {
-    await authenticatedApi("/api/catalog-images", {
-      action: "delete",
-      key,
-    });
-    return;
-  } catch (err) {
-    console.warn("Cloudflare R2 delete failed, trying Supabase Storage fallback:", err);
+  const isStaticWeb = typeof window !== 'undefined' && 
+    (window.location.hostname.includes('el7lm.com') || 
+     window.location.hostname.includes('pages.dev') || 
+     window.location.hostname.includes('workers.dev') ||
+     window.location.hostname.includes('github.io') ||
+     window.location.hostname.includes('vercel.app'));
+
+  // Try Cloudflare R2 delete first only if running with backend server
+  if (!isStaticWeb) {
+    try {
+      await authenticatedApi("/api/catalog-images", {
+        action: "delete",
+        key,
+      });
+      return;
+    } catch (err) {
+      console.warn("Cloudflare R2 delete failed, trying Supabase Storage fallback:", err);
+    }
   }
 
   // Fallback to Supabase Storage
