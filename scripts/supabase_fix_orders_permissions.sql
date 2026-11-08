@@ -170,7 +170,7 @@ FOR DELETE TO authenticated, anon
 USING (true);
 
 -- 11. إضافة عمود store_id لجدول profiles لربط التجار بمتاجرهم مباشرة
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS store_id text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS store_id uuid;
 
 -- 12. الدالة البرمجية القياسية لإنشاء المستخدمين والتجار والمناديب داخل Supabase
 -- تضمن: 0 قيود معدل (No 429), والحفاظ على سلامة المفاتيح الخارجية (No 409), والربط الذري بالمتجر
@@ -190,7 +190,17 @@ AS $$
 DECLARE
   v_user_id uuid;
   v_encrypted_pw text;
+  v_store_uuid uuid := NULL;
 BEGIN
+  -- تحويل معرّف المتجر النصي إلى UUID بأمان تام لتوافق نوع العمود في profiles
+  BEGIN
+    IF p_store_id IS NOT NULL AND trim(p_store_id) <> '' THEN
+      v_store_uuid := trim(p_store_id)::uuid;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    v_store_uuid := NULL;
+  END;
+
   -- 1. التحقق من وجود المستخدم مسبقاً في auth.users
   SELECT id INTO v_user_id FROM auth.users WHERE email = lower(trim(p_email));
   
@@ -235,7 +245,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- 3. إدراج أو تحديث بيانات الملف الشخصي في public.profiles بنفس المعرف بدقة
+  -- 3. إدراج أو تحديث بيانات الملف الشخصي في public.profiles بنفس المعرف وبنوع UUID السليم
   INSERT INTO public.profiles (
     id,
     full_name,
@@ -252,7 +262,7 @@ BEGIN
     lower(trim(p_email)),
     p_phone,
     p_role,
-    p_store_id,
+    v_store_uuid,
     'active',
     NOW(),
     NOW()
@@ -266,10 +276,10 @@ BEGIN
     updated_at = NOW();
 
   -- 4. ربط المتجر مباشرة بالمالك الجديد
-  IF p_role = 'restaurant' AND p_store_id IS NOT NULL AND p_store_id <> '' THEN
+  IF p_role = 'restaurant' AND v_store_uuid IS NOT NULL THEN
     UPDATE public.stores
     SET owner_id = v_user_id
-    WHERE id::text = p_store_id;
+    WHERE id = v_store_uuid;
   END IF;
 
   RETURN jsonb_build_object('ok', true, 'id', v_user_id);
