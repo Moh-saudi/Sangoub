@@ -150,7 +150,24 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   onLoadHistory,
   onRefreshProducts,
 }) => {
-  const userStore = stores.find((s) => s.id === currentProfile.storeId) || stores[0];
+  const fallbackStore: Store = {
+    id: currentProfile?.storeId || 'store_default',
+    name: 'بوابة المتجر والمطبخ',
+    status: 'open',
+    category: 'مطعم',
+    rating: 5,
+    ratingCount: 1,
+    deliveryTime: '20-30 دقيقة',
+    minOrder: 0,
+    deliveryFee: 0,
+    commissionRate: 10,
+    taxRate: 0,
+  } as Store;
+
+  const userStore = (Array.isArray(stores) && stores.length > 0)
+    ? (stores.find((s) => s.id === currentProfile?.storeId) || stores[0] || fallbackStore)
+    : fallbackStore;
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAddCourierOpen, setIsAddCourierOpen] = useState(false);
@@ -169,7 +186,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   const [isRepositioningCover, setIsRepositioningCover] = useState(false);
   const [bannerPosY, setBannerPosY] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem(`sangoub_banner_pos_${userStore.id}`);
+      const saved = localStorage.getItem(`sangoub_banner_pos_${userStore?.id}`);
       if (saved) return Number(saved) || 50;
     } catch {}
     return 50;
@@ -182,37 +199,37 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   // Reactive state for Banner & Logo with persistent LocalStorage fallback
   const [activeBanner, setActiveBanner] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem(`sangoub_custom_banner_${userStore.id}`);
+      const saved = localStorage.getItem(`sangoub_custom_banner_${userStore?.id}`);
       if (saved) return saved;
     } catch {}
-    return userStore.bannerUrl || userStore.imageUrl || userStore.banner || '';
+    return userStore?.bannerUrl || userStore?.imageUrl || userStore?.banner || '';
   });
 
   const [activeLogo, setActiveLogo] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem(`sangoub_custom_logo_${userStore.id}`);
+      const saved = localStorage.getItem(`sangoub_custom_logo_${userStore?.id}`);
       if (saved) return saved;
     } catch {}
-    return userStore.logoUrl || userStore.logo || '';
+    return userStore?.logoUrl || userStore?.logo || '';
   });
 
   useEffect(() => {
     try {
-      const savedBanner = localStorage.getItem(`sangoub_custom_banner_${userStore.id}`);
+      const savedBanner = localStorage.getItem(`sangoub_custom_banner_${userStore?.id}`);
       if (savedBanner) {
         setActiveBanner(savedBanner);
-      } else if (userStore.bannerUrl || userStore.imageUrl || userStore.banner) {
+      } else if (userStore?.bannerUrl || userStore?.imageUrl || userStore?.banner) {
         setActiveBanner(userStore.bannerUrl || userStore.imageUrl || userStore.banner || '');
       }
 
-      const savedLogo = localStorage.getItem(`sangoub_custom_logo_${userStore.id}`);
+      const savedLogo = localStorage.getItem(`sangoub_custom_logo_${userStore?.id}`);
       if (savedLogo) {
         setActiveLogo(savedLogo);
-      } else if (userStore.logoUrl || userStore.logo) {
+      } else if (userStore?.logoUrl || userStore?.logo) {
         setActiveLogo(userStore.logoUrl || userStore.logo || '');
       }
     } catch {}
-  }, [userStore.id, userStore.bannerUrl, userStore.imageUrl, userStore.logoUrl]);
+  }, [userStore?.id, userStore?.bannerUrl, userStore?.imageUrl, userStore?.logoUrl]);
 
   function readFileAsDataUrl(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -3008,8 +3025,8 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
         <section className="rounded-2xl border bg-white p-4 space-y-4" aria-label="تتبع طلبات المتجر">
           <h3 className="text-lg font-bold">تتبع توصيل طلبات متجرك</h3>
           <p className="text-sm text-slate-600">موقع المندوب الذي يوصّل طلبًا من متجرك فقط. تُراجع البيانات كل 10 ثوانٍ أثناء فتح الخريطة؛ لا نعرض مواقع مناديب غير مرتبطين بطلباتك أو عنوان العميل.</p>
-          {orders.filter(order=>order.storeIds?.includes(userStore.id)&&order.orderStatus==='with_courier').length===0&&<p>لا توجد طلبات من متجرك قيد التوصيل الآن.</p>}
-          {orders.filter(order=>order.storeIds?.includes(userStore.id)&&order.orderStatus==='with_courier').slice(0,50).map(order=><MerchantOrderTracking key={order.id} order={order} open={trackingOrderId===order.id} onToggle={open=>setTrackingOrderId(current=>open?order.id:current===order.id?"":current)}/>)}
+          {orders.filter(order=>order.storeIds?.includes(userStore?.id)&&order.orderStatus==='with_courier').length===0&&<p>لا توجد طلبات من متجرك قيد التوصيل الآن.</p>}
+          {orders.filter(order=>order.storeIds?.includes(userStore?.id)&&order.orderStatus==='with_courier').slice(0,50).map(order=><MerchantOrderTracking key={order.id} order={order} open={trackingOrderId===order.id} onToggle={open=>setTrackingOrderId(current=>open?order.id:current===order.id?"":current)}/>)}
         </section>
       )}
 

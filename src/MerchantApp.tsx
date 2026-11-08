@@ -492,7 +492,13 @@ export default function MerchantApp() {
   // RENDER: 3. Logged-in Merchant Portal
   if (access === "merchant" && profile) {
     const safeStores = Array.isArray(stores) && stores.length > 0 ? stores : [];
-    const userStore = safeStores.find((s) => s.id === profile?.storeId) || safeStores[0];
+    const fallbackStore: Store = {
+      id: profile.storeId || 'store_default',
+      name: 'بوابة المتجر والمطبخ',
+      status: 'open',
+      category: 'مطعم',
+    } as Store;
+    const userStore = safeStores.find((s) => s.id === profile?.storeId) || safeStores[0] || fallbackStore;
     const activeItems = Array.isArray(feed?.items) ? feed.items : [];
 
     return (
@@ -502,10 +508,10 @@ export default function MerchantApp() {
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
             {/* Store & Mascot Info */}
             <div className="flex items-center gap-3 min-w-0">
-              {(typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore?.logoUrl || userStore?.logo ? (
+              {((userStore?.id && typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore?.logoUrl || userStore?.logo) ? (
                 <img
-                  src={(typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore.logoUrl || userStore.logo}
-                  alt={userStore.name}
+                  src={(userStore?.id && typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore?.logoUrl || userStore?.logo}
+                  alt={userStore?.name || 'بوابة المتجر والمطبخ'}
                   className="w-9 h-9 rounded-lg bg-white object-contain p-0.5 shrink-0 shadow-2xs border border-slate-700"
                 />
               ) : (
