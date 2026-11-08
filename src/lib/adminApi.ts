@@ -201,7 +201,11 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
 
     if (body.action === 'enable' || body.action === 'disable') {
       const newStatus = body.action === 'enable' ? 'active' : 'suspended';
-      await supabase.from('profiles').update({ courier_status: newStatus }).eq('id', body.uid);
+      const { error } = await supabase.from('profiles').update({ courier_status: newStatus }).eq('id', body.uid);
+      if (error) {
+        console.error('[adminApi] enable/disable error:', error);
+        throw new Error(error.message || 'تعذر تعديل حالة الحساب في قاعدة البيانات');
+      }
       return { ok: true };
     }
 

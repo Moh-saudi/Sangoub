@@ -570,16 +570,30 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
   async function handleToggleStatus(user: AccountRecord) {
     const action = user.disabled ? 'enable' : 'disable';
     const reason = user.disabled ? 'إعادة تفعيل الحساب للتشغيل الميداني' : 'إيقاف مؤقت للحساب لمراجعة السجلات';
+    const nextDisabled = !user.disabled;
     setBusy(true);
     setError('');
+
+    // تحديث تفاؤلي فوري على الشاشة ليظهر التغيير مباشرة دون أي تأخير
+    setUsers((prev) =>
+      prev.map((u) => (u.uid === user.uid ? { ...u, disabled: nextDisabled, courierStatus: nextDisabled ? 'suspended' : 'active' } : u))
+    );
+    if (viewingUser && viewingUser.uid === user.uid) {
+      setViewingUser({ ...viewingUser, disabled: nextDisabled, courierStatus: nextDisabled ? 'suspended' : 'active' });
+    }
+
     try {
       await adminApi('users', { action, uid: user.uid, reason });
-      setNotice(`تم ${user.disabled ? 'تفعيل' : 'تعطيل'} حساب (${user.fullName || user.email}) بنجاح.`);
+      setNotice(`تم ${nextDisabled ? 'إيقاف' : 'تفعيل'} حساب (${user.fullName || user.email}) بنجاح.`);
       setRevision((v) => v + 1);
-      if (viewingUser && viewingUser.uid === user.uid) {
-        setViewingUser({ ...viewingUser, disabled: !viewingUser.disabled });
-      }
     } catch (e) {
+      // استرجاع الحالة السابقة في حال حدوث خطأ
+      setUsers((prev) =>
+        prev.map((u) => (u.uid === user.uid ? { ...u, disabled: user.disabled, courierStatus: user.courierStatus } : u))
+      );
+      if (viewingUser && viewingUser.uid === user.uid) {
+        setViewingUser({ ...viewingUser, disabled: user.disabled, courierStatus: user.courierStatus });
+      }
       setError((e as Error).message);
     } finally {
       setBusy(false);
@@ -1315,16 +1329,16 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                       )}
                     </td>
 
-                    {/* Status Pill (Image 3 Style: Green Pill with Checkmark) */}
+                    {/* Status Pill (Single Word: نشط / موقوف) */}
                     <td className="py-3 px-3.5 text-center">
                       {!user.disabled ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <span>نشط ومفعل</span>
+                          <span>نشط</span>
                           <Check size={12} />
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                          <span>معطل</span>
+                          <span>موقوف</span>
                           <X size={12} />
                         </span>
                       )}
@@ -2637,11 +2651,11 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                     </h3>
                   {!viewingUser.disabled ? (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      نشط ومتاح ✓
+                      نشط ✓
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                      معطل
+                      موقوف ✕
                     </span>
                   )}
                 </div>

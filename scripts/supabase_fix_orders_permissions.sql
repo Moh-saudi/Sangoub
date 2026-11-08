@@ -369,8 +369,9 @@ VALUES
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   price = EXCLUDED.price,
-  category = EXCLUDED.category;
-
-
+  category = EXCLUDED.category;-- 19. تفعيل وتنشيط كافة الحسابات الحالية لتكون نشطة افتراضياً
+UPDATE public.profiles
+SET courier_status = 'active'
+WHERE courier_status IS NULL OR courier_status = 'pending';
 
 
