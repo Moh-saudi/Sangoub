@@ -1306,17 +1306,17 @@ export function OffersManager({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in"
           dir="rtl"
         >
-          <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-            <header className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
+          <div className="bg-white rounded-3xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <header className="px-5 py-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-orange-600 text-white flex items-center justify-center">
-                  <Tag size={18} />
+                <div className="w-8 h-8 rounded-xl bg-orange-600 text-white flex items-center justify-center shadow-2xs">
+                  <Tag size={16} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900">اختر الصنف المراد تطبيق العرض عليه</h3>
+                  <h3 className="text-sm font-black text-slate-900">اختر الصنف لتطبيق العرض</h3>
                   <p className="text-[11px] text-slate-500">
                     {currentStore ? `أصناف منيو متجر ${currentStore.name}` : 'جميع أصناف الكتالوج'}
                   </p>
@@ -1325,7 +1325,7 @@ export function OffersManager({
               <button
                 type="button"
                 onClick={() => setIsPickerOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 cursor-pointer transition"
               >
                 <X size={15} />
               </button>
@@ -1435,344 +1435,334 @@ export function OffersManager({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in"
           dir="rtl"
         >
-          <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[90vh]">
-            <header className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
+          <div className="bg-white rounded-3xl max-w-3xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[90vh]">
+            <header className="px-5 py-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-orange-600 text-white flex items-center justify-center">
-                  <Tag size={18} />
+                <div className="w-8 h-8 rounded-xl bg-orange-600 text-white flex items-center justify-center shadow-2xs">
+                  <Tag size={16} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900">إدارة وتفعيل العرض الترويجي</h3>
-                  <p className="text-[11px] text-slate-500">حدد نسبة الخصم وسعر البيع وشروط العرض</p>
+                  <h3 className="text-sm font-black text-slate-900">إدارة وتفعيل العرض</h3>
+                  <p className="text-[11px] text-slate-500">تحديد الخصم وسعر البيع وشروط ظهور العرض</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 cursor-pointer transition"
               >
                 <X size={15} />
               </button>
             </header>
 
-            <form onSubmit={handleSaveOffer} className="p-5 space-y-4 text-xs overflow-y-auto">
-              {/* Product Info Summary Header */}
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 overflow-hidden shrink-0">
-                    {selectedProduct.imageUrl ? (
-                      <img src={selectedProduct.imageUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-300 text-xl">
-                        🍽️
+            <form onSubmit={handleSaveOffer} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-5 overflow-y-auto max-h-[72vh] grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                {/* ── العمود الأيمن: بيانات التسعير والخصم والشروط ── */}
+                <div className="space-y-3.5">
+                  {/* ملخص الصنف مع إمكانية التغيير */}
+                  <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 overflow-hidden shrink-0">
+                        {selectedProduct.imageUrl ? (
+                          <img src={selectedProduct.imageUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-300 text-base">🍽️</div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="text-xs font-black text-slate-900 truncate">{selectedProduct.name}</h4>
-                    <span className="text-[10px] text-slate-500 block truncate">{selectedProduct.category}</span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setIsPickerOpen(true);
-                  }}
-                  className="px-2.5 py-1 text-[11px] font-bold text-orange-600 hover:bg-orange-50 rounded-lg cursor-pointer shrink-0"
-                >
-                  تغيير الصنف
-                </button>
-              </div>
-
-              {/* ── Smart Discount Calculator ── */}
-              <div className="p-4 bg-orange-50/60 rounded-2xl border border-orange-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-orange-950 flex items-center gap-1.5">
-                    <Percent size={14} className="text-orange-600" />
-                    <span>حاسبة الخصم والتسعير الذكية</span>
-                  </span>
-                  <span className="text-[10px] text-orange-700 font-bold">
-                    وفرت: {formatEGP(Math.max(0, formOriginalPrice - formSalePrice))} ({formDiscountPercent}%)
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2.5">
-                  {/* Original Price */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                      السعر الأساسي (ج.م) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      step="1"
-                      value={formOriginalPrice || ''}
-                      onChange={(e) => handleOriginalPriceChange(Number(e.target.value))}
-                      className="w-full px-2.5 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-orange-500"
-                    />
-                  </div>
-
-                  {/* Discount Percentage % */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                      نسبة الخصم (%) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      max="90"
-                      step="1"
-                      value={formDiscountPercent || ''}
-                      onChange={(e) => handleDiscountPercentChange(Number(e.target.value))}
-                      className="w-full px-2.5 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-orange-700 focus:outline-none focus:border-orange-500"
-                    />
-                  </div>
-
-                  {/* Sale Price */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                      سعر البيع بالعرض (ج.م) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      step="1"
-                      value={formSalePrice || ''}
-                      onChange={(e) => handleSalePriceChange(Number(e.target.value))}
-                      className="w-full px-2.5 py-2 bg-white border border-slate-300 rounded-xl font-mono font-black text-emerald-700 focus:outline-none focus:border-orange-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Quick Discount Percent Pills */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  <span className="text-[10px] text-slate-500 font-bold">نسب سريعة:</span>
-                  {[10, 15, 20, 25, 30, 40, 50].map((pct) => (
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-black text-slate-900 truncate">{selectedProduct.name}</h4>
+                        <span className="text-[10px] text-slate-500 block truncate">{selectedProduct.category}</span>
+                      </div>
+                    </div>
                     <button
-                      key={pct}
                       type="button"
-                      onClick={() => handleDiscountPercentChange(pct)}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold cursor-pointer transition ${
-                        formDiscountPercent === pct
-                          ? 'bg-orange-600 text-white'
-                          : 'bg-white hover:bg-orange-100 text-slate-700 border border-slate-200'
-                      }`}
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        setIsPickerOpen(true);
+                      }}
+                      className="px-2.5 py-1 text-[11px] font-bold text-orange-600 hover:bg-orange-50 rounded-lg cursor-pointer shrink-0 transition"
                     >
-                      {pct}%
+                      تغيير الصنف
                     </button>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              {/* Offer Title */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  اسم أو عنوان العرض الترويجي *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="مثال: وجبة التوفير العائلية، عرض الغداء السريع"
-                  value={formOfferTitle}
-                  onChange={(e) => setFormOfferTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-orange-500"
-                />
-              </div>
+                  {/* صندوق الأسعار والخصومات */}
+                  <div className="p-3 bg-orange-50/50 rounded-2xl border border-orange-200 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs font-black text-orange-950">
+                      <span className="flex items-center gap-1.5">
+                        <Percent size={14} className="text-orange-600" />
+                        <span>بيانات التسعير والخصم</span>
+                      </span>
+                      <span className="text-[10px] text-emerald-800 font-bold bg-white px-2 py-0.5 rounded-lg border border-orange-200">
+                        وفرت: {formatEGP(Math.max(0, formOriginalPrice - formSalePrice))} ({formDiscountPercent}%)
+                      </span>
+                    </div>
 
-              {/* Occasion / Seasonal Deal Toggle */}
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer">
-                    <Sparkles size={14} className="text-indigo-600" />
-                    <span>هل هذا العرض مرتبط بمناسبة أو موسم خاص؟</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setFormIsOccasion(!formIsOccasion)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      formIsOccasion ? 'bg-indigo-600' : 'bg-slate-300'
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        formIsOccasion ? '-translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                          السعر الأصلي *
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min="1"
+                          step="1"
+                          value={formOriginalPrice || ''}
+                          onChange={(e) => handleOriginalPriceChange(Number(e.target.value))}
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-xs text-slate-900 focus:outline-none focus:border-orange-500"
+                        />
+                      </div>
 
-                {formIsOccasion && (
-                  <div className="space-y-2 pt-1 border-t border-slate-200/80 animate-in fade-in">
-                    <label className="block text-[10px] font-bold text-slate-600">اسم المناسبة أو الموسم:</label>
-                    <input
-                      type="text"
-                      placeholder="مثال: شهر رمضان المبارك، عروض الصيف"
-                      value={formOccasionName}
-                      onChange={(e) => setFormOccasionName(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-indigo-500"
-                    />
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                          نسبة الخصم *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            required
+                            min="1"
+                            max="90"
+                            step="1"
+                            value={formDiscountPercent || ''}
+                            onChange={(e) => handleDiscountPercentChange(Number(e.target.value))}
+                            className="w-full pl-6 pr-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-xs text-orange-700 focus:outline-none focus:border-orange-500"
+                          />
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-bold">%</span>
+                        </div>
+                      </div>
 
-                    {/* Occasion Presets */}
-                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                      {OCCASION_PRESETS.map((p) => (
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                          سعر العرض *
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min="1"
+                          step="1"
+                          value={formSalePrice || ''}
+                          onChange={(e) => handleSalePriceChange(Number(e.target.value))}
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-black text-xs text-emerald-700 focus:outline-none focus:border-orange-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* خيارات سريعة للخصم */}
+                    <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                      <span className="text-[10px] text-slate-500 font-bold ml-1">نسب سريعة:</span>
+                      {[10, 15, 20, 25, 30, 40, 50].map((pct) => (
                         <button
-                          key={p.label}
+                          key={pct}
                           type="button"
-                          onClick={() => setFormOccasionName(p.label)}
-                          className="px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                          onClick={() => handleDiscountPercentChange(pct)}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold cursor-pointer transition ${
+                            formDiscountPercent === pct
+                              ? 'bg-orange-600 text-white shadow-2xs'
+                              : 'bg-white hover:bg-orange-100 text-slate-700 border border-slate-200'
+                          }`}
                         >
-                          <span>{p.icon}</span>
-                          <span>{p.label}</span>
+                          {pct}%
                         </button>
                       ))}
                     </div>
                   </div>
-                )}
-              </div>
 
-              {/* Marketing Badge Selection */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  الشارة التسويقية المميزة (Badge)
-                </label>
-                <input
-                  type="text"
-                  value={formBadge}
-                  onChange={(e) => setFormBadge(e.target.value)}
-                  placeholder="مثال: 🔥 عرض خاص"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-orange-500 mb-1.5"
-                />
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {BADGE_PRESETS.map((b) => (
-                    <button
-                      key={b}
-                      type="button"
-                      onClick={() => setFormBadge(b)}
-                      className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold cursor-pointer"
-                    >
-                      {b}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Max Per Order & Date Range */}
-              <div className="grid grid-cols-3 gap-2.5">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                    أقصى حد للعميل
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="50"
-                    value={formMaxPerOrder}
-                    onChange={(e) => setFormMaxPerOrder(Number(e.target.value))}
-                    className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:border-orange-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                    تاريخ البداية
-                  </label>
-                  <input
-                    type="date"
-                    value={formStartDate}
-                    onChange={(e) => setFormStartDate(e.target.value)}
-                    className="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-900 focus:outline-none focus:border-orange-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                    تاريخ الانتهاء
-                  </label>
-                  <input
-                    type="date"
-                    value={formEndDate}
-                    onChange={(e) => setFormEndDate(e.target.value)}
-                    className="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-900 focus:outline-none focus:border-orange-500"
-                  />
-                </div>
-              </div>
-
-              {/* ── Live Customer Preview Card ── */}
-              <div className="pt-2 border-t border-slate-100">
-                <span className="text-[10px] font-black text-slate-400 block mb-1.5 uppercase tracking-wider">
-                  معاينة مباشرة لشكل العرض للعميل:
-                </span>
-                <div className="p-3 bg-slate-100/70 rounded-2xl border border-slate-200 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 overflow-hidden shrink-0 relative">
-                      {selectedProduct.imageUrl ? (
-                        <img src={selectedProduct.imageUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-300">🍽️</div>
-                      )}
-                      <span className="absolute top-0 right-0 bg-rose-600 text-white text-[8px] font-black px-1 rounded-bl">
-                        -{formDiscountPercent}%
-                      </span>
+                  {/* الشروط والتواريخ */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                        الحد الأقصى للطلب
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={formMaxPerOrder}
+                        onChange={(e) => setFormMaxPerOrder(Number(e.target.value))}
+                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-900 focus:outline-none focus:border-orange-500"
+                      />
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <h5 className="text-xs font-bold text-slate-900 truncate">{selectedProduct.name}</h5>
-                        {formIsOccasion && (
-                          <span className="text-[9px] font-bold text-indigo-700 bg-indigo-100 px-1.5 py-0.2 rounded">
-                            🌙 {formOccasionName || 'مناسبة'}
-                          </span>
-                        )}
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                        تاريخ البدء
+                      </label>
+                      <input
+                        type="date"
+                        value={formStartDate}
+                        onChange={(e) => setFormStartDate(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-[11px] text-slate-900 focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                        تاريخ الانتهاء
+                      </label>
+                      <input
+                        type="date"
+                        value={formEndDate}
+                        onChange={(e) => setFormEndDate(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-[11px] text-slate-900 focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── العمود الأيسر: هوية العرض والشارة والمعاينة ── */}
+                <div className="space-y-3.5">
+                  {/* عنوان العرض الترويجي */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                      عنوان العرض *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="مثال: وجبة التوفير العائلية، عرض الغداء"
+                      value={formOfferTitle}
+                      onChange={(e) => setFormOfferTitle(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs text-slate-900 focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  {/* شارة العرض */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10px] font-bold text-slate-700">شارة ونوع العرض</label>
+                      <button
+                        type="button"
+                        onClick={() => setFormIsOccasion(!formIsOccasion)}
+                        className="text-[10px] text-indigo-600 font-bold hover:underline cursor-pointer"
+                      >
+                        {formIsOccasion ? 'إلغاء المناسبة' : '+ ربط بمناسبة'}
+                      </button>
+                    </div>
+
+                    <input
+                      type="text"
+                      value={formBadge}
+                      onChange={(e) => setFormBadge(e.target.value)}
+                      placeholder="مثال: 🔥 عرض خاص"
+                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs text-slate-900 focus:outline-none focus:border-orange-500 mb-1.5"
+                    />
+
+                    {/* خيارات الشارات السريعة */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {BADGE_PRESETS.map((b) => (
+                        <button
+                          key={b}
+                          type="button"
+                          onClick={() => setFormBadge(b)}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold cursor-pointer transition ${
+                            formBadge === b
+                              ? 'bg-orange-600 text-white shadow-2xs'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          }`}
+                        >
+                          {b}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* قسم المناسبات المدمج */}
+                    {formIsOccasion && (
+                      <div className="mt-2 p-2.5 bg-indigo-50/70 rounded-xl border border-indigo-200 space-y-1.5 animate-in fade-in">
+                        <label className="block text-[10px] font-bold text-indigo-900">المناسبة أو الموسم:</label>
+                        <input
+                          type="text"
+                          placeholder="مثال: شهر رمضان المبارك، عروض الصيف"
+                          value={formOccasionName}
+                          onChange={(e) => setFormOccasionName(e.target.value)}
+                          className="w-full px-2.5 py-1 bg-white border border-indigo-200 rounded-lg font-bold text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                        />
+                        <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                          {OCCASION_PRESETS.slice(0, 4).map((p) => (
+                            <button
+                              key={p.label}
+                              type="button"
+                              onClick={() => {
+                                setFormOccasionName(p.label);
+                                setFormBadge(`${p.icon} ${p.label}`);
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-white hover:bg-indigo-100 text-indigo-900 border border-indigo-200 text-[9px] font-bold flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>{p.icon}</span>
+                              <span>{p.label}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <span className="text-[10px] text-orange-600 font-bold block truncate">
-                        {formOfferTitle || 'عرض خاص'}
-                      </span>
-                    </div>
+                    )}
                   </div>
 
-                  <div className="text-left shrink-0">
-                    <strong className="text-sm font-black text-emerald-700 font-mono block">
-                      {formatEGP(formSalePrice)}
-                    </strong>
-                    <del className="text-[10px] text-slate-400 font-mono block">
-                      {formatEGP(formOriginalPrice)}
-                    </del>
+                  {/* معاينة مباشرة لشكل العرض للعميل */}
+                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                    <span className="text-[10px] font-black text-slate-400 block tracking-wider">
+                      معاينة شكل العرض بالمتجر:
+                    </span>
+                    <div className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-11 h-11 rounded-xl bg-slate-100 overflow-hidden shrink-0 relative border border-slate-200">
+                          {selectedProduct.imageUrl ? (
+                            <img src={selectedProduct.imageUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-300">🍽️</div>
+                          )}
+                          <span className="absolute top-0 right-0 bg-rose-600 text-white text-[8px] font-black px-1 rounded-bl">
+                            -{formDiscountPercent}%
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <h5 className="text-xs font-bold text-slate-900 truncate">{selectedProduct.name}</h5>
+                          <span className="text-[10px] text-orange-600 font-bold block truncate">
+                            {formBadge || formOfferTitle || '🔥 عرض خاص'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-left shrink-0">
+                        <strong className="text-sm font-black text-emerald-700 font-mono block">
+                          {formatEGP(formSalePrice)}
+                        </strong>
+                        <del className="text-[10px] text-slate-400 font-mono block">
+                          {formatEGP(formOriginalPrice)}
+                        </del>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Modal Actions */}
-              <div className="pt-2 space-y-2 border-t border-slate-100 shrink-0">
-                {Boolean(fixedStoreId) && (
-                  <p className="text-[10px] text-amber-800 bg-amber-50 p-2 rounded-xl border border-amber-200 leading-relaxed font-bold">
-                    📌 سيتم إرسال تفاصيل العرض الترويجي للإدارة المركزية لاعتماده رسمياً؛ لضمان التوافق التسعيري قبل ظهوره للعملاء بالمتجر.
-                  </p>
-                )}
-                <div className="flex items-center justify-end gap-2">
+              {/* ── شريط الإجراءات السفلي (سطر واحد ثابت بدون كسر) ── */}
+              <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+                <span className="text-[11px] font-bold text-slate-500 truncate hidden sm:inline">
+                  {fixedStoreId ? '💡 يخضع العرض لمراجعة الإدارة قبل ظهوره للعملاء' : '✓ تفعيل فوري ومباشر على المتجر'}
+                </span>
+
+                <div className="flex items-center gap-2.5 mr-auto shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer"
+                    className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap"
                   >
                     إلغاء
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50 active:scale-95"
+                    className="px-4 sm:px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
                   >
                     <Check size={14} />
                     <span>
                       {isSubmitting
-                        ? (fixedStoreId ? 'جارٍ إرسال الطلب…' : 'جارٍ تفعيل العرض…')
-                        : (fixedStoreId ? 'إرسال العرض للاعتماد المركزي' : 'اعتماد وتفعيل العرض')}
+                        ? 'جارٍ الحفظ…'
+                        : (fixedStoreId ? 'إرسال للاعتماد' : 'اعتماد وتفعيل')}
                     </span>
                   </button>
                 </div>
