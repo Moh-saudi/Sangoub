@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { operationsApi } from './lib/operationsApi';
 import { orderDelivery } from './lib/orderDelivery';
 import { useActivePortalOrders } from './lib/useActivePortalOrders';
-import { LoadingState, ErrorState, EmptyState } from './components/ui/DataStates';
+import { LoadingState, ErrorState } from './components/ui/DataStates';
 import { BRAND } from './brand';
 import { customerMessage } from './utils/customerMessage';
 import './courier.css';
@@ -30,7 +30,13 @@ import {
   Check,
   Lock,
   Mail,
-  AlertCircle
+  AlertCircle,
+  User,
+  Camera,
+  Car,
+  Save,
+  CheckCircle,
+  FileText
 } from 'lucide-react';
 
 const states: Record<string, { label: string; color: string; icon: any }> = {
@@ -40,6 +46,13 @@ const states: Record<string, { label: string; color: string; icon: any }> = {
   with_courier: { label: 'في الطريق للعميل', color: 'bg-blue-50 text-blue-800 border-blue-200', icon: Bike },
   delivered: { label: 'تم التسليم بنجاح', color: 'bg-emerald-50 text-emerald-800 border-emerald-200', icon: CheckCircle2 },
   cancelled: { label: 'ملغي', color: 'bg-rose-50 text-rose-800 border-rose-200', icon: AlertCircle }
+};
+
+const vehicleNames: Record<string, string> = {
+  motorcycle: 'دراجة نارية (موتوسيكل)',
+  car: 'سيارة نقل خفيف / ملاكي',
+  scooter: 'سكوتر كهربائي / بنزين',
+  bicycle: 'دراجة هوائية (عجلة)'
 };
 
 export default function CourierApp() {
@@ -55,11 +68,36 @@ export default function CourierApp() {
   const [currentEmail, setCurrentEmail] = useState('');
   const [revision, setRevision] = useState(0);
 
+  // Tabs: Active Tasks, History, Captain Profile
+  const [tab, setTab] = useState<'active' | 'history' | 'profile'>('active');
+
   const [history, setHistory] = useState<any[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
-  const [tab, setTab] = useState<'active' | 'history'>('active');
   const [historyBusy, setHistoryBusy] = useState(false);
+
+  // Profile data for captain
+  const [profileData, setProfileData] = useState({
+    fullName: '',
+    phone: '',
+    emergencyPhone: '',
+    nationalId: '',
+    avatarUrl: '',
+    vehicleType: 'motorcycle',
+    vehiclePlate: '',
+    vehicleMake: '',
+    vehicleModel: '',
+    vehicleYear: '',
+    hasThermalBox: false,
+    hasThermalBackpack: false,
+    courierStatus: 'active',
+    medicalCheck: 'pending',
+    criminalRecord: 'pending'
+  });
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const [pending, setPending] = useState<string>();
   const [codes, setCodes] = useState<Record<string, string>>({});
@@ -96,7 +134,25 @@ export default function CourierApp() {
         const authority = await operationsApi('operations', { action: 'profile' });
         if (authority.role === 'courier') {
           if (active) {
-            setName(authority.displayName || user.user_metadata?.full_name || 'كابتن التوصيل');
+            const displayName = authority.displayName || authority.fullName || user.user_metadata?.full_name || 'كابتن التوصيل';
+            setName(displayName);
+            setProfileData({
+              fullName: authority.fullName || displayName,
+              phone: authority.phone || '',
+              emergencyPhone: authority.emergencyPhone || '',
+              nationalId: authority.nationalId || '',
+              avatarUrl: authority.avatarUrl || '',
+              vehicleType: authority.vehicleType || 'motorcycle',
+              vehiclePlate: authority.vehiclePlate || '',
+              vehicleMake: authority.vehicleMake || '',
+              vehicleModel: authority.vehicleModel || '',
+              vehicleYear: authority.vehicleYear || '',
+              hasThermalBox: !!authority.hasThermalBox,
+              hasThermalBackpack: !!authority.hasThermalBackpack,
+              courierStatus: authority.courierStatus || 'active',
+              medicalCheck: authority.medicalCheck || 'pending',
+              criminalRecord: authority.criminalRecord || 'pending'
+            });
             setAccess('courier');
             setAccessMessage('');
             setError('');
@@ -216,12 +272,13 @@ export default function CourierApp() {
     setError('');
     const current = generation.current;
     try {
+      const finalAmount = order.amountToCollect ?? (order.paymentMethod === 'cash' ? order.total : 0);
       if (action === 'deliver') {
         await orderDelivery({
           action: 'deliver',
           orderId: order.id,
           otpCode: codes[order.id] || '',
-          collectedAmount: order.amountToCollect
+          collectedAmount: finalAmount
         });
       } else {
         await operationsApi('operations', {
@@ -261,6 +318,73 @@ export default function CourierApp() {
       ...prev,
       [orderId]: !prev[orderId]
     }));
+  }
+
+  // Handle Avatar Upload with FileReader
+  function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setProfileError('يرجى اختيار ملف صورة صالح (JPG, PNG, WebP).');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setProfileError('حجم الصورة كبير؛ الحد الأقصى 2 ميجابايت.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setProfileData(prev => ({ ...prev, avatarUrl: reader.result as string }));
+        setProfileError('');
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Save Courier Profile
+  async function saveProfile(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    setProfileBusy(true);
+    setProfileError('');
+    setProfileSaved(false);
+    try {
+      await operationsApi('operations', {
+        action: 'update-profile',
+        fullName: profileData.fullName.trim(),
+        phone: profileData.phone.trim(),
+        emergencyPhone: profileData.emergencyPhone.trim(),
+        nationalId: profileData.nationalId.trim(),
+        avatarUrl: profileData.avatarUrl,
+        vehicleType: profileData.vehicleType,
+        vehiclePlate: profileData.vehiclePlate.trim(),
+        vehicleMake: profileData.vehicleMake.trim(),
+        vehicleModel: profileData.vehicleModel.trim(),
+        vehicleYear: profileData.vehicleYear.trim(),
+        hasThermalBox: profileData.hasThermalBox,
+        hasThermalBackpack: profileData.hasThermalBackpack,
+        courierStatus: profileData.courierStatus
+      });
+      setName(profileData.fullName.trim() || 'كابتن التوصيل');
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 3500);
+    } catch (err: any) {
+      setProfileError(err?.message || 'تعذر حفظ تعديلات الملف الشخصي. أعد المحاولة.');
+    } finally {
+      setProfileBusy(false);
+    }
+  }
+
+  // Toggle Working Shift (Online/Offline)
+  async function toggleDutyStatus() {
+    const nextStatus = profileData.courierStatus === 'active' ? 'suspended' : 'active';
+    setProfileData(prev => ({ ...prev, courierStatus: nextStatus }));
+    try {
+      await operationsApi('operations', {
+        action: 'update-profile',
+        courierStatus: nextStatus
+      });
+    } catch {}
   }
 
   // Checking state
@@ -433,9 +557,17 @@ export default function CourierApp() {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 py-2.5 shadow-xs">
         <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-orange-50 border border-orange-100 p-1 flex items-center justify-center shrink-0 shadow-2xs">
-              <img src={BRAND.logo} alt="سنجوب" width={32} height={32} className="w-8 h-8 object-contain" />
-            </div>
+            {profileData.avatarUrl ? (
+              <img
+                src={profileData.avatarUrl}
+                alt={name}
+                className="w-10 h-10 rounded-2xl object-cover border border-orange-200 shadow-2xs"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-2xl bg-orange-50 border border-orange-100 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                <img src={BRAND.logo} alt="سنجوب" width={32} height={32} className="w-8 h-8 object-contain" />
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-1.5">
                 <h1 className="text-sm font-bold font-heading text-slate-900 leading-tight">
@@ -445,7 +577,9 @@ export default function CourierApp() {
                   كابتن
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500">بوابة التوصيل الميداني</p>
+              <p className="text-[11px] text-slate-500">
+                {profileData.courierStatus === 'active' ? 'متاح لاستقبال المهام' : 'في استراحة مؤقتة'}
+              </p>
             </div>
           </div>
 
@@ -487,7 +621,7 @@ export default function CourierApp() {
 
       {/* Main Container */}
       <div className="max-w-xl mx-auto px-4 pt-4">
-        {/* Modern Segmented Tab Switcher */}
+        {/* Modern 3-Way Segmented Tab Switcher */}
         <nav
           className="bg-slate-200/70 p-1 rounded-2xl flex gap-1 mb-4 shadow-inner"
           aria-label="تبويبات كابتن سنجوب"
@@ -496,16 +630,16 @@ export default function CourierApp() {
             type="button"
             aria-pressed={tab === 'active'}
             onClick={() => setTab('active')}
-            className={`flex-1 py-2.5 px-3 rounded-xl font-heading text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex-1 py-2.5 px-2 rounded-xl font-heading text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               tab === 'active'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Bike className="w-4 h-4 text-orange-600" />
-            <span>المهام النشطة</span>
+            <Bike className="w-4 h-4 text-orange-600 shrink-0" />
+            <span className="truncate">المهام</span>
             <span
-              className={`text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors ${
+              className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full transition-colors ${
                 tab === 'active'
                   ? 'bg-orange-500 text-white'
                   : 'bg-slate-300 text-slate-700'
@@ -522,19 +656,33 @@ export default function CourierApp() {
               setTab('history');
               if (!historyLoaded) void historyPage(true);
             }}
-            className={`flex-1 py-2.5 px-3 rounded-xl font-heading text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex-1 py-2.5 px-2 rounded-xl font-heading text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               tab === 'history'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Clock className="w-4 h-4 text-slate-500" />
-            <span>سجل التوصيل</span>
+            <Clock className="w-4 h-4 text-slate-500 shrink-0" />
+            <span className="truncate">السجل</span>
+          </button>
+
+          <button
+            type="button"
+            aria-pressed={tab === 'profile'}
+            onClick={() => setTab('profile')}
+            className={`flex-1 py-2.5 px-2 rounded-xl font-heading text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              tab === 'profile'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <User className="w-4 h-4 text-teal-600 shrink-0" />
+            <span className="truncate">ملفي الشخصي</span>
           </button>
         </nav>
 
         {/* Global Error Notice */}
-        {(error || feed.error) && (
+        {(error || feed.error) && tab !== 'profile' && (
           <div className="mb-4">
             <ErrorState
               message={error || feed.error}
@@ -553,7 +701,7 @@ export default function CourierApp() {
             {/* Quick Action Bar */}
             <div className="flex items-center justify-between gap-2 px-1">
               <span className="text-xs font-bold text-slate-500">
-                المهام المكلف بها حالياً ({feed.items.length})
+                المهام المسندة إليك ({feed.items.length})
               </span>
               <button
                 type="button"
@@ -573,10 +721,10 @@ export default function CourierApp() {
                   <PackageCheck className="w-8 h-8" />
                 </div>
                 <h3 className="text-base font-bold font-heading text-slate-900 mb-1">
-                  لا توجد مهام نشطة حالياً
+                  لا توجد مهام نشطة مسندة إليك حالياً
                 </h3>
                 <p className="text-xs text-slate-500 max-w-xs mx-auto mb-5 leading-relaxed">
-                  أنت جاهز ومتاح لاستقبال الطلبات! ستظهر مهامك هنا فور إسنادها إليك من إدارة العمليات.
+                  أنت متاح وجاهز للعمل! ستظهر مهامك هنا تلقائياً فور تكليفك بأي طلب من المتجر أو الإدارة.
                 </p>
                 <button
                   type="button"
@@ -598,6 +746,7 @@ export default function CourierApp() {
                 const isReady = order.orderStatus === 'ready';
                 const isWithCourier = order.orderStatus === 'with_courier';
                 const isItemsOpen = expandedItems[order.id] !== false; // Default open for ease of checking
+                const amountToCollect = order.amountToCollect ?? (order.paymentMethod === 'cash' ? order.total : 0);
 
                 return (
                   <article
@@ -752,15 +901,15 @@ export default function CourierApp() {
                           </div>
                           <div>
                             <div className="text-xs font-bold text-emerald-950">
-                              المطلوب تحصيله نقدياً
+                              المطلوب تحصيله نقدياً عند التسليم
                             </div>
                             <div className="text-[11px] text-emerald-700">
-                              استلم المبلغ كاملاً عند التسليم
+                              استلم المبلغ كاملاً قبل إدخال رمز التسليم
                             </div>
                           </div>
                         </div>
                         <div className="text-left font-mono font-extrabold text-base sm:text-lg text-emerald-900">
-                          {money(order.amountToCollect)}
+                          {money(amountToCollect)}
                         </div>
                       </div>
                     ) : (
@@ -770,7 +919,7 @@ export default function CourierApp() {
                         </div>
                         <div>
                           <div className="text-xs font-bold text-blue-900">
-                            مدفوع إلكترونياً بالكامل
+                            الطلب مدفوع إلكترونياً بالكامل
                           </div>
                           <div className="text-[11px] text-blue-700">
                             لا تقم بتحصيل أي مبالغ نقدية من العميل
@@ -964,7 +1113,7 @@ export default function CourierApp() {
                   لا توجد مهام سابقة في السجل
                 </h3>
                 <p className="text-xs text-slate-500">
-                  الطلبات التي تنهي تسليمها ستظهر هنا مع المبالغ المحصلة.
+                  الطلبات التي تنهي تسليمها ستظهر هنا مع المبالغ المحصلة وتفاصيل المهمة.
                 </p>
               </div>
             )}
@@ -1003,6 +1152,306 @@ export default function CourierApp() {
                 تحميل المزيد من السجل
               </button>
             )}
+          </section>
+        )}
+
+        {/* Tab 3: Captain Profile Page (New & Comprehensive) */}
+        {tab === 'profile' && (
+          <section className="space-y-4">
+            {/* Captain Hero Card */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 text-center relative overflow-hidden">
+              <div className="relative inline-block mx-auto mb-3">
+                {profileData.avatarUrl ? (
+                  <img
+                    src={profileData.avatarUrl}
+                    alt={profileData.fullName}
+                    className="w-24 h-24 rounded-3xl object-cover border-4 border-orange-100 shadow-md"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-3xl bg-orange-50 border-4 border-orange-100 flex items-center justify-center text-orange-600 shadow-md">
+                    <User className="w-12 h-12" />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  title="تغيير الصورة الشخصية"
+                  className="absolute -bottom-2 -left-2 p-2 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white shadow-lg transition-transform active:scale-95 cursor-pointer"
+                >
+                  <Camera className="w-4 h-4" />
+                </button>
+                <input
+                  type="file"
+                  ref={avatarInputRef}
+                  onChange={handleAvatarFile}
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                />
+              </div>
+
+              <h2 className="text-base font-bold font-heading text-slate-900 mb-0.5">
+                {profileData.fullName || name || 'كابتن سنجوب'}
+              </h2>
+              <p className="text-xs text-slate-500 mb-3" dir="ltr">
+                {currentEmail}
+              </p>
+
+              {/* Working Availability Switcher */}
+              <div className="inline-flex items-center gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
+                <span className="text-xs font-bold text-slate-700 px-2">حالة العمل:</span>
+                <button
+                  type="button"
+                  onClick={toggleDutyStatus}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    profileData.courierStatus === 'active'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-white text-slate-600'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${profileData.courierStatus === 'active' ? 'bg-white' : 'bg-slate-400'}`} />
+                  <span>متاح للطلبات</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleDutyStatus}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    profileData.courierStatus !== 'active'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-white text-slate-600'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${profileData.courierStatus !== 'active' ? 'bg-white' : 'bg-slate-400'}`} />
+                  <span>في استراحة</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Notifications / Feedback */}
+            {profileSaved && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>تم حفظ وتحديث بيانات ملفك الشخصي بنجاح!</span>
+              </div>
+            )}
+
+            {profileError && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{profileError}</span>
+              </div>
+            )}
+
+            {/* Profile Form */}
+            <form onSubmit={saveProfile} className="space-y-4">
+              {/* Section 1: Personal Details */}
+              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-5 space-y-3.5">
+                <div className="flex items-center gap-2 text-xs font-bold font-heading text-slate-800 pb-2 border-b border-slate-100">
+                  <User className="w-4 h-4 text-orange-600" />
+                  <span>البيانات الشخصية والاتصال</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    الاسم الكامل والشهرة
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={profileData.fullName}
+                    onChange={e => setProfileData(prev => ({ ...prev, fullName: e.target.value }))}
+                    placeholder="مثال: أحمد محمد علي"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all text-slate-900"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      رقم هاتف التواصل
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={profileData.phone}
+                      onChange={e => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="01017799582"
+                      dir="ltr"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all text-slate-900 text-right"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      رقم هاتف الطوارئ (اختياري)
+                    </label>
+                    <input
+                      type="tel"
+                      value={profileData.emergencyPhone}
+                      onChange={e => setProfileData(prev => ({ ...prev, emergencyPhone: e.target.value }))}
+                      placeholder="01xxxxxxxxx"
+                      dir="ltr"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all text-slate-900 text-right"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    الرقم القومي (14 رقماً - اختياري)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={14}
+                    value={profileData.nationalId}
+                    onChange={e => setProfileData(prev => ({ ...prev, nationalId: e.target.value.replace(/[^0-9]/g, '') }))}
+                    placeholder="298xxxxxxxxxxx"
+                    dir="ltr"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all text-slate-900 text-right font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Section 2: Vehicle & Equipment */}
+              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-5 space-y-3.5">
+                <div className="flex items-center gap-2 text-xs font-bold font-heading text-slate-800 pb-2 border-b border-slate-100">
+                  <Car className="w-4 h-4 text-teal-600" />
+                  <span>وسيلة التوصيل وتجهيزات الحفظ</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      نوع وسيلة التوصيل
+                    </label>
+                    <select
+                      value={profileData.vehicleType}
+                      onChange={e => setProfileData(prev => ({ ...prev, vehicleType: e.target.value }))}
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all text-slate-900 cursor-pointer"
+                    >
+                      {Object.entries(vehicleNames).map(([key, label]) => (
+                        <option key={key} value={key}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      رقم اللوحة المعدنية
+                    </label>
+                    <input
+                      type="text"
+                      value={profileData.vehiclePlate}
+                      onChange={e => setProfileData(prev => ({ ...prev, vehiclePlate: e.target.value }))}
+                      placeholder="مثال: س ع ق 194"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all text-slate-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      الماركة والموديل
+                    </label>
+                    <input
+                      type="text"
+                      value={profileData.vehicleModel}
+                      onChange={e => setProfileData(prev => ({ ...prev, vehicleModel: e.target.value }))}
+                      placeholder="دايون 4 / هوندا سكوتر"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all text-slate-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      سنة الصنع
+                    </label>
+                    <input
+                      type="number"
+                      min={1990}
+                      max={2030}
+                      value={profileData.vehicleYear}
+                      onChange={e => setProfileData(prev => ({ ...prev, vehicleYear: e.target.value }))}
+                      placeholder="2024"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all text-slate-900 font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Thermal gear check */}
+                <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={profileData.hasThermalBox}
+                      onChange={e => setProfileData(prev => ({ ...prev, hasThermalBox: e.target.checked }))}
+                      className="w-4 h-4 rounded accent-orange-600"
+                    />
+                    <span>يوجد صندوق حفظ حراري مثبت (Thermal Box)</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={profileData.hasThermalBackpack}
+                      onChange={e => setProfileData(prev => ({ ...prev, hasThermalBackpack: e.target.checked }))}
+                      className="w-4 h-4 rounded accent-orange-600"
+                    />
+                    <span>يوجد حقيبة ظهر عازلة للحرارة</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Section 3: Verification Badges */}
+              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-5 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold font-heading text-slate-800 pb-2 border-b border-slate-100">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>التوثيق الرسمي والفحص الجنائي والطبي</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-slate-800">الفحص الطبي والتحاليل</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">تحليل المخدرات واللياقة</div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                      قيد الفحص
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-slate-800">الصحيفة الجنائية (الفيش)</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">سجل الحالة الجنائية</div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                      قيد الاستخراج
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={profileBusy}
+                className="w-full py-3.5 px-4 rounded-2xl bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-bold font-heading text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {profileBusy ? (
+                  <>
+                    <RotateCw className="w-4 h-4 animate-spin" />
+                    <span>جارٍ حفظ التعديلات…</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>حفظ تحديثات الملف الشخصي</span>
+                  </>
+                )}
+              </button>
+            </form>
           </section>
         )}
 

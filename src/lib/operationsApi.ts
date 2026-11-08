@@ -5,6 +5,8 @@ import { defaultCustomerHome } from '../types/appContent';
 
 function mapOrderRow(row: any) {
   const appStatus = row.status === 'assigned' || row.status === 'picked_up' ? 'with_courier' : (row.status || 'received');
+  const isCash = (row.payment_method || 'cash') === 'cash';
+  const totalAmount = Number(row.total_amount) || Number(row.total) || 0;
   return {
     id: row.id,
     profileId: row.customer_id,
@@ -25,7 +27,8 @@ function mapOrderRow(row: any) {
     discount: Number(row.discount) || 0,
     tip: Number(row.tip) || 0,
     taxTotal: Number(row.tax_total) || 0,
-    total: Number(row.total_amount) || 0,
+    total: totalAmount,
+    amountToCollect: isCash ? totalAmount : 0,
     ministry: row.delivery_ministry || '',
     floorNumber: row.delivery_floor || '',
     roomNumber: row.delivery_room || '',
@@ -206,7 +209,22 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
           uid: user.id,
           role: 'courier',
           courierStatus: profile?.courier_status || 'active',
-          displayName: profile?.full_name || 'مندوب التوصيل',
+          displayName: profile?.full_name || 'كابتن التوصيل',
+          fullName: profile?.full_name || '',
+          email: profile?.email || user.email || '',
+          phone: profile?.phone || '',
+          emergencyPhone: profile?.emergency_phone || '',
+          nationalId: profile?.national_id || '',
+          avatarUrl: profile?.avatar_url || '',
+          vehicleType: profile?.vehicle_type || 'motorcycle',
+          vehiclePlate: profile?.vehicle_plate || '',
+          vehicleMake: profile?.vehicle_make || '',
+          vehicleModel: profile?.vehicle_model || '',
+          vehicleYear: profile?.vehicle_year || '',
+          hasThermalBox: profile?.has_thermal_box || false,
+          hasThermalBackpack: profile?.has_thermal_backpack || false,
+          medicalCheck: profile?.medical_check || 'pending',
+          criminalRecord: profile?.criminal_record || 'pending',
           destination: 'courier_tasks',
           capabilities: ['operations_v2'],
         };
@@ -222,6 +240,12 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
 
     if (body.action === 'portal-active') {
       try {
+        let isCourier = Boolean(body.courierId);
+        if (!isCourier) {
+          const { data: p } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+          if (p?.role === 'courier') isCourier = true;
+        }
+
         let query = supabase
           .from('orders')
           .select('*, order_items(*)')
@@ -229,7 +253,9 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
           .order('created_at', { ascending: false })
           .limit(100);
 
-        if (body.storeId) {
+        if (isCourier) {
+          query = query.eq('courier_id', user.id);
+        } else if (body.storeId) {
           query = query.eq('store_id', body.storeId);
         }
 
@@ -466,13 +492,22 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
 
     if (body.action === 'portal-history') {
       try {
+        let isCourier = Boolean(body.courierId);
+        if (!isCourier) {
+          const { data: p } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+          if (p?.role === 'courier') isCourier = true;
+        }
+
         let query = supabase
           .from('orders')
           .select('*, order_items(*)')
+          .in('status', ['delivered', 'cancelled'])
           .order('created_at', { ascending: false })
           .limit(50);
 
-        if (body.storeId) {
+        if (isCourier) {
+          query = query.eq('courier_id', user.id);
+        } else if (body.storeId) {
           query = query.eq('store_id', body.storeId);
         }
 
@@ -481,6 +516,33 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       } catch {
         return { items: [], nextCursor: null };
       }
+    }
+
+    if (body.action === 'update-profile') {
+      const updates: any = {
+        updated_at: new Date().toISOString()
+      };
+      if (body.fullName !== undefined) updates.full_name = body.fullName;
+      if (body.phone !== undefined) updates.phone = body.phone;
+      if (body.emergencyPhone !== undefined) updates.emergency_phone = body.emergencyPhone;
+      if (body.nationalId !== undefined) updates.national_id = body.nationalId;
+      if (body.avatarUrl !== undefined) updates.avatar_url = body.avatarUrl;
+      if (body.vehicleType !== undefined) updates.vehicle_type = body.vehicleType;
+      if (body.vehiclePlate !== undefined) updates.vehicle_plate = body.vehiclePlate;
+      if (body.vehicleMake !== undefined) updates.vehicle_make = body.vehicleMake;
+      if (body.vehicleModel !== undefined) updates.vehicle_model = body.vehicleModel;
+      if (body.vehicleYear !== undefined) updates.vehicle_year = body.vehicleYear;
+      if (body.hasThermalBox !== undefined) updates.has_thermal_box = body.hasThermalBox;
+      if (body.hasThermalBackpack !== undefined) updates.has_thermal_backpack = body.hasThermalBackpack;
+      if (body.courierStatus !== undefined) updates.courier_status = body.courierStatus;
+
+      const { error: upErr } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id);
+
+      if (upErr) throw upErr;
+      return { ok: true };
     }
 
     if (body.action === 'courier-location' && body.coordinates) {

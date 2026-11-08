@@ -33,7 +33,9 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
       inflight = true;
       try {
         const result = await operationsApi('operations', {
-          action: 'portal-active'
+          action: 'portal-active',
+          ...(storeId ? { storeId } : {}),
+          ...(uid && !storeId ? { courierId: uid } : {})
         });
         if (active) {
           setItems(Array.isArray(result?.items) ? result.items : []);
