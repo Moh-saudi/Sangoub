@@ -220,7 +220,14 @@ BEGIN
       created_at,
       updated_at,
       role,
-      aud
+      aud,
+      confirmation_token,
+      recovery_token,
+      email_change,
+      email_change_token_new,
+      email_change_token_current,
+      phone_change,
+      phone_change_token
     ) VALUES (
       v_user_id,
       '00000000-0000-0000-0000-000000000000',
@@ -232,7 +239,14 @@ BEGIN
       NOW(),
       NOW(),
       'authenticated',
-      'authenticated'
+      'authenticated',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      ''
     );
 
     -- إضافة هوية المستخدم في auth.identities لتمكين تسجيل الدخول عبر GoTrue Auth
@@ -289,6 +303,14 @@ BEGIN
       v_encrypted_pw := crypt(p_password, gen_salt('bf'));
       UPDATE auth.users
       SET encrypted_password = v_encrypted_pw,
+          email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
+          confirmation_token = COALESCE(confirmation_token, ''),
+          recovery_token = COALESCE(recovery_token, ''),
+          email_change = COALESCE(email_change, ''),
+          email_change_token_new = COALESCE(email_change_token_new, ''),
+          email_change_token_current = COALESCE(email_change_token_current, ''),
+          phone_change = COALESCE(phone_change, ''),
+          phone_change_token = COALESCE(phone_change_token, ''),
           updated_at = NOW()
       WHERE id = v_user_id;
     END IF;
@@ -481,7 +503,18 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
--- 21. تثبيت وتأكيد بيانات دخول المندوب أحمد محمد (driv@san.com)
+-- 21. تنظيف الحقول النصية الفارغة (NULL) في auth.users لمنع انهيار خادم GoTrue (Database error querying schema)
+UPDATE auth.users 
+SET 
+  confirmation_token = COALESCE(confirmation_token, ''),
+  recovery_token = COALESCE(recovery_token, ''),
+  email_change = COALESCE(email_change, ''),
+  email_change_token_new = COALESCE(email_change_token_new, ''),
+  email_change_token_current = COALESCE(email_change_token_current, ''),
+  phone_change = COALESCE(phone_change, ''),
+  phone_change_token = COALESCE(phone_change_token, '');
+
+-- 22. تثبيت وتأكيد بيانات دخول المندوب أحمد محمد (driv@san.com)
 SELECT public.admin_create_user(
   'driv@san.com',
   'San@123456!',
