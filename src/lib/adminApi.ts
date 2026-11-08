@@ -68,66 +68,44 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
 
       let targetUid: string | null = null;
 
-      // 1. Try native atomic stored procedure in Supabase if deployed
-      try {
-        const { data: rpcRes, error: rpcErr } = await supabase.rpc('admin_create_user', {
-          p_email: cleanEmail,
-          p_password: body.password || 'San@123456!',
-          p_full_name: body.fullName || body.name || 'مستخدم جديد',
-          p_phone: body.phone || '',
-          p_role: body.role || 'employee',
-          p_store_id: body.storeId || null
+      // 1. Check if user already exists in profiles
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (existingProfile?.id) {
+        targetUid = existingProfile.id;
+      } else {
+        // 2. Native, clean Supabase Auth SignUp
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: body.password || 'San@123456!',
+          options: {
+            data: {
+              full_name: body.fullName || body.name || 'مستخدم جديد',
+              role: body.role || 'employee',
+              phone: body.phone || '',
+              store_id: body.storeId || null
+            }
+          }
         });
 
-        if (!rpcErr && rpcRes?.id) {
-          targetUid = rpcRes.id;
-        } else if (rpcErr && rpcErr.code !== 'PGRST202' && !rpcErr.message?.includes('Could not find')) {
-          console.warn('[adminApi] admin_create_user RPC notice, falling back to direct auth & profile sync:', rpcErr);
-        }
-      } catch (err) {
-        console.warn('[adminApi] RPC execution caught, falling back:', err);
-      }
-
-      // 2. Seamless Fallback if RPC didn't return an ID: Native Supabase Auth SignUp
-      if (!targetUid) {
-        // Check if user already exists in profiles
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', cleanEmail)
-          .maybeSingle();
-
-        if (existingProfile?.id) {
-          targetUid = existingProfile.id;
-        } else {
-          const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-            email: cleanEmail,
-            password: body.password || 'San@123456!',
-            options: {
-              data: {
-                full_name: body.fullName || body.name || 'مستخدم جديد',
-                role: body.role || 'employee',
-                phone: body.phone || '',
-                store_id: body.storeId || null
-              }
-            }
-          });
-
-          if (signUpData?.user?.id) {
-            targetUid = signUpData.user.id;
-          } else if (signUpErr) {
-            // If already registered, fetch profile again
-            const { data: retryProfile } = await supabase
-              .from('profiles')
-              .select('id')
-              .eq('email', cleanEmail)
-              .maybeSingle();
-            if (retryProfile?.id) {
-              targetUid = retryProfile.id;
-            } else {
-              console.error('[adminApi] auth.signUp error:', signUpErr);
-              throw new Error('تعذر إنشاء الحساب: ' + signUpErr.message);
-            }
+        if (signUpData?.user?.id) {
+          targetUid = signUpData.user.id;
+        } else if (signUpErr) {
+          // If already registered, fetch profile again
+          const { data: retryProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', cleanEmail)
+            .maybeSingle();
+          if (retryProfile?.id) {
+            targetUid = retryProfile.id;
+          } else {
+            console.error('[adminApi] auth.signUp error:', signUpErr);
+            throw new Error('تعذر إنشاء الحساب: ' + signUpErr.message);
           }
         }
       }
