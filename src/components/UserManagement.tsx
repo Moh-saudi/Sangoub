@@ -16,17 +16,17 @@ import { adminApi } from '../lib/adminApi';
 import type { Store, UserRole } from '../types';
 
 const roleNames: Record<string, string> = {
-  employee: 'عميل / مستخدم المنظومة',
-  restaurant: 'تاجر / طاقم تحضير',
+  employee: 'عميل / متسوق',
+  restaurant: 'تاجر / شريك تجاري',
   courier: 'كابتن / مندوب توصيل',
   admin: 'مدير المنظومة'
 };
 
 export const dutyNames: Record<string, string> = {
-  manager: 'مدير الفرع المعتمد',
+  manager: 'مدير الفرع والمتجر',
   cashier: 'كاشير ونقاط البيع (POS)',
   accountant: 'محاسب الفرع والورديات',
-  preparer: 'شيف / محضر المطبخ'
+  preparer: 'مسؤول تحضير وتجهيز الطلبات'
 };
 
 export interface WorkShiftRecord {
@@ -1236,7 +1236,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         </div>
                       ) : isMerchant ? (
                         <div className="text-[11px] text-slate-600 font-medium">
-                          {user.duty === 'manager' ? 'مسؤول المتجر المعتمد' : 'شيف / مسؤول تحضير'}
+                          {user.duty === 'manager' ? 'مسؤول المتجر المعتمد' : 'مسؤول تجهيز وتحضير'}
                           <p className="text-[10px] text-slate-400">{user.emailVerified ? 'البريد موثق ✓' : 'في انتظار التوثيق'}</p>
                         </div>
                       ) : (
@@ -1730,7 +1730,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                           )}
                         </div>
                         <div>
-                          <p className="font-bold text-xs text-slate-900">شيف / محضر</p>
+                          <p className="font-bold text-xs text-slate-900">مسؤول تجهيز وتحضير</p>
                           <p className="text-[10px] text-slate-500 mt-0.5">استقبال وتجهيز الطلبات</p>
                         </div>
                       </button>
@@ -1785,7 +1785,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         </div>
                         <div>
                           <p className="font-bold text-xs text-slate-900">تاجر / شريك</p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">إدارة متجر ومطبخ تحضير</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">إدارة المتجر والطلبات</p>
                         </div>
                       </button>
 
@@ -2246,7 +2246,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                                 className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:border-emerald-600 focus:outline-none"
                               >
                                 <option value="manager">مسؤول ومدير المتجر</option>
-                                <option value="preparer">شيف / مسؤول جمع وتحضير الطلبات</option>
+                                <option value="preparer">مسؤول جمع وتجهيز الطلبات</option>
                                 <option value="cashier">كاشير / مسؤول تسليم الطلبات</option>
                               </select>
                             </div>

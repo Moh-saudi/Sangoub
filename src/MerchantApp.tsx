@@ -345,7 +345,7 @@ export default function MerchantApp() {
 
   async function merchantMutation(input:object){setError('');try{await operationsApi('operations',input);await Promise.all([refreshMerchant.current(),feed.refresh()]);}catch(e){setError(customerMessage(e,'تعذر حفظ التعديل.'));throw e;}}
   async function handleKitchenChange(id:string,_storeId:string,stage:'preparing'|'ready'){await merchantMutation({action:'legacy-prepare',id,next:stage});}
-  async function handleUpdateOrderStatus(_id:string,_status:Order['orderStatus']){setError('حالة التوصيل يحدّثها المندوب، والتحضير من أزرار المطبخ.');}
+  async function handleUpdateOrderStatus(_id:string,_status:Order['orderStatus']){setError('حالة التوصيل يحدّثها المندوب، وتجهيز الطلب يتم من أزرار إدارة وتجهيز الطلبات.');}
   async function handleUpdateProductStock(id:string,inStock:boolean){
     try { await supabase.from('products').update({ is_available: inStock }).eq('id', id); } catch {}
     try { await merchantMutation({action:'set-product-stock',id,inStock}); } catch {}
@@ -489,7 +489,7 @@ export default function MerchantApp() {
         ) : (
           <>
             <h2 className="text-base font-bold text-slate-800">جارٍ التحقق من صلاحيات بوابة الشركاء…</h2>
-            <p className="text-xs text-slate-500 mt-1">سنجوب يجهز لك لوحة المطبخ والطلبات اللحظية</p>
+            <p className="text-xs text-slate-500 mt-1">سنجوب يجهز لك لوحة المتجر وإدارة الطلبات والمنتجات</p>
           </>
         )}
       </div>
@@ -508,7 +508,7 @@ export default function MerchantApp() {
           {error && <p role="alert" className="text-rose-600 font-bold text-xs">{error}</p>}
           <p className="text-xs text-slate-600 leading-relaxed">
             الحساب الحالي ({identity?.email || 'المسجل'}) غير مرتبط بصلاحية متجر شريك.
-            هذه البوابة مخصصة حصرياً للمطابخ والمتاجر الشريكة المعتمدة في سنجوب.
+            هذه البوابة مخصصة حصرياً للتجار والشركاء التجاريين المعتمدين في سنجوب.
           </p>
           <div className="pt-2 flex flex-col gap-2">
             <button
@@ -534,9 +534,9 @@ export default function MerchantApp() {
     const safeStores = Array.isArray(stores) && stores.length > 0 ? stores : [];
     const fallbackStore: Store = {
       id: profile.storeId || 'store_default',
-      name: 'بوابة المتجر والمطبخ',
+      name: 'بوابة الشريك والتاجر',
       status: 'open',
-      category: 'مطعم',
+      category: 'متجر',
     } as Store;
     const userStore = safeStores.find((s) => s.id === profile?.storeId) || safeStores[0] || fallbackStore;
     const activeItems = Array.isArray(feed?.items) ? feed.items : [];
@@ -551,7 +551,7 @@ export default function MerchantApp() {
               {((userStore?.id && typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore?.logoUrl || userStore?.logo) ? (
                 <img
                   src={(userStore?.id && typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore?.logoUrl || userStore?.logo}
-                  alt={userStore?.name || 'بوابة المتجر والمطبخ'}
+                  alt={userStore?.name || 'بوابة الشريك والتاجر'}
                   className="w-9 h-9 rounded-lg bg-white object-contain p-0.5 shrink-0 shadow-2xs border border-slate-700"
                 />
               ) : (
@@ -559,7 +559,7 @@ export default function MerchantApp() {
               )}
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-sm font-black text-white truncate">{userStore?.name || "بوابة التاجر والمطبخ"}</h1>
+                  <h1 className="text-sm font-black text-white truncate">{userStore?.name || "بوابة الشريك والتاجر"}</h1>
                   <span
                     className={`w-2.5 h-2.5 rounded-full shrink-0 transition-colors ${
                       userStore?.status === "open"
@@ -570,7 +570,7 @@ export default function MerchantApp() {
                   />
                 </div>
                 <p className="text-[11px] text-slate-400 truncate">
-                  المسؤول: {profile.fullName || profile.email} {profile.duty ? `(${profile.duty === "manager" ? "مدير المتجر" : "مسؤول التحضير"})` : ""}
+                  المسؤول: {profile.fullName || profile.email} {profile.duty ? `(${profile.duty === "manager" ? "مدير المتجر" : "مسؤول التحضير والتجهيز"})` : ""}
                 </p>
               </div>
             </div>
@@ -854,7 +854,7 @@ function SangoubHelpModal({ onClose }: { onClose: () => void }) {
               </div>
               <h3 className="text-base font-black">أهلاً بك يا شريكنا العزيز!</h3>
               <p className="text-[11px] text-orange-100 mt-0.5">
-                سنجوب وفريق العمليات هنا لمساعدتك في كل ما يخص مطبخك وطلباتك!
+                سنجوب وفريق العمليات هنا لمساعدتك في كل ما يخص متجرك وطلباتك ومنتجاتك!
               </p>
             </div>
           </div>
@@ -892,7 +892,7 @@ function SangoubHelpModal({ onClose }: { onClose: () => void }) {
                   <Phone size={17} />
                 </div>
                 <div>
-                  <span className="block text-xs font-black text-amber-900">مساعدة المطبخ والطلبات</span>
+                  <span className="block text-xs font-black text-amber-900">دعم ومساعدة المتجر</span>
                   <span className="block text-[10px] text-amber-700">التواصل عبر قناة الدعم</span>
                 </div>
               </a>
@@ -903,7 +903,7 @@ function SangoubHelpModal({ onClose }: { onClose: () => void }) {
           <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-2.5">
             <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
               <HelpCircle size={14} className="text-orange-600" />
-              <span>إرشادات سريعة لطاقم المطبخ:</span>
+              <span>إرشادات سريعة لإدارة وتجهيز الطلبات:</span>
             </h4>
 
             <div className="space-y-1.5 text-[11px] text-slate-600">
@@ -911,7 +911,7 @@ function SangoubHelpModal({ onClose }: { onClose: () => void }) {
                 <span className="w-4 h-4 rounded-full bg-orange-100 text-orange-800 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">
                   1
                 </span>
-                <p><strong>استلام الطلبات:</strong> يظهر إشعار صوتي فوري في الشاشة عند طلب العميل، انقر "قبول وبدء التحضير".</p>
+                <p><strong>استلام الطلبات:</strong> يظهر إشعار صوتي فوري في الشاشة عند طلب العميل، انقر "قبول وبدء التجهيز".</p>
               </div>
 
               <div className="flex items-start gap-2">

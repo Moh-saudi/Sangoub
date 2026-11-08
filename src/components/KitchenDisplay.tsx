@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, BellOff, ChefHat, Clock, CheckCircle2, Bike, Send, AlertCircle, Sparkles, Filter } from "lucide-react";
+import { Bell, BellOff, ChefHat, PackageCheck, Clock, CheckCircle2, Bike, Send, AlertCircle, Sparkles, Filter } from "lucide-react";
 import type { Order, Store } from "../types";
 import { kitchenStage } from "../utils/orderIntegration";
 
@@ -13,7 +13,7 @@ const stages: { id: Stage; title: string; color: string; badgeColor: string }[] 
   },
   {
     id: "preparing",
-    title: "مقبول وجاري التحضير بالمطبخ",
+    title: "مقبول وجارٍ التحضير والتجهيز",
     color: "bg-white/80 border-blue-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)]",
     badgeColor: "bg-blue-500/10 text-blue-700 border-blue-500/20",
   },
@@ -139,13 +139,13 @@ export function KitchenDisplay({
       <div className="bg-white/80 backdrop-blur-xl border border-slate-200/80 rounded-[28px] p-5 shadow-xs flex flex-wrap justify-between gap-4 items-center">
         <div>
           <span className="text-orange-600 font-mono text-[10px] font-bold uppercase tracking-widest bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-100">
-            KITCHEN DISPATCH · محطة التجهيز
+            ORDER DISPATCH · محطة تحضير وتجهيز الطلبات
           </span>
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2 mt-1.5 tracking-tight">
-            <ChefHat className="text-orange-600" /> تذاكر طلبات العملاء الفورية
+            <PackageCheck className="text-orange-600" /> تذاكر وطلبات العملاء الفورية
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            استقبل التذكرة، اكتب ملاحظات الشيف، اضغط «مقبول وجاري التحضير»، ثم «تم التسليم للمندوب».
+            استقبل الطلب، أضف ملاحظات التجهيز، اضغط «قبول والبدء بالتجهيز»، ثم «جاهز للتسليم للكابتن».
           </p>
         </div>
 
@@ -179,7 +179,7 @@ export function KitchenDisplay({
       <div className="flex flex-wrap gap-2.5">
         {!fixedStoreId && (
           <select
-            aria-label="مطبخ المتجر"
+            aria-label="اختيار المتجر والفرع"
             value={storeId}
             onChange={(e) => {
               setSelection(e.target.value);
@@ -197,13 +197,13 @@ export function KitchenDisplay({
         )}
 
         <select
-          aria-label="تصفية المطبخ بالوزارة"
+          aria-label="تصفية الطلبات حسب منطقة أو وجهة التوصيل"
           value={ministry}
           onChange={(e) => setMinistry(e.target.value)}
           className="px-4 py-2 text-xs font-bold border border-slate-200 rounded-2xl bg-white text-slate-800 shadow-xs focus:ring-2 focus:ring-orange-500/20"
         >
-          <option value="">جميع الوزارات والجهات الحكومية</option>
-          {[...new Set(tickets.map((order) => order.ministry))].sort().map((name) => (
+          <option value="">كافة مناطق ووجهات التوصيل</option>
+          {[...new Set(tickets.map((order) => order.deliveryAddress || order.ministry).filter(Boolean))].sort().map((name) => (
             <option key={name}>{name}</option>
           ))}
         </select>
@@ -260,13 +260,16 @@ export function KitchenDisplay({
                         </span>
                       </div>
 
-                      {/* Customer Office Destination */}
+                      {/* Customer Destination / Address */}
                       <div className="text-xs bg-slate-50/90 p-3 rounded-2xl border border-slate-100">
-                        <p className="font-black text-slate-900">{order.ministry}</p>
-                        <p className="text-slate-500 mt-0.5">
-                          {order.floorNumber} • {order.roomNumber}{" "}
-                          {order.profileName ? `(العميل: ${order.profileName})` : ""}
-                        </p>
+                        <p className="font-black text-slate-900">{order.deliveryAddress || order.ministry || "عنوان العميل المعتمد"}</p>
+                        {(order.floorNumber || order.roomNumber || order.profileName) && (
+                          <p className="text-slate-500 mt-0.5">
+                            {order.floorNumber ? `الدور: ${order.floorNumber}` : ''}
+                            {order.roomNumber ? ` • رقم: ${order.roomNumber}` : ''}
+                            {order.profileName ? ` (العميل: ${order.profileName})` : ''}
+                          </p>
+                        )}
                       </div>
 
                       {/* Items List */}
@@ -332,21 +335,21 @@ export function KitchenDisplay({
                             "جارٍ الحفظ والمزامنة…"
                           ) : stage.id === "received" ? (
                             <>
-                              <ChefHat size={16} /> مقبول وجاري التحضير
+                              <PackageCheck size={16} /> قبول وبدء التجهيز
                             </>
                           ) : (
                             <>
-                              <Bike size={16} /> تم التسليم للمندوب
+                              <Bike size={16} /> تم التجهيز وجاهز للاستلام
                             </>
                           )}
                         </button>
                       ) : (
                         <div className="bg-emerald-50 border border-emerald-200/80 p-2.5 rounded-2xl text-center">
                           <p className="text-emerald-800 text-xs font-black flex items-center justify-center gap-1.5">
-                            <CheckCircle2 size={15} /> تم تسليم الطلب للمندوب بنجاح
+                            <CheckCircle2 size={15} /> تم تسليم الطلب لكابتن التوصيل بنجاح
                           </p>
                           <p className="text-[10px] text-emerald-600 mt-0.5">
-                            الطلب في عهدة المندوب ويظهر للعميل في شاشة التتبع
+                            الطلب في عهدة كابتن التوصيل ويظهر للعميل في شاشة التتبع اللحظية
                           </p>
                         </div>
                       )}

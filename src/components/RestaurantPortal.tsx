@@ -30,6 +30,7 @@ import {
   Power,
   Store as StoreIcon,
   ChefHat,
+  ClipboardList,
   Clock,
   CheckCircle2,
   Phone,
@@ -152,9 +153,9 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 }) => {
   const fallbackStore: Store = {
     id: currentProfile?.storeId || 'store_default',
-    name: 'بوابة المتجر والمطبخ',
+    name: 'بوابة الشريك والتاجر',
     status: 'open',
-    category: 'مطعم',
+    category: 'متجر',
     rating: 5,
     ratingCount: 1,
     deliveryTime: '20-30 دقيقة',
@@ -540,7 +541,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
       title: "العمليات الفورية",
       items: [
         { key: "dashboard", label: "الرئيسية والمؤشرات", icon: LayoutDashboard },
-        { key: "kitchen", label: "تذاكر المطبخ والطلبات", icon: ChefHat },
+        { key: "kitchen", label: "تحضير وتجهيز الطلبات", icon: ClipboardList },
         { key: "radar", label: "تتبع المناديب والتوصيل", icon: Navigation },
         { key: "storeCouriers", label: "طاقم العمل والورديات", icon: Users },
       ],
@@ -882,7 +883,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                 </h2>
                 <p className="text-[11px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
                   <MapPin size={11} className="text-slate-400 shrink-0" />
-                  <span className="truncate">{userStore.locationInDistrict || "الحي الحكومي - العاصمة"}</span>
+                  <span className="truncate">{userStore.locationInDistrict || userStore.address || "الموقع المعتمد للمتجر"}</span>
                 </p>
               </div>
             </div>
@@ -1030,8 +1031,8 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                     onClick={() => navigateSection('kitchen')}
                     className="px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-black rounded-2xl flex items-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
                   >
-                    <ChefHat size={16} />
-                    <span>شاشة المطبخ ({activeKitchenOrders.length})</span>
+                    <ClipboardList size={16} />
+                    <span>الطلبات والتحضير ({activeKitchenOrders.length})</span>
                   </button>
                   <button
                     onClick={() => navigateSection('inventory')}
@@ -1108,7 +1109,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                       onClick={() => navigateSection('kitchen')}
                       className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 cursor-pointer"
                     >
-                      <span>عرض الكل في المطبخ</span>
+                      <span>عرض كافة تذاكر الطلبات</span>
                       <ChevronRight size={14} className="rotate-180" />
                     </button>
                   </div>
@@ -1141,7 +1142,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                       isPending ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-600'
                                     }`}>
-                                      {order.orderStatus === 'received' ? 'جديد بالمطبخ' : order.orderStatus === 'preparing' ? 'قيد التحضير' : order.orderStatus === 'delivered' ? 'تم التسليم' : order.orderStatus}
+                                      {order.orderStatus === 'received' ? 'طلب جديد' : order.orderStatus === 'preparing' ? 'قيد التجهيز' : order.orderStatus === 'delivered' ? 'تم التسليم' : order.orderStatus}
                                     </span>
                                   </div>
                                   <span className="text-[11px] text-slate-400 block truncate mt-0.5">
@@ -1484,7 +1485,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 
                     <p className="text-xs text-slate-600 flex items-center gap-1.5 pt-0.5 font-medium">
                       <MapPin size={13} className="text-orange-600 shrink-0" />
-                      <span>{userStore.locationInDistrict || 'الحي الحكومي - مبنى الخدمات C2'}</span>
+                      <span>{userStore.locationInDistrict || userStore.address || 'العنوان الرئيسي للمتجر'}</span>
                     </p>
                   </div>
 
@@ -1568,8 +1569,8 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                           const payload = {
                             name: storeEditData.name.trim(),
                             name_en: storeEditData.nameEn?.trim() || null,
-                            type: storeEditData.type?.trim() || 'مطعم',
-                            location_in_district: storeEditData.locationInDistrict?.trim() || 'الحي الحكومي',
+                            type: storeEditData.type?.trim() || 'متجر',
+                            location_in_district: storeEditData.locationInDistrict?.trim() || null,
                             min_order: Number(storeEditData.minOrder) || 0,
                             delivery_fee: Number(storeEditData.deliveryFee) || 0,
                             delivery_time: storeEditData.deliveryTime?.trim() || '20 - 30 دقيقة',
@@ -1585,8 +1586,8 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                             await saveRecord('stores', userStore.id, {
                               name: storeEditData.name.trim(),
                               nameEn: storeEditData.nameEn?.trim() || null,
-                              type: storeEditData.type?.trim() || 'مطعم',
-                              locationInDistrict: storeEditData.locationInDistrict?.trim() || 'الحي الحكومي',
+                              type: storeEditData.type?.trim() || 'متجر',
+                              locationInDistrict: storeEditData.locationInDistrict?.trim() || null,
                               minOrder: Number(storeEditData.minOrder) || 0,
                               deliveryFee: Number(storeEditData.deliveryFee) || 0,
                               deliveryTime: storeEditData.deliveryTime?.trim() || '20 - 30 دقيقة',
@@ -1663,7 +1664,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                             type="text"
                             value={storeEditData.type || ''}
                             onChange={(e) => setStoreEditData({ ...storeEditData, type: e.target.value })}
-                            placeholder="مثال: مطعم مأكولات شعبية"
+                            placeholder="مثال: سوبرماركت، مطعم، صيدلية، إلكترونيات، مكتبة..."
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-orange-500"
                           />
                         </div>
@@ -1674,6 +1675,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                             type="text"
                             value={storeEditData.locationInDistrict || ''}
                             onChange={(e) => setStoreEditData({ ...storeEditData, locationInDistrict: e.target.value })}
+                            placeholder="مثال: المعادي - شارع 9، أو العاصمة الإدارية، أو التجمع الخامس"
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-orange-500"
                           />
                         </div>
@@ -1912,9 +1914,9 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             </section>
           )}
 
-          {/* PAGE: KITCHEN DISPLAY */}
+          {/* PAGE: KITCHEN / ORDER PREPARATION DISPLAY */}
           {activeTab === "kitchen" && (
-            <section aria-label="شاشة تذاكر المطبخ الحية">
+            <section aria-label="شاشة تحضير وتجهيز الطلبات الحية">
               <button onClick={() => navigateSection('radar')} className="p-2 border rounded-xl mb-3 text-xs font-bold bg-white hover:bg-slate-50 transition cursor-pointer">
                 تتبع طلبات المتجر
               </button>
@@ -2272,7 +2274,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                     </p>
                   )}
 
-                  {/* زر التوفر بالمطبخ (موجز ومضغوط) */}
+                  {/* زر التوفر للطلب بالمتجر */}
                   <button
                     disabled={!canManage || !connected || prod.archived}
                     onClick={() => onUpdateProductStock(prod.id, !prod.inStock)}
@@ -2281,10 +2283,10 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                         ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
                         : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
                     }`}
-                    title="تبديل حالة التوفر للطلب بالمطبخ"
+                    title="تبديل حالة التوفر للطلب بالمتجر"
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${prod.inStock ? "bg-emerald-500" : "bg-rose-500"}`} />
-                    <span>{prod.inStock ? "متوفر للطلب بالمطبخ" : "غير متوفر حالياً"}</span>
+                    <span>{prod.inStock ? "متوفر للطلب" : "غير متوفر حالياً"}</span>
                   </button>
                 </div>
               ))}
@@ -2302,7 +2304,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                       <th className="py-3 px-3.5">اسم الصنف والوصف</th>
                       <th className="py-3 px-3.5 w-28">التصنيف</th>
                       <th className="py-3 px-3.5 w-32">السعر</th>
-                      <th className="py-3 px-3.5 w-32 text-center">التوفر بالمطبخ</th>
+                      <th className="py-3 px-3.5 w-32 text-center">حالة التوفر</th>
                       <th className="py-3 px-3.5 w-24 text-center">الإجراءات</th>
                     </tr>
                   </thead>
@@ -2383,7 +2385,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
                                 : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
                             }`}
-                            title="تبديل حالة التوفر بالمطبخ"
+                            title="تبديل حالة التوفر"
                           >
                             <span className={`w-1.5 h-1.5 rounded-full ${prod.inStock ? "bg-emerald-500" : "bg-rose-500"}`} />
                             <span>{prod.inStock ? "متوفر" : "غير متوفر"}</span>

@@ -28,15 +28,15 @@ export interface AccountAccessDialogProps {
 }
 
 const roleNames: Record<string, string> = {
-  employee: 'عميل / مستخدم المنظومة',
-  restaurant: 'شريك تجاري / إدارة متجر ومطبخ',
+  employee: 'عميل متسوق / مستخدم المنظومة',
+  restaurant: 'شريك تجاري / إدارة المتجر والطلبات',
   courier: 'كابتن / مندوب توصيل معتمد',
   admin: 'مدير المنظومة (إدارة عامة)',
 };
 
 const rolePortals: Record<string, { path: string; name: string }> = {
   employee: { path: '/', name: 'المتجر الرئيسي وسلة الطلبات' },
-  restaurant: { path: '/merchant', name: 'بوابة التاجر والمطبخ' },
+  restaurant: { path: '/merchant', name: 'بوابة التاجر والمتجر' },
   courier: { path: '/courier', name: 'بوابة كابتن التوصيل' },
   admin: { path: '/admin', name: 'لوحة الإدارة والتحكم' },
 };
