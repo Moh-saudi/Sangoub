@@ -234,6 +234,55 @@ BEGIN
       'authenticated',
       'authenticated'
     );
+
+    -- إضافة هوية المستخدم في auth.identities لتمكين تسجيل الدخول عبر GoTrue Auth
+    BEGIN
+      INSERT INTO auth.identities (
+        id,
+        user_id,
+        identity_data,
+        provider,
+        provider_id,
+        last_sign_in_at,
+        created_at,
+        updated_at
+      ) VALUES (
+        gen_random_uuid(),
+        v_user_id,
+        jsonb_build_object('sub', v_user_id::text, 'email', lower(trim(p_email))),
+        'email',
+        v_user_id::text,
+        NOW(),
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT DO NOTHING;
+    EXCEPTION WHEN OTHERS THEN
+      BEGIN
+        INSERT INTO auth.identities (
+          id,
+          user_id,
+          identity_data,
+          provider,
+          provider_id,
+          last_sign_in_at,
+          created_at,
+          updated_at
+        ) VALUES (
+          v_user_id::text,
+          v_user_id,
+          jsonb_build_object('sub', v_user_id::text, 'email', lower(trim(p_email))),
+          'email',
+          v_user_id::text,
+          NOW(),
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT DO NOTHING;
+      EXCEPTION WHEN OTHERS THEN
+        NULL;
+      END;
+    END;
   ELSE
     -- تحديث كلمة المرور وتعيينها فوراً في حالة وجود الحساب وتمرير كلمة مرور جديدة
     IF p_password IS NOT NULL AND p_password <> '' THEN
@@ -243,6 +292,32 @@ BEGIN
           updated_at = NOW()
       WHERE id = v_user_id;
     END IF;
+
+    -- التأكد من وجود سجل الهوية للحساب القائم
+    BEGIN
+      INSERT INTO auth.identities (
+        id,
+        user_id,
+        identity_data,
+        provider,
+        provider_id,
+        last_sign_in_at,
+        created_at,
+        updated_at
+      ) VALUES (
+        gen_random_uuid(),
+        v_user_id,
+        jsonb_build_object('sub', v_user_id::text, 'email', lower(trim(p_email))),
+        'email',
+        v_user_id::text,
+        NOW(),
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT DO NOTHING;
+    EXCEPTION WHEN OTHERS THEN
+      NULL;
+    END;
   END IF;
 
   -- 3. إدراج أو تحديث بيانات الملف الشخصي في public.profiles بنفس المعرف وبنوع UUID السليم
@@ -373,5 +448,47 @@ ON CONFLICT (id) DO UPDATE SET
 UPDATE public.profiles
 SET courier_status = 'active'
 WHERE courier_status IS NULL OR courier_status = 'pending';
+
+-- 20. مزامنة وإصلاح هويات الدخول لجميع الحسابات في auth.identities
+-- يحل نهائياً خطأ 500 (Internal Server Error) عند محاولة تسجيل دخول المناديب أو التجار
+DO $$
+BEGIN
+  INSERT INTO auth.identities (
+    id,
+    user_id,
+    identity_data,
+    provider,
+    provider_id,
+    last_sign_in_at,
+    created_at,
+    updated_at
+  )
+  SELECT
+    gen_random_uuid(),
+    u.id,
+    jsonb_build_object('sub', u.id::text, 'email', u.email),
+    'email',
+    u.id::text,
+    NOW(),
+    NOW(),
+    NOW()
+  FROM auth.users u
+  WHERE NOT EXISTS (
+    SELECT 1 FROM auth.identities i WHERE i.user_id = u.id AND i.provider = 'email'
+  );
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END;
+$$;
+
+-- 21. تثبيت وتأكيد بيانات دخول المندوب أحمد محمد (driv@san.com)
+SELECT public.admin_create_user(
+  'driv@san.com',
+  'San@123456!',
+  'احمد محمد',
+  '01017799582',
+  'courier',
+  '3dfaad80-6616-45b3-8716-47127039bf85'
+);
 
 

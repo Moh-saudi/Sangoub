@@ -27,20 +27,15 @@ function getAudioContext(): AudioContext | null {
 
 // Track user gesture to prevent browser autoplay warnings
 if (typeof window !== 'undefined') {
-  const unlockAudio = () => {
+  const markInteracted = () => {
     hasUserInteracted = true;
-    try {
-      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (AudioCtxClass && !sharedAudioCtx) {
-        sharedAudioCtx = new AudioCtxClass();
-      }
-      if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
-        void sharedAudioCtx.resume().catch(() => {});
-      }
-    } catch {}
+    if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+      void sharedAudioCtx.resume().catch(() => {});
+    }
   };
-  window.addEventListener('click', unlockAudio, { passive: true, once: true });
-  window.addEventListener('touchstart', unlockAudio, { passive: true, once: true });
+  window.addEventListener('click', markInteracted, { passive: true });
+  window.addEventListener('touchstart', markInteracted, { passive: true });
+  window.addEventListener('keydown', markInteracted, { passive: true });
 }
 
 /**
