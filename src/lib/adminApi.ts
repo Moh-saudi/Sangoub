@@ -66,6 +66,8 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
       const cleanEmail = body.email ? String(body.email).trim().toLowerCase() : '';
       if (!cleanEmail) throw new Error('البريد الإلكتروني مطلوب لإنشاء الحساب.');
 
+      let targetUid: string | null = null;
+
       // 1. Try native atomic stored procedure in Supabase if deployed
       try {
         const { data: rpcRes, error: rpcErr } = await supabase.rpc('admin_create_user', {
@@ -78,57 +80,54 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
         });
 
         if (!rpcErr && rpcRes?.id) {
-          return { ok: true, id: rpcRes.id };
-        }
-
-        // If RPC failed with non-404 error (e.g. invalid params), log it
-        if (rpcErr && rpcErr.code !== 'PGRST202' && !rpcErr.message?.includes('Could not find')) {
+          targetUid = rpcRes.id;
+        } else if (rpcErr && rpcErr.code !== 'PGRST202' && !rpcErr.message?.includes('Could not find')) {
           console.warn('[adminApi] admin_create_user RPC notice, falling back to direct auth & profile sync:', rpcErr);
         }
       } catch (err) {
         console.warn('[adminApi] RPC execution caught, falling back:', err);
       }
 
-      // 2. Seamless Fallback: Native Supabase Auth SignUp + Automatic Profile Synchronization
-      let targetUid: string | null = null;
+      // 2. Seamless Fallback if RPC didn't return an ID: Native Supabase Auth SignUp
+      if (!targetUid) {
+        // Check if user already exists in profiles
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', cleanEmail)
+          .maybeSingle();
 
-      // Check if user already exists in profiles
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', cleanEmail)
-        .maybeSingle();
-
-      if (existingProfile?.id) {
-        targetUid = existingProfile.id;
-      } else {
-        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password: body.password || 'San@123456!',
-          options: {
-            data: {
-              full_name: body.fullName || body.name || 'مستخدم جديد',
-              role: body.role || 'employee',
-              phone: body.phone || '',
-              store_id: body.storeId || null
+        if (existingProfile?.id) {
+          targetUid = existingProfile.id;
+        } else {
+          const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+            email: cleanEmail,
+            password: body.password || 'San@123456!',
+            options: {
+              data: {
+                full_name: body.fullName || body.name || 'مستخدم جديد',
+                role: body.role || 'employee',
+                phone: body.phone || '',
+                store_id: body.storeId || null
+              }
             }
-          }
-        });
+          });
 
-        if (signUpData?.user?.id) {
-          targetUid = signUpData.user.id;
-        } else if (signUpErr) {
-          // If already registered, fetch profile again
-          const { data: retryProfile } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', cleanEmail)
-            .maybeSingle();
-          if (retryProfile?.id) {
-            targetUid = retryProfile.id;
-          } else {
-            console.error('[adminApi] auth.signUp error:', signUpErr);
-            throw new Error('تعذر إنشاء الحساب: ' + signUpErr.message);
+          if (signUpData?.user?.id) {
+            targetUid = signUpData.user.id;
+          } else if (signUpErr) {
+            // If already registered, fetch profile again
+            const { data: retryProfile } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('email', cleanEmail)
+              .maybeSingle();
+            if (retryProfile?.id) {
+              targetUid = retryProfile.id;
+            } else {
+              console.error('[adminApi] auth.signUp error:', signUpErr);
+              throw new Error('تعذر إنشاء الحساب: ' + signUpErr.message);
+            }
           }
         }
       }
