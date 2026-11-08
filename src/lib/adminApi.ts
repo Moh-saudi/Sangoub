@@ -70,7 +70,7 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
 
       if (rpcErr) {
         console.error('[adminApi] admin_create_user error:', rpcErr);
-        throw new Error('تعذر إنشاء الحساب في Supabase: ' + rpcErr.message);
+        throw new Error('تعذر إنشاء الحساب في قاعدة البيانات: ' + rpcErr.message);
       }
 
       return { ok: true, id: rpcRes?.id };

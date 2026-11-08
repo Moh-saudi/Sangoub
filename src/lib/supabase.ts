@@ -591,7 +591,7 @@ export function subscribeToAdminOrders(
       })) as Order[];
       if (active) onData(orders);
     } catch (error) {
-      if (active) onError(error instanceof Error ? error : new Error('تعذر تحميل الطلبات من Supabase.'));
+      if (active) onError(error instanceof Error ? error : new Error('تعذر تحميل الطلبات من الخادم.'));
     } finally {
       loading = false;
       if (queued && active) { queued = false; void load(); }

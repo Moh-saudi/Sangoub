@@ -30,9 +30,27 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
         user.id === '07492416-8a8e-434b-9094-391abb21272e';
       
       if (isAdmin) {
+        let adminStore: any = null;
+        if (profile?.store_id) {
+          const { data: s } = await supabase.from('stores').select('id, name, category, status').eq('id', profile.store_id).maybeSingle();
+          adminStore = s;
+        }
+        if (!adminStore) {
+          const { data: s } = await supabase.from('stores').select('id, name, category, status').limit(1).maybeSingle();
+          adminStore = s;
+        }
+
         return {
           uid: user.id,
           role: 'admin',
+          duty: 'manager',
+          storeId: adminStore?.id || 'a0000000-0000-0000-0000-000000000001',
+          store: adminStore ? {
+            id: adminStore.id,
+            name: adminStore.name,
+            category: adminStore.category,
+            status: adminStore.status,
+          } : null,
           displayName: profile?.full_name || 'مدير النظام',
           destination: 'admin_web',
           capabilities: ['operations_v2'],

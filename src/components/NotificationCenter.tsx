@@ -737,7 +737,7 @@ export function NotificationCenter({ stores = [] }: NotificationCenterProps) {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "#94a3b8" }}>بروتوكول البث:</span>
-                  <span style={{ color: "#38bdf8" }}>Firebase Cloud Messaging + سجل الحملات في Supabase</span>
+                  <span style={{ color: "#38bdf8" }}>بروتوكول البث الفوري المشفر + سجل الحملات السحابي</span>
                 </div>
               </div>
             </div>

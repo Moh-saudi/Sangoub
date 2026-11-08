@@ -97,16 +97,16 @@ export default function MerchantApp() {
 
       try {
         const authority = await operationsApi('operations', { action: 'profile' });
-        if (authority.role === 'restaurant' && authority.storeId) {
+        if ((authority.role === 'restaurant' || authority.role === 'admin') && authority.storeId) {
           const storeId = resolveSupabaseStoreUuid(authority.storeId);
           const { data: prof } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
           if (active) {
             setProfile({
               id: uid,
-              fullName: prof?.full_name || authority.displayName || user.user_metadata?.full_name || 'مدير المتجر',
+              fullName: prof?.full_name || authority.displayName || (authority.role === 'admin' ? 'مدير المنظومة (معاينة المتجر)' : 'مدير المتجر'),
               email: user.email || '',
               phone: prof?.phone || '',
-              role: 'restaurant',
+              role: authority.role === 'admin' ? 'admin' : 'restaurant',
               storeId,
               duty: authority.duty || 'manager',
               walletBalance: 0,
@@ -119,7 +119,7 @@ export default function MerchantApp() {
 
         if (active) {
           setAccess("denied");
-          setError("هذا الحساب غير مرتبط بمتجر في صلاحيات Supabase. تواصل مع الإدارة لاعتماده.");
+          setError("هذا الحساب غير مرتبط بمتجر معتمد في المنظومة. تواصل مع الإدارة لاعتماده.");
         }
       } catch (e) {
         if (active) {
@@ -465,9 +465,9 @@ export default function MerchantApp() {
             <AlertCircle size={32} />
           </div>
           <h2 className="text-lg font-black text-slate-900">حساب غير مصرح له كتاجر</h2>
-          {error&&<p role="alert" className="text-red-700">{error}</p>}
+          {error && <p role="alert" className="text-rose-600 font-bold text-xs">{error}</p>}
           <p className="text-xs text-slate-600 leading-relaxed">
-            الحساب الحالي مسجل كـ (<strong>{profile?.role === "employee" ? "عميل متسوق" : profile?.role || "مستخدم"}</strong>).
+            الحساب الحالي ({identity?.email || 'المسجل'}) غير مرتبط بصلاحية متجر شريك.
             هذه البوابة مخصصة حصرياً للمطابخ والمتاجر الشريكة المعتمدة في سنجوب.
           </p>
           <div className="pt-2 flex flex-col gap-2">
