@@ -557,12 +557,8 @@ export default function AdminApp() {
             <>
               <h2 className="font-black text-xl">الحساب غير مخوّل للإدارة</h2>
               <p className="text-sm text-slate-600 leading-7">
-                تم تسجيل دخولك بنجاح، ولكن رتبتك الحالية هي ({profile?.role || "employee"}).
+                تم تسجيل دخولك بنجاح بحساب ({identity?.email || profile?.email || "المستخدم"})، ولكن رتبتك الحالية هي ({profile?.role || "employee"}).
               </p>
-              <label className="block text-xs space-y-2">
-                معرف حسابك الحقيقي (UID)
-                <input aria-label="معرف حسابك" readOnly value={identity?.id || ""} dir="ltr" className="w-full p-3 border rounded-xl text-xs bg-slate-50 font-mono" />
-              </label>
               <p className="text-sm text-slate-600">لا يمكن منح صلاحية الإدارة من شاشة تسجيل الدخول. اطلب من مشرف النظام تعيين الدور.</p>
               <button
                 disabled={busy}

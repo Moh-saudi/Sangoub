@@ -1157,21 +1157,6 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                           </div>
                           <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
                             <span dir="ltr">{user.phone || user.email || '—'}</span>
-                            <button
-                              type="button"
-                              onClick={() => copyToClipboard(user.uid, user.uid)}
-                              title={`UID: ${user.uid}`}
-                              className="hover:text-slate-600 text-[10px] flex items-center gap-0.5 cursor-pointer"
-                            >
-                              {copiedUid === user.uid ? (
-                                <span className="text-emerald-600 font-bold">تم النسخ ✓</span>
-                              ) : (
-                                <>
-                                  <Copy size={10} />
-                                  <span>UID</span>
-                                </>
-                              )}
-                            </button>
                           </div>
                         </div>
                       </div>
@@ -2615,7 +2600,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400 font-mono mt-0.5">UID: {viewingUser.uid}</p>
+                <p className="text-[11px] text-slate-500 font-body mt-0.5">{viewingUser.phone || viewingUser.email || (roleNames[viewingUser.role] || viewingUser.role)}</p>
               </div>
             </div>
 

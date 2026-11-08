@@ -69,9 +69,6 @@ export const ProfileView: React.FC<Props> = ({
         <div>
           <h2 className="font-bold text-lg">حسابي وعنوان التوصيل</h2>
           <p className="text-sm text-slate-600">{user.email || user.phone}</p>
-          <p className="text-xs text-slate-400 break-all" dir="ltr">
-            UID: {user.id}
-          </p>
         </div>
         <span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 font-bold text-slate-700 border">
           {user.role === "admin"
