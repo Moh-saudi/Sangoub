@@ -278,7 +278,9 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
               })
             : children
         )}
-        {tab === "users" && <UserManagement stores={stores} />}
+        <div className={tab === "users" ? "" : "hidden"}>
+          <UserManagement stores={stores} />
+        </div>
         {tab === "customer-intelligence" && <CustomerAndPriceIntelligence orders={orders} stores={stores} products={products} />}
         {tab === "audit" && <AuditLog />}
         <footer className="admin-footer">

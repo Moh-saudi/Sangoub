@@ -2319,13 +2319,11 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">الرقم القومي (14 رقماً) *</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">الرقم القومي (اختياري)</label>
                           <input
                             name="nationalId"
                             inputMode="numeric"
-                            required
                             maxLength={14}
-                            pattern="[0-9]{14}"
                             defaultValue={editingUser?.nationalId}
                             placeholder="29801011234567"
                             className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white tracking-widest font-mono"
@@ -2333,11 +2331,10 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">هاتف الطوارئ (قريب / مرجع) *</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">هاتف الطوارئ (اختياري)</label>
                           <input
                             name="emergencyPhone"
                             inputMode="tel"
-                            required
                             maxLength={30}
                             defaultValue={editingUser?.emergencyPhone}
                             placeholder="01298765432"
@@ -2349,20 +2346,19 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                           <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">حالة الاعتماد التشغيلي</label>
                           <select
                             name="courierStatus"
-                            defaultValue={editingUser ? (editingUser.courierStatus || 'pending') : 'pending'}
+                            defaultValue={editingUser ? (editingUser.courierStatus || 'active') : 'active'}
                             className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[11px] bg-white font-bold"
                           >
-                            <option value="pending">قيد الفحص والتوثيق الأمني ⏳</option>
                             <option value="active">نشط ومتاح لاستقبال الطلبات ✓</option>
+                            <option value="pending">قيد الفحص والتوثيق ⏳</option>
                             <option value="suspended">موقوف مؤقتاً ✕</option>
                           </select>
                         </div>
 
                         <div className="sm:col-span-2">
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">العنوان الحالي الفعلي *</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">العنوان الحالي الفعلي (اختياري)</label>
                           <input
                             name="currentAddress"
-                            required
                             maxLength={200}
                             defaultValue={editingUser?.currentAddress}
                             placeholder="الشارع والمنطقة السكنية الحالية"
@@ -2371,10 +2367,9 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         </div>
 
                         <div className="sm:col-span-2">
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">العنوان المسجل ببطاقة الرقم القومي *</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">العنوان المسجل بالبطاقة (اختياري)</label>
                           <input
                             name="idCardAddress"
-                            required
                             maxLength={200}
                             defaultValue={editingUser?.idCardAddress}
                             placeholder="العنوان الرسمي المدون بالبطاقة"

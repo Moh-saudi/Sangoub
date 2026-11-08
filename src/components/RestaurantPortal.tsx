@@ -3041,16 +3041,17 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
       {/* ════════════════════════════════════════════════════════════════════════
           5. طاقم العمل والورديات اليومية (مطابق 100% للوحة الإدارة ومخصص للفرع)
           ════════════════════════════════════════════════════════════════════════ */}
-      {activeTab === "storeCouriers" && (
-        <section aria-label="طاقم العمل والورديات اليومية" className="space-y-4 animate-in fade-in duration-200">
-          <UserManagement
-            stores={stores}
-            fixedStoreId={userStore.id}
-            mode="merchant"
-            orders={orders}
-          />
-        </section>
-      )}
+      <section
+        aria-label="طاقم العمل والورديات اليومية"
+        className={`space-y-4 ${activeTab === "storeCouriers" ? "animate-in fade-in duration-200" : "hidden"}`}
+      >
+        <UserManagement
+          stores={stores}
+          fixedStoreId={userStore.id}
+          mode="merchant"
+          orders={orders}
+        />
+      </section>
       {/* Merchant Product Offer Modal */}
       {merchantOfferProduct && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" dir="rtl">

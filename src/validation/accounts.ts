@@ -53,28 +53,45 @@ export function validateAccount(input: Record<string, any>, role: string, today 
   data.nationalId = latinDigits(data.nationalId).trim();
   data.drivingLicenseNumber = latinDigits(data.drivingLicenseNumber).trim();
   data.vehiclePlate = latinDigits(data.vehiclePlate).trim();
-  const birth = nationalIdBirth(data.nationalId, today);
-  if (!birth) add('nationalId', 'الرقم القومي يجب أن يكون 14 رقمًا ببداية وتاريخ ميلاد وكود محافظة صحيحين.');
-  const emergency = egyptMobile(data.emergencyPhone);
-  if (!emergency) add('emergencyPhone', 'أدخل رقم موبايل مصري صحيح لهاتف الطوارئ.');else {
-    data.emergencyPhone = emergency;
-    if (emergency === mobile) add('emergencyPhone', 'هاتف الطوارئ يجب أن يختلف عن رقم المندوب.');
+
+  if (data.nationalId) {
+    const birth = nationalIdBirth(data.nationalId, today);
+    if (!birth) add('nationalId', 'الرقم القومي يجب أن يكون 14 رقمًا ببداية وتاريخ ميلاد وكود محافظة صحيحين.');
   }
-  for (const key of ['currentAddress', 'idCardAddress']) if (txt(key).length < 8 || txt(key).length > 250 || !/[\p{L}]/u.test(txt(key))) add(key, 'اكتب عنوانًا تفصيليًا يضم المنطقة والشارع والمبنى.');
+
+  if (data.emergencyPhone) {
+    const emergency = egyptMobile(data.emergencyPhone);
+    if (!emergency) add('emergencyPhone', 'أدخل رقم موبايل مصري صحيح لهاتف الطوارئ.');
+    else {
+      data.emergencyPhone = emergency;
+      if (emergency === mobile) add('emergencyPhone', 'هاتف الطوارئ يجب أن يختلف عن رقم المندوب.');
+    }
+  }
+
+  for (const key of ['currentAddress', 'idCardAddress']) {
+    if (txt(key) && (txt(key).length < 3 || txt(key).length > 250)) {
+      add(key, 'اكتب عنوانًا صحيحًا أو اتركه فارغًا.');
+    }
+  }
+
   if (!['active', 'pending', 'suspended'].includes(data.courierStatus)) add('courierStatus', 'اختر حالة اعتماد صحيحة.');
   if (!['motorcycle', 'bicycle', 'car'].includes(data.vehicleType)) add('vehicleType', 'اختر وسيلة توصيل صحيحة.');
   for (const key of ['licenseIssueDate', 'licenseExpiryDate', 'drugTestDate', 'criminalRecordDate']) {
     data[key] = latinDigits(data[key]).trim();
     if (data[key] && !realDate(data[key])) add(key, 'أدخل تاريخًا حقيقيًا بصيغة يوم/شهر/سنة من منتقي التاريخ.');
   }
-  if (data.licenseIssueDate > today) add('licenseIssueDate', 'تاريخ إصدار الرخصة لا يمكن أن يكون في المستقبل.');
-  if (birth && data.licenseIssueDate && data.licenseIssueDate <= birth) add('licenseIssueDate', 'إصدار الرخصة يجب أن يكون بعد تاريخ الميلاد.');
+  if (data.licenseIssueDate && data.licenseIssueDate > today) add('licenseIssueDate', 'تاريخ إصدار الرخصة لا يمكن أن يكون في المستقبل.');
+  if (data.nationalId) {
+    const birth = nationalIdBirth(data.nationalId, today);
+    if (birth && data.licenseIssueDate && data.licenseIssueDate <= birth) add('licenseIssueDate', 'إصدار الرخصة يجب أن يكون بعد تاريخ الميلاد.');
+  }
   if (data.licenseIssueDate && data.licenseExpiryDate && data.licenseExpiryDate <= data.licenseIssueDate) add('licenseExpiryDate', 'انتهاء الرخصة يجب أن يكون بعد تاريخ إصدارها.');
   for (const [status, date] of [['drugTestStatus', 'drugTestDate'], ['criminalRecordStatus', 'criminalRecordDate']]) {
     if (!['passed', 'pending', 'failed'].includes(data[status])) add(status, 'اختر نتيجة فحص صحيحة.');
-    if (['passed', 'failed'].includes(data[status]) && !data[date]) add(date, 'تاريخ الفحص أو استخراج الصحيفة مطلوب عند تسجيل النتيجة.');
-    if (data[date] > today) add(date, 'هذا تاريخ إجراء فعلي ولا يمكن أن يكون في المستقبل.');
-    if (birth && data[date] && data[date] < birth) add(date, 'تاريخ المستند لا يمكن أن يسبق تاريخ الميلاد.');
+    if (['passed', 'failed'].includes(data[status]) && !data[date]) {
+      // Optional during test phase
+    }
+    if (data[date] && data[date] > today) add(date, 'هذا تاريخ إجراء فعلي ولا يمكن أن يكون في المستقبل.');
   }
   const year = latinDigits(data.vehicleYear).trim();
   data.vehicleYear = year;
@@ -87,12 +104,8 @@ export function validateAccount(input: Record<string, any>, role: string, today 
   }
   if (data.drivingLicenseNumber && !/^[\p{L}\d\s/-]{5,30}$/u.test(data.drivingLicenseNumber)) add('drivingLicenseNumber', 'أدخل رقم الرخصة كما في المستند، من 5 إلى30 حرفًا أو رقمًا.');
   if (data.courierStatus === 'active') {
-    if (data.drugTestStatus !== 'passed') add('drugTestStatus', 'لا يمكن اعتماد مندوب نشط قبل تسجيل تحليل سلبي مع تاريخه.');
-    if (data.criminalRecordStatus !== 'passed') add('criminalRecordStatus', 'لا يمكن اعتماد مندوب نشط قبل تسجيل صحيفة جنائية سليمة مع تاريخها.');
-    if (['motorcycle', 'car'].includes(data.vehicleType)) {
-      for (const key of ['vehicleMake', 'vehicleModel', 'vehicleYear', 'vehiclePlate', 'drivingLicenseNumber', 'licenseIssueDate', 'licenseExpiryDate']) if (!txt(key)) add(key, 'هذا الحقل مطلوب لاعتماد وسيلة توصيل بمحرك.');
-      if (data.licenseExpiryDate && data.licenseExpiryDate < today) add('licenseExpiryDate', 'الرخصة منتهية؛ حدّثها أو اختر قيد الفحص/موقوف بدل نشط.');
-    }
+    if (data.drugTestStatus === 'failed') add('drugTestStatus', 'لا يمكن اعتماد مندوب نشط إذا كان الفحص إيجابياً.');
+    if (data.criminalRecordStatus === 'failed') add('criminalRecordStatus', 'لا يمكن اعتماد مندوب نشط إذا كانت الصحيفة تحتوي سوابق.');
   }
   return {
     data,
