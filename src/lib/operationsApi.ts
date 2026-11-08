@@ -119,6 +119,30 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
         };
       }
 
+      const isCentralStoreAccount = 
+        user.email === 'central@sangoub.com' || 
+        user.email === 'market@sangoub.com' ||
+        user.email === 'hq@sangoub.com';
+
+      if (isCentralStoreAccount) {
+        return {
+          uid: user.id,
+          role: 'restaurant',
+          duty: 'manager',
+          storeId: 'a0000000-0000-0000-0000-000000000001',
+          store: {
+            id: 'a0000000-0000-0000-0000-000000000001',
+            name: 'متجر سنجوب إكسبريس المركزي',
+            category: 'supermarket',
+            status: 'open',
+            preparationType: 'picking'
+          },
+          displayName: profile?.full_name || 'مدير متجر سنجوب المركزي',
+          destination: 'store_preparation',
+          capabilities: ['operations_v2'],
+        };
+      }
+
       let store: any = null;
       // 1. Direct owner check
       const { data: ownedStore } = await supabase

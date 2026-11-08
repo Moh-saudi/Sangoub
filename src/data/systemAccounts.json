@@ -1,5 +1,24 @@
 [
   {
+    "uid": "rest-sangoub-central",
+    "fullName": "مدير متجر سنجوب المركزي (إكسبريس)",
+    "email": "central@sangoub.com",
+    "phone": "01000000001",
+    "role": "restaurant",
+    "storeId": "a0000000-0000-0000-0000-000000000001",
+    "duty": "manager",
+    "disabled": false,
+    "emailVerified": true,
+    "providers": [
+      "email"
+    ],
+    "createdAt": "2024-01-01T08:00:00.000Z",
+    "lastSignInAt": "2024-10-31T08:30:00.000Z",
+    "currentAddress": "متجر سنجوب إكسبريس المركزي",
+    "locationAddress": "متجر سنجوب إكسبريس المركزي",
+    "walletBalance": 0
+  },
+  {
     "uid": "07492416-8a8e-434b-9094-391abb21272e",
     "fullName": "مدير المنظومة (المشرف العام)",
     "email": "meskllcqa@gmail.com",

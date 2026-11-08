@@ -2,7 +2,8 @@ import { searchOsm } from '../services/osmClient';
 import { placeAddress } from '../services/deliveryAddress';
 import { validateAccount, cairoToday } from '../validation/accounts';
 import { formatEGP } from "../utils/orderCalculations";
-import { matchStoreId } from '../utils/storeAssets';
+import { matchStoreId, getStoreLogo } from '../utils/storeAssets';
+import { KNOWN_STORE_ASSETS } from '../lib/supabase';
 import { AccountAccessDialog } from './AccountAccessDialog';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import {
@@ -110,6 +111,45 @@ export interface UserManagementProps {
   fixedStoreId?: string;
   mode?: "admin" | "merchant";
   orders?: any[];
+}
+
+function UserTableAvatar({
+  avatarUrl,
+  name,
+  role,
+}: {
+  avatarUrl?: string | null;
+  name?: string;
+  role?: string;
+}) {
+  const [hasError, setHasError] = useState(false);
+  const initial = (name || '?').trim().charAt(0).toUpperCase() || '?';
+  const roleStyle =
+    role === 'courier'
+      ? 'bg-amber-100 text-amber-800 border-amber-300'
+      : role === 'restaurant'
+      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+      : role === 'admin'
+      ? 'bg-slate-800 text-white border-slate-700'
+      : 'bg-purple-100 text-purple-800 border-purple-300';
+
+  if (avatarUrl && !hasError) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name || 'User'}
+        referrerPolicy="no-referrer"
+        onError={() => setHasError(true)}
+        className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500 shrink-0 shadow-xs ring-2 ring-emerald-500/10"
+      />
+    );
+  }
+
+  return (
+    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2 shadow-2xs ${roleStyle}`}>
+      {initial}
+    </div>
+  );
 }
 
 export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = [] }: UserManagementProps) {
@@ -1090,7 +1130,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                 <th className="py-2.5 px-3">الفحص الطبي والجنائي</th>
                 <th className="py-2.5 px-3">الوسيلة / اللوكيشن</th>
                 <th className="py-2.5 px-3 text-center">الحالة</th>
-                <th className="py-2.5 px-3 text-center w-48">التحكم والإجراءات</th>
+                <th className="py-2.5 px-3 text-center min-w-[320px]">التحكم والإجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1098,7 +1138,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                 const isCourier = user.role === 'courier';
                 const isMerchant = user.role === 'restaurant';
                 const store = stores.find((s) => s.id === user.storeId || matchStoreId(s.id, user.storeId));
-                const displayAvatar = user.avatarUrl || (isMerchant && store ? (store.logoUrl || store.logo) : null);
+                const displayAvatar = user.avatarUrl || (isMerchant && store ? (store.logoUrl || store.logo || KNOWN_STORE_ASSETS[store.id]?.logoUrl) : null);
 
                 return (
                   <tr key={user.uid} className="hover:bg-slate-50/70 transition-colors">
@@ -1110,27 +1150,11 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                     {/* Account Name, Avatar & Nickname - Clicking opens the Full Profile Modal */}
                     <td className="py-3 px-3.5">
                       <div className="flex items-center gap-3">
-                        {displayAvatar ? (
-                          <img
-                            src={displayAvatar}
-                            alt={user.fullName || 'User'}
-                            referrerPolicy="no-referrer"
-                            onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
-                            className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500 shrink-0 shadow-xs ring-2 ring-emerald-500/10"
-                          />
-                        ) : (
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2 shadow-2xs ${
-                            isCourier
-                              ? 'bg-amber-100 text-amber-800 border-amber-300'
-                              : isMerchant
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                              : user.role === 'admin'
-                              ? 'bg-slate-800 text-white border-slate-700'
-                              : 'bg-purple-100 text-purple-800 border-purple-300'
-                          }`}>
-                            {(user.fullName || user.email || '?').charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                        <UserTableAvatar
+                          avatarUrl={displayAvatar}
+                          name={user.fullName || user.email}
+                          role={user.role}
+                        />
                         <div>
                           <div className="font-bold text-slate-800 flex items-center gap-1.5">
                             <button
@@ -1306,29 +1330,9 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                       )}
                     </td>
 
-                    {/* Action Buttons: Prominent Eye Button + Edit + Status Toggle + Delete */}
+                    {/* Action Buttons: Send Login Credentials + Preview + Edit + Status Toggle + Delete */}
                     <td className="py-3 px-3.5 text-center">
-                      <div className="inline-flex items-center gap-1 justify-center">
-                        {/* Eye Button for Full Profile Inspection (النهج المعتمد) */}
-                        <button
-                          type="button"
-                          onClick={() => setViewingUser(user)}
-                          title="معاينة الملف والبيانات الكاملة"
-                          className="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-[11px] font-bold rounded-md transition-colors cursor-pointer flex items-center gap-1"
-                        >
-                          <Eye size={13} />
-                          <span>معاينة</span>
-                        </button>
-
-                        {/* Edit Button */}
-                        <button
-                          type="button"
-                          onClick={() => openEditForm(user)}
-                          className="px-2 py-1 border border-slate-300 hover:bg-slate-50 text-slate-700 text-[11px] font-bold rounded-md transition-colors cursor-pointer"
-                        >
-                          تعديل
-                        </button>
-
+                      <div className="flex items-center justify-center gap-1.5 flex-nowrap">
                         {/* Send Login Credentials & Portal Link */}
                         <button
                           type="button"
@@ -1343,21 +1347,44 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                               storeName: userStore?.name || ''
                             });
                           }}
-                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px] font-bold rounded-md transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-[11px] font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
                           title="إرسال بيانات الدخول المعتمدة ورابط البوابة للمستخدم عبر واتساب"
                         >
-                          <Send size={12} className="text-emerald-700 shrink-0" />
+                          <Send size={12} className="shrink-0" />
                           <span>إرسال بيانات الدخول</span>
                         </button>
+
+                        {/* Eye Button for Full Profile Inspection */}
+                        <button
+                          type="button"
+                          onClick={() => setViewingUser(user)}
+                          title="معاينة الملف والبيانات الكاملة"
+                          className="px-2 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-[11px] font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1 whitespace-nowrap shadow-2xs"
+                        >
+                          <Eye size={12} />
+                          <span>معاينة</span>
+                        </button>
+
+                        {/* Edit Button */}
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(user)}
+                          title="تعديل بيانات الحساب"
+                          className="px-2 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold rounded-lg transition-colors cursor-pointer whitespace-nowrap shadow-2xs"
+                        >
+                          <span>تعديل</span>
+                        </button>
+
                         {/* Toggle Status */}
                         <button
                           type="button"
                           disabled={busy}
                           onClick={() => handleToggleStatus(user)}
-                          className={`px-1.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${
+                          title={user.disabled ? 'تفعيل الحساب' : 'إيقاف الحساب'}
+                          className={`px-2 py-1.5 text-[11px] font-bold rounded-lg transition-colors cursor-pointer border whitespace-nowrap shadow-2xs ${
                             user.disabled
-                              ? 'text-emerald-700 hover:bg-emerald-50'
-                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
                           }`}
                         >
                           {user.disabled ? 'تفعيل' : 'إيقاف'}
@@ -1368,9 +1395,10 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                           type="button"
                           disabled={busy}
                           onClick={() => setDeleteConfirmationUser(user)}
-                          className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold rounded-md transition-colors cursor-pointer"
+                          title="حذف الحساب نهائياً"
+                          className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-bold rounded-lg transition-colors cursor-pointer whitespace-nowrap shadow-2xs"
                         >
-                          حذف
+                          <span>حذف</span>
                         </button>
                       </div>
                     </td>

@@ -36,7 +36,7 @@ const roleNames: Record<string, string> = {
 
 const rolePortals: Record<string, { path: string; name: string }> = {
   employee: { path: '/', name: 'المتجر الرئيسي وسلة الطلبات' },
-  restaurant: { path: '/merchant', name: 'بوابة التاجر والمتجر' },
+  restaurant: { path: '/merchant', name: 'بوابة الشريك والتاجر' },
   courier: { path: '/courier', name: 'بوابة كابتن التوصيل' },
   admin: { path: '/admin', name: 'لوحة الإدارة والتحكم' },
 };

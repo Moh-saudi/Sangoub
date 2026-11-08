@@ -97,8 +97,8 @@ export default function MerchantApp() {
 
       try {
         const authority = await operationsApi('operations', { action: 'profile' });
-        if ((authority.role === 'restaurant' || authority.role === 'admin') && authority.storeId) {
-          const storeId = resolveSupabaseStoreUuid(authority.storeId);
+        if (authority.role === 'restaurant' || authority.role === 'admin') {
+          const storeId = resolveSupabaseStoreUuid(authority.storeId || 'a0000000-0000-0000-0000-000000000001');
           const { data: prof } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
           if (active) {
             setProfile({
@@ -559,7 +559,30 @@ export default function MerchantApp() {
               )}
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-sm font-black text-white truncate">{userStore?.name || "بوابة الشريك والتاجر"}</h1>
+                  {profile.role === 'admin' && safeStores.length > 0 ? (
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        value={userStore?.id || profile.storeId || ''}
+                        onChange={(e) => {
+                          const newStoreId = e.target.value;
+                          setProfile(prev => prev ? { ...prev, storeId: newStoreId } : null);
+                        }}
+                        className="text-xs font-black bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 rounded-lg px-2.5 py-1 focus:ring-1 focus:ring-amber-500 cursor-pointer max-w-[220px] truncate"
+                        title="تبديل المتجر لإدارة طلباته وقائمته"
+                      >
+                        {safeStores.map((s) => (
+                          <option key={s.id} value={s.id} className="bg-slate-900 text-white">
+                            {s.id === 'a0000000-0000-0000-0000-000000000001' ? '⭐ [المركزي] ' : '🏪 '}{s.name}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-400/20 px-1.5 py-0.5 rounded font-bold hidden md:inline">
+                        لوحة المدير
+                      </span>
+                    </div>
+                  ) : (
+                    <h1 className="text-sm font-black text-white truncate">{userStore?.name || "بوابة الشريك والتاجر"}</h1>
+                  )}
                   <span
                     className={`w-2.5 h-2.5 rounded-full shrink-0 transition-colors ${
                       userStore?.status === "open"

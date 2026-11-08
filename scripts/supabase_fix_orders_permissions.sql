@@ -322,4 +322,53 @@ UPDATE public.stores
 SET location_in_district = replace(location_in_district, 'الحي الحكومي - ', '')
 WHERE location_in_district LIKE '%الحي الحكومي%';
 
+-- 16. اعتماد وتثبيت متجر سنجوب إكسبريس المركزي وتخصيص حساب الإدارة والتشغيل
+INSERT INTO public.stores (
+  id, name, name_en, type, category, status, delivery_time, min_order, delivery_fee, rating, logo
+)
+VALUES (
+  'a0000000-0000-0000-0000-000000000001',
+  'متجر سنجوب إكسبريس المركزي',
+  'Sangoub Express Central',
+  'سوبرماركت ومستلزمات يومية',
+  'supermarket',
+  'open',
+  '15-25 دقيقة',
+  20.00,
+  10.00,
+  5.0,
+  '/brand/sangoub-market-logo.jpg'
+)
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  category = EXCLUDED.category,
+  status = EXCLUDED.status;
+
+-- تسجيل حساب مدير متجر سنجوب المركزي (central@sangoub.com)
+INSERT INTO public.profiles (
+  id, full_name, email, phone, role, store_id, courier_status, created_at, updated_at
+)
+VALUES (
+  'a0000000-0000-0000-0000-000000000099',
+  'مدير متجر سنجوب المركزي',
+  'central@sangoub.com',
+  '01000000001',
+  'restaurant',
+  'a0000000-0000-0000-0000-000000000001',
+  'active',
+  NOW(),
+  NOW()
+)
+ON CONFLICT (id) DO UPDATE 
+SET full_name = EXCLUDED.full_name,
+    email = EXCLUDED.email,
+    phone = EXCLUDED.phone,
+    role = EXCLUDED.role,
+    store_id = EXCLUDED.store_id;
+
+UPDATE public.stores
+SET owner_id = 'a0000000-0000-0000-0000-000000000099'
+WHERE id = 'a0000000-0000-0000-0000-000000000001';
+
+
 

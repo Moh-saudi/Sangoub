@@ -134,7 +134,7 @@ export function KitchenDisplay({
   }
 
   return (
-    <section dir="rtl" className="space-y-5" aria-label="شاشة المطبخ وتذاكر الطلبات">
+    <section dir="rtl" className="space-y-5" aria-label="محطة تحضير وتجهيز الطلبات">
       {/* Apple / Google Minimalist Top Bar */}
       <div className="bg-white/80 backdrop-blur-xl border border-slate-200/80 rounded-[28px] p-5 shadow-xs flex flex-wrap justify-between gap-4 items-center">
         <div>
