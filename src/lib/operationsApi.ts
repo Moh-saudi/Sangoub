@@ -300,6 +300,118 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       return { ok: true };
     }
 
+    if (body.action === 'store-customers') {
+      try {
+        const storeId = body.storeId || '';
+        const targetStoreUuid = resolveSupabaseStoreUuid(storeId);
+        
+        let query = supabase
+          .from('orders')
+          .select('id, order_number, customer_id, customer_name, total_amount, created_at, status')
+          .order('created_at', { ascending: false })
+          .limit(200);
+
+        if (targetStoreUuid) {
+          query = query.eq('store_id', targetStoreUuid);
+        }
+
+        const { data: rows, error } = await query;
+        if (error) {
+          console.warn('[operationsApi] store-customers error:', error);
+          return { items: [], nextCursor: null, truncated: false };
+        }
+
+        const customerMap = new Map<string, {
+          id: string;
+          name: string;
+          orderIds: string[];
+          orderCount: number;
+          totalSpent: number;
+          lastOrderAt: string;
+        }>();
+
+        for (const row of (rows || [])) {
+          const key = row.customer_id || row.customer_name || 'عميل مجهول';
+          const name = row.customer_name || 'عميل سنجوب';
+          const orderNum = row.order_number || String(row.id).slice(0, 8);
+          const amount = Number(row.total_amount) || 0;
+          const createdAt = row.created_at || '';
+
+          if (!customerMap.has(key)) {
+            customerMap.set(key, {
+              id: key,
+              name,
+              orderIds: [orderNum],
+              orderCount: 1,
+              totalSpent: amount,
+              lastOrderAt: createdAt,
+            });
+          } else {
+            const existing = customerMap.get(key)!;
+            existing.orderIds.push(orderNum);
+            existing.orderCount += 1;
+            existing.totalSpent += amount;
+            if (createdAt && (!existing.lastOrderAt || new Date(createdAt) > new Date(existing.lastOrderAt))) {
+              existing.lastOrderAt = createdAt;
+            }
+          }
+        }
+
+        return {
+          items: Array.from(customerMap.values()),
+          nextCursor: null,
+          truncated: (rows || []).length >= 200,
+        };
+      } catch (err) {
+        console.warn('[operationsApi] store-customers caught:', err);
+        return { items: [], nextCursor: null, truncated: false };
+      }
+    }
+
+    if (body.action === 'store-payments') {
+      try {
+        const storeId = body.storeId || '';
+        const targetStoreUuid = resolveSupabaseStoreUuid(storeId);
+
+        let query = supabase
+          .from('orders')
+          .select('id, order_number, total_amount, created_at, status')
+          .eq('status', 'delivered')
+          .order('created_at', { ascending: false })
+          .limit(200);
+
+        if (targetStoreUuid) {
+          query = query.eq('store_id', targetStoreUuid);
+        }
+
+        const { data: rows, error } = await query;
+        if (error) {
+          console.warn('[operationsApi] store-payments error:', error);
+          return { items: [], nextCursor: null, truncated: false };
+        }
+
+        const totalGross = (rows || []).reduce((acc, r) => acc + (Number(r.total_amount) || 0), 0);
+        const commissionRate = 0.10;
+        const totalCommission = Math.round(totalGross * commissionRate);
+        const totalNet = totalGross - totalCommission;
+
+        const payments = (rows && rows.length > 0) ? [{
+          id: 'SETTLE-' + (storeId ? storeId.slice(0, 8) : 'ALL'),
+          gross: totalGross,
+          commission: totalCommission,
+          net: totalNet,
+          reference: 'تسوية مبيعات الطلبات المسلمة',
+          orderCount: rows.length,
+          createdAt: new Date().toISOString(),
+        }] : [];
+
+        return { items: payments, nextCursor: null, truncated: false };
+      } catch (err) {
+        console.warn('[operationsApi] store-payments caught:', err);
+        return { items: [], nextCursor: null, truncated: false };
+      }
+    }
+
     if (typeof body.action === 'string' && body.action.startsWith('store-')) {
       return { items: [], nextCursor: null, truncated: false };
     }
