@@ -116,6 +116,25 @@ export interface UserManagementProps {
   orders?: any[];
 }
 
+export function sanitizeDisplayName(
+  fullName?: string | null,
+  role?: string,
+  email?: string | null,
+  storeName?: string | null
+): string {
+  if (fullName && !/^[\?\s]+$/.test(fullName.trim())) {
+    return fullName.trim();
+  }
+  if (role === 'courier') return 'كابتن توصيل';
+  if (role === 'restaurant') return storeName || 'شريك متجر';
+  if (role === 'admin') return 'مدير النظام';
+  if (email && email.includes('@')) {
+    const local = email.split('@')[0];
+    if (local && !/^[\?\s]+$/.test(local)) return local;
+  }
+  return 'مستخدم منصة';
+}
+
 function UserTableAvatar({
   avatarUrl,
   name,
@@ -379,7 +398,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
     setEditingUser(user);
     setFormRole(user.role);
     setFormDuty((user.duty as any) || (user.role === 'courier' ? 'preparer' : 'manager'));
-    setFormFullName(user.fullName || '');
+    setFormFullName(sanitizeDisplayName(user.fullName, user.role, user.email));
     setFormAvatarUrl(user.avatarUrl || '');
     setFormAddress(user.locationAddress || user.currentAddress || '');
     setSelectedStoreId(fixedStoreId || user.storeId || '');
@@ -914,6 +933,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
               {baseUsers.map((user) => {
                 const stats = getStaffShiftStats(user);
                 const isCourier = user.role === 'courier';
+                const cardName = sanitizeDisplayName(user.fullName, user.role, user.email);
                 const dutyLabel = user.duty && dutyNames[user.duty] ? dutyNames[user.duty] : (isCourier ? 'كابتن توصيل (طيار)' : 'طاقم تشغيل');
                 const existingClosedShift = shifts.find(s => s.userId === user.uid && s.status === 'closed' && s.shiftDate === cairoToday());
                 const isClosed = Boolean(existingClosedShift);
@@ -932,14 +952,14 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                       <div className="flex items-start justify-between gap-2.5 mb-3">
                         <div className="flex items-center gap-2.5">
                           {user.avatarUrl ? (
-                            <img src={user.avatarUrl} alt={user.fullName} referrerPolicy="no-referrer" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0" />
+                            <img src={user.avatarUrl} alt={cardName} referrerPolicy="no-referrer" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0" />
                           ) : (
                             <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-sm border border-slate-200 shrink-0">
-                              {user.fullName.charAt(0)}
+                              {cardName.charAt(0)}
                             </div>
                           )}
                           <div>
-                            <h4 className="font-bold text-xs text-slate-900 leading-tight">{user.fullName}</h4>
+                            <h4 className="font-bold text-xs text-slate-900 leading-tight">{cardName}</h4>
                             <span className="text-[10px] text-slate-500 font-medium block mt-0.5">{dutyLabel}</span>
                           </div>
                         </div>
@@ -1122,6 +1142,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                 const isMerchant = user.role === 'restaurant';
                 const store = stores.find((s) => s.id === user.storeId || matchStoreId(s.id, user.storeId));
                 const displayAvatar = user.avatarUrl || (isMerchant && store ? (store.logoUrl || store.logo || KNOWN_STORE_ASSETS[store.id]?.logoUrl) : null);
+                const cleanUserName = sanitizeDisplayName(user.fullName, user.role, user.email, store?.name);
 
                 return (
                   <tr key={user.uid} className="hover:bg-slate-50/70 transition-colors">
@@ -1135,7 +1156,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                       <div className="flex items-center gap-3">
                         <UserTableAvatar
                           avatarUrl={displayAvatar}
-                          name={user.fullName || user.email}
+                          name={cleanUserName}
                           role={user.role}
                         />
                         <div>
@@ -1147,7 +1168,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                               className="hover:text-teal-700 hover:underline cursor-pointer text-right flex items-center gap-1.5 group"
                             >
                               <Eye size={13} className="text-teal-600 opacity-70 group-hover:opacity-100 shrink-0" />
-                              <span>{user.fullName || 'بدون اسم محدد'}</span>
+                              <span>{cleanUserName}</span>
                             </button>
                             {user.nickname && (
                               <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded font-normal">
@@ -2565,7 +2586,9 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
       )}
 
       {/* 6. POP-UP MODAL: Full Comprehensive Profile Inspection (نهج بطاقة المعاينة الشاملة - زر العين) */}
-      {viewingUser && (
+      {viewingUser && (() => {
+        const cleanViewingName = sanitizeDisplayName(viewingUser.fullName, viewingUser.role, viewingUser.email);
+        return (
         <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-3xl w-full border border-slate-200 shadow-2xl flex flex-col max-h-[92vh] animate-fadeIn">
             {/* Modal Header */}
@@ -2574,21 +2597,21 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                 {viewingUser.avatarUrl ? (
                   <img
                     src={viewingUser.avatarUrl}
-                    alt={viewingUser.fullName || 'User'}
+                    alt={cleanViewingName}
                     referrerPolicy="no-referrer"
                     onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
                     className="w-12 h-12 rounded-full object-cover border-2 border-teal-600 shadow-xs shrink-0"
                   />
                 ) : (
                   <div className="w-12 h-12 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-base border border-teal-200 shrink-0">
-                    {(viewingUser.fullName || viewingUser.email || '?').charAt(0).toUpperCase()}
+                    {cleanViewingName.charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                       <ShieldCheck size={16} className="text-teal-700" />
-                      <span>{viewingUser.fullName || viewingUser.email}</span>
+                      <span>{cleanViewingName}</span>
                     </h3>
                   {!viewingUser.disabled ? (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -2625,7 +2648,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                   <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                     <span className="text-slate-400 font-bold block mb-0.5 text-[10px]">الاسم الكامل والشهرة</span>
                     <span className="font-black text-slate-800">
-                      {viewingUser.fullName || '—'} {viewingUser.nickname ? `(شهرة: ${viewingUser.nickname})` : ''}
+                      {cleanViewingName} {viewingUser.nickname ? `(شهرة: ${viewingUser.nickname})` : ''}
                     </span>
                   </div>
 
@@ -2796,7 +2819,8 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* 7. Modal for Delete Confirmation */}
       {deleteConfirmationUser && (

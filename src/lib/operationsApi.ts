@@ -522,7 +522,7 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     }
 
     if (body.action === 'update-profile') {
-      // 1. Base updates guaranteed by schema
+      // 1. Base updates strictly aligned with current Supabase profiles schema
       const baseUpdates: any = {
         updated_at: new Date().toISOString()
       };
@@ -544,45 +544,24 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       if (body.hasThermalBox !== undefined) baseUpdates.has_thermal_box = Boolean(body.hasThermalBox);
       if (body.hasThermalBackpack !== undefined) baseUpdates.has_thermal_backpack = Boolean(body.hasThermalBackpack);
 
-      // 2. Try full update with extended columns first
-      const fullUpdates: any = { ...baseUpdates };
-      if (body.emergencyPhone !== undefined) fullUpdates.emergency_phone = body.emergencyPhone;
-      if (body.nationalId !== undefined) fullUpdates.national_id = body.nationalId;
-      if (body.vehicleYear !== undefined) fullUpdates.vehicle_year = body.vehicleYear;
-
-      try {
-        const { error: fullErr } = await supabase
-          .from('profiles')
-          .update(fullUpdates)
-          .eq('id', user.id);
-        if (!fullErr) return { ok: true };
-        console.warn('[update-profile] Extended update error, falling back to base columns:', fullErr.message);
-      } catch (err) {
-        console.warn('[update-profile] Full update exception, attempting base columns:', err);
-      }
-
-      // 3. Fallback: update only base columns (never fails on missing optional columns)
-      try {
-        const { error: baseErr } = await supabase
-          .from('profiles')
-          .update(baseUpdates)
-          .eq('id', user.id);
-        if (!baseErr) return { ok: true };
-        console.warn('[update-profile] Base update error, attempting minimal profile save:', baseErr.message);
-      } catch (err) {
-        console.warn('[update-profile] Base update exception:', err);
-      }
-
-      // 4. Ultra safe minimal update (full_name and avatar only)
-      await supabase
+      // Perform update with guaranteed columns
+      const { error: baseErr } = await supabase
         .from('profiles')
-        .update({
-          full_name: baseUpdates.full_name || 'كابتن التوصيل',
-          avatar_url: baseUpdates.avatar_url || null,
-          updated_at: new Date().toISOString()
-        })
+        .update(baseUpdates)
         .eq('id', user.id);
 
+      if (baseErr) {
+        console.warn('[update-profile] Base update error, attempting minimal profile save:', baseErr.message);
+        // Fallback to essential updates only
+        await supabase
+          .from('profiles')
+          .update({
+            full_name: baseUpdates.full_name || 'كابتن التوصيل',
+            avatar_url: baseUpdates.avatar_url || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+      }
       return { ok: true };
     }
 

@@ -41,7 +41,9 @@ import {
   Smartphone,
   Eye,
   X,
-  Upload
+  Upload,
+  Bell,
+  Inbox
 } from 'lucide-react';
 
 const states: Record<string, { label: string; color: string; icon: any }> = {
@@ -139,9 +141,108 @@ export default function CourierApp() {
   const [uploadingReceipt, setUploadingReceipt] = useState<Record<string, boolean>>({});
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
 
+  // In-App Notifications State for Courier
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const unreadNotificationsCount = notifications.filter(n => !n.read).length;
+
   const mutation = useRef(false);
   const generation = useRef(0);
   const feed = useActivePortalOrders(access === 'courier' ? uid : undefined);
+
+  // Load and listen to notifications for courier
+  useEffect(() => {
+    if (!uid) return;
+    let active = true;
+
+    async function loadNotifications() {
+      try {
+        const { data } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', uid)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (active && data) {
+          setNotifications(data.map(n => ({
+            id: n.id,
+            title: n.title,
+            body: n.body,
+            createdAt: n.created_at,
+            read: n.is_read,
+            type: n.type,
+            orderId: n.data?.orderId
+          })));
+        }
+      } catch (err) {
+        console.warn('Courier notifications load error:', err);
+      }
+    }
+
+    void loadNotifications();
+
+    const channel = supabase
+      .channel(`courier-notifs-${uid}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` },
+        payload => {
+          if (payload.new) {
+            setNotifications(prev => [
+              {
+                id: payload.new.id,
+                title: payload.new.title,
+                body: payload.new.body,
+                createdAt: payload.new.created_at,
+                read: payload.new.is_read,
+                type: payload.new.type,
+                orderId: payload.new.data?.orderId
+              },
+              ...prev
+            ]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      active = false;
+      void supabase.removeChannel(channel);
+    };
+  }, [uid]);
+
+  // Auto-generate notifications from current active tasks
+  useEffect(() => {
+    if (!feed.items?.length) return;
+    const taskNotifs = feed.items.map(order => ({
+      id: `task-${order.id}-${order.orderStatus}`,
+      title: order.orderStatus === 'ready' ? `طلب جاهز للاستلام #${order.orderNumber}` : `مهمة توصيل مسندة إليك #${order.orderNumber}`,
+      body: `الطلب #${order.orderNumber} من متجر "${order.storeName}" بقيمة ${money(order.total)}. وجهة العميل: ${order.deliveryAddress || 'العاصمة'}`,
+      createdAt: order.updatedAt || order.createdAt || new Date().toISOString(),
+      read: false,
+      type: 'order',
+      orderId: order.id
+    }));
+
+    setNotifications(prev => {
+      const existingIds = new Set(prev.map(p => p.id));
+      const toAdd = taskNotifs.filter(t => !existingIds.has(t.id));
+      return toAdd.length ? [...toAdd, ...prev] : prev;
+    });
+  }, [feed.items]);
+
+  // Mark all notifications as read
+  async function markAllNotificationsRead() {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    if (!uid) return;
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', uid);
+    } catch {}
+  }
 
   useEffect(() => {
     let active = true;
@@ -683,6 +784,21 @@ export default function CourierApp() {
               />
               <span>{!feed.online ? 'غير متصل' : feed.live ? 'لحظي' : 'متصل'}</span>
             </div>
+
+            {/* Notification Bell */}
+            <button
+              type="button"
+              onClick={() => setIsNotificationsOpen(v => !v)}
+              title="الإشعارات والتنبيهات"
+              className="relative p-2 rounded-xl text-slate-600 hover:text-orange-600 hover:bg-orange-50 border border-slate-200/80 transition-colors cursor-pointer bg-white"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-600 text-white font-bold text-[10px] flex items-center justify-center px-1 shadow-xs animate-bounce">
+                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                </span>
+              )}
+            </button>
 
             {/* Logout Button */}
             <button
@@ -1686,6 +1802,127 @@ export default function CourierApp() {
               </button>
             </form>
           </section>
+        )}
+
+        {/* Modal / Sheet: Courier Notifications */}
+        {isNotificationsOpen && (
+          <div
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+            onClick={() => setIsNotificationsOpen(false)}
+          >
+            <div
+              className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full max-h-[85vh] sm:max-h-[80vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-bold text-sm text-slate-900">
+                      التنبيهات والإشعارات
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      {unreadNotificationsCount > 0 ? `${unreadNotificationsCount} إشعار جديد` : 'كافة الإشعارات مقروءة'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  {unreadNotificationsCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => void markAllNotificationsRead()}
+                      className="text-[11px] font-bold text-orange-600 hover:text-orange-700 hover:bg-orange-50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                    >
+                      تحديد الكل كمقروء
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsNotificationsOpen(false)}
+                    className="p-1.5 rounded-xl hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-3 overflow-y-auto divide-y divide-slate-100 flex-1">
+                {notifications.length === 0 ? (
+                  <div className="py-12 px-4 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                      <Inbox className="w-7 h-7" />
+                    </div>
+                    <p className="font-heading font-bold text-sm text-slate-700 mb-1">
+                      لا توجد إشعارات حتى الآن
+                    </p>
+                    <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                      ستتلقى هنا تنبيهات فورية عند إسناد مهام جديدة، أو تحديث حالة الطلبات من المتجر والإدارة.
+                    </p>
+                  </div>
+                ) : (
+                  notifications.map(notif => (
+                    <div
+                      key={notif.id}
+                      onClick={() => {
+                        if (!notif.read) {
+                          setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+                        }
+                        if (notif.orderId) {
+                          setTab('active');
+                          setIsNotificationsOpen(false);
+                        }
+                      }}
+                      className={`p-3 rounded-2xl transition-all cursor-pointer flex gap-3 ${
+                        !notif.read ? 'bg-orange-50/60 hover:bg-orange-50' : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center ${
+                        !notif.read ? 'bg-orange-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {notif.type === 'order' ? <Bike className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1 mb-0.5">
+                          <h4 className={`text-xs font-heading font-bold truncate ${
+                            !notif.read ? 'text-slate-900' : 'text-slate-700'
+                          }`}>
+                            {notif.title}
+                          </h4>
+                          <span className="text-[10px] text-slate-400 shrink-0">
+                            {notif.createdAt ? new Date(notif.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-2">
+                          {notif.body}
+                        </p>
+                      </div>
+
+                      {!notif.read && (
+                        <span className="w-2 h-2 rounded-full bg-orange-600 mt-2 shrink-0" />
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-3 bg-slate-50 border-t border-slate-100 text-center">
+                <button
+                  type="button"
+                  onClick={() => setIsNotificationsOpen(false)}
+                  className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+                >
+                  إغلاق التنبيهات
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Modal: Full Receipt Preview */}

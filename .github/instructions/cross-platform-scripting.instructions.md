@@ -7,7 +7,7 @@ applyTo:
   - **/*.sh
   - **/*.cmd
   - **/*.bat
-deployedAt: "2026-11-08T10:55:39.771Z"
+deployedAt: "2026-11-08T22:35:00.532Z"
 ---
 
 # cross-platform-scripting
