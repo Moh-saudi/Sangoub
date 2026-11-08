@@ -303,11 +303,18 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     if (body.action === 'store-customers') {
       try {
         const storeId = body.storeId || '';
-        const targetStoreUuid = resolveSupabaseStoreUuid(storeId);
+        let targetStoreUuid = '';
+        if (storeId) {
+          try {
+            targetStoreUuid = resolveSupabaseStoreUuid(storeId);
+          } catch {
+            targetStoreUuid = storeId;
+          }
+        }
         
         let query = supabase
           .from('orders')
-          .select('id, order_number, customer_id, customer_name, total_amount, created_at, status')
+          .select('id, order_number, customer_id, customer_name, total_amount, created_at, status, courier_name, address')
           .order('created_at', { ascending: false })
           .limit(200);
 
@@ -328,6 +335,14 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
           orderCount: number;
           totalSpent: number;
           lastOrderAt: string;
+          orders: Array<{
+            id: string;
+            orderNumber: string;
+            amount: number;
+            createdAt: string;
+            status: string;
+            courierName?: string;
+          }>;
         }>();
 
         for (const row of (rows || [])) {
@@ -336,6 +351,16 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
           const orderNum = row.order_number || String(row.id).slice(0, 8);
           const amount = Number(row.total_amount) || 0;
           const createdAt = row.created_at || '';
+          const courierName = row.courier_name || '';
+
+          const orderItem = {
+            id: row.id,
+            orderNumber: orderNum,
+            amount,
+            createdAt,
+            status: row.status || 'received',
+            courierName,
+          };
 
           if (!customerMap.has(key)) {
             customerMap.set(key, {
@@ -345,12 +370,14 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
               orderCount: 1,
               totalSpent: amount,
               lastOrderAt: createdAt,
+              orders: [orderItem],
             });
           } else {
             const existing = customerMap.get(key)!;
             existing.orderIds.push(orderNum);
             existing.orderCount += 1;
             existing.totalSpent += amount;
+            existing.orders.push(orderItem);
             if (createdAt && (!existing.lastOrderAt || new Date(createdAt) > new Date(existing.lastOrderAt))) {
               existing.lastOrderAt = createdAt;
             }
@@ -371,7 +398,14 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     if (body.action === 'store-payments') {
       try {
         const storeId = body.storeId || '';
-        const targetStoreUuid = resolveSupabaseStoreUuid(storeId);
+        let targetStoreUuid = '';
+        if (storeId) {
+          try {
+            targetStoreUuid = resolveSupabaseStoreUuid(storeId);
+          } catch {
+            targetStoreUuid = storeId;
+          }
+        }
 
         let query = supabase
           .from('orders')

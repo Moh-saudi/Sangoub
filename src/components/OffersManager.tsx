@@ -1438,38 +1438,38 @@ export function OffersManager({
           className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in"
           dir="rtl"
         >
-          <div className="bg-white rounded-3xl max-w-3xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[90vh]">
-            <header className="px-5 py-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-orange-600 text-white flex items-center justify-center shadow-2xs">
-                  <Tag size={16} />
+          <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[85vh]">
+            <header className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-orange-600 text-white flex items-center justify-center shadow-2xs">
+                  <Tag size={14} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900">إدارة وتفعيل العرض</h3>
-                  <p className="text-[11px] text-slate-500">تحديد الخصم وسعر البيع وشروط ظهور العرض</p>
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900">إدارة وتفعيل العرض</h3>
+                  <p className="text-[10px] text-slate-500">تحديد نسبة الخصم وسعر البيع وشروط ظهور العرض</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 cursor-pointer transition"
+                className="w-7 h-7 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 cursor-pointer transition"
               >
-                <X size={15} />
+                <X size={14} />
               </button>
             </header>
 
             <form onSubmit={handleSaveOffer} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-4 sm:p-5 overflow-y-auto max-h-[72vh] grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="p-3.5 sm:p-4 overflow-y-auto max-h-[68vh] grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 {/* ── العمود الأيمن: بيانات التسعير والخصم والشروط ── */}
-                <div className="space-y-3.5">
+                <div className="space-y-2.5">
                   {/* ملخص الصنف مع إمكانية التغيير */}
-                  <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 overflow-hidden shrink-0">
+                  <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 overflow-hidden shrink-0">
                         {selectedProduct.imageUrl ? (
                           <img src={selectedProduct.imageUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-300 text-base">🍽️</div>
+                          <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">🍽️</div>
                         )}
                       </div>
                       <div className="min-w-0">
@@ -1483,27 +1483,27 @@ export function OffersManager({
                         setIsModalOpen(false);
                         setIsPickerOpen(true);
                       }}
-                      className="px-2.5 py-1 text-[11px] font-bold text-orange-600 hover:bg-orange-50 rounded-lg cursor-pointer shrink-0 transition"
+                      className="px-2 py-0.5 text-[10px] font-bold text-orange-600 hover:bg-orange-50 rounded-md cursor-pointer shrink-0 transition"
                     >
-                      تغيير الصنف
+                      تغيير
                     </button>
                   </div>
 
                   {/* صندوق الأسعار والخصومات */}
-                  <div className="p-3 bg-orange-50/50 rounded-2xl border border-orange-200 space-y-2.5">
+                  <div className="p-2.5 bg-orange-50/50 rounded-xl border border-orange-200 space-y-2">
                     <div className="flex items-center justify-between text-xs font-black text-orange-950">
-                      <span className="flex items-center gap-1.5">
-                        <Percent size={14} className="text-orange-600" />
-                        <span>بيانات التسعير والخصم</span>
+                      <span className="flex items-center gap-1">
+                        <Percent size={13} className="text-orange-600" />
+                        <span className="text-[11px]">التسعير والخصم</span>
                       </span>
-                      <span className="text-[10px] text-emerald-800 font-bold bg-white px-2 py-0.5 rounded-lg border border-orange-200">
-                        وفرت: {formatEGP(Math.max(0, formOriginalPrice - formSalePrice))} ({formDiscountPercent}%)
+                      <span className="text-[10px] text-emerald-800 font-bold bg-white px-1.5 py-0.5 rounded border border-orange-200">
+                        توفير {formatEGP(Math.max(0, formOriginalPrice - formSalePrice))} ({formDiscountPercent}%)
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-1.5">
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                        <label className="block text-[9px] font-bold text-slate-600 mb-0.5">
                           السعر الأصلي *
                         </label>
                         <input
@@ -1513,12 +1513,12 @@ export function OffersManager({
                           step="1"
                           value={formOriginalPrice || ''}
                           onChange={(e) => handleOriginalPriceChange(Number(e.target.value))}
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-xs text-slate-900 focus:outline-none focus:border-orange-500"
+                          className="w-full px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-bold text-xs text-slate-900 focus:outline-none focus:border-orange-500"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                        <label className="block text-[9px] font-bold text-slate-600 mb-0.5">
                           نسبة الخصم *
                         </label>
                         <div className="relative">
@@ -1530,14 +1530,14 @@ export function OffersManager({
                             step="1"
                             value={formDiscountPercent || ''}
                             onChange={(e) => handleDiscountPercentChange(Number(e.target.value))}
-                            className="w-full pl-6 pr-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-xs text-orange-700 focus:outline-none focus:border-orange-500"
+                            className="w-full pl-5 pr-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-bold text-xs text-orange-700 focus:outline-none focus:border-orange-500"
                           />
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-bold">%</span>
+                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-400 text-[9px] font-bold">%</span>
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                        <label className="block text-[9px] font-bold text-slate-600 mb-0.5">
                           سعر العرض *
                         </label>
                         <input
@@ -1547,20 +1547,20 @@ export function OffersManager({
                           step="1"
                           value={formSalePrice || ''}
                           onChange={(e) => handleSalePriceChange(Number(e.target.value))}
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-black text-xs text-emerald-700 focus:outline-none focus:border-orange-500"
+                          className="w-full px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-black text-xs text-emerald-700 focus:outline-none focus:border-orange-500"
                         />
                       </div>
                     </div>
 
                     {/* خيارات سريعة للخصم */}
                     <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                      <span className="text-[10px] text-slate-500 font-bold ml-1">نسب سريعة:</span>
-                      {[10, 15, 20, 25, 30, 40, 50].map((pct) => (
+                      <span className="text-[9px] text-slate-500 font-bold ml-1">نسب سريعة:</span>
+                      {[15, 20, 25, 30, 40, 50].map((pct) => (
                         <button
                           key={pct}
                           type="button"
                           onClick={() => handleDiscountPercentChange(pct)}
-                          className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold cursor-pointer transition ${
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition ${
                             formDiscountPercent === pct
                               ? 'bg-orange-600 text-white shadow-2xs'
                               : 'bg-white hover:bg-orange-100 text-slate-700 border border-slate-200'
@@ -1572,11 +1572,11 @@ export function OffersManager({
                     </div>
                   </div>
 
-                  {/* الشروط والتواريخ */}
-                  <div className="grid grid-cols-3 gap-2">
+                  {/* الشروط والتواريخ في صف متناسق */}
+                  <div className="grid grid-cols-3 gap-1.5">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                        الحد الأقصى للطلب
+                      <label className="block text-[9px] font-bold text-slate-600 mb-0.5">
+                        أقصى حد/عميل
                       </label>
                       <input
                         type="number"
@@ -1584,82 +1584,72 @@ export function OffersManager({
                         max="50"
                         value={formMaxPerOrder}
                         onChange={(e) => setFormMaxPerOrder(Number(e.target.value))}
-                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-900 focus:outline-none focus:border-orange-500"
+                        className="w-full px-1.5 py-1 bg-slate-50 border border-slate-200 rounded-lg font-mono text-xs text-slate-900 focus:outline-none focus:border-orange-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                      <label className="block text-[9px] font-bold text-slate-600 mb-0.5">
                         تاريخ البدء
                       </label>
                       <input
                         type="date"
                         value={formStartDate}
                         onChange={(e) => setFormStartDate(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-[11px] text-slate-900 focus:outline-none focus:border-orange-500"
+                        className="w-full px-1 py-1 bg-slate-50 border border-slate-200 rounded-lg font-mono text-[10px] text-slate-900 focus:outline-none focus:border-orange-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                      <label className="block text-[9px] font-bold text-slate-600 mb-0.5">
                         تاريخ الانتهاء
                       </label>
                       <input
                         type="date"
                         value={formEndDate}
                         onChange={(e) => setFormEndDate(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-[11px] text-slate-900 focus:outline-none focus:border-orange-500"
+                        className="w-full px-1 py-1 bg-slate-50 border border-slate-200 rounded-lg font-mono text-[10px] text-slate-900 focus:outline-none focus:border-orange-500"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* ── العمود الأيسر: هوية العرض والشارة والمعاينة ── */}
-                <div className="space-y-3.5">
+                <div className="space-y-2.5">
                   {/* عنوان العرض الترويجي */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                      عنوان العرض *
+                    <label className="block text-[9px] font-bold text-slate-600 mb-0.5">
+                      عنوان العرض الترويجي *
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="مثال: وجبة التوفير العائلية، عرض الغداء"
+                      placeholder="مثال: وجبة التوفير العائلية"
                       value={formOfferTitle}
                       onChange={(e) => setFormOfferTitle(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs text-slate-900 focus:outline-none focus:border-orange-500"
+                      className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg font-bold text-xs text-slate-900 focus:outline-none focus:border-orange-500"
                     />
                   </div>
 
                   {/* شارة العرض */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[10px] font-bold text-slate-700">شارة ونوع العرض</label>
-                      <button
-                        type="button"
-                        onClick={() => setFormIsOccasion(!formIsOccasion)}
-                        className="text-[10px] text-indigo-600 font-bold hover:underline cursor-pointer"
-                      >
-                        {formIsOccasion ? 'إلغاء المناسبة' : '+ ربط بمناسبة'}
-                      </button>
-                    </div>
-
+                    <label className="block text-[9px] font-bold text-slate-600 mb-0.5">شارة العرض (Badge)</label>
                     <input
                       type="text"
                       value={formBadge}
                       onChange={(e) => setFormBadge(e.target.value)}
                       placeholder="مثال: 🔥 عرض خاص"
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs text-slate-900 focus:outline-none focus:border-orange-500 mb-1.5"
+                      className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg font-bold text-xs text-slate-900 focus:outline-none focus:border-orange-500 mb-1"
                     />
 
-                    {/* خيارات الشارات السريعة */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {BADGE_PRESETS.map((b) => (
+                    {/* خيارات الشارات السريعة المباشرة */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {['🔥 عرض خاص', '⚡ صفقة سريعة', '🌟 الأكثر طلباً', '💥 خصم خاص'].map((b) => (
                         <button
                           key={b}
                           type="button"
                           onClick={() => setFormBadge(b)}
-                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold cursor-pointer transition ${
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition ${
                             formBadge === b
                               ? 'bg-orange-600 text-white shadow-2xs'
                               : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
@@ -1669,68 +1659,38 @@ export function OffersManager({
                         </button>
                       ))}
                     </div>
-
-                    {/* قسم المناسبات المدمج */}
-                    {formIsOccasion && (
-                      <div className="mt-2 p-2.5 bg-indigo-50/70 rounded-xl border border-indigo-200 space-y-1.5 animate-in fade-in">
-                        <label className="block text-[10px] font-bold text-indigo-900">المناسبة أو الموسم:</label>
-                        <input
-                          type="text"
-                          placeholder="مثال: شهر رمضان المبارك، عروض الصيف"
-                          value={formOccasionName}
-                          onChange={(e) => setFormOccasionName(e.target.value)}
-                          className="w-full px-2.5 py-1 bg-white border border-indigo-200 rounded-lg font-bold text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
-                        />
-                        <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                          {OCCASION_PRESETS.slice(0, 4).map((p) => (
-                            <button
-                              key={p.label}
-                              type="button"
-                              onClick={() => {
-                                setFormOccasionName(p.label);
-                                setFormBadge(`${p.icon} ${p.label}`);
-                              }}
-                              className="px-1.5 py-0.5 rounded bg-white hover:bg-indigo-100 text-indigo-900 border border-indigo-200 text-[9px] font-bold flex items-center gap-1 cursor-pointer"
-                            >
-                              <span>{p.icon}</span>
-                              <span>{p.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
 
-                  {/* معاينة مباشرة لشكل العرض للعميل */}
-                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                    <span className="text-[10px] font-black text-slate-400 block tracking-wider">
+                  {/* معاينة مباشرة ومضغوطة لشكل العرض */}
+                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                    <span className="text-[9px] font-bold text-slate-400 block">
                       معاينة شكل العرض بالمتجر:
                     </span>
-                    <div className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-11 h-11 rounded-xl bg-slate-100 overflow-hidden shrink-0 relative border border-slate-200">
+                    <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-slate-100 overflow-hidden shrink-0 relative border border-slate-200">
                           {selectedProduct.imageUrl ? (
                             <img src={selectedProduct.imageUrl} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-300">🍽️</div>
+                            <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">🍽️</div>
                           )}
-                          <span className="absolute top-0 right-0 bg-rose-600 text-white text-[8px] font-black px-1 rounded-bl">
+                          <span className="absolute top-0 right-0 bg-rose-600 text-white text-[7px] font-black px-1 rounded-bl">
                             -{formDiscountPercent}%
                           </span>
                         </div>
                         <div className="min-w-0">
-                          <h5 className="text-xs font-bold text-slate-900 truncate">{selectedProduct.name}</h5>
-                          <span className="text-[10px] text-orange-600 font-bold block truncate">
+                          <h5 className="text-[11px] font-bold text-slate-900 truncate">{selectedProduct.name}</h5>
+                          <span className="text-[9px] text-orange-600 font-bold block truncate">
                             {formBadge || formOfferTitle || '🔥 عرض خاص'}
                           </span>
                         </div>
                       </div>
 
                       <div className="text-left shrink-0">
-                        <strong className="text-sm font-black text-emerald-700 font-mono block">
+                        <strong className="text-xs font-black text-emerald-700 font-mono block">
                           {formatEGP(formSalePrice)}
                         </strong>
-                        <del className="text-[10px] text-slate-400 font-mono block">
+                        <del className="text-[9px] text-slate-400 font-mono block">
                           {formatEGP(formOriginalPrice)}
                         </del>
                       </div>
@@ -1739,30 +1699,30 @@ export function OffersManager({
                 </div>
               </div>
 
-              {/* ── شريط الإجراءات السفلي (سطر واحد ثابت بدون كسر) ── */}
-              <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
-                <span className="text-[11px] font-bold text-slate-500 truncate hidden sm:inline">
-                  {fixedStoreId ? '💡 يخضع العرض لمراجعة الإدارة قبل ظهوره للعملاء' : '✓ تفعيل فوري ومباشر على المتجر'}
+              {/* ── شريط الإجراءات السفلي (سطر واحد متناسق بدون كسر إطلاقاً) ── */}
+              <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+                <span className="text-[10px] font-bold text-slate-500 truncate">
+                  {fixedStoreId ? '💡 يخضع العرض لمراجعة الإدارة قبل ظهوره' : '✓ تفعيل فوري ومباشر على المتجر'}
                 </span>
 
-                <div className="flex items-center gap-2.5 mr-auto shrink-0">
+                <div className="flex items-center gap-2 mr-auto shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap"
+                    className="h-8 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap"
                   >
                     إلغاء
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-4 sm:px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
+                    className="h-8 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
                   >
-                    <Check size={14} />
+                    <Check size={13} />
                     <span>
                       {isSubmitting
                         ? 'جارٍ الحفظ…'
-                        : (fixedStoreId ? 'إرسال للاعتماد' : 'اعتماد وتفعيل')}
+                        : (fixedStoreId ? 'إرسال للاعتماد' : 'تفعيل العرض')}
                     </span>
                   </button>
                 </div>

@@ -252,7 +252,15 @@ export function KitchenDisplay({
                   const minutes = order.createdAt
                     ? Math.max(0, Math.floor((now - Date.parse(order.createdAt)) / 60000))
                     : null;
-                  const hasCourier = Boolean(order.courierId || order.courierName);
+                  const hasCourier = Boolean(
+                    order.courierId &&
+                    order.courierId !== 'null' &&
+                    order.courierId.trim() !== '' &&
+                    order.courierName &&
+                    order.courierName !== 'null' &&
+                    order.courierName.trim() !== '' &&
+                    !order.courierName.includes('غير محدد')
+                  );
 
                   return (
                     <article

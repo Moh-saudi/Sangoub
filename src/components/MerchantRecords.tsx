@@ -224,8 +224,33 @@ export function MerchantRecords({ kind, storeId }: { kind: 'customers' | 'paymen
                       )}
                     </div>
 
-                    {/* Order Reference Badges */}
-                    {Array.isArray(item.orderIds) && item.orderIds.length > 0 && (
+                    {/* Order Reference Badges & History */}
+                    {Array.isArray(item.orders) && item.orders.length > 0 ? (
+                      <details className="group border border-slate-200 rounded-lg p-2 bg-slate-50 text-[10px]">
+                        <summary className="font-bold text-slate-700 cursor-pointer flex items-center justify-between list-none">
+                          <span className="flex items-center gap-1">
+                            <ShoppingBag size={12} className="text-orange-600" />
+                            <span>سجل الفواتير والمندوب ({item.orders.length})</span>
+                          </span>
+                          <span className="text-[9px] text-slate-400 group-open:rotate-180 transition font-mono">▼</span>
+                        </summary>
+
+                        <ul className="mt-2 space-y-1.5 border-t border-slate-200/60 pt-1.5">
+                          {item.orders.map((ord: any) => (
+                            <li key={ord.id} className="p-1.5 bg-white rounded border border-slate-100 flex items-center justify-between gap-1">
+                              <div>
+                                <span className="font-mono font-bold text-slate-800">#{ord.orderNumber}</span>
+                                <span className="text-[9px] text-slate-400 block">
+                                  {ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                  {ord.courierName ? ` • الكابتن: ${ord.courierName}` : ' • بانتظار المندوب'}
+                                </span>
+                              </div>
+                              <span className="font-mono font-bold text-emerald-700">{formatEGP(ord.amount)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : Array.isArray(item.orderIds) && item.orderIds.length > 0 ? (
                       <div className="space-y-1">
                         <span className="text-[10px] font-bold text-slate-400 block">مراجع الفواتير والطلبات:</span>
                         <div className="flex items-center gap-1 flex-wrap">
@@ -242,7 +267,7 @@ export function MerchantRecords({ kind, storeId }: { kind: 'customers' | 'paymen
                           )}
                         </div>
                       </div>
-                    )}
+                    ) : null}
                   </>
                 ) : (
                   <>

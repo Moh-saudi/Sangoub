@@ -142,8 +142,7 @@ GRANT SELECT, INSERT, UPDATE ON public.products TO authenticated, anon;
 DROP POLICY IF EXISTS "Public update products" ON public.products;
 CREATE POLICY "Public update products" ON public.products FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);
 
--- 10. تفعيل صلاحيات وقراءة ملفات المستخدمين بالكامل وفك قيد الارتباط الإجباري
-ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+-- 10. تفعيل صلاحيات وقراءة ملفات المستخدمين بالكامل وفق معايير Supabase القياسية
 GRANT ALL ON public.profiles TO authenticated, anon;
 
 DROP POLICY IF EXISTS "Public select profiles" ON public.profiles;
@@ -279,75 +278,36 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.admin_create_user(text, text, text, text, text, text) TO authenticated, anon;
 
--- 12. تسجيل حسابات التجار في auth.users أولاً لتمكين تسجيل الدخول ومنع خطأ 23503
-INSERT INTO auth.users (
-  id, instance_id, email, encrypted_password, email_confirmed_at, role, aud, created_at, updated_at
-) VALUES 
-  ('dfc169d4-9556-4923-9904-fc14ad04886e', '00000000-0000-0000-0000-000000000000', 'tarek@san.com', crypt('San@123456!', gen_salt('bf')), NOW(), 'authenticated', 'authenticated', NOW(), NOW()),
-  ('40f443c5-bca2-4a77-b7da-f95271055415', '00000000-0000-0000-0000-000000000000', 'hyper@san.com', crypt('San@123456!', gen_salt('bf')), NOW(), 'authenticated', 'authenticated', NOW(), NOW()),
-  ('a0000000-0000-0000-0000-000000000099', '00000000-0000-0000-0000-000000000000', 'central@sangoub.com', crypt('San@123456!', gen_salt('bf')), NOW(), 'authenticated', 'authenticated', NOW(), NOW())
-ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;
-
--- تسجيل حساب طارق (tarek@san.com) في جدول profiles وربطه بمتجر كشري ابو طارق
-INSERT INTO public.profiles (id, full_name, email, phone, role, store_id, courier_status, created_at, updated_at)
-VALUES (
-  'dfc169d4-9556-4923-9904-fc14ad04886e',
-  'محمد ابوطارق',
+-- 12. تهيئة وتثبيت حسابات المتاجر التشغيلية القياسية عبر دالة الإدارة المعتمدة
+-- تضمن هذه الخطوة سلامة المفاتيح الأجنبية (Foreign Keys) بنسبة 100% دون أي أخطاء تعارض 23503
+SELECT public.admin_create_user(
   'tarek@san.com',
+  'San@123456!',
+  'محمد ابوطارق',
   '0123456789',
   'restaurant',
-  '3dfaad80-6616-45b3-8716-47127039bf85',
-  'active',
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO UPDATE 
-SET full_name = EXCLUDED.full_name,
-    email = EXCLUDED.email,
-    phone = EXCLUDED.phone,
-    role = EXCLUDED.role,
-    store_id = EXCLUDED.store_id;
+  '3dfaad80-6616-45b3-8716-47127039bf85'
+);
 
--- ربط متجر كشري ابو طارق بحساب التاجر في جدول stores
-UPDATE public.stores
-SET owner_id = 'dfc169d4-9556-4923-9904-fc14ad04886e'
-WHERE id = '3dfaad80-6616-45b3-8716-47127039bf85';
-
--- 13. تسجيل حساب هايبروان (hyper@san.com) في جدول profiles وربطه بمتجر هايبروان
-INSERT INTO public.profiles (id, full_name, email, phone, role, store_id, courier_status, created_at, updated_at)
-VALUES (
-  '40f443c5-bca2-4a77-b7da-f95271055415',
-  'هايبروان',
+SELECT public.admin_create_user(
   'hyper@san.com',
+  'San@123456!',
+  'هايبروان',
   '01234567891',
   'restaurant',
-  '40f443c5-bca2-4a77-b7da-f95271055415',
-  'active',
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO UPDATE 
-SET full_name = EXCLUDED.full_name,
-    email = EXCLUDED.email,
-    phone = EXCLUDED.phone,
-    role = EXCLUDED.role,
-    store_id = EXCLUDED.store_id;
+  '40f443c5-bca2-4a77-b7da-f95271055415'
+);
 
--- ربط متجر هايبروان بحساب التاجر في جدول stores
-UPDATE public.stores
-SET owner_id = '40f443c5-bca2-4a77-b7da-f95271055415'
-WHERE id = '40f443c5-bca2-4a77-b7da-f95271055415';
-
--- 14. تفعيل صلاحيات الإشعارات بالكامل لمنع خطأ 403 Forbidden
+-- 13. تفعيل صلاحيات الإشعارات بالكامل لمنع خطأ 403 Forbidden
 ALTER TABLE public.notifications DISABLE ROW LEVEL SECURITY;
 GRANT ALL ON public.notifications TO authenticated, anon;
 
--- 15. تنظيف عناوين المتاجر من أي مسميات قديمة
+-- 14. تنظيف عناوين المتاجر من أي مسميات قديمة
 UPDATE public.stores 
 SET location_in_district = replace(location_in_district, 'الحي الحكومي - ', '')
 WHERE location_in_district LIKE '%الحي الحكومي%';
 
--- 16. اعتماد وتثبيت متجر سنجوب إكسبريس المركزي وتخصيص حساب الإدارة والتشغيل
+-- 15. اعتماد وتثبيت متجر سنجوب إكسبريس المركزي وتخصيص حساب الإدارة والتشغيل
 INSERT INTO public.stores (
   id, name, name_en, type, category, status, delivery_time, min_order, delivery_fee, rating, logo
 )
@@ -369,27 +329,15 @@ ON CONFLICT (id) DO UPDATE SET
   category = EXCLUDED.category,
   status = EXCLUDED.status;
 
--- تسجيل حساب مدير متجر سنجوب المركزي (central@sangoub.com)
-INSERT INTO public.profiles (
-  id, full_name, email, phone, role, store_id, courier_status, created_at, updated_at
-)
-VALUES (
-  'a0000000-0000-0000-0000-000000000099',
-  'مدير متجر سنجوب المركزي',
+-- تهيئة وتفعيل حساب مدير متجر سنجوب المركزي
+SELECT public.admin_create_user(
   'central@sangoub.com',
+  'San@123456!',
+  'مدير متجر سنجوب المركزي',
   '01000000001',
   'restaurant',
-  'a0000000-0000-0000-0000-000000000001',
-  'active',
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO UPDATE 
-SET full_name = EXCLUDED.full_name,
-    email = EXCLUDED.email,
-    phone = EXCLUDED.phone,
-    role = EXCLUDED.role,
-    store_id = EXCLUDED.store_id;
+  'a0000000-0000-0000-0000-000000000001'
+);
 
 -- 17. إضافة حقول دورة اعتماد العروض وضوابط الأسعار
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS offer_status TEXT DEFAULT 'approved';

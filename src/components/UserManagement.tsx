@@ -2432,10 +2432,9 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                       </div>
                     </div>
 
-                    {/* Group 2: Vehicle & Equipment */}
-                    <div className="space-y-1.5 pt-1.5 border-t border-amber-200/60">
-                      <h4 className="text-[10px] font-black text-slate-700">ب. المركبة ورخصة القيادة:</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+                    {/* Group 2: Vehicle & Equipment (Compact & Accordion) */}
+                    <div className="space-y-2 pt-1 border-t border-amber-200/60">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
                           <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">وسيلة التوصيل المعتمدة *</label>
                           <select
@@ -2451,26 +2450,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">ماركة المركبة</label>
-                          <input name="vehicleMake" maxLength={60} defaultValue={editingUser?.vehicleMake} placeholder="مثال: دايون / هوندا" className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"/>
-                        </div>
-                        <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">سنة الصنع</label>
-                          <input name="vehicleYear" type="number" min={1900} max={Number(cairoToday().slice(0,4))+1} defaultValue={editingUser?.vehicleYear} placeholder="2024" className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"/>
-                        </div>
-                        <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">موديل المركبة</label>
-                          <input
-                            name="vehicleModel"
-                            maxLength={60}
-                            defaultValue={editingUser?.vehicleModel}
-                            placeholder="مثال: دايون 4 موديل 2024"
-                            className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">رقم لوحة المركبة</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">رقم اللوحة / رخصة المركبة</label>
                           <input
                             name="vehiclePlate"
                             maxLength={30}
@@ -2479,131 +2459,89 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                             className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
                           />
                         </div>
-
-                        <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">رقم رخصة القيادة</label>
-                          <input
-                            name="drivingLicenseNumber"
-                            maxLength={60}
-                            defaultValue={editingUser?.drivingLicenseNumber}
-                            placeholder="رقم الرخصة بالمرور"
-                            className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">تاريخ إصدار رخصة القيادة</label>
-                          <input name="licenseIssueDate" type="date" max={cairoToday()} defaultValue={editingUser?.licenseIssueDate} className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[10px] bg-white"/>
-                        </div>
-                        <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">تاريخ انتهاء رخصة القيادة</label>
-                          <input
-                            name="licenseExpiryDate"
-                            type="date"
-                            defaultValue={editingUser?.licenseExpiryDate}
-                            className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[10px] bg-white"
-                          />
-                        </div>
                       </div>
 
-                      {/* Equipment Checkboxes */}
-                      <div className="pt-1.5 flex flex-wrap items-center gap-4 text-slate-700">
-                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-[10px]">
-                          <input
-                            type="checkbox"
-                            name="hasThermalBox"
-                            defaultChecked={editingUser?.hasThermalBox ?? true}
-                            className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5 cursor-pointer"
-                          />
-                          <span>هل الموتسيكل مجهز بصندوق عازل حراري لحفظ سخونة وجودة الأطعمة؟</span>
-                        </label>
+                      {/* Equipment Checkbox */}
+                      <label className="flex items-center gap-1.5 cursor-pointer font-bold text-[10px] text-slate-700">
+                        <input
+                          type="checkbox"
+                          name="hasThermalBox"
+                          defaultChecked={editingUser?.hasThermalBox ?? true}
+                          className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5 cursor-pointer"
+                        />
+                        <span>مجهز بصندوق / حقيبة حرارية عازلة لحفظ سخونة وجودة الوجبات</span>
+                      </label>
 
-                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-[10px]">
-                          <input
-                            type="checkbox"
-                            name="hasThermalBackpack"
-                            defaultChecked={editingUser?.hasThermalBackpack ?? false}
-                            className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5 cursor-pointer"
-                          />
-                          <span>هل العجلة / الدراجة مجهزة بشنطة ظهر حرارية عازلة؟</span>
-                        </label>
-                      </div>
-                    </div>
+                      {/* Optional Advanced Vehicle & KYC Details */}
+                      <details className="group border border-slate-200 rounded-lg p-2 bg-slate-50/70 text-[10px]">
+                        <summary className="font-bold text-slate-700 cursor-pointer flex items-center justify-between list-none">
+                          <span className="flex items-center gap-1">
+                            <span>📄 بيانات الرخصة والفحص الطبي والجنائي (اختياري / متقدم)</span>
+                          </span>
+                          <span className="text-[9px] text-slate-400 group-open:rotate-180 transition font-mono">▼</span>
+                        </summary>
 
-                    {/* Group 3: Medical & Criminal KYC */}
-                    <div className="space-y-1.5 pt-1.5 border-t border-amber-200/60">
-                      <h4 className="text-[10px] font-black text-slate-700">ج. الفحص الجنائي والطبي (KYC):</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
-                        <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">فحص تحليل المخدرات *</label>
-                          <select
-                            name="drugTestStatus"
-                            defaultValue={editingUser ? (editingUser.drugTestStatus || 'pending') : 'pending'}
-                            className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[11px] bg-white font-bold"
-                          >
-                            <option value="pending">قيد إجراء الفحص المعملي ⏳</option>
-                            <option value="passed">معتمد وسلبي (خالٍ من المخدرات) ✓</option>
-                            <option value="failed">غير لائق / إيجابي ✕</option>
-                          </select>
+                        <div className="pt-2 space-y-2 border-t border-slate-200 mt-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-slate-600 font-bold mb-0.5 text-[9px]">ماركة وموديل المركبة</label>
+                              <input name="vehicleMake" maxLength={60} defaultValue={editingUser?.vehicleMake} placeholder="دايون / هوندا" className="w-full h-7 px-2 border border-slate-300 rounded text-[10px] bg-white"/>
+                            </div>
+                            <div>
+                              <label className="block text-slate-600 font-bold mb-0.5 text-[9px]">سنة الصنع</label>
+                              <input name="vehicleYear" type="number" min={1900} max={Number(cairoToday().slice(0,4))+1} defaultValue={editingUser?.vehicleYear} placeholder="2024" className="w-full h-7 px-2 border border-slate-300 rounded text-[10px] bg-white"/>
+                            </div>
+                            <div>
+                              <label className="block text-slate-600 font-bold mb-0.5 text-[9px]">رقم رخصة القيادة</label>
+                              <input name="drivingLicenseNumber" maxLength={60} defaultValue={editingUser?.drivingLicenseNumber} placeholder="رقم الرخصة" className="w-full h-7 px-2 border border-slate-300 rounded text-[10px] bg-white"/>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-200">
+                            <div>
+                              <label className="block text-slate-600 font-bold mb-0.5 text-[9px]">فحص المخدرات</label>
+                              <select
+                                name="drugTestStatus"
+                                defaultValue={editingUser ? (editingUser.drugTestStatus || 'pending') : 'pending'}
+                                className="w-full h-7 px-2 border border-slate-300 rounded text-[10px] bg-white font-bold"
+                              >
+                                <option value="pending">قيد الفحص ⏳</option>
+                                <option value="passed">سلبي وخالٍ من المواد المخدرة ✓</option>
+                                <option value="failed">غير لائق ✕</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-600 font-bold mb-0.5 text-[9px]">الصحيفة الجنائية (الفيش)</label>
+                              <select
+                                name="criminalRecordStatus"
+                                defaultValue={editingUser ? (editingUser.criminalRecordStatus || 'pending') : 'pending'}
+                                className="w-full h-7 px-2 border border-slate-300 rounded text-[10px] bg-white font-bold"
+                              >
+                                <option value="pending">قيد الاستخراج ⏳</option>
+                                <option value="passed">سليم وخالٍ من السوابق ✓</option>
+                                <option value="failed">غير مقبول ✕</option>
+                              </select>
+                            </div>
+                          </div>
                         </div>
-
-                        <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">تاريخ إجراء فحص المخدرات</label>
-                          <input
-                            name="drugTestDate"
-                            type="date"
-                            max={cairoToday()}
-                            defaultValue={editingUser?.drugTestDate}
-                            className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[10px] bg-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">شهادة الفيش الجنائي (صحيفة الحالة) *</label>
-                          <select
-                            name="criminalRecordStatus"
-                            defaultValue={editingUser ? (editingUser.criminalRecordStatus || 'pending') : 'pending'}
-                            className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[11px] bg-white font-bold"
-                          >
-                            <option value="pending">قيد استخراج الصحيفة والتوثيق ⏳</option>
-                            <option value="passed">سليم وخالٍ من السوابق والأحكام ✓</option>
-                            <option value="failed">توجد سوابق / غير مقبول ✕</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">تاريخ استخراج الفيش الجنائي</label>
-                          <input
-                            name="criminalRecordDate"
-                            type="date"
-                            max={cairoToday()}
-                            defaultValue={editingUser?.criminalRecordDate}
-                            className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[10px] bg-white"
-                          />
-                        </div>
-                      </div>
+                      </details>
                     </div>
                   </div>
                 )}
 
                 {/* Role Specific: Admin */}
                 {formRole === 'admin' && (
-                  <div className="bg-slate-100 border border-slate-300 rounded-xl p-3 space-y-1.5">
+                  <div className="bg-slate-100 border border-slate-300 rounded-xl p-2.5 space-y-1">
                     <h3 className="text-[11px] font-bold text-slate-900 flex items-center gap-1.5">
                       <ShieldCheck size={14} className="text-slate-800" />
-                      <span>3. صلاحيات مدير المنظومة (إدارة عليا)</span>
+                      <span>صلاحيات مدير المنظومة (إدارة عليا)</span>
                     </h3>
                     <p className="text-[10px] text-slate-600 leading-relaxed">
-                      تنبيه أمني: هذا الحساب سيتم منحه صلاحيات المدير الكاملة (Admin) بما في ذلك إدارة الحسابات،
-                      التحكم بالمناديب والمتاجر، مراجعة التقارير المالية والقيود المحاسبية، وتعديل إعدادات المنظومة.
+                      تنبيه: هذا الحساب يمنح صلاحيات المدير الكاملة (Admin) لإدارة الحسابات، المتاجر، المناديب، والتقارير المالية.
                     </p>
                   </div>
                 )}
-
-                <p className="p-2 rounded-lg border border-emerald-200 bg-emerald-50/70 text-[10px] text-emerald-950 font-bold flex items-center gap-1.5">
-                  <ShieldCheck size={14} className="text-emerald-700 shrink-0" />
-                  <span>يتم تأمين واعتماد الحساب رسمياً في المنظومة، وتستطيع إرسال بيانات الدخول المعتمدة ورابط البوابة للمستخدم عبر واتساب فور الحفظ.</span>
-                </p>
 
                 {Object.keys(fieldErrors).length > 0 && (
                   <div role="alert" className="p-2.5 border border-red-200 bg-red-50 text-red-800 rounded-xl text-[11px]">
