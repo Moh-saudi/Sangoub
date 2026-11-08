@@ -1,6 +1,7 @@
 import { authenticatedApi } from './authenticatedApi';
 import { supabase, resolveSupabaseStoreUuid } from './supabase';
 import systemAccounts from '../data/systemAccounts.json';
+import { defaultCustomerHome } from '../types/appContent';
 
 function mapOrderRow(row: any) {
   const appStatus = row.status === 'assigned' || row.status === 'picked_up' ? 'with_courier' : (row.status || 'received');
@@ -352,7 +353,17 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
   if (endpoint === 'app-content') {
     if (body.action === 'admin' || body.action === 'get') {
       const { data: row } = await supabase.from('app_content').select('content').eq('id', true).maybeSingle();
-      return row?.content || {};
+      const content = (row?.content && typeof row.content === 'object') ? row.content : {};
+      if (!content.config || !Array.isArray(content.config.sections)) {
+        content.config = {
+          ...defaultCustomerHome,
+          ...(content.config || {}),
+          sections: Array.isArray(content.config?.sections) && content.config.sections.length > 0
+            ? content.config.sections
+            : defaultCustomerHome.sections
+        };
+      }
+      return content;
     }
     if (body.action === 'save' || body.content) {
       await supabase.from('app_content').upsert({ id: true, content: body.content || body });

@@ -52,7 +52,15 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
     operationsApi('app-content', { action: 'admin' })
       .then(result => {
         if (!active) return;
-        if (!dirty.current) setConfig(result.config);
+        if (!dirty.current && result?.config) {
+          setConfig({
+            ...defaultCustomerHome,
+            ...result.config,
+            sections: Array.isArray(result.config?.sections) && result.config.sections.length > 0
+              ? result.config.sections
+              : defaultCustomerHome.sections
+          });
+        }
         setCampaigns(result.campaigns || []);
         setGallery(result.gallery || []);
         if (result.martBanner) setMartBanner(result.martBanner);
@@ -103,9 +111,11 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
   function move(index: number, delta: number) {
     dirty.current = true;
     setConfig(previous => {
-      const sections = [...previous.sections];
+      const base = previous || defaultCustomerHome;
+      const sections = [...(Array.isArray(base.sections) ? base.sections : defaultCustomerHome.sections)];
+      if (index + delta < 0 || index + delta >= sections.length) return base;
       [sections[index], sections[index + delta]] = [sections[index + delta], sections[index]];
-      return { ...previous, sections };
+      return { ...base, sections };
     });
   }
 
@@ -593,7 +603,7 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
               <p className="text-xs text-slate-500">اختر الأقسام الظاهرة وقدم العروض أو المتاجر حسب خطة التشغيل.</p>
             </div>
             <div className="space-y-2 max-w-xl">
-              {config.sections.map((section, index) => (
+              {(Array.isArray(config?.sections) ? config.sections : defaultCustomerHome.sections).map((section, index, arr) => (
                 <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200" key={section.type}>
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer">
                     <input
@@ -602,10 +612,14 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                       disabled={busy}
                       onChange={event => {
                         dirty.current = true;
-                        setConfig(previous => ({
-                          ...previous,
-                          sections: previous.sections.map(item => item.type === section.type ? { ...item, enabled: event.target.checked } : item)
-                        }));
+                        setConfig(previous => {
+                          const base = previous || defaultCustomerHome;
+                          const currentSections = Array.isArray(base.sections) ? base.sections : defaultCustomerHome.sections;
+                          return {
+                            ...base,
+                            sections: currentSections.map(item => item.type === section.type ? { ...item, enabled: event.target.checked } : item)
+                          };
+                        });
                       }}
                       className="rounded text-orange-600"
                     />
@@ -622,7 +636,7 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                     </button>
                     <button
                       aria-label={`تأخير ${labels[section.type]}`}
-                      disabled={busy || index === config.sections.length - 1}
+                      disabled={busy || index === arr.length - 1}
                       onClick={() => move(index, 1)}
                       className="p-1 bg-white hover:bg-slate-200 rounded border border-slate-200 text-slate-600 disabled:opacity-40"
                     >
