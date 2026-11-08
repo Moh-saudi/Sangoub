@@ -316,6 +316,29 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       return { ok: true };
     }
 
+    if (body.action === 'assign-courier' && body.orderId && body.courierId) {
+      await supabase.from('orders').update({
+        courier_id: body.courierId,
+        courier_name: body.courierName || 'كابتن توصيل',
+        courier_phone: body.courierPhone || null,
+        status: body.nextStatus || 'ready',
+        updated_at: new Date().toISOString()
+      }).eq('id', body.orderId);
+
+      // Create notification for courier
+      try {
+        await supabase.from('notifications').insert({
+          user_id: body.courierId,
+          title: `مهمة توصيل مسندة إليك #${body.orderNumber || ''}`,
+          body: `تم تكليفك بالطلب #${body.orderNumber || ''}، يرجى الاستلام والبدء في التوصيل.`,
+          type: 'order',
+          data: { orderId: body.orderId }
+        });
+      } catch {}
+
+      return { ok: true };
+    }
+
     if (body.action === 'set-product-stock' && body.id) {
       await supabase.from('products').update({ is_available: Boolean(body.inStock) }).eq('id', body.id);
       return { ok: true };

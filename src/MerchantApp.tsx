@@ -199,7 +199,7 @@ export default function MerchantApp() {
         const currentStoreId = resolveSupabaseStoreUuid(profile.storeId);
         const targetStoreUuid = resolveSupabaseStoreUuid(currentStoreId);
 
-        const [sbStores, sbProducts, result] = await Promise.all([
+        const [sbStores, sbProducts, sbCouriers, result] = await Promise.all([
           getSupabaseStores().catch(err => {
             console.warn('Failed to fetch stores from Supabase:', err);
             return [] as Store[];
@@ -208,6 +208,7 @@ export default function MerchantApp() {
             console.warn('Failed to fetch products from Supabase:', err);
             return [] as Product[];
           }),
+          supabase.from('profiles').select('id, full_name, phone, avatar_url, vehicle_type, vehicle_plate, courier_status').eq('role', 'courier').then(r => r.data || []).catch(() => []),
           operationsApi('operations', { action: 'store-dashboard', storeId: currentStoreId, includeOrders: false }).catch(() => null)
         ]);
 
@@ -228,6 +229,18 @@ export default function MerchantApp() {
           } catch {}
         }
         if (active) {
+          if (Array.isArray(sbCouriers)) {
+            setCouriers(sbCouriers.map((c: any) => ({
+              id: c.id,
+              name: c.full_name || 'كابتن توصيل',
+              phone: c.phone || '',
+              avatarUrl: c.avatar_url,
+              vehicleType: c.vehicle_type,
+              vehiclePlate: c.vehicle_plate,
+              courierStatus: c.courier_status || 'active',
+              status: c.courier_status === 'active' ? 'available' : 'busy'
+            })));
+          }
           const rawStores = (Array.isArray(sbStores) && sbStores.length > 0) ? sbStores : (Array.isArray(result?.stores) && result.stores.length > 0 ? result.stores : []);
           const stoppageKey = 'sangoub_store_stoppage_' + currentStoreId;
           let activeStoppage = null;
@@ -363,6 +376,19 @@ export default function MerchantApp() {
 
   async function merchantMutation(input:object){setError('');try{await operationsApi('operations',input);await Promise.all([refreshMerchant.current(),feed.refresh()]);}catch(e){setError(customerMessage(e,'تعذر حفظ التعديل.'));throw e;}}
   async function handleKitchenChange(id:string,_storeId:string,stage:'preparing'|'ready'){await merchantMutation({action:'legacy-prepare',id,next:stage});}
+  async function handleAssignCourier(orderId: string, courierId: string) {
+    const courier = couriers.find((c) => c.id === courierId);
+    const targetOrder = activeItems.find((o) => o.id === orderId);
+    await merchantMutation({
+      action: 'assign-courier',
+      orderId,
+      courierId,
+      courierName: courier?.name || 'كابتن توصيل',
+      courierPhone: courier?.phone || '',
+      orderNumber: targetOrder?.orderNumber || '',
+      nextStatus: 'ready'
+    });
+  }
   async function handleUpdateOrderStatus(_id:string,_status:Order['orderStatus']){setError('حالة التوصيل يحدّثها المندوب، وتجهيز الطلب يتم من أزرار إدارة وتجهيز الطلبات.');}
   async function handleUpdateProductStock(id:string,inStock:boolean){
     try { await supabase.from('products').update({ is_available: inStock }).eq('id', id); } catch {}
@@ -815,6 +841,7 @@ export default function MerchantApp() {
               historyCount={history.length}
               onLoadHistory={() => void loadHistory()}
               onKitchenChange={handleKitchenChange}
+              onAssignCourier={handleAssignCourier}
               onUpdateOrderStatus={handleUpdateOrderStatus}
               onUpdateProductStock={handleUpdateProductStock}
               onUpdateProductInventory={handleUpdateProductInventory}

@@ -11,9 +11,14 @@ import {
   Navigation,
   MapPin,
   FileText,
+  RotateCw,
+  Check,
+  UserCheck,
 } from "lucide-react";
 import type { Order, Store } from "../types";
 import { kitchenStage } from "../utils/orderIntegration";
+import { supabase } from "../lib/supabase";
+import { operationsApi } from "../lib/operationsApi";
 
 type Stage = "received" | "preparing" | "ready";
 
@@ -43,6 +48,8 @@ export function KitchenDisplay({
   stores,
   fixedStoreId,
   connected,
+  couriers = [],
+  onAssignCourier,
   onChange,
   onNavigateRadar,
   readOnly = false,
@@ -52,6 +59,8 @@ export function KitchenDisplay({
   stores: Store[];
   fixedStoreId?: string;
   connected: boolean;
+  couriers?: Array<any>;
+  onAssignCourier?: (orderId: string, courierId: string) => Promise<void>;
   onChange: (id: string, storeId: string, stage: "preparing" | "ready") => Promise<void>;
   onNavigateRadar?: () => void;
 }) {
@@ -62,8 +71,81 @@ export function KitchenDisplay({
   const [sound, setSound] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [ticketNotes, setTicketNotes] = useState<Record<string, string>>({});
+  const [internalCouriers, setInternalCouriers] = useState<any[]>([]);
+  const [selectedCourier, setSelectedCourier] = useState<Record<string, string>>({});
+  const [assigning, setAssigning] = useState<Record<string, boolean>>({});
+  const [reassigningOrder, setReassigningOrder] = useState<Record<string, boolean>>({});
   const audio = useRef<AudioContext | null>(null);
   const previous = useRef<Set<string> | null>(null);
+
+  // Auto-fetch fleet couriers from Supabase if not provided
+  useEffect(() => {
+    let active = true;
+    async function loadCouriers() {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone, avatar_url, vehicle_type, vehicle_plate, courier_status')
+          .eq('role', 'courier');
+        if (active && data && data.length > 0) {
+          setInternalCouriers(data.map(c => ({
+            id: c.id,
+            name: c.full_name || 'كابتن توصيل',
+            phone: c.phone || '',
+            avatarUrl: c.avatar_url,
+            vehicleType: c.vehicle_type,
+            vehiclePlate: c.vehicle_plate,
+            courierStatus: c.courier_status || 'active',
+            status: c.courier_status === 'active' ? 'available' : 'busy'
+          })));
+        }
+      } catch (err) {
+        console.warn('Failed to load couriers in KitchenDisplay:', err);
+      }
+    }
+    if (!couriers || couriers.length === 0) {
+      void loadCouriers();
+    }
+    return () => { active = false; };
+  }, [couriers]);
+
+  const fleetCouriers = (couriers && couriers.length > 0 ? couriers : internalCouriers).filter(
+    (c: any, index: number, self: any[]) => self.findIndex((item: any) => item.id === c.id) === index
+  );
+
+  function getCourierWorkload(courierId: string) {
+    return orders.filter(
+      o => (o.courierId === courierId) && ['ready', 'with_courier'].includes(o.orderStatus)
+    ).length;
+  }
+
+  async function handleAssign(order: Order, courierId: string) {
+    if (!courierId) return;
+    setAssigning(prev => ({ ...prev, [order.id]: true }));
+    setError("");
+    const courier = fleetCouriers.find(c => c.id === courierId);
+    try {
+      if (onAssignCourier) {
+        await onAssignCourier(order.id, courierId);
+      } else {
+        await operationsApi('operations', {
+          action: 'assign-courier',
+          orderId: order.id,
+          courierId,
+          courierName: courier?.name || 'كابتن توصيل',
+          courierPhone: courier?.phone || '',
+          orderNumber: order.orderNumber,
+          nextStatus: 'ready'
+        });
+        await onChange(order.id, storeId, 'ready');
+      }
+      setReassigningOrder(prev => ({ ...prev, [order.id]: false }));
+    } catch (e: any) {
+      setError(e?.message || "تعذر تكليف المندوب بالطلب.");
+    } finally {
+      setAssigning(prev => ({ ...prev, [order.id]: false }));
+    }
+  }
 
   const storeId = fixedStoreId || selection || stores[0]?.id || "";
   const tickets = orders.filter(
@@ -328,11 +410,11 @@ export function KitchenDisplay({
                         </div>
                       )}
 
-                      {/* Kitchen Note Field */}
+                      {/* Preparation & Store Note Field */}
                       <div>
                         <input
                           type="text"
-                          placeholder="ملاحظة المطبخ (اختياري)..."
+                          placeholder="ملاحظة التجهيز والتحضير (اختياري)..."
                           value={ticketNotes[order.id] || ""}
                           onChange={(e) => setTicketNotes({ ...ticketNotes, [order.id]: e.target.value })}
                           className="w-full text-[10px] h-7 px-2 border border-slate-200 rounded-md bg-slate-50 text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-orange-500"
@@ -368,27 +450,106 @@ export function KitchenDisplay({
                           )}
                         </button>
                       ) : (
-                        /* Stage: READY (تم التجهيز) -> Differentiate assigned courier vs waiting for courier */
-                        <div className="space-y-1.5">
-                          {hasCourier ? (
-                            <div className="bg-emerald-50 border border-emerald-200 p-2 rounded-lg text-center space-y-0.5">
-                              <p className="text-emerald-900 text-[11px] font-bold flex items-center justify-center gap-1">
-                                <Bike size={13} className="text-emerald-700" />
-                                <span>الكابتن المكلف: {order.courierName || 'مندوب معتمد'}</span>
-                              </p>
-                              <p className="text-[9px] text-emerald-700">
-                                الطلب جاهز ومغلف بالمحل — بانتظار استلام الكابتن للطلب
-                              </p>
+                        /* Stage: READY (تم التجهيز بالمحل) -> Courier Selection, Assignment & Management */
+                        <div className="space-y-2">
+                          {hasCourier && !reassigningOrder[order.id] ? (
+                            <div className="bg-emerald-50/90 border border-emerald-200 p-2.5 rounded-xl space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-emerald-800 flex items-center gap-1">
+                                  <Bike size={13} className="text-emerald-700" />
+                                  <span>الكابتن المكلف بالطلب:</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setReassigningOrder(prev => ({ ...prev, [order.id]: true }))}
+                                  className="text-[9px] font-bold text-orange-600 hover:text-orange-700 bg-white border border-orange-200 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                >
+                                  تغيير الكابتن ↺
+                                </button>
+                              </div>
+
+                              <div className="flex items-center justify-between text-xs font-bold text-slate-900 bg-white p-2 rounded-lg border border-emerald-100">
+                                <div>
+                                  <p className="font-heading font-black">{order.courierName || 'كابتن معتمد'}</p>
+                                  {order.courierPhone && (
+                                    <a
+                                      href={`tel:${order.courierPhone}`}
+                                      className="text-[10px] font-body text-slate-500 hover:text-emerald-600 flex items-center gap-1 mt-0.5"
+                                    >
+                                      <span>{order.courierPhone}</span>
+                                    </a>
+                                  )}
+                                </div>
+                                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                  بانتظار الاستلام 📦
+                                </span>
+                              </div>
                             </div>
                           ) : (
-                            <div className="bg-amber-50/80 border border-amber-200 p-2 rounded-lg text-center space-y-0.5">
-                              <p className="text-amber-900 text-[11px] font-bold flex items-center justify-center gap-1">
-                                <Clock size={13} className="text-amber-700" />
-                                <span>جاهز ومغلف — بانتظار تكليف المندوب ⏳</span>
+                            <div className="bg-orange-50/70 border border-orange-200 p-2.5 rounded-xl space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold font-heading text-slate-900 flex items-center gap-1.5">
+                                  <Bike size={14} className="text-orange-600" />
+                                  <span>تكليف كابتن توصيل بالطلب:</span>
+                                </span>
+                                {reassigningOrder[order.id] && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setReassigningOrder(prev => ({ ...prev, [order.id]: false }))}
+                                    className="text-[9px] text-slate-500 hover:text-slate-800 cursor-pointer"
+                                  >
+                                    إلغاء التغيير ✕
+                                  </button>
+                                )}
+                              </div>
+
+                              <p className="text-[10px] text-slate-600 leading-tight">
+                                اختر المندوب المتفرغ لتكليفه بالطلب وإشعاره فوراً:
                               </p>
-                              <p className="text-[9px] text-amber-700/90 leading-tight">
-                                لم يتم تعيين مندوب حتى الآن؛ الطلب معروض في رادار المناديب للتكليف والاستلام.
-                              </p>
+
+                              <div className="space-y-1.5">
+                                <select
+                                  aria-label="اختيار كابتن التوصيل"
+                                  value={selectedCourier[order.id] || (hasCourier ? order.courierId : "") || ""}
+                                  onChange={(e) => setSelectedCourier({ ...selectedCourier, [order.id]: e.target.value })}
+                                  className="w-full h-8 text-[11px] font-bold border border-slate-300 rounded-lg bg-white text-slate-900 px-2 shadow-2xs focus:border-orange-500 focus:outline-none cursor-pointer"
+                                >
+                                  <option value="">-- اضغط لاختيار المندوب المتفرغ --</option>
+                                  {fleetCouriers.map((c: any) => {
+                                    const load = getCourierWorkload(c.id);
+                                    const isAvailable = c.courierStatus === 'active' || c.status === 'available';
+                                    const statusText = !isAvailable ? '⚪ في استراحة' : (load === 0 ? '🟢 متفرغ (0 مهام)' : `🟡 لديه ${load} مهام نشطة`);
+                                    return (
+                                      <option key={c.id} value={c.id}>
+                                        {c.name} {c.phone ? `(${c.phone})` : ''} — {statusText}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+
+                                <button
+                                  type="button"
+                                  disabled={
+                                    !selectedCourier[order.id] ||
+                                    assigning[order.id] ||
+                                    (hasCourier && selectedCourier[order.id] === order.courierId && !reassigningOrder[order.id])
+                                  }
+                                  onClick={() => handleAssign(order, selectedCourier[order.id])}
+                                  className="w-full h-8 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-[0.98] disabled:opacity-40 cursor-pointer"
+                                >
+                                  {assigning[order.id] ? (
+                                    <>
+                                      <RotateCw size={13} className="animate-spin" />
+                                      <span>جارٍ تكليف المندوب وإشعاره…</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Bike size={13} />
+                                      <span>تأكيد تكليف الكابتن بالطلب 🛵</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>

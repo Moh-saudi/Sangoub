@@ -105,6 +105,7 @@ interface RestaurantPortalProps {
     coordinates?: { latitude: number; longitude: number };
     status?: "available" | "busy" | "offline";
   }>;
+  onAssignCourier?: (orderId: string, courierId: string) => Promise<void>;
   onUpdateOrderStatus: (orderId: string, status: Order["orderStatus"]) => void;
   onUpdateProductStock: (productId: string, inStock: boolean) => void;
   onUpdateProductInventory?: (productId: string, updates: { stockQuantity?: number; minStockAlert?: number; maxPerOrder?: number; inStock?: boolean }) => Promise<void>;
@@ -134,6 +135,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   orders,
   couriers,
   connected,
+  onAssignCourier,
   onKitchenChange,
   onUpdateOrderStatus,
   onUpdateProductStock,
@@ -1930,6 +1932,8 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                   stores={stores}
                   fixedStoreId={userStore.id}
                   connected={connected}
+                  couriers={couriers && couriers.length > 0 ? couriers : storeCouriers}
+                  onAssignCourier={onAssignCourier}
                   onChange={onKitchenChange}
                   onNavigateRadar={() => navigateSection('radar')}
                 />
