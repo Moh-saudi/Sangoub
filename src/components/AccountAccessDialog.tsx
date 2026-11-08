@@ -13,7 +13,9 @@ import {
   Eye,
   EyeOff,
   Store,
+  Sparkles,
 } from 'lucide-react';
+import { adminApi } from '../lib/adminApi';
 
 export interface AccountAccessDialogProps {
   email: string;
@@ -48,6 +50,10 @@ export function AccountAccessDialog({
   storeName = '',
   onClose,
 }: AccountAccessDialogProps) {
+  const [currentPassword, setCurrentPassword] = useState(password || 'San@123456!');
+  const [isEditingPass, setIsEditingPass] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [updateMsg, setUpdateMsg] = useState('');
   const [copiedPass, setCopiedPass] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
   const [showPassword, setShowPassword] = useState(true);
@@ -65,23 +71,23 @@ export function AccountAccessDialog({
     waPhone = waPhone.slice(1);
   }
 
-  // Official secure WhatsApp welcome message (NO reset links, NO leaked tokens)
+  // Official secure WhatsApp welcome message
   const whatsappMessage = `مرحباً بك في منصة سنجوب 🚚
 
-تم تفعيل حسابك المعتمد بنجاح. إليك بيانات تسجيل الدخول الرسمية الخاصة بك:
+تم اعتماد وتفعيل حسابك بنجاح. إليك بيانات تسجيل الدخول الرسمية الخاصة بك:
 
 👤 الاسم: ${fullName || 'شريك سنجوب'}
 🏷️ نوع الحساب: ${roleTitle}${storeName ? `\n🏪 المتجر التابع له: ${storeName}` : ''}
 📧 البريد الإلكتروني: ${email}
 📱 رقم الهاتف: ${phone || 'المسجل بالنظام'}
-🔑 كلمة المرور: ${password || '(كلمة المرور المعتمدة)'}
+🔑 كلمة المرور (الرقم السري): ${currentPassword}
 
 🌐 رابط الدخول المباشر للبوابة:
 ${portalUrl}
 
 📌 تعليمات أمنية:
-- يرجى الاحتفاظ بهذه البيانات وعدم مشاركتها مع أي جهة.
-- ننصح بتغيير كلمة المرور بعد أول تسجيل دخول لضمان الخصوصية.
+- يرجى الاحتفاظ بهذه البيانات وعدم مشاركتها مع أي جهة غير مخولة.
+- يمكنك تسجيل الدخول بالبريد الإلكتروني وكلمة المرور أعلاه مباشرة.
 
 نتمنى لك تجربة موفقة ومتميزة مع فريق سنجوب!`;
 
@@ -101,10 +107,35 @@ ${portalUrl}
 
   async function handleCopyPass() {
     try {
-      await navigator.clipboard.writeText(password);
+      await navigator.clipboard.writeText(currentPassword);
       setCopiedPass(true);
       setTimeout(() => setCopiedPass(false), 2000);
     } catch {}
+  }
+
+  async function handleSaveNewPassword() {
+    if (!currentPassword || currentPassword.length < 6) {
+      alert('كلمة المرور يجب أن تكون 6 خانات على الأقل.');
+      return;
+    }
+    setUpdating(true);
+    setUpdateMsg('');
+    try {
+      await adminApi('users', {
+        action: 'create',
+        email,
+        password: currentPassword,
+        fullName,
+        phone,
+        role
+      });
+      setUpdateMsg('✓ تم حفظ واعتماد كلمة المرور في قاعدة البيانات بنجاح.');
+      setIsEditingPass(false);
+    } catch (e: any) {
+      setUpdateMsg('تعذر التحديث: ' + (e?.message || 'خطأ غير معروف'));
+    } finally {
+      setUpdating(false);
+    }
   }
 
   return (
@@ -186,35 +217,89 @@ ${portalUrl}
               </div>
             )}
 
-            {password && (
-              <div className="flex items-center justify-between py-1.5 bg-amber-50/80 border border-amber-200/80 rounded-lg px-2.5">
-                <span className="text-amber-900 font-bold flex items-center gap-1.5">
-                  <Lock size={13} className="text-amber-700" />
-                  كلمة المرور:
+            {/* Password Row with Edit & Generate options */}
+            <div className="space-y-2 py-2 px-3 bg-amber-50/90 border border-amber-200/90 rounded-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-amber-900 font-bold flex items-center gap-1.5 text-xs">
+                  <Lock size={14} className="text-amber-700" />
+                  <span>كلمة المرور (الرقم السري):</span>
                 </span>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-amber-950 text-sm tracking-wider" dir="ltr">
-                    {showPassword ? password : '••••••••••••'}
-                  </span>
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
-                    title={showPassword ? 'إخفاء' : 'إظهار'}
+                    onClick={() => {
+                      const generated = 'San@' + Math.floor(100000 + Math.random() * 900000);
+                      setCurrentPassword(generated);
+                      setIsEditingPass(true);
+                      setUpdateMsg('تم توليد رقم سري جديد، اضغط "حفظ واعتماد" لتطبيقه.');
+                    }}
+                    className="px-2 py-0.5 bg-white border border-amber-300 hover:bg-amber-100 rounded text-[10px] font-bold text-amber-900 flex items-center gap-1 cursor-pointer shadow-2xs"
+                    title="توليد رقم سري جديد تلقائياً"
                   >
-                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                    <Sparkles size={11} className="text-amber-600" />
+                    <span>توليد رقم جديد</span>
                   </button>
                   <button
                     type="button"
-                    onClick={handleCopyPass}
-                    className="px-2 py-0.5 bg-white border border-amber-300 rounded text-[11px] font-bold text-amber-900 hover:bg-amber-100 flex items-center gap-1 cursor-pointer"
+                    onClick={() => setIsEditingPass(prev => !prev)}
+                    className="px-2 py-0.5 bg-white border border-slate-300 hover:bg-slate-100 rounded text-[10px] font-bold text-slate-700 flex items-center gap-1 cursor-pointer"
                   >
-                    {copiedPass ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
-                    <span>{copiedPass ? 'تم النسخ' : 'نسخ'}</span>
+                    <span>{isEditingPass ? 'إلغاء' : 'تعديل'}</span>
                   </button>
                 </div>
               </div>
-            )}
+
+              {isEditingPass ? (
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    dir="ltr"
+                    className="flex-1 h-8 px-2.5 bg-white border border-amber-400 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    placeholder="أدخل كلمة المرور الجديدة"
+                  />
+                  <button
+                    type="button"
+                    disabled={updating}
+                    onClick={handleSaveNewPassword}
+                    className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold cursor-pointer transition-colors shrink-0 disabled:opacity-50"
+                  >
+                    {updating ? 'جارٍ الحفظ...' : 'حفظ واعتماد بالنظام'}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between pt-1">
+                  <span className="font-mono font-bold text-amber-950 text-sm tracking-wider" dir="ltr">
+                    {showPassword ? currentPassword : '••••••••••••'}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="text-slate-500 hover:text-slate-700 p-1 cursor-pointer"
+                      title={showPassword ? 'إخفاء' : 'إظهار'}
+                    >
+                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyPass}
+                      className="px-2.5 py-1 bg-white border border-amber-300 rounded-md text-[11px] font-bold text-amber-900 hover:bg-amber-100 flex items-center gap-1 cursor-pointer shadow-2xs"
+                    >
+                      {copiedPass ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                      <span>{copiedPass ? 'تم النسخ ✓' : 'نسخ الرقم السري'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {updateMsg && (
+                <p className={`text-[10px] font-medium pt-0.5 ${updateMsg.startsWith('✓') ? 'text-emerald-700' : 'text-amber-800'}`}>
+                  {updateMsg}
+                </p>
+              )}
+            </div>
 
             <div className="flex items-center justify-between pt-1 text-[11px]">
               <span className="text-slate-500">رابط البوابة المباشرة:</span>

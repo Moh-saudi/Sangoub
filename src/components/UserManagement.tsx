@@ -1339,6 +1339,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                               role: user.role,
                               fullName: user.fullName,
                               phone: user.phone,
+                              password: 'San@123456!',
                               storeName: userStore?.name || ''
                             });
                           }}

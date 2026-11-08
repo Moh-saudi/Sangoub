@@ -209,6 +209,15 @@ BEGIN
       'authenticated',
       'authenticated'
     );
+  ELSE
+    -- تحديث كلمة المرور وتعيينها فوراً في حالة وجود الحساب وتمرير كلمة مرور جديدة
+    IF p_password IS NOT NULL AND p_password <> '' THEN
+      v_encrypted_pw := crypt(p_password, gen_salt('bf'));
+      UPDATE auth.users
+      SET encrypted_password = v_encrypted_pw,
+          updated_at = NOW()
+      WHERE id = v_user_id;
+    END IF;
   END IF;
 
   -- 3. إدراج أو تحديث بيانات الملف الشخصي في public.profiles بنفس المعرف بدقة
