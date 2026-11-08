@@ -1601,20 +1601,20 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
 
       {/* 5. POP-UP MODAL: Structured Multi-Section Form (Image 4 & User Request) */}
       {isFormModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-4xl w-full border border-slate-200 shadow-2xl flex flex-col max-h-[92vh] animate-fadeIn">
+        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full border border-slate-200 shadow-2xl flex flex-col max-h-[92vh] animate-fadeIn">
             {/* Modal Header */}
-            <div className="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/60 rounded-t-2xl">
+            <div className="py-2.5 px-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/60 rounded-t-2xl">
               <div>
-                <h2 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <FileCheck size={16} className="text-teal-700" />
+                <h2 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <FileCheck size={15} className="text-teal-700" />
                   <span>
                     {editingUser
                       ? `تعديل بيانات المستخدم: ${editingUser.fullName || editingUser.email}`
                       : 'إضافة مستخدم جديد'}
                   </span>
                 </h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-[10px] text-slate-500 mt-0.5">
                   أدخل بيانات الحساب والتحقق المطلوب لإضافته للمنظومة.
                 </p>
               </div>
@@ -1623,15 +1623,15 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                 onClick={closeFormModal}
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
             {/* Modal Body (Scrollable) */}
-            <div className="p-5 overflow-y-auto space-y-4 text-xs">
+            <div className="p-3.5 sm:p-4 overflow-y-auto space-y-3 text-[11px]">
               {error && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg flex items-center gap-2 font-bold">
-                  <AlertCircle size={15} />
+                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg flex items-center gap-2 font-bold text-[11px]">
+                  <AlertCircle size={14} />
                   <span>{error}</span>
                 </div>
               )}
@@ -1650,16 +1650,16 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                   }
                 }}
                 onSubmit={handleSubmit}
-                className="space-y-4"
+                className="space-y-3"
               >
                 {/* 1. Account Role Classification Selector (Distinct interactive options) */}
-                <div className="bg-slate-50/90 border border-slate-200 rounded-xl p-3.5 space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
-                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <UserCheck size={15} className="text-teal-700" />
+                <div className="bg-slate-50/90 border border-slate-200 rounded-xl p-2.5 sm:p-3 space-y-2">
+                  <div className="flex items-center justify-between border-b border-slate-200/70 pb-1.5">
+                    <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                      <UserCheck size={14} className="text-teal-700" />
                       <span>1. تحديد نوع وتصنيف الحساب *</span>
                     </label>
-                    <span className="text-[11px] text-slate-500 font-medium">
+                    <span className="text-[10px] text-slate-500 font-medium">
                       تتغير الحقول المعروضة تلقائياً بحسب النوع المختار
                     </span>
                   </div>
@@ -1879,19 +1879,19 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                   </h3>
 
                   {/* Avatar Upload Card */}
-                  <div className="bg-white border border-slate-200/90 rounded-xl p-3 sm:p-3.5 flex flex-col sm:flex-row items-center gap-4">
+                  <div className="bg-white border border-slate-200/90 rounded-xl p-2.5 sm:p-3 flex flex-col sm:flex-row items-center gap-3">
                     {/* Avatar Preview */}
                     <div className="relative shrink-0">
                       {formAvatarUrl ? (
                         <img
                           src={formAvatarUrl}
                           alt="الصورة الشخصية"
-                          className="w-16 h-16 sm:w-18 sm:h-18 rounded-full object-cover border-2 border-teal-600 shadow-sm"
+                          className="w-12 h-12 rounded-full object-cover border-2 border-teal-600 shadow-2xs"
                         />
                       ) : (
-                        <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400">
-                          <User size={26} />
-                          <span className="text-[9px] mt-0.5 font-bold">بدون صورة</span>
+                        <div className="w-12 h-12 rounded-full bg-slate-100 border border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400">
+                          <User size={20} />
+                          <span className="text-[8px] font-bold">بدون صورة</span>
                         </div>
                       )}
                       <input
@@ -1904,51 +1904,50 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                     </div>
 
                     {/* Avatar Upload Actions & Info */}
-                    <div className="flex-1 text-center sm:text-right space-y-1.5">
-                      <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                    <div className="flex-1 text-center sm:text-right space-y-1">
+                      <div className="flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
                         <button
                           type="button"
                           onClick={() => avatarInputRef.current?.click()}
-                          className="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                          className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 rounded-lg font-bold text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
                         >
-                          <Camera size={14} className="text-teal-700" />
-                          <span>{formAvatarUrl ? 'تغيير الصورة الشخصية' : 'رفع صورة شخصية للحساب (اختياري)'}</span>
+                          <Camera size={12} className="text-teal-700" />
+                          <span>{formAvatarUrl ? 'تغيير الصورة' : 'رفع صورة شخصية (اختياري)'}</span>
                         </button>
                         {formAvatarUrl && (
                           <button
                             type="button"
                             onClick={() => setFormAvatarUrl('')}
-                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                            className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={11} />
                             <span>إزالة</span>
                           </button>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-500 leading-relaxed">
-                        يمكنك رفع صورة شخصية للحساب الآن، أو تركها فارغة وإضافتها وتحديثها في أي وقت لاحقاً.
-                        (الحد الأقصى 2 ميجابايت بصيغة JPG أو PNG أو WebP).
+                      <p className="text-[10px] text-slate-400 leading-normal">
+                        صورة شخصية للحساب (الحد الأقصى 2 ميجابايت بصيغة JPG أو PNG أو WebP).
                       </p>
                     </div>
                   </div>
 
                   {/* Basic Input Fields */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
                     <div>
-                      <label className="block text-slate-700 font-bold mb-1">اسم الحساب / الاسم بالكامل *</label>
+                      <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">الاسم بالكامل *</label>
                       <input
                         name="fullName"
                         required
                         maxLength={120}
                         value={formFullName}
                         onChange={(e) => setFormFullName(e.target.value)}
-                        placeholder="مثال: أحمد محمود علي أو مطعم البرنس"
-                        className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-teal-600 bg-white"
+                        placeholder="مثال: أحمد محمود علي"
+                        className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] focus:outline-none focus:border-teal-600 bg-white"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-slate-700 font-bold mb-1">البريد الإلكتروني المعتمد *</label>
+                      <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">البريد الإلكتروني المعتمد *</label>
                       <input
                         name="email"
                         type="email"
@@ -1957,12 +1956,12 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         dir="ltr"
                         defaultValue={editingUser?.email}
                         placeholder="user@sangoub.com"
-                        className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-teal-600 bg-white"
+                        className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] focus:outline-none focus:border-teal-600 bg-white"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-slate-700 font-bold mb-1">رقم الهاتف الأساسي (واتساب) *</label>
+                      <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">رقم الهاتف (واتساب) *</label>
                       <input
                         name="phone"
                         inputMode="tel"
@@ -1970,7 +1969,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         maxLength={30}
                         defaultValue={editingUser?.phone}
                         placeholder="01012345678"
-                        className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-teal-600 bg-white"
+                        className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] focus:outline-none focus:border-teal-600 bg-white"
                       />
                     </div>
                   </div>
@@ -1980,45 +1979,45 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
 
                 {/* Role Specific: Government Employee */}
                 {formRole === 'employee' && (
-                  <div className="bg-purple-50/50 border border-purple-200/80 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between border-b border-purple-200/60 pb-2">
-                      <h3 className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
-                        <Building2 size={15} className="text-purple-700" />
+                  <div className="bg-purple-50/50 border border-purple-200/80 rounded-xl p-2.5 sm:p-3 space-y-2">
+                    <div className="flex items-center justify-between border-b border-purple-200/60 pb-1.5">
+                      <h3 className="text-[11px] font-bold text-purple-950 flex items-center gap-1.5">
+                        <Building2 size={13} className="text-purple-700" />
                         <span>3. عنوان التوصيل وبيانات المقر السكني أو العمل</span>
                       </h3>
-                      <span className="text-[10px] bg-purple-200/80 text-purple-900 px-2 py-0.5 rounded-md font-bold">
+                      <span className="text-[9px] bg-purple-200/80 text-purple-900 px-1.5 py-0.5 rounded font-bold">
                         بيانات التوصيل والتسليم
                       </span>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
                       <div>
-                        <label className="block text-slate-700 font-bold mb-1">المنطقة / الحي أو جهة التوصيل</label>
+                        <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">المنطقة / الحي أو جهة التوصيل</label>
                         <input
                           name="ministry"
                           maxLength={120}
                           defaultValue={editingUser?.ministry}
-                          placeholder="مثال: الحي السكني، المعادي، أو اسم الشركة/الجهة"
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          placeholder="مثال: الحي السكني، المعادي"
+                          className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-slate-700 font-bold mb-1">رقم العقار / المبنى / الدور</label>
+                        <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">رقم العقار / المبنى / الدور</label>
                         <input
                           name="floorNumber"
                           maxLength={60}
                           defaultValue={editingUser?.floorNumber}
-                          placeholder="مثال: عمارة 14 - الدور الثالث"
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          placeholder="مثال: عمارة 14 - الدور 3"
+                          className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-slate-700 font-bold mb-1">رقم الشقة / المكتب / الوحدة</label>
+                        <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">رقم الشقة / المكتب / الوحدة</label>
                         <input
                           name="roomNumber"
                           maxLength={80}
                           defaultValue={editingUser?.roomNumber}
                           placeholder="مثال: شقة 12 أو مكتب 402"
-                          className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                          className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
                         />
                       </div>
                     </div>
@@ -2031,26 +2030,26 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                   const storeAddress = formAddress || activeMerchantStore?.preciseAddress || activeMerchantStore?.locationInDistrict || (activeMerchantStore as any)?.address || 'العنوان مسجل ومربوط بالمتجر';
 
                   return (
-                    <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-4 space-y-4">
-                      <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
-                        <h3 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                          <StoreIcon size={15} className="text-emerald-700" />
+                    <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-2.5 sm:p-3 space-y-2.5">
+                      <div className="flex items-center justify-between border-b border-emerald-200/60 pb-1.5">
+                        <h3 className="text-[11px] font-bold text-emerald-950 flex items-center gap-1.5">
+                          <StoreIcon size={13} className="text-emerald-700" />
                           <span>3. بيانات المتجر والشريك التجاري والموقع الجغرافي</span>
                         </h3>
-                        <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-md font-bold">
+                        <span className="text-[9px] bg-emerald-200/80 text-emerald-900 px-1.5 py-0.5 rounded font-bold">
                           ربط مباشر مع قاعدة البيانات
                         </span>
                       </div>
 
                       {/* Store Selector (Custom Interactive Dropdown) */}
                       <div className="relative">
-                        <label className="block text-emerald-950 font-bold mb-1.5 flex items-center justify-between text-xs">
+                        <label className="block text-emerald-950 font-bold mb-1 flex items-center justify-between text-[10px]">
                           <span className="flex items-center gap-1">
-                            <StoreIcon size={14} className="text-emerald-700" />
+                            <StoreIcon size={12} className="text-emerald-700" />
                             <span>اختيار المتجر / التاجر التابع له الحساب *</span>
                           </span>
-                          <span className="text-[10px] text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded font-bold">
-                            انقر لاختيار المتجر مباشرة
+                          <span className="text-[9px] text-emerald-800 bg-emerald-100/80 px-1.5 py-0.2 rounded font-bold">
+                            انقر للاختيار
                           </span>
                         </label>
 
@@ -2061,33 +2060,33 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         <button
                           type="button"
                           onClick={() => setIsStoreSelectOpen((prev) => !prev)}
-                          className="w-full min-h-[44px] px-3.5 py-2 border-2 border-emerald-500 hover:border-emerald-600 focus:border-emerald-700 rounded-xl text-xs bg-white font-bold text-slate-800 shadow-xs flex items-center justify-between gap-2 text-right transition-all cursor-pointer ring-2 ring-emerald-500/10"
+                          className="w-full min-h-[38px] px-3 py-1.5 border border-emerald-500 hover:border-emerald-600 focus:border-emerald-700 rounded-lg text-[11px] bg-white font-bold text-slate-800 shadow-2xs flex items-center justify-between gap-2 text-right transition-all cursor-pointer ring-1 ring-emerald-500/10"
                         >
-                          <div className="flex items-center gap-2.5 overflow-hidden">
+                          <div className="flex items-center gap-2 overflow-hidden">
                             {activeMerchantStore?.logoUrl || activeMerchantStore?.logo ? (
                               <img
                                 src={activeMerchantStore.logoUrl || activeMerchantStore.logo}
                                 alt=""
-                                className="w-7 h-7 rounded-lg object-cover border border-slate-200 shrink-0"
+                                className="w-6 h-6 rounded-md object-cover border border-slate-200 shrink-0"
                               />
                             ) : (
-                              <span className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0">
-                                <StoreIcon size={14} />
+                              <span className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0">
+                                <StoreIcon size={12} />
                               </span>
                             )}
                             <div className="truncate text-right">
-                              <p className="text-xs font-bold text-slate-900 truncate">
+                              <p className="text-[11px] font-bold text-slate-900 truncate">
                                 {activeMerchantStore ? activeMerchantStore.name : '-- اضغط هنا لاختيار المتجر أو التاجر --'}
                               </p>
                               {activeMerchantStore && (
-                                <p className="text-[10px] text-slate-500 truncate font-normal">
+                                <p className="text-[9px] text-slate-500 truncate font-normal">
                                   {activeMerchantStore.locationInDistrict || activeMerchantStore.preciseAddress || activeMerchantStore.type}
                                 </p>
                               )}
                             </div>
                           </div>
                           <ChevronDown
-                            size={18}
+                            size={15}
                             className={`text-emerald-700 transition-transform duration-200 shrink-0 ${
                               isStoreSelectOpen ? 'rotate-180' : ''
                             }`}
@@ -2103,16 +2102,16 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                               onClick={() => setIsStoreSelectOpen(false)}
                             />
 
-                            <div className="absolute top-full right-0 left-0 mt-1.5 z-50 bg-white border-2 border-emerald-400 rounded-xl shadow-2xl overflow-hidden max-h-72 flex flex-col animate-fadeIn">
+                            <div className="absolute top-full right-0 left-0 mt-1 z-50 bg-white border border-emerald-400 rounded-xl shadow-xl overflow-hidden max-h-60 flex flex-col animate-fadeIn">
                               {/* Search inside stores if > 4 stores */}
                               {stores.length > 4 && (
-                                <div className="p-2 border-b border-slate-100 bg-slate-50/80">
+                                <div className="p-1.5 border-b border-slate-100 bg-slate-50/80">
                                   <input
                                     type="text"
                                     value={storeFilterText}
                                     onChange={(e) => setStoreFilterText(e.target.value)}
                                     placeholder="بحث سريع باسم المتجر أو العنوان..."
-                                    className="w-full h-8 px-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-emerald-600"
+                                    className="w-full h-7 px-2 border border-slate-200 rounded-md text-[11px] bg-white focus:outline-none focus:border-emerald-600"
                                     onClick={(e) => e.stopPropagation()}
                                   />
                                 </div>
@@ -2144,29 +2143,29 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                                           setIsStoreSelectOpen(false);
                                           setStoreFilterText('');
                                         }}
-                                        className={`w-full p-2.5 rounded-lg text-right flex items-center justify-between gap-2.5 transition-all cursor-pointer ${
+                                        className={`w-full p-2 rounded-lg text-right flex items-center justify-between gap-2 transition-all cursor-pointer ${
                                           isSelected
                                             ? 'bg-emerald-50 border border-emerald-300 text-emerald-950 font-bold'
                                             : 'hover:bg-slate-50 text-slate-800'
                                         }`}
                                       >
-                                        <div className="flex items-center gap-2.5 overflow-hidden">
+                                        <div className="flex items-center gap-2 overflow-hidden">
                                           {s.logoUrl || s.logo ? (
                                             <img
                                               src={s.logoUrl || s.logo}
                                               alt=""
-                                              className="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0"
+                                              className="w-7 h-7 rounded-md object-cover border border-slate-200 shrink-0"
                                             />
                                           ) : (
-                                            <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
-                                              <StoreIcon size={16} />
+                                            <span className="w-7 h-7 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
+                                              <StoreIcon size={14} />
                                             </span>
                                           )}
                                           <div className="truncate">
                                             <div className="flex items-center gap-1.5">
-                                              <span className="text-xs font-bold text-slate-900">{s.name}</span>
+                                              <span className="text-[11px] font-bold text-slate-900">{s.name}</span>
                                               <span
-                                                className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                                                className={`text-[8px] px-1 py-0.2 rounded font-bold ${
                                                   s.status === 'closed'
                                                     ? 'bg-rose-100 text-rose-800'
                                                     : 'bg-emerald-100 text-emerald-800'
@@ -2175,15 +2174,15 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                                                 {s.status === 'closed' ? 'مغلق' : 'مفتوح'}
                                               </span>
                                             </div>
-                                            <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                                            <p className="text-[9px] text-slate-500 truncate mt-0.5">
                                               📍 {s.locationInDistrict ? s.locationInDistrict.replace(/^الحي الحكومي - /g, '') : (s.preciseAddress || s.type)}
                                             </p>
                                           </div>
                                         </div>
 
                                         {isSelected && (
-                                          <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                                            <Check size={12} strokeWidth={3} />
+                                          <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                                            <Check size={10} strokeWidth={3} />
                                           </span>
                                         )}
                                       </button>
@@ -2197,32 +2196,32 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
 
                       {/* Store Details & Auto Address Display Card */}
                       {activeMerchantStore && (
-                        <div className="bg-white rounded-xl p-3.5 border border-emerald-300 shadow-2xs space-y-3">
-                          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                            <div className="flex items-center gap-2.5">
+                        <div className="bg-white rounded-lg p-2.5 border border-emerald-300 shadow-2xs space-y-2">
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <div className="flex items-center gap-2">
                               {activeMerchantStore.logoUrl || activeMerchantStore.logo ? (
                                 <img
                                   src={activeMerchantStore.logoUrl || activeMerchantStore.logo}
                                   alt=""
-                                  className="w-9 h-9 rounded-lg object-cover border border-slate-200 shadow-2xs"
+                                  className="w-7 h-7 rounded-md object-cover border border-slate-200"
                                 />
                               ) : (
-                                <span className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
-                                  <StoreIcon size={18} />
+                                <span className="w-7 h-7 rounded-md bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                                  <StoreIcon size={14} />
                                 </span>
                               )}
                               <div>
-                                <h4 className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                                <h4 className="font-bold text-[11px] text-slate-900 flex items-center gap-1.5">
                                   <span>{activeMerchantStore.name}</span>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                                  <span className={`text-[9px] px-1 py-0.2 rounded font-bold ${
                                     activeMerchantStore.status === 'closed'
                                       ? 'bg-rose-100 text-rose-800'
                                       : 'bg-emerald-100 text-emerald-800'
                                   }`}>
-                                    {activeMerchantStore.status === 'closed' ? 'المتجر مغلق ⛔' : 'نشط ومتاح للطلب ✓'}
+                                    {activeMerchantStore.status === 'closed' ? 'مغلق' : 'نشط ✓'}
                                   </span>
                                 </h4>
-                                <p className="text-[11px] text-slate-500">{activeMerchantStore.type || 'متجر مسجل بالمنصة'}</p>
+                                <p className="text-[10px] text-slate-500">{activeMerchantStore.type || 'متجر مسجل بالمنصة'}</p>
                               </div>
                             </div>
 
@@ -2231,47 +2230,47 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                                 href={`https://maps.google.com/?q=${formLatitude},${formLongitude}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="h-7 px-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-lg font-bold text-[11px] flex items-center gap-1 transition-colors"
+                                className="h-6 px-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-md font-bold text-[10px] flex items-center gap-1 transition-colors"
                               >
-                                <ExternalLink size={12} />
-                                <span>معاينة الموقع بالخريطة</span>
+                                <ExternalLink size={10} />
+                                <span>الخريطة</span>
                               </a>
                             )}
                           </div>
 
-                          {/* Verified Store Address (Linked automatically, no GPS or reverse geocode required) */}
-                          <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-lg p-3 space-y-1">
+                          {/* Verified Store Address */}
+                          <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-md p-2 space-y-1">
                             <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-emerald-950 flex items-center gap-1">
-                                <MapPin size={14} className="text-emerald-700" />
-                                <span>العنوان المعتمد للمتجر (مربوط تلقائياً من بيانات المتجر):</span>
+                              <span className="text-[10px] font-bold text-emerald-950 flex items-center gap-1">
+                                <MapPin size={12} className="text-emerald-700" />
+                                <span>العنوان المعتمد للمتجر:</span>
                               </span>
-                              <span className="text-[10px] text-emerald-800 font-bold bg-white px-2 py-0.5 rounded border border-emerald-300 shadow-2xs">
-                                ✓ موثق بالنظام (بدون استعلامات GPS)
+                              <span className="text-[9px] text-emerald-800 font-bold bg-white px-1.5 py-0.2 rounded border border-emerald-300">
+                                ✓ موثق بالنظام
                               </span>
                             </div>
                             <input
                               name="locationAddress"
                               value={formAddress || storeAddress}
                               onChange={(e) => setFormAddress(e.target.value)}
-                              className="w-full h-9 px-3 border border-emerald-300 rounded-lg text-xs bg-white font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
+                              className="w-full h-8 px-2.5 border border-emerald-300 rounded-lg text-[11px] bg-white font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
                               placeholder="عنوان المتجر المعتمد"
                             />
                             {formLatitude && formLongitude && (
-                              <p className="text-[10px] text-slate-500 font-mono pr-1 dir-ltr text-right">
-                                الإحداثيات: {formLatitude}, {formLongitude}
+                              <p className="text-[9px] text-slate-500 font-mono dir-ltr text-right">
+                                {formLatitude}, {formLongitude}
                               </p>
                             )}
                           </div>
 
                           {/* Operational Duties & Delivery Settings */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-0.5">
                             <div>
-                              <label className="block text-slate-700 font-bold mb-1 text-xs">المهمة التشغيلية بالمتجر</label>
+                              <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">المهمة التشغيلية بالمتجر</label>
                               <select
                                 name="duty"
                                 defaultValue={editingUser?.duty || 'manager'}
-                                className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:border-emerald-600 focus:outline-none"
+                                className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[11px] bg-white font-medium focus:border-emerald-600 focus:outline-none"
                               >
                                 <option value="manager">مسؤول ومدير المتجر</option>
                                 <option value="preparer">مسؤول جمع وتجهيز الطلبات</option>
@@ -2280,7 +2279,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                             </div>
 
                             <div>
-                              <label className="block text-slate-700 font-bold mb-1 text-xs">نصف قطر التغطية (كم)</label>
+                              <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">نصف قطر التغطية (كم)</label>
                               <input
                                 name="coverageRadiusKm"
                                 type="number"
@@ -2288,21 +2287,21 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                                 min="1"
                                 max="50"
                                 defaultValue={activeMerchantStore.coverageRadiusKm || editingUser?.coverageRadiusKm || 8}
-                                className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                                className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-slate-700 font-bold mb-1 text-xs">طريقة التوصيل الموصى بها</label>
+                              <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">طريقة التوصيل الموصى بها</label>
                               <select
                                 name="preferredDeliveryMethod"
                                 defaultValue={activeMerchantStore.preferredDeliveryMethod || editingUser?.preferredDeliveryMethod || 'auto'}
-                                className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                                className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[11px] bg-white"
                               >
-                                <option value="auto">تلقائي حسب المسافة المحسوبة للعميل</option>
-                                <option value="bicycle">دراجة هوائية (للمسافات &lt; 2 كم)</option>
+                                <option value="auto">تلقائي حسب المسافة</option>
+                                <option value="bicycle">دراجة هوائية (&lt; 2 كم)</option>
                                 <option value="motorcycle">دراجة نارية بصندوق عازل (2-8 كم)</option>
-                                <option value="car">سيارة نقل للطلبات الكبيرة (&gt; 8 كم)</option>
+                                <option value="car">سيارة نقل (&gt; 8 كم)</option>
                               </select>
                             </div>
                           </div>
@@ -2318,34 +2317,34 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
 
                 {/* Role Specific: Courier KYC Profile */}
                 {formRole === 'courier' && (
-                  <div className="bg-amber-50/40 border border-amber-200/80 rounded-xl p-4 space-y-4">
-                    <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
-                      <h3 className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                        <Bike size={15} className="text-amber-700" />
+                  <div className="bg-amber-50/40 border border-amber-200/80 rounded-xl p-2.5 sm:p-3 space-y-2.5">
+                    <div className="flex items-center justify-between border-b border-amber-200/60 pb-1.5">
+                      <h3 className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+                        <Bike size={13} className="text-amber-700" />
                         <span>3. ملف التحقق والاعتماد الجنائي والطبي للمندوب (KYC كامل)</span>
                       </h3>
-                      <span className="text-[10px] bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-md font-bold">
+                      <span className="text-[9px] bg-amber-200/80 text-amber-900 px-1.5 py-0.5 rounded font-bold">
                         معايير السلامة والأمان
                       </span>
                     </div>
 
                     {/* Group 1: Personal & Contact */}
-                    <div className="space-y-2">
-                      <h4 className="text-[11px] font-bold text-slate-700">أ. بيانات الهوية والتواصل:</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="space-y-1.5">
+                      <h4 className="text-[10px] font-black text-slate-700">أ. بيانات الهوية والتواصل:</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">اسم الشهرة (المتداول)</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">اسم الشهرة (المتداول)</label>
                           <input
                             name="nickname"
                             maxLength={80}
                             defaultValue={editingUser?.nickname}
                             placeholder="مثال: كابتن النسر"
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                            className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">الرقم القومي (14 رقماً) *</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">الرقم القومي (14 رقماً) *</label>
                           <input
                             name="nationalId"
                             inputMode="numeric"
@@ -2354,12 +2353,12 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                             pattern="[0-9]{14}"
                             defaultValue={editingUser?.nationalId}
                             placeholder="29801011234567"
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white tracking-widest font-mono"
+                            className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white tracking-widest font-mono"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">هاتف الطوارئ (قريب / مرجع) *</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">هاتف الطوارئ (قريب / مرجع) *</label>
                           <input
                             name="emergencyPhone"
                             inputMode="tel"
@@ -2367,16 +2366,16 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                             maxLength={30}
                             defaultValue={editingUser?.emergencyPhone}
                             placeholder="01298765432"
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                            className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">حالة الاعتماد التشغيلي</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">حالة الاعتماد التشغيلي</label>
                           <select
                             name="courierStatus"
                             defaultValue={editingUser ? (editingUser.courierStatus || 'pending') : 'pending'}
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
+                            className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[11px] bg-white font-bold"
                           >
                             <option value="pending">قيد الفحص والتوثيق الأمني ⏳</option>
                             <option value="active">نشط ومتاح لاستقبال الطلبات ✓</option>
@@ -2385,39 +2384,39 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         </div>
 
                         <div className="sm:col-span-2">
-                          <label className="block text-slate-600 font-bold mb-1">العنوان الحالي الفعلي *</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">العنوان الحالي الفعلي *</label>
                           <input
                             name="currentAddress"
                             required
                             maxLength={200}
                             defaultValue={editingUser?.currentAddress}
                             placeholder="الشارع والمنطقة السكنية الحالية"
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                            className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
                           />
                         </div>
 
                         <div className="sm:col-span-2">
-                          <label className="block text-slate-600 font-bold mb-1">العنوان المسجل ببطاقة الرقم القومي *</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">العنوان المسجل ببطاقة الرقم القومي *</label>
                           <input
                             name="idCardAddress"
                             required
                             maxLength={200}
                             defaultValue={editingUser?.idCardAddress}
                             placeholder="العنوان الرسمي المدون بالبطاقة"
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                            className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
                           />
                         </div>
 
-                        <div className="sm:col-span-2 bg-amber-50 p-3 rounded-xl border border-amber-200">
-                          <label className="block text-amber-950 font-bold mb-1 flex items-center gap-1.5 text-xs">
-                            <StoreIcon size={14} className="text-amber-700" />
+                        <div className="sm:col-span-4 bg-amber-50 p-2 sm:p-2.5 rounded-lg border border-amber-200">
+                          <label className="block text-amber-950 font-bold mb-0.5 flex items-center gap-1.5 text-[10px]">
+                            <StoreIcon size={12} className="text-amber-700" />
                             <span>جهة التبعية والتشغيل (أسطول عام أو مندوب خاص بمتجر)</span>
                           </label>
                           <select
                             name="courierStoreId"
                             value={selectedStoreId}
                             onChange={(e) => setSelectedStoreId(e.target.value)}
-                            className="w-full h-9 px-3 border border-amber-300 rounded-lg text-xs bg-white font-bold text-slate-800 focus:outline-none focus:border-amber-600"
+                            className="w-full h-8 px-2.5 border border-amber-300 rounded-lg text-[11px] bg-white font-bold text-slate-800 focus:outline-none focus:border-amber-600"
                           >
                             <option value="">أسطول حر وعام (يخدم كل المتاجر والطلبات في كافة المناطق)</option>
                             {stores.map((s) => (
@@ -2426,7 +2425,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                               </option>
                             ))}
                           </select>
-                          <p className="text-[10px] text-amber-900/90 mt-1 leading-4">
+                          <p className="text-[9px] text-amber-900/80 mt-0.5 leading-tight">
                             إذا تم تخصيص المندوب لمتجر معين، يُعطى الأولوية الحصرية في استلام طلبات ذلك المتجر ويظهر في لوحة التاجر ضمن طاقمه الخاص.
                           </p>
                         </div>
@@ -2434,16 +2433,16 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                     </div>
 
                     {/* Group 2: Vehicle & Equipment */}
-                    <div className="space-y-2 pt-2 border-t border-amber-200/60">
-                      <h4 className="text-[11px] font-bold text-slate-700">ب. المركبة ورخصة القيادة:</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="space-y-1.5 pt-1.5 border-t border-amber-200/60">
+                      <h4 className="text-[10px] font-black text-slate-700">ب. المركبة ورخصة القيادة:</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">وسيلة التوصيل المعتمدة *</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">وسيلة التوصيل المعتمدة *</label>
                           <select
                             name="vehicleType"
                             value={formVehicleType}
                             onChange={(e) => setFormVehicleType(e.target.value)}
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
+                            className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[11px] bg-white font-bold"
                           >
                             <option value="motorcycle">دراجة نارية (موتسيكل)</option>
                             <option value="bicycle">دراجة هوائية (عجلة)</option>
@@ -2451,71 +2450,80 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                           </select>
                         </div>
 
-                        <div><label className="block text-slate-600 font-bold mb-1">ماركة المركبة</label><input name="vehicleMake" maxLength={60} defaultValue={editingUser?.vehicleMake} className="w-full h-9 px-3 border rounded-lg"/></div>
-                        <div><label className="block text-slate-600 font-bold mb-1">سنة الصنع</label><input name="vehicleYear" type="number" min={1900} max={Number(cairoToday().slice(0,4))+1} defaultValue={editingUser?.vehicleYear} className="w-full h-9 px-3 border rounded-lg"/></div>
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">موديل المركبة</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">ماركة المركبة</label>
+                          <input name="vehicleMake" maxLength={60} defaultValue={editingUser?.vehicleMake} placeholder="مثال: دايون / هوندا" className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"/>
+                        </div>
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">سنة الصنع</label>
+                          <input name="vehicleYear" type="number" min={1900} max={Number(cairoToday().slice(0,4))+1} defaultValue={editingUser?.vehicleYear} placeholder="2024" className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"/>
+                        </div>
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">موديل المركبة</label>
                           <input
                             name="vehicleModel"
                             maxLength={60}
                             defaultValue={editingUser?.vehicleModel}
                             placeholder="مثال: دايون 4 موديل 2024"
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                            className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">رقم لوحة المركبة</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">رقم لوحة المركبة</label>
                           <input
                             name="vehiclePlate"
                             maxLength={30}
                             defaultValue={editingUser?.vehiclePlate}
                             placeholder="مثال: س ع ق 1 9 4"
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                            className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">رقم رخصة القيادة</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">رقم رخصة القيادة</label>
                           <input
                             name="drivingLicenseNumber"
                             maxLength={60}
                             defaultValue={editingUser?.drivingLicenseNumber}
                             placeholder="رقم الرخصة بالمرور"
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                            className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-[11px] bg-white"
                           />
                         </div>
 
-                        <div><label className="block text-slate-600 font-bold mb-1">تاريخ إصدار رخصة القيادة</label><input name="licenseIssueDate" type="date" max={cairoToday()} defaultValue={editingUser?.licenseIssueDate} className="w-full h-9 px-3 border rounded-lg"/></div>
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">تاريخ انتهاء رخصة القيادة</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">تاريخ إصدار رخصة القيادة</label>
+                          <input name="licenseIssueDate" type="date" max={cairoToday()} defaultValue={editingUser?.licenseIssueDate} className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[10px] bg-white"/>
+                        </div>
+                        <div>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">تاريخ انتهاء رخصة القيادة</label>
                           <input
                             name="licenseExpiryDate"
                             type="date"
                             defaultValue={editingUser?.licenseExpiryDate}
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                            className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[10px] bg-white"
                           />
                         </div>
                       </div>
 
                       {/* Equipment Checkboxes */}
-                      <div className="pt-2 flex flex-wrap items-center gap-6 text-slate-800">
-                        <label className="flex items-center gap-2 cursor-pointer font-bold">
+                      <div className="pt-1.5 flex flex-wrap items-center gap-4 text-slate-700">
+                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-[10px]">
                           <input
                             type="checkbox"
                             name="hasThermalBox"
                             defaultChecked={editingUser?.hasThermalBox ?? true}
-                            className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+                            className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5 cursor-pointer"
                           />
                           <span>هل الموتسيكل مجهز بصندوق عازل حراري لحفظ سخونة وجودة الأطعمة؟</span>
                         </label>
 
-                        <label className="flex items-center gap-2 cursor-pointer font-bold">
+                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-[10px]">
                           <input
                             type="checkbox"
                             name="hasThermalBackpack"
                             defaultChecked={editingUser?.hasThermalBackpack ?? false}
-                            className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+                            className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5 cursor-pointer"
                           />
                           <span>هل العجلة / الدراجة مجهزة بشنطة ظهر حرارية عازلة؟</span>
                         </label>
@@ -2523,39 +2531,39 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                     </div>
 
                     {/* Group 3: Medical & Criminal KYC */}
-                    <div className="space-y-2 pt-2 border-t border-amber-200/60">
-                      <h4 className="text-[11px] font-bold text-slate-700">ج. الفحص الجنائي والطبي (KYC):</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="space-y-1.5 pt-1.5 border-t border-amber-200/60">
+                      <h4 className="text-[10px] font-black text-slate-700">ج. الفحص الجنائي والطبي (KYC):</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">فحص تحليل المخدرات *</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">فحص تحليل المخدرات *</label>
                           <select
                             name="drugTestStatus"
                             defaultValue={editingUser ? (editingUser.drugTestStatus || 'pending') : 'pending'}
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
+                            className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[11px] bg-white font-bold"
                           >
                             <option value="pending">قيد إجراء الفحص المعملي ⏳</option>
-                            <option value="passed">معتمد وسلبي (خالٍ من المواد المخدرة) ✓</option>
+                            <option value="passed">معتمد وسلبي (خالٍ من المخدرات) ✓</option>
                             <option value="failed">غير لائق / إيجابي ✕</option>
                           </select>
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">تاريخ إجراء فحص المخدرات</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">تاريخ إجراء فحص المخدرات</label>
                           <input
                             name="drugTestDate"
                             type="date"
                             max={cairoToday()}
                             defaultValue={editingUser?.drugTestDate}
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                            className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[10px] bg-white"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">شهادة الفيش الجنائي (صحيفة الحالة) *</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">شهادة الفيش الجنائي (صحيفة الحالة) *</label>
                           <select
                             name="criminalRecordStatus"
                             defaultValue={editingUser ? (editingUser.criminalRecordStatus || 'pending') : 'pending'}
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white font-bold"
+                            className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[11px] bg-white font-bold"
                           >
                             <option value="pending">قيد استخراج الصحيفة والتوثيق ⏳</option>
                             <option value="passed">سليم وخالٍ من السوابق والأحكام ✓</option>
@@ -2564,13 +2572,13 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 font-bold mb-1">تاريخ استخراج الفيش الجنائي</label>
+                          <label className="block text-slate-600 font-bold mb-0.5 text-[10px]">تاريخ استخراج الفيش الجنائي</label>
                           <input
                             name="criminalRecordDate"
                             type="date"
                             max={cairoToday()}
                             defaultValue={editingUser?.criminalRecordDate}
-                            className="w-full h-9 px-3 border border-slate-300 rounded-lg text-xs bg-white"
+                            className="w-full h-8 px-2 border border-slate-300 rounded-lg text-[10px] bg-white"
                           />
                         </div>
                       </div>
@@ -2580,32 +2588,32 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
 
                 {/* Role Specific: Admin */}
                 {formRole === 'admin' && (
-                  <div className="bg-slate-100 border border-slate-300 rounded-xl p-4 space-y-2">
-                    <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      <ShieldCheck size={16} className="text-slate-800" />
+                  <div className="bg-slate-100 border border-slate-300 rounded-xl p-3 space-y-1.5">
+                    <h3 className="text-[11px] font-bold text-slate-900 flex items-center gap-1.5">
+                      <ShieldCheck size={14} className="text-slate-800" />
                       <span>3. صلاحيات مدير المنظومة (إدارة عليا)</span>
                     </h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
+                    <p className="text-[10px] text-slate-600 leading-relaxed">
                       تنبيه أمني: هذا الحساب سيتم منحه صلاحيات المدير الكاملة (Admin) بما في ذلك إدارة الحسابات،
                       التحكم بالمناديب والمتاجر، مراجعة التقارير المالية والقيود المحاسبية، وتعديل إعدادات المنظومة.
                     </p>
                   </div>
                 )}
 
-                <p className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/80 text-xs text-emerald-950 font-bold flex items-center gap-2">
-                  <ShieldCheck size={16} className="text-emerald-700 shrink-0" />
+                <p className="p-2 rounded-lg border border-emerald-200 bg-emerald-50/70 text-[10px] text-emerald-950 font-bold flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-emerald-700 shrink-0" />
                   <span>يتم تأمين واعتماد الحساب رسمياً في المنظومة، وتستطيع إرسال بيانات الدخول المعتمدة ورابط البوابة للمستخدم عبر واتساب فور الحفظ.</span>
                 </p>
 
                 {Object.keys(fieldErrors).length > 0 && (
-                  <div role="alert" className="p-3 border border-red-200 bg-red-50 text-red-800 rounded-xl">
+                  <div role="alert" className="p-2.5 border border-red-200 bg-red-50 text-red-800 rounded-xl text-[11px]">
                     <strong>صحح البيانات التالية:</strong>
-                    <ul>
+                    <ul className="mt-1 list-disc list-inside">
                       {Object.entries(fieldErrors).map(([field, message]) => (
                         <li key={field}>
                           <button
                             type="button"
-                            className="text-right underline py-1 cursor-pointer"
+                            className="text-right underline py-0.5 cursor-pointer"
                             onClick={() => {
                               const form = document.getElementById('user-mgmt-form') as HTMLFormElement;
                               const control = form?.elements?.namedItem(field) as HTMLInputElement;
@@ -2623,22 +2631,22 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-slate-200/80 bg-slate-50/70 rounded-b-2xl flex items-center justify-between shrink-0">
+            <div className="py-2.5 px-4 border-t border-slate-200/80 bg-slate-50/70 rounded-b-2xl flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <button
                   type="submit"
                   form="user-mgmt-form"
                   disabled={busy}
-                  className="px-5 py-2.5 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-bold text-xs rounded-lg shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-bold text-xs rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Check size={16} />
+                  <Check size={14} />
                   <span>{busy ? 'جارٍ حفظ البيانات...' : 'حفظ بيانات المستخدم'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={closeFormModal}
                   disabled={busy}
-                  className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                  className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-lg transition-colors cursor-pointer"
                 >
                   إلغاء الأمر
                 </button>

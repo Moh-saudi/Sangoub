@@ -1309,15 +1309,15 @@ export function OffersManager({
           className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in"
           dir="rtl"
         >
-          <div className="bg-white rounded-3xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-            <header className="px-5 py-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-orange-600 text-white flex items-center justify-center shadow-2xs">
-                  <Tag size={16} />
+          <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[82vh]">
+            <header className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-orange-600 text-white flex items-center justify-center shadow-2xs">
+                  <Tag size={14} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900">اختر الصنف لتطبيق العرض</h3>
-                  <p className="text-[11px] text-slate-500">
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900">اختر الصنف المراد تطبيق العرض عليه</h3>
+                  <p className="text-[10px] text-slate-500">
                     {currentStore ? `أصناف منيو متجر ${currentStore.name}` : 'جميع أصناف الكتالوج'}
                   </p>
                 </div>
@@ -1325,38 +1325,38 @@ export function OffersManager({
               <button
                 type="button"
                 onClick={() => setIsPickerOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 cursor-pointer transition"
+                className="w-7 h-7 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 cursor-pointer transition"
               >
-                <X size={15} />
+                <X size={14} />
               </button>
             </header>
 
             {/* Picker Search */}
-            <div className="p-4 border-b border-slate-100 bg-white">
+            <div className="p-2.5 sm:p-3 border-b border-slate-100 bg-white">
               <div className="relative">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                 <input
                   type="text"
                   placeholder="ابحث بالاسم أو التصنيف أو السعر…"
                   value={pickerSearch}
                   onChange={(e) => setPickerSearch(e.target.value)}
-                  className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-orange-500"
+                  className="w-full pr-8 pl-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:border-orange-500"
                   autoFocus
                 />
               </div>
             </div>
 
             {/* Products List (Scoped strictly to store) */}
-            <div className="flex-1 overflow-y-auto p-3 divide-y divide-slate-100">
+            <div className="flex-1 overflow-y-auto p-2 divide-y divide-slate-100">
               {scopedProducts.length === 0 ? (
-                <div className="p-8 text-center space-y-3">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
-                    <Package size={28} />
+                <div className="p-6 text-center space-y-2">
+                  <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                    <Package size={24} />
                   </div>
-                  <h4 className="text-sm font-bold text-slate-800">
+                  <h4 className="text-xs font-bold text-slate-800">
                     لم يتم العثور على أي أصناف مسجلة لهذا المتجر
                   </h4>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                  <p className="text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed">
                     {currentStore ? `أصناف منيو متجر "${currentStore.name}" لم تُضف بعد.` : 'لا توجد منتجات مسجلة.'}
                     <br />
                     يرجى أولاً إدراج منتجات المنيو من تبويب "المنيو والأصناف" ثم العودة لتفعيل العروض والتخفيضات عليها.
@@ -1383,16 +1383,16 @@ export function OffersManager({
                         key={p.id}
                         type="button"
                         onClick={() => handlePickProduct(p)}
-                        className={`w-full py-2.5 px-3 rounded-2xl flex items-center justify-between gap-3 text-right transition ${
+                        className={`w-full py-2 px-2.5 rounded-xl flex items-center justify-between gap-2.5 text-right transition ${
                           isStoreClosed ? 'opacity-60 bg-slate-50 cursor-not-allowed' : 'hover:bg-orange-50/70 cursor-pointer'
                         }`}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-11 h-11 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200/80">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-9 h-9 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200/80">
                             {p.imageUrl ? (
                               <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-slate-300 text-lg">
+                              <div className="w-full h-full flex items-center justify-center text-slate-300 text-sm">
                                 🍽️
                               </div>
                             )}
@@ -1410,11 +1410,11 @@ export function OffersManager({
                             {formatEGP(p.price)}
                           </strong>
                           {isStoreClosed ? (
-                            <span className="text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded inline-block mt-0.5">
+                            <span className="text-[8px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1 py-0.2 rounded inline-block mt-0.5">
                               متجر مغلق 🚫
                             </span>
                           ) : hasOffer ? (
-                            <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded inline-block mt-0.5">
+                            <span className="text-[8px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded inline-block mt-0.5">
                               عرض نشط حالياً 🔥
                             </span>
                           ) : null}
