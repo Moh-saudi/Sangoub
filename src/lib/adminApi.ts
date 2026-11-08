@@ -47,7 +47,35 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
     }
 
     if (body.action === 'update' || body.action === 'create') {
-      const uid = body.uid || body.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'usr_' + Date.now());
+      let targetUid = body.uid || body.id;
+
+      if (body.action === 'create' && !targetUid && body.email) {
+        // Create actual Supabase Auth user credentials
+        const tempPassword = 'San@' + Math.random().toString(36).slice(-8) + '1!';
+        try {
+          const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+            email: body.email.trim().toLowerCase(),
+            password: tempPassword,
+            options: {
+              data: {
+                full_name: body.fullName || body.name,
+                role: body.role,
+                phone: body.phone,
+                store_id: body.storeId || null
+              }
+            }
+          });
+          if (signUpData?.user?.id) {
+            targetUid = signUpData.user.id;
+          } else if (signUpErr) {
+            console.warn('[adminApi] auth.signUp notice:', signUpErr.message);
+          }
+        } catch (e) {
+          console.warn('[adminApi] auth.signUp catch:', e);
+        }
+      }
+
+      const uid = targetUid || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'usr_' + Date.now());
       const patch: Record<string, any> = {
         id: uid,
         full_name: body.fullName || body.name,
@@ -70,7 +98,8 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
         patch.created_at = new Date().toISOString();
         const { error: insertErr } = await supabase.from('profiles').upsert(patch, { onConflict: 'id' });
         if (insertErr) {
-          console.warn('[adminApi] profiles upsert error:', insertErr);
+          console.error('[adminApi] profiles upsert error:', insertErr);
+          throw new Error('تعذر حفظ بيانات الحساب في جدول profiles: ' + (insertErr.message || 'تحقق من سياسات RLS'));
         }
       } else {
         const { error: profileErr } = await supabase.from('profiles').update(patch).eq('id', uid);

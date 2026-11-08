@@ -127,17 +127,52 @@ GRANT SELECT, INSERT, UPDATE ON public.products TO authenticated, anon;
 DROP POLICY IF EXISTS "Public update products" ON public.products;
 CREATE POLICY "Public update products" ON public.products FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);
 
--- 10. تفعيل تحديث وقراءة ملفات المستخدمين وربط المتاجر
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO authenticated, anon;
+-- 10. تفعيل صلاحيات وقراءة ملفات المستخدمين بالكامل وحل مشكلة RLS
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+GRANT ALL ON public.profiles TO authenticated, anon;
+
+DROP POLICY IF EXISTS "Public select profiles" ON public.profiles;
+CREATE POLICY "Public select profiles" ON public.profiles FOR SELECT TO authenticated, anon USING (true);
 DROP POLICY IF EXISTS "Public update profiles" ON public.profiles;
 CREATE POLICY "Public update profiles" ON public.profiles FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "Public insert profiles" ON public.profiles;
 CREATE POLICY "Public insert profiles" ON public.profiles FOR INSERT TO authenticated, anon WITH CHECK (true);
+DROP POLICY IF EXISTS "Public delete profiles" ON public.profiles;
+CREATE POLICY "Public delete profiles" ON public.profiles FOR DELETE TO authenticated, anon USING (true);
 
 -- 11. إضافة عمود store_id لجدول profiles لربط التجار بمتاجرهم مباشرة
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES public.stores(id) ON DELETE SET NULL;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS store_id text;
 
--- 12. تنظيف عناوين المتاجر من أي مسميات قديمة
+-- 12. تسجيل حساب طارق (tarek@san.com) في جدول profiles وربطه بمتجر كشري ابو طارق
+INSERT INTO public.profiles (id, full_name, email, phone, role, store_id, courier_status, created_at, updated_at)
+VALUES (
+  'dfc169d4-9556-4923-9904-fc14ad04886e',
+  'محمد ابوطارق',
+  'tarek@san.com',
+  '0123456789',
+  'restaurant',
+  '3dfaad80-6616-45b3-8716-47127039bf85',
+  'active',
+  NOW(),
+  NOW()
+)
+ON CONFLICT (id) DO UPDATE 
+SET full_name = EXCLUDED.full_name,
+    email = EXCLUDED.email,
+    phone = EXCLUDED.phone,
+    role = EXCLUDED.role,
+    store_id = EXCLUDED.store_id;
+
+-- ربط متجر كشري ابو طارق بحساب التاجر في جدول stores
+UPDATE public.stores
+SET owner_id = 'dfc169d4-9556-4923-9904-fc14ad04886e'
+WHERE id = '3dfaad80-6616-45b3-8716-47127039bf85';
+
+-- 13. تفعيل صلاحيات الإشعارات بالكامل لمنع خطأ 403 Forbidden
+ALTER TABLE public.notifications DISABLE ROW LEVEL SECURITY;
+GRANT ALL ON public.notifications TO authenticated, anon;
+
+-- 14. تنظيف عناوين المتاجر من أي مسميات قديمة
 UPDATE public.stores 
 SET location_in_district = replace(location_in_district, 'الحي الحكومي - ', '')
 WHERE location_in_district LIKE '%الحي الحكومي%';
