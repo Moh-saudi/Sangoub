@@ -48,13 +48,30 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
 
     if (body.action === 'update' || body.action === 'create') {
       let targetUid = body.uid || body.id;
+      const cleanEmail = body.email ? String(body.email).trim().toLowerCase() : '';
 
-      if (body.action === 'create' && !targetUid && body.email) {
-        // Create actual Supabase Auth user credentials
+      // 1. Check if user already exists with this email in profiles to avoid 409 conflict
+      if (cleanEmail && !targetUid) {
+        try {
+          const { data: existingUser } = await supabase
+            .from('profiles')
+            .select('id, email')
+            .eq('email', cleanEmail)
+            .maybeSingle();
+          if (existingUser?.id) {
+            targetUid = existingUser.id;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // 2. Only attempt auth.signUp if user does not exist yet
+      if (body.action === 'create' && !targetUid && cleanEmail) {
         const tempPassword = 'San@' + Math.random().toString(36).slice(-8) + '1!';
         try {
           const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-            email: body.email.trim().toLowerCase(),
+            email: cleanEmail,
             password: tempPassword,
             options: {
               data: {
@@ -79,7 +96,7 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
       const patch: Record<string, any> = {
         id: uid,
         full_name: body.fullName || body.name,
-        email: body.email,
+        email: cleanEmail || body.email,
         phone: body.phone,
         role: body.role,
         avatar_url: body.avatarUrl || null,
