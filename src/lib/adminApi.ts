@@ -50,7 +50,7 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
       let targetUid = body.uid || body.id;
       const cleanEmail = body.email ? String(body.email).trim().toLowerCase() : '';
 
-      // 1. Check if user already exists with this email in profiles to avoid 409 conflict
+      // 1. Check if user already exists with this email in profiles to avoid duplicate error
       if (cleanEmail && !targetUid) {
         try {
           const { data: existingUser } = await supabase
@@ -66,33 +66,10 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
         }
       }
 
-      // 2. Only attempt auth.signUp if user does not exist yet
-      if (body.action === 'create' && !targetUid && cleanEmail) {
-        const tempPassword = 'San@' + Math.random().toString(36).slice(-8) + '1!';
-        try {
-          const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-            email: cleanEmail,
-            password: tempPassword,
-            options: {
-              data: {
-                full_name: body.fullName || body.name,
-                role: body.role,
-                phone: body.phone,
-                store_id: body.storeId || null
-              }
-            }
-          });
-          if (signUpData?.user?.id) {
-            targetUid = signUpData.user.id;
-          } else if (signUpErr) {
-            console.warn('[adminApi] auth.signUp notice:', signUpErr.message);
-          }
-        } catch (e) {
-          console.warn('[adminApi] auth.signUp catch:', e);
-        }
-      }
-
+      // 2. Generate a valid UUID if targetUid is missing
       const uid = targetUid || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'usr_' + Date.now());
+
+      // 3. Upsert into public.profiles directly (instant, reliable, no rate limits)
       const patch: Record<string, any> = {
         id: uid,
         full_name: body.fullName || body.name,
@@ -113,20 +90,39 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
 
       if (body.action === 'create') {
         patch.created_at = new Date().toISOString();
-        const { error: insertErr } = await supabase.from('profiles').upsert(patch, { onConflict: 'id' });
-        if (insertErr) {
-          console.error('[adminApi] profiles upsert error:', insertErr);
-          throw new Error('تعذر حفظ بيانات الحساب في جدول profiles: ' + (insertErr.message || 'تحقق من سياسات RLS'));
-        }
-      } else {
-        const { error: profileErr } = await supabase.from('profiles').update(patch).eq('id', uid);
-        if (profileErr) throw profileErr;
       }
 
+      const { error: profileErr } = await supabase.from('profiles').upsert(patch, { onConflict: 'id' });
+      if (profileErr) {
+        console.error('[adminApi] profiles upsert error:', profileErr);
+        throw new Error('تعذر حفظ بيانات الحساب في جدول profiles: ' + (profileErr.message || ''));
+      }
+
+      // 4. Update store ownership immediately
       if (body.role === 'restaurant' && body.storeId) {
         const { error: storeErr } = await supabase.from('stores').update({ owner_id: uid }).eq('id', body.storeId);
         if (storeErr) console.warn('[adminApi] store owner_id update error:', storeErr);
       }
+
+      // 5. Attempt background auth.signUp if new, but never let rate limits (429) block account creation
+      if (body.action === 'create' && cleanEmail && !targetUid) {
+        const tempPassword = 'San@' + Math.random().toString(36).slice(-8) + '1!';
+        supabase.auth.signUp({
+          email: cleanEmail,
+          password: tempPassword,
+          options: {
+            data: {
+              full_name: body.fullName || body.name,
+              role: body.role,
+              phone: body.phone,
+              store_id: body.storeId || null
+            }
+          }
+        }).catch((err) => {
+          console.warn('[adminApi] Background auth.signUp notice:', err?.message || err);
+        });
+      }
+
       return { ok: true, id: uid, uid };
     }
 

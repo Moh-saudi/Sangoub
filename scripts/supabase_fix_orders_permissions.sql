@@ -127,8 +127,9 @@ GRANT SELECT, INSERT, UPDATE ON public.products TO authenticated, anon;
 DROP POLICY IF EXISTS "Public update products" ON public.products;
 CREATE POLICY "Public update products" ON public.products FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);
 
--- 10. تفعيل صلاحيات وقراءة ملفات المستخدمين بالكامل وحل مشكلة RLS
+-- 10. تفعيل صلاحيات وقراءة ملفات المستخدمين بالكامل وفك قيد الارتباط بجدول auth.users
 ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
 GRANT ALL ON public.profiles TO authenticated, anon;
 
 DROP POLICY IF EXISTS "Public select profiles" ON public.profiles;
@@ -168,11 +169,36 @@ UPDATE public.stores
 SET owner_id = 'dfc169d4-9556-4923-9904-fc14ad04886e'
 WHERE id = '3dfaad80-6616-45b3-8716-47127039bf85';
 
--- 13. تفعيل صلاحيات الإشعارات بالكامل لمنع خطأ 403 Forbidden
+-- 13. تسجيل حساب هايبروان (hyper@san.com) في جدول profiles وربطه بمتجر هايبروان
+INSERT INTO public.profiles (id, full_name, email, phone, role, store_id, courier_status, created_at, updated_at)
+VALUES (
+  '40f443c5-bca2-4a77-b7da-f95271055415',
+  'هايبروان',
+  'hyper@san.com',
+  '01234567891',
+  'restaurant',
+  '40f443c5-bca2-4a77-b7da-f95271055415',
+  'active',
+  NOW(),
+  NOW()
+)
+ON CONFLICT (id) DO UPDATE 
+SET full_name = EXCLUDED.full_name,
+    email = EXCLUDED.email,
+    phone = EXCLUDED.phone,
+    role = EXCLUDED.role,
+    store_id = EXCLUDED.store_id;
+
+-- ربط متجر هايبروان بحساب التاجر في جدول stores
+UPDATE public.stores
+SET owner_id = '40f443c5-bca2-4a77-b7da-f95271055415'
+WHERE id = '40f443c5-bca2-4a77-b7da-f95271055415';
+
+-- 14. تفعيل صلاحيات الإشعارات بالكامل لمنع خطأ 403 Forbidden
 ALTER TABLE public.notifications DISABLE ROW LEVEL SECURITY;
 GRANT ALL ON public.notifications TO authenticated, anon;
 
--- 14. تنظيف عناوين المتاجر من أي مسميات قديمة
+-- 15. تنظيف عناوين المتاجر من أي مسميات قديمة
 UPDATE public.stores 
 SET location_in_district = replace(location_in_district, 'الحي الحكومي - ', '')
 WHERE location_in_district LIKE '%الحي الحكومي%';
