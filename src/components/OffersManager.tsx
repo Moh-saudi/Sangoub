@@ -1008,15 +1008,15 @@ export function OffersManager({
           </div>
           <div className="space-y-1">
             <h3 className="text-base font-black text-slate-900">
-              {activeOffers.length === 0 ? 'لا توجد عروض ترويجية نشطة حالياً' : 'لا توجد عروض تطابق نتائج البحث والتصفية'}
+              {allOffers.length === 0 ? 'لا توجد عروض ترويجية نشطة حالياً' : 'لا توجد عروض تطابق نتائج البحث والتصفية'}
             </h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              {activeOffers.length === 0
+              {allOffers.length === 0
                 ? 'ابدأ بتنشيط المبيعات الآن عبر إضافة خصم على أصنافك المميزة وتحديد نسبة التوفير ليراها عملاء الحي فوراً.'
                 : 'جرب تغيير خيارات التصفية أو البحث لإظهار بقية العروض المسجلة.'}
             </p>
           </div>
-          {activeOffers.length === 0 ? (
+          {allOffers.length === 0 ? (
             <button
               type="button"
               onClick={() => {
