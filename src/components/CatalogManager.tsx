@@ -112,11 +112,11 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
     }
     void loadCats();
   }, []);
-  const scopedProducts = fixedStoreId ? localProducts.filter((item) => matchStoreId(item.storeId, fixedStoreId)) : localProducts;
+  const scopedProducts = fixedStoreId ? localProducts.filter((item) => item.storeId === fixedStoreId || matchStoreId(item.storeId, fixedStoreId)) : localProducts;
   const active = scopedProducts.filter((item) => !item.archived);
   const discounted = active.filter(hasProductOffer);
   const isStoreOpen = (storeId: string) => {
-    const st = localStores.find(s => matchStoreId(s.id, storeId));
+    const st = localStores.find(s => s.id === storeId || matchStoreId(s.id, storeId));
     return st ? st.status === "open" : true;
   };
 
@@ -135,7 +135,10 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
   const filtered = scopedProducts.filter((item) => {
     const text = `${item.name} ${item.storeName} ${item.description}`.toLocaleLowerCase("ar");
     const itemAvailable = item.inStock && isStoreOpen(item.storeId);
-    return (mode !== "offers" || hasProductOffer(item)) && text.includes(search.trim().toLocaleLowerCase("ar")) && (!storeFilter || matchStoreId(item.storeId, storeFilter)) && (!category || item.category === category) &&
+    return (mode !== "offers" || hasProductOffer(item)) &&
+      text.includes(search.trim().toLocaleLowerCase("ar")) &&
+      (!storeFilter || item.storeId === storeFilter || matchStoreId(item.storeId, storeFilter)) &&
+      (!category || item.category === category) &&
       (availability === "archived" ? item.archived : !item.archived && (availability === "available" ? itemAvailable : availability === "unavailable" ? !itemAvailable : true));
   }).sort((a,b) => sort === "price" ? a.price - b.price : sort === "sales" ? (performance.get(b.id)?.sold || 0) - (performance.get(a.id)?.sold || 0) : a.name.localeCompare(b.name, "ar"));
   const visibleStores = localStores.filter((store) => `${store.name} ${store.locationInDistrict}`.includes(search.trim()));
@@ -277,11 +280,12 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
       {tab === "products" && <>{!fixedStoreId && (
         <select aria-label="تصفية حسب المتجر" className={input} value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}>
           <option value="">جميع المتاجر ({scopedProducts.length} صنف مسجل)</option>
-          {stores.map((item) => {
-            const count = scopedProducts.filter(p => matchStoreId(p.storeId, item.id)).length;
+          {localStores.map((item) => {
+            const count = scopedProducts.filter(p => p.storeId === item.id || matchStoreId(p.storeId, item.id)).length;
+            const statusLabel = item.status === 'open' ? '🟢 مفتوح' : item.status === 'busy' ? '⏳ مشغول' : '🔴 مغلق';
             return (
               <option key={item.id} value={item.id}>
-                {item.name} ({count} صنف)
+                {item.name} ({count} صنف) - {statusLabel}
               </option>
             );
           })}
@@ -349,7 +353,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
             }
           }}
           products={visibleProducts}
-          stores={stores}
+          stores={localStores}
           performance={performance}
           busy={busy}
           onEdit={id => open("products", id)}

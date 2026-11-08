@@ -46,34 +46,34 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
       };
     }
 
-    if (body.action === 'update' || body.action === 'create') {
-      let targetUid = body.uid || body.id;
+    if (body.action === 'create') {
       const cleanEmail = body.email ? String(body.email).trim().toLowerCase() : '';
+      if (!cleanEmail) throw new Error('البريد الإلكتروني مطلوب لإنشاء الحساب.');
 
-      // 1. Check if user already exists with this email in profiles to avoid duplicate error
-      if (cleanEmail && !targetUid) {
-        try {
-          const { data: existingUser } = await supabase
-            .from('profiles')
-            .select('id, email')
-            .eq('email', cleanEmail)
-            .maybeSingle();
-          if (existingUser?.id) {
-            targetUid = existingUser.id;
-          }
-        } catch {
-          // ignore
-        }
+      // Native atomic stored procedure in Supabase (Zero rate-limit, 100% database standard)
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('admin_create_user', {
+        p_email: cleanEmail,
+        p_password: body.password || 'San@123456!',
+        p_full_name: body.fullName || body.name || 'مستخدم جديد',
+        p_phone: body.phone || '',
+        p_role: body.role || 'employee',
+        p_store_id: body.storeId || null
+      });
+
+      if (rpcErr) {
+        console.error('[adminApi] admin_create_user error:', rpcErr);
+        throw new Error('تعذر إنشاء الحساب في Supabase: ' + rpcErr.message);
       }
 
-      // 2. Generate a valid UUID if targetUid is missing
-      const uid = targetUid || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'usr_' + Date.now());
+      return { ok: true, id: rpcRes?.id };
+    }
 
-      // 3. Upsert into public.profiles directly (instant, reliable, no rate limits)
+    if (body.action === 'update') {
+      const uid = body.uid || body.id;
+      if (!uid) throw new Error('معرف الحساب مطلوب للتحديث.');
+
       const patch: Record<string, any> = {
-        id: uid,
         full_name: body.fullName || body.name,
-        email: cleanEmail || body.email,
         phone: body.phone,
         role: body.role,
         avatar_url: body.avatarUrl || null,
@@ -84,43 +84,15 @@ export async function adminApi(endpoint: 'users' | 'data', body: any) {
         updated_at: new Date().toISOString()
       };
 
-      if (body.storeId) {
+      if (body.storeId !== undefined) {
         patch.store_id = body.storeId;
       }
 
-      if (body.action === 'create') {
-        patch.created_at = new Date().toISOString();
-      }
+      const { error: profileErr } = await supabase.from('profiles').update(patch).eq('id', uid);
+      if (profileErr) throw profileErr;
 
-      const { error: profileErr } = await supabase.from('profiles').upsert(patch, { onConflict: 'id' });
-      if (profileErr) {
-        console.error('[adminApi] profiles upsert error:', profileErr);
-        throw new Error('تعذر حفظ بيانات الحساب في جدول profiles: ' + (profileErr.message || ''));
-      }
-
-      // 4. Update store ownership immediately
       if (body.role === 'restaurant' && body.storeId) {
-        const { error: storeErr } = await supabase.from('stores').update({ owner_id: uid }).eq('id', body.storeId);
-        if (storeErr) console.warn('[adminApi] store owner_id update error:', storeErr);
-      }
-
-      // 5. Attempt background auth.signUp if new, but never let rate limits (429) block account creation
-      if (body.action === 'create' && cleanEmail && !targetUid) {
-        const tempPassword = 'San@' + Math.random().toString(36).slice(-8) + '1!';
-        supabase.auth.signUp({
-          email: cleanEmail,
-          password: tempPassword,
-          options: {
-            data: {
-              full_name: body.fullName || body.name,
-              role: body.role,
-              phone: body.phone,
-              store_id: body.storeId || null
-            }
-          }
-        }).catch((err) => {
-          console.warn('[adminApi] Background auth.signUp notice:', err?.message || err);
-        });
+        await supabase.from('stores').update({ owner_id: uid }).eq('id', body.storeId);
       }
 
       return { ok: true, id: uid, uid };

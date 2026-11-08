@@ -42,7 +42,7 @@ export function CatalogProductTable({
         <tbody>
           {products.map(product => {
             const stats = performance.get(product.id);
-            const matchedStore = stores.find(s => matchStoreId(s.id, product.storeId) || s.name === product.storeName);
+            const matchedStore = stores.find(s => s.id === product.storeId || matchStoreId(s.id, product.storeId) || (Boolean(product.storeName) && s.name === product.storeName));
             const storeName = matchedStore?.name || product.storeName || (product.storeId === 'b1111111-2222-3333-4444-555555555501' ? 'صيدلية العاصمة المركزية - 24/7' : 'سنجوب ماركت');
 
             return (

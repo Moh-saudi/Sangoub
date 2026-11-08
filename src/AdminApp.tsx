@@ -254,7 +254,7 @@ export default function AdminApp() {
 
   async function assignCourier(orderId: string, courierId: string) {
     const courier = staff.find((person) => person.id === courierId && person.role === "courier");
-    if (!courier || !orders.some((order) => order.id === orderId && ["ready", "with_courier"].includes(order.orderStatus))) throw new Error("راجع حالة الطلب والمندوب المختار.");
+    if (!courier) throw new Error("يرجى اختيار مندوب صالح من القائمة.");
     await updateOrderRecord(orderId, { courierId, courierName: courier.name, courierPhone: courier.phone });
   }
 

@@ -347,7 +347,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           تعيين المندوب:
                         </span>
                         <select
-                          disabled={(order.fulfillmentVersion === 2 ? order.orderStatus !== "ready" || Boolean(order.pickedUpStoreIds?.length) : !["ready", "with_courier"].includes(order.orderStatus)) || pendingOrders.includes(order.id)}
+                          disabled={pendingOrders.includes(order.id) || ['delivered', 'cancelled'].includes(order.orderStatus)}
                           value={
                             order.courierId ||
                             selectedCourierForOrder[order.id] ||
