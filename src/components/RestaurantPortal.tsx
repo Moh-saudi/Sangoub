@@ -1008,91 +1008,97 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
               PAGE: DASHBOARD (لوحة القيادة والمؤشرات)
               ════════════════════════════════════════════════════════════════════════ */}
           {activeTab === 'dashboard' && (
-            <section aria-label="لوحة التحكم والمؤشرات" className="space-y-5 animate-in fade-in duration-200">
-              {/* Welcome Banner */}
-              <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-3xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-orange-400 bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
-                      لوحة القيادة والتشغيل اليومي
+            <section aria-label="لوحة التحكم والمؤشرات" className="space-y-3.5 animate-in fade-in duration-200">
+              {/* Sleek, Compact Dashboard Header (No giant dark billboard) */}
+              <div className="bg-white rounded-xl p-3 sm:p-3.5 border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                      <span>مرحباً، {currentProfile.fullName || 'مدير المتجر'}</span>
+                      <span className="text-sm">👋</span>
+                    </h2>
+                    <span className="text-[10px] text-slate-600 font-bold bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/80">
+                      لوحة تشغيل: {userStore.name}
                     </span>
-                    <span className="text-xs text-slate-400">• {cairoDay(new Date())}</span>
+                    <span className="text-[10px] text-slate-400 font-mono hidden md:inline">
+                      • {cairoDay(new Date())}
+                    </span>
                   </div>
-                  <h2 className="text-xl font-black text-white tracking-tight mt-2">
-                    مرحباً بك، {currentProfile.fullName} 👋
-                  </h2>
-                  <p className="text-xs text-slate-300 mt-1">
-                    إليك ملخص أداء متجر ({userStore.name}) اليوم، الطلبات اللحظية، وتنبيهات المخزون السريعة.
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 truncate">
+                    متابعة الطلبات المباشرة، كفاءة التحضير، وتحديثات المخزون الفورية.
                   </p>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => navigateSection('kitchen')}
-                    className="px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-black rounded-2xl flex items-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
+                    className="h-8 px-3 bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
                   >
-                    <ClipboardList size={16} />
-                    <span>الطلبات والتحضير ({activeKitchenOrders.length})</span>
+                    <ClipboardList size={14} />
+                    <span>الطلبات والتحضير</span>
+                    <span className="bg-white/25 text-white text-[10px] font-mono font-black px-1.5 py-0.2 rounded-full">
+                      {activeKitchenOrders.length}
+                    </span>
                   </button>
                   <button
                     onClick={() => navigateSection('inventory')}
-                    className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer"
+                    className="h-8 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
                   >
-                    <Boxes size={16} />
+                    <Boxes size={14} />
                     <span>إدارة المخزون</span>
                   </button>
                 </div>
               </div>
 
-              {/* 4 KPI Cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex items-center justify-between">
+              {/* 4 KPI Cards (Compact & Harmonized) */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs flex items-center justify-between">
                   <div>
-                    <span className="text-[11px] font-bold text-slate-500 block">إجمالي المبيعات</span>
-                    <span className="text-lg font-black text-slate-900 font-mono mt-0.5 block">
+                    <span className="text-[10px] font-bold text-slate-500 block">إجمالي المبيعات</span>
+                    <span className="text-base font-black text-slate-900 font-mono mt-0.5 block">
                       {formatEGP(accountingSummary.grossSales)}
                     </span>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                    <DollarSign size={20} />
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <DollarSign size={16} />
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex items-center justify-between">
+                <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs flex items-center justify-between">
                   <div>
-                    <span className="text-[11px] font-bold text-slate-500 block">طلبات قيد التجهيز</span>
+                    <span className="text-[10px] font-bold text-slate-500 block">طلبات قيد التجهيز</span>
                     <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="text-lg font-black text-orange-600">{activeKitchenOrders.length}</span>
-                      <span className="text-[10px] text-slate-400 font-bold">تذكرة حالية</span>
+                      <span className="text-base font-black text-orange-600 font-mono">{activeKitchenOrders.length}</span>
+                      <span className="text-[9px] text-slate-400 font-bold">تذكرة حالية</span>
                     </div>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
-                    <ChefHat size={20} />
+                  <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                    <ChefHat size={16} />
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex items-center justify-between">
+                <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs flex items-center justify-between">
                   <div>
-                    <span className="text-[11px] font-bold text-slate-500 block">صافي الأرباح التقديري</span>
-                    <span className="text-lg font-black text-emerald-700 font-mono mt-0.5 block">
+                    <span className="text-[10px] font-bold text-slate-500 block">صافي الأرباح التقديري</span>
+                    <span className="text-base font-black text-emerald-700 font-mono mt-0.5 block">
                       {formatEGP(accountingSummary.netPayout)}
                     </span>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                    <Wallet size={20} />
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <Wallet size={16} />
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex items-center justify-between">
+                <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs flex items-center justify-between">
                   <div>
-                    <span className="text-[11px] font-bold text-slate-500 block">تقييم المتجر</span>
+                    <span className="text-[10px] font-bold text-slate-500 block">تقييم المتجر</span>
                     <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="text-lg font-black text-slate-900">★ {userStore.rating}</span>
-                      <span className="text-[10px] text-slate-400 font-bold">({userStore.ratingCount} تقييم)</span>
+                      <span className="text-base font-black text-slate-900">★ {userStore.rating}</span>
+                      <span className="text-[9px] text-slate-400 font-bold">({userStore.ratingCount} تقييم)</span>
                     </div>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                    <Award size={20} />
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                    <Award size={16} />
                   </div>
                 </div>
               </div>
@@ -1938,24 +1944,24 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
               ════════════════════════════════════════════════════════════════════════ */}
           {activeTab === "menu" && (
             <section className="space-y-4" aria-label="إدارة أصناف المنيو وتحديث الأسعار">
-              {/* Header Controls */}
-              <div className="bg-white/80 backdrop-blur-xl p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {/* Header Controls (Compact & Clean) */}
+              <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div>
-                  <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">منتجات وأسعار {userStore.name}</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900">منتجات وأسعار {userStore.name}</h3>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
                     إدارة قائمة المنتجات والأسعار وتحديثها بالملفات أو الكتالوج.
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     disabled={!canManage || !connected}
                     onClick={() => setIsImportModalOpen(true)}
-                    className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
+                    className="h-8 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
                     title="استيراد وتحديث المنتجات بملف Excel"
                   >
-                    <FileSpreadsheet size={15} />
+                    <FileSpreadsheet size={13} />
                     <span>رفع Excel</span>
                   </button>
 
@@ -1963,9 +1969,9 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                     type="button"
                     disabled={!canManage || !connected}
                     onClick={() => setIsAddingItem(true)}
-                    className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer"
+                    className="h-8 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
                   >
-                    <Plus size={15} />
+                    <Plus size={13} />
                     <span>إضافة منتج</span>
                   </button>
                 </div>
@@ -2466,28 +2472,28 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
           2.5 تبويب إدارة المخزون والجرد المتقدم (CARREFOUR & TALABAT ENTERPRISE STOCK TABLE)
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "inventory" && (
-        <section className="space-y-5" aria-label="إدارة المخزون والجرد">
-          {/* Header Controls */}
-          <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <section className="space-y-4" aria-label="إدارة المخزون والجرد">
+          {/* Header Controls (Compact & Clean) */}
+          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div>
-              <div className="flex items-center gap-2">
-                <Boxes className="text-orange-600" size={22} />
-                <h3 className="text-lg font-black text-slate-900 tracking-tight">إدارة المخزون والجرد — {userStore.name}</h3>
+              <div className="flex items-center gap-1.5">
+                <Boxes className="text-orange-600" size={16} />
+                <h3 className="text-xs sm:text-sm font-black text-slate-900">إدارة المخزون والجرد — {userStore.name}</h3>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                نظام تحكم المخزون الاحترافي: متابعة الأرصدة، حدود التنبيه، والحد الأقصى لكل طلب وفق معايير السوبرماركت العالمية.
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                متابعة الأرصدة، حدود التنبيه، والحد الأقصى لكل طلب وفق معايير التشغيل المعتمدة.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 disabled={!canManage || !connected}
                 onClick={() => setIsImportModalOpen(true)}
-                className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer"
+                className="h-8 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
                 title="مزامنة وتحديث المخزون والأسعار بملف Excel أو تقرير POS"
               >
-                <FileSpreadsheet size={16} />
+                <FileSpreadsheet size={13} />
                 <span>مزامنة جرد Excel / POS</span>
               </button>
             </div>
@@ -3024,10 +3030,12 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
           4. تبويب رادار المناديب الأقرب والأسرع (APPLE FIND MY + RADAR PULSE)
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "radar" && (
-        <section className="rounded-2xl border bg-white p-4 space-y-4" aria-label="تتبع طلبات المتجر">
-          <h3 className="text-lg font-bold">تتبع توصيل طلبات متجرك</h3>
-          <p className="text-sm text-slate-600">موقع المندوب الذي يوصّل طلبًا من متجرك فقط. تُراجع البيانات كل 10 ثوانٍ أثناء فتح الخريطة؛ لا نعرض مواقع مناديب غير مرتبطين بطلباتك أو عنوان العميل.</p>
-          {orders.filter(order=>order.storeIds?.includes(userStore?.id)&&order.orderStatus==='with_courier').length===0&&<p>لا توجد طلبات من متجرك قيد التوصيل الآن.</p>}
+        <section className="rounded-xl border border-slate-200/80 bg-white p-3 space-y-3" aria-label="تتبع طلبات المتجر">
+          <div>
+            <h3 className="text-xs sm:text-sm font-black text-slate-900">تتبع توصيل طلبات متجرك</h3>
+            <p className="text-[10px] text-slate-500 mt-0.5">موقع المندوب المكلف بطلبات متجرك (تحديث دوري كل 10 ثوانٍ أثناء فتح الخريطة).</p>
+          </div>
+          {orders.filter(order=>order.storeIds?.includes(userStore?.id)&&order.orderStatus==='with_courier').length===0&&<p className="text-xs text-slate-500 py-3 text-center">لا توجد طلبات من متجرك قيد التوصيل الآن.</p>}
           {orders.filter(order=>order.storeIds?.includes(userStore?.id)&&order.orderStatus==='with_courier').slice(0,50).map(order=><MerchantOrderTracking key={order.id} order={order} open={trackingOrderId===order.id} onToggle={open=>setTrackingOrderId(current=>open?order.id:current===order.id?"":current)}/>)}
         </section>
       )}

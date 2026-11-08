@@ -26,6 +26,9 @@ import {
   EyeOff,
   Flame,
   ArrowRight,
+  ChevronDown,
+  Check,
+  Search,
 } from "lucide-react";
 import type { Order, Product, Profile, Store } from "./types";
 import { RestaurantPortal } from "./components/RestaurantPortal";
@@ -62,6 +65,10 @@ export default function MerchantApp() {
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
+
+  // Store Switcher Custom Dropdown State
+  const [isStoreSwitcherOpen, setIsStoreSwitcherOpen] = useState(false);
+  const [storeSearchQuery, setStoreSearchQuery] = useState("");
 
   const feed=useActivePortalOrders(access==='merchant'?identity?.uid:undefined,profile?.storeId);
   const [catalogLoading,setCatalogLoading]=useState(true);
@@ -554,65 +561,205 @@ export default function MerchantApp() {
 
     return (
       <div className="merchant-portal min-h-screen bg-slate-100 font-cairo" dir="rtl">
-        {/* Top Operational Header */}
+        {/* Top Operational Header (Compact & Harmonized) */}
         <header className="bg-slate-900 text-white sticky top-0 z-40 border-b border-slate-800 shadow-sm">
-          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+          <div className="max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 h-13 flex items-center justify-between gap-3">
             {/* Store & Mascot Info */}
-            <div className="flex items-center gap-3 min-w-0">
-              {((userStore?.id && typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore?.logoUrl || userStore?.logo) ? (
-                <img
-                  src={(userStore?.id && typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore?.logoUrl || userStore?.logo}
-                  alt={userStore?.name || 'بوابة الشريك والتاجر'}
-                  className="w-9 h-9 rounded-lg bg-white object-contain p-0.5 shrink-0 shadow-2xs border border-slate-700"
-                />
-              ) : (
-                <img src={SANGOUB_LOGO} alt="سنجوب" className="w-9 h-9 rounded-lg bg-white shrink-0 shadow-2xs" />
-              )}
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  {profile.role === 'admin' && safeStores.length > 0 ? (
-                    <div className="flex items-center gap-1.5">
-                      <select
-                        value={userStore?.id || profile.storeId || ''}
-                        onChange={(e) => {
-                          const newStoreId = e.target.value;
-                          setProfile(prev => prev ? { ...prev, storeId: newStoreId } : null);
-                        }}
-                        className="text-xs font-black bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 rounded-lg px-2.5 py-1 focus:ring-1 focus:ring-amber-500 cursor-pointer max-w-[220px] truncate"
-                        title="تبديل المتجر لإدارة طلباته وقائمته"
-                      >
-                        {safeStores.map((s) => (
-                          <option key={s.id} value={s.id} className="bg-slate-900 text-white">
-                            {s.id === 'a0000000-0000-0000-0000-000000000001' ? '⭐ [المركزي] ' : '🏪 '}{s.name}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-400/20 px-1.5 py-0.5 rounded font-bold hidden md:inline">
-                        لوحة المدير
+            <div className="flex items-center gap-2.5 min-w-0">
+              {profile.role === 'admin' && safeStores.length > 0 ? (
+                <div className="relative">
+                  {/* Interactive Store Switcher Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsStoreSwitcherOpen((prev) => !prev)}
+                    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-750 text-white border border-slate-700/80 hover:border-amber-400/60 rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer shadow-2xs group"
+                    title="تبديل المتجر لإدارة طلباته وقائمته"
+                  >
+                    <div className="w-6 h-6 rounded-md bg-white border border-slate-700 overflow-hidden shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
+                      {((userStore?.id && typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore?.logoUrl || userStore?.logo) ? (
+                        <img
+                          src={(userStore?.id && typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore?.logoUrl || userStore?.logo}
+                          alt=""
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-xs">🏪</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 min-w-0 text-right">
+                      {userStore?.id === 'a0000000-0000-0000-0000-000000000001' && (
+                        <span className="text-amber-400 text-xs shrink-0 font-bold">⭐</span>
+                      )}
+                      <span className="truncate max-w-[140px] sm:max-w-[210px] text-slate-100 text-[11px] sm:text-xs">
+                        {userStore?.name || 'اختر المتجر'}
+                      </span>
+                      <span className="text-[9px] text-amber-400 bg-amber-500/10 border border-amber-400/20 px-1 py-0.2 rounded font-bold hidden sm:inline">
+                        المدير
                       </span>
                     </div>
-                  ) : (
-                    <h1 className="text-sm font-black text-white truncate">{userStore?.name || "بوابة الشريك والتاجر"}</h1>
+
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 transition-colors ${
+                        userStore?.status === 'open'
+                          ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse'
+                          : 'bg-rose-400'
+                      }`}
+                    />
+
+                    <ChevronDown
+                      size={13}
+                      className={`text-slate-400 group-hover:text-amber-400 transition-transform duration-200 shrink-0 ${
+                        isStoreSwitcherOpen ? 'rotate-180 text-amber-400' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {/* Dropdown Floating Panel */}
+                  {isStoreSwitcherOpen && (
+                    <>
+                      {/* Backdrop */}
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => {
+                          setIsStoreSwitcherOpen(false);
+                          setStoreSearchQuery('');
+                        }}
+                      />
+
+                      <div className="absolute top-full right-0 mt-1.5 z-50 w-72 sm:w-80 bg-slate-900 border border-slate-700/90 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 text-right">
+                        {/* Dropdown Header & Search */}
+                        <div className="p-2 border-b border-slate-800 bg-slate-950/70 space-y-1.5">
+                          <div className="flex items-center justify-between px-1">
+                            <span className="text-[10px] font-bold text-slate-400">قائمة الشركاء والمتاجر</span>
+                            <span className="text-[9px] text-amber-400 bg-amber-500/15 border border-amber-400/20 px-1.5 py-0.2 rounded font-mono font-bold">
+                              {safeStores.length} متجر
+                            </span>
+                          </div>
+
+                          {safeStores.length > 3 && (
+                            <div className="relative">
+                              <Search size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <input
+                                type="text"
+                                value={storeSearchQuery}
+                                onChange={(e) => setStoreSearchQuery(e.target.value)}
+                                placeholder="بحث سريع باسم المتجر..."
+                                className="w-full h-7 pl-2 pr-7 text-[10px] sm:text-[11px] bg-slate-800 border border-slate-700 rounded-md text-white placeholder-slate-400 focus:outline-none focus:border-amber-500"
+                                onClick={(e) => e.stopPropagation()}
+                                autoFocus
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Stores List */}
+                        <div className="max-h-64 overflow-y-auto divide-y divide-slate-800/60 p-1">
+                          {safeStores
+                            .filter((s) => {
+                              if (!storeSearchQuery.trim()) return true;
+                              const q = storeSearchQuery.toLowerCase();
+                              return (
+                                s.name?.toLowerCase().includes(q) ||
+                                s.locationInDistrict?.toLowerCase().includes(q) ||
+                                s.category?.toLowerCase().includes(q)
+                              );
+                            })
+                            .map((s) => {
+                              const isSelected = s.id === userStore.id;
+                              const logo = (s.id && typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${s.id}`)) || s.logoUrl || s.logo;
+                              const isCentral = s.id === 'a0000000-0000-0000-0000-000000000001';
+
+                              return (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setProfile(prev => prev ? { ...prev, storeId: s.id } : null);
+                                    setIsStoreSwitcherOpen(false);
+                                    setStoreSearchQuery('');
+                                  }}
+                                  className={`w-full p-2 rounded-lg flex items-center justify-between gap-2.5 transition-colors cursor-pointer text-right ${
+                                    isSelected
+                                      ? 'bg-amber-500/15 border border-amber-500/40 text-amber-200'
+                                      : 'hover:bg-slate-800 text-slate-200'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-8 h-8 rounded-lg bg-white border border-slate-700 overflow-hidden shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
+                                      {logo && (logo.startsWith('http') || logo.startsWith('data:') || logo.startsWith('/')) ? (
+                                        <img src={logo} alt="" className="w-full h-full object-contain" />
+                                      ) : (
+                                        <span className="text-sm">🏪</span>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-xs font-bold truncate">{s.name}</span>
+                                        {isCentral && (
+                                          <span className="text-[8px] bg-amber-500 text-slate-950 font-black px-1 rounded">
+                                            المركزي
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                                        <span className="truncate">
+                                          {s.locationInDistrict ? s.locationInDistrict.replace(/^الحي الحكومي - /g, '') : (s.category || 'متجر')}
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                          <span className={`w-1.5 h-1.5 rounded-full ${s.status === 'open' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                                          <span className={s.status === 'open' ? 'text-emerald-400' : 'text-rose-400'}>
+                                            {s.status === 'open' ? 'مفتوح' : 'مغلق'}
+                                          </span>
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {isSelected && (
+                                    <Check size={14} className="text-amber-400 shrink-0 font-bold" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    </>
                   )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-white border border-slate-700 overflow-hidden shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
+                    {((userStore?.id && typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore?.logoUrl || userStore?.logo) ? (
+                      <img
+                        src={(userStore?.id && typeof localStorage !== 'undefined' && localStorage.getItem(`sangoub_custom_logo_${userStore.id}`)) || userStore?.logoUrl || userStore?.logo}
+                        alt=""
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <span className="text-xs">🏪</span>
+                    )}
+                  </div>
+                  <h1 className="text-xs sm:text-sm font-black text-white truncate">{userStore?.name || "بوابة الشريك والتاجر"}</h1>
                   <span
-                    className={`w-2.5 h-2.5 rounded-full shrink-0 transition-colors ${
-                      userStore?.status === "open"
-                        ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse"
-                        : "bg-rose-400"
+                    className={`w-2 h-2 rounded-full shrink-0 transition-colors ${
+                      userStore?.status === 'open'
+                        ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse'
+                        : 'bg-rose-400'
                     }`}
-                    title={userStore?.status === "open" ? "المتجر مفتوح ويستقبل الطلبات" : "المتجر مغلق مؤقتاً"}
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 truncate">
-                  المسؤول: {profile.fullName || profile.email} {profile.duty ? `(${profile.duty === "manager" ? "مدير المتجر" : "مسؤول التحضير والتجهيز"})` : ""}
-                </p>
-              </div>
+              )}
+
+              <p className="text-[10px] text-slate-400 truncate hidden md:block">
+                المسؤول: {profile.fullName || profile.email} {profile.duty ? `(${profile.duty === "manager" ? "مدير المتجر" : "مسؤول التحضير"})` : ""}
+              </p>
             </div>
 
             {/* Actions: Live Sync Badge + Cheerful Mascot Support + Logout */}
-            <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <span
-                className={`hidden sm:inline-flex items-center justify-center w-8 h-8 rounded-xl border transition-colors ${
+                className={`hidden sm:inline-flex items-center justify-center w-7 h-7 rounded-lg border transition-colors ${
                   !feed.online
                     ? "bg-rose-500/10 text-rose-300 border-rose-500/30"
                     : feed.live
@@ -621,15 +768,15 @@ export default function MerchantApp() {
                 }`}
                 title={!feed.online ? "غير متصل" : feed.live ? "متصل لحظياً" : `تحديث دوري ${feed.updatedAt ? `(آخر تحقق: ${new Date(feed.updatedAt).toLocaleTimeString('ar-EG')})` : ''}`}
               >
-                <RefreshCw size={14} className={feed.live ? "text-emerald-400" : !feed.online ? "text-rose-400" : "text-amber-400"} />
+                <RefreshCw size={12} className={feed.live ? "text-emerald-400" : !feed.online ? "text-rose-400" : "text-amber-400"} />
               </span>
 
               <button
                 type="button"
                 onClick={() => setIsHelpOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black rounded-lg transition-transform active:scale-95 shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-black rounded-lg transition-transform active:scale-95 shadow-2xs cursor-pointer"
               >
-                <img src={SANGOUB_WINK} alt="سنجوب" className="w-5 h-5 object-contain" />
+                <img src={SANGOUB_WINK} alt="سنجوب" className="w-4 h-4 object-contain" />
                 <span className="hidden sm:inline">دعم سنجوب</span>
               </button>
 
@@ -637,9 +784,9 @@ export default function MerchantApp() {
                 type="button"
                 onClick={handleLogout}
                 title="تسجيل الخروج"
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
               >
-                <LogOut size={18} />
+                <LogOut size={16} />
               </button>
             </div>
           </div>

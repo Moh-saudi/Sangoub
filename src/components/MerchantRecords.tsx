@@ -60,21 +60,21 @@ export function MerchantRecords({ kind, storeId }: { kind: 'customers' | 'paymen
   const totalSpend = items.reduce((sum, c) => sum + (Number(c.totalSpent) || 0), 0);
 
   return (
-    <section className="space-y-5 animate-in fade-in duration-200" aria-label={kind === 'customers' ? 'عملاء المتجر' : 'تسويات المتجر'} dir="rtl">
-      {/* ── Top Header Card ── */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-2xs ${
+    <section className="space-y-3.5 animate-in fade-in duration-200" aria-label={kind === 'customers' ? 'عملاء المتجر' : 'تسويات المتجر'} dir="rtl">
+      {/* ── Top Header Card (Compact & Harmonized) ── */}
+      <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs space-y-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-2xs shrink-0 ${
               kind === 'customers' ? 'bg-orange-600' : 'bg-emerald-600'
             }`}>
-              {kind === 'customers' ? <Users size={22} /> : <CreditCard size={22} />}
+              {kind === 'customers' ? <Users size={16} /> : <CreditCard size={16} />}
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900 tracking-tight">
+              <h2 className="text-xs sm:text-sm font-black text-slate-900">
                 {kind === 'customers' ? 'العملاء المرتبطون بطلبات المتجر' : 'سجل التسويات والتحصيلات المعتمدة'}
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-[10px] text-slate-500 mt-0.5">
                 {kind === 'customers'
                   ? 'سجل العملاء الذين قاموا بالطلب من متجرك عبر المنظومة مع مؤشرات التكرار والولاء.'
                   : 'بيانات التسويات المحاسبية للمبيعات المنجزة ونسب العمولات المعتمدة من الإدارة.'}
@@ -86,22 +86,22 @@ export function MerchantRecords({ kind, storeId }: { kind: 'customers' | 'paymen
             type="button"
             onClick={() => setRevision((v) => v + 1)}
             disabled={loading}
-            className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+            className="h-7 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1 self-start sm:self-auto cursor-pointer"
           >
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
             <span>تحديث</span>
           </button>
         </div>
 
         {/* ── Privacy & Platform Policy Banner ── */}
-        <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900">
-          <ShieldCheck size={18} className="text-amber-700 shrink-0 mt-0.5" />
-          <div className="leading-relaxed">
-            <strong className="font-bold">سياسة حماية المنظومة وخصوصية العملاء: </strong>
+        <div className="p-2 bg-amber-50/70 border border-amber-200/70 rounded-lg flex items-center gap-2 text-[10px] text-amber-900">
+          <ShieldCheck size={14} className="text-amber-700 shrink-0" />
+          <div className="leading-tight">
+            <strong className="font-bold">حماية الخصوصية: </strong>
             <span className="text-amber-800">
               {kind === 'customers'
-                ? 'تظهر أسماء العملاء ومراجع فواتيرهم المباشرة لمتجرك لخدمة المتابعة التشغيلية وقياس الولاء. تُحجب أرقام الهواتف الشخصية والعناوين الدائمة لحماية خصوصية العملاء والتوافق مع معايير المنصة.'
-                : 'هذه السجلات للمبيعات المكتملة المسلمة وفق معايير اللوحة المركزية وتخضع للمراجعة الدورية.'}
+                ? 'تظهر أسماء العملاء ومراجع فواتيرهم المباشرة لمتجرك فقط؛ وتُحجب أرقام الهواتف والعناوين الدائمة لحماية خصوصية العملاء.'
+                : 'سجلات المبيعات المكتملة المسلمة وفق معايير اللوحة المركزية وتخضع للمراجعة الدورية.'}
             </span>
           </div>
         </div>
