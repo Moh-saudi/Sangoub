@@ -361,6 +361,7 @@ export default function CourierApp() {
         return;
       }
       if (sbErr) {
+        console.error('[Courier Login Auth Error]', sbErr);
         if (sbErr.message?.includes('Invalid login credentials')) {
           setError('البريد أو كلمة المرور غير صحيحة.');
           return;
@@ -369,6 +370,8 @@ export default function CourierApp() {
           setError('يرجى تأكيد البريد الإلكتروني أولاً.');
           return;
         }
+        setError(sbErr.message || 'تعذر الدخول. راجع البريد وكلمة المرور.');
+        return;
       }
       setError('تعذر الدخول. راجع البريد وكلمة المرور.');
     } catch {
