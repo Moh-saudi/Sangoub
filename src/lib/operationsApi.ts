@@ -1,6 +1,57 @@
 import { authenticatedApi } from './authenticatedApi';
 import { supabase } from './supabase';
 
+function mapOrderRow(row: any) {
+  const appStatus = row.status === 'assigned' || row.status === 'picked_up' ? 'with_courier' : (row.status || 'received');
+  return {
+    id: row.id,
+    profileId: row.customer_id,
+    profileName: row.customer_name || '',
+    phone: row.customer_phone || '',
+    courierId: row.courier_id || '',
+    courierName: row.courier_name || '',
+    courierPhone: row.courier_phone || '',
+    storeId: row.store_id,
+    storeIds: row.store_ids || (row.store_id ? [row.store_id] : []),
+    storeName: row.stores?.name || row.restaurant_name || 'متجر سنجوب',
+    orderNumber: row.order_number || row.id,
+    orderStatus: appStatus,
+    status: appStatus,
+    estimatedDelivery: row.estimated_delivery || '',
+    subtotal: Number(row.subtotal) || 0,
+    deliveryFee: Number(row.delivery_fee) || 0,
+    discount: Number(row.discount) || 0,
+    tip: Number(row.tip) || 0,
+    taxTotal: Number(row.tax_total) || 0,
+    total: Number(row.total_amount) || 0,
+    ministry: row.delivery_ministry || '',
+    floorNumber: row.delivery_floor || '',
+    roomNumber: row.delivery_room || '',
+    deliveryAddress: row.delivery_address || row.delivery_ministry || '',
+    coordinates: row.coordinates || (Number.isFinite(row.delivery_lat) && Number.isFinite(row.delivery_lng)
+      ? { latitude: row.delivery_lat, longitude: row.delivery_lng } : undefined),
+    paymentMethod: row.payment_method || 'cash',
+    paymentStatus: row.payment_status || 'pending',
+    notes: row.notes || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deliveredAt: row.delivered_at,
+    items: (row.order_items || []).map((item: any) => ({
+      id: item.id,
+      product: {
+        id: item.product_id,
+        storeId: item.store_id || row.store_id,
+        name: item.product_name,
+        price: Number(item.price) || 0
+      },
+      quantity: Number(item.quantity) || 1,
+      selectedOptions: item.selected_options || {},
+      extraPrice: Number(item.extra_price) || 0,
+      notes: item.notes || '',
+    })),
+  };
+}
+
 export async function operationsApi(endpoint: 'operations' | 'app-content', body: any) {
   const isStaticWeb = typeof window !== 'undefined' && 
     (window.location.hostname.includes('el7lm.com') || window.location.hostname.includes('pages.dev') || window.location.hostname.includes('workers.dev'));
@@ -138,16 +189,25 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     }
 
     if (body.action === 'portal-active') {
-      let query = supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .not('order_status', 'in', '("delivered","cancelled")')
-        .order('created_at', { ascending: false })
-        .limit(100);
+      try {
+        let query = supabase
+          .from('orders')
+          .select('*, order_items(*)')
+          .not('status', 'in', '("delivered","cancelled")')
+          .order('created_at', { ascending: false })
+          .limit(100);
 
-      const { data: orders, error } = await query;
-      if (error) console.warn('[operationsApi] portal-active query warning:', error);
-      return { items: orders || [], truncated: false };
+        if (body.storeId) {
+          query = query.eq('store_id', body.storeId);
+        }
+
+        const { data: orders, error } = await query;
+        if (error) console.warn('[operationsApi] portal-active query warning:', error);
+        return { items: (orders || []).map(mapOrderRow), truncated: false };
+      } catch (err) {
+        console.warn('[operationsApi] portal-active fetch error:', err);
+        return { items: [], truncated: false };
+      }
     }
 
     if (body.action === 'store-dashboard') {
@@ -188,10 +248,9 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
 
     if (body.action === 'legacy-prepare' && body.id) {
       const stage = body.next || 'preparing';
-      const nextStatus = stage === 'ready' ? 'ready_for_pickup' : 'preparing';
+      const nextStatus = stage === 'ready' ? 'ready' : 'preparing';
       await supabase.from('orders').update({
-        preparation_stage: stage,
-        order_status: nextStatus
+        status: nextStatus
       }).eq('id', body.id);
       return { ok: true };
     }
@@ -217,9 +276,9 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       const { data: orders } = await supabase
         .from('orders')
         .select('*, order_items(*)')
-        .in('order_status', ['ready_for_pickup', 'assigned_to_courier', 'with_courier'])
+        .in('status', ['ready', 'assigned', 'picked_up'])
         .order('created_at', { ascending: false });
-      return { tasks: orders || [], items: orders || [] };
+      return { tasks: (orders || []).map(mapOrderRow), items: (orders || []).map(mapOrderRow) };
     }
 
     if (body.action === 'set-store-status' && body.storeId && body.status) {
@@ -228,12 +287,22 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     }
 
     if (body.action === 'portal-history') {
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      return { items: orders || [], nextCursor: null };
+      try {
+        let query = supabase
+          .from('orders')
+          .select('*, order_items(*)')
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (body.storeId) {
+          query = query.eq('store_id', body.storeId);
+        }
+
+        const { data: orders } = await query;
+        return { items: (orders || []).map(mapOrderRow), nextCursor: null };
+      } catch {
+        return { items: [], nextCursor: null };
+      }
     }
 
     if (body.action === 'courier-location' && body.coordinates) {
