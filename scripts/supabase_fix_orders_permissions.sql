@@ -142,7 +142,8 @@ GRANT SELECT, INSERT, UPDATE ON public.products TO authenticated, anon;
 DROP POLICY IF EXISTS "Public update products" ON public.products;
 CREATE POLICY "Public update products" ON public.products FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);
 
--- 10. تفعيل صلاحيات وقراءة ملفات المستخدمين بالكامل وفق معايير Supabase القياسية
+-- 10. تفعيل صلاحيات وقراءة ملفات المستخدمين بالكامل وفك قيد الارتباط الإجباري
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
 GRANT ALL ON public.profiles TO authenticated, anon;
 
 DROP POLICY IF EXISTS "Public select profiles" ON public.profiles;
@@ -278,7 +279,16 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.admin_create_user(text, text, text, text, text, text) TO authenticated, anon;
 
--- 12. تسجيل حساب طارق (tarek@san.com) في جدول profiles وربطه بمتجر كشري ابو طارق
+-- 12. تسجيل حسابات التجار في auth.users أولاً لتمكين تسجيل الدخول ومنع خطأ 23503
+INSERT INTO auth.users (
+  id, instance_id, email, encrypted_password, email_confirmed_at, role, aud, created_at, updated_at
+) VALUES 
+  ('dfc169d4-9556-4923-9904-fc14ad04886e', '00000000-0000-0000-0000-000000000000', 'tarek@san.com', crypt('San@123456!', gen_salt('bf')), NOW(), 'authenticated', 'authenticated', NOW(), NOW()),
+  ('40f443c5-bca2-4a77-b7da-f95271055415', '00000000-0000-0000-0000-000000000000', 'hyper@san.com', crypt('San@123456!', gen_salt('bf')), NOW(), 'authenticated', 'authenticated', NOW(), NOW()),
+  ('a0000000-0000-0000-0000-000000000099', '00000000-0000-0000-0000-000000000000', 'central@sangoub.com', crypt('San@123456!', gen_salt('bf')), NOW(), 'authenticated', 'authenticated', NOW(), NOW())
+ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;
+
+-- تسجيل حساب طارق (tarek@san.com) في جدول profiles وربطه بمتجر كشري ابو طارق
 INSERT INTO public.profiles (id, full_name, email, phone, role, store_id, courier_status, created_at, updated_at)
 VALUES (
   'dfc169d4-9556-4923-9904-fc14ad04886e',
