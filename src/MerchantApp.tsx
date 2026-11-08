@@ -121,13 +121,32 @@ export default function MerchantApp() {
           setAccess("denied");
           setError("هذا الحساب غير مرتبط بمتجر معتمد في المنظومة. تواصل مع الإدارة لاعتماده.");
         }
-      } catch (e) {
+      } catch (e: any) {
         if (active) {
-          setAccess("denied");
-          setError(customerMessage(e, "تعذر التحقق من صلاحية المتجر."));
+          const isNetworkError = !navigator.onLine || 
+            e?.message?.includes('Failed to fetch') || 
+            e?.message?.includes('NetworkError') ||
+            e?.message?.includes('ERR_INTERNET_DISCONNECTED') ||
+            String(e).includes('fetch') ||
+            String(e).includes('network');
+
+          if (isNetworkError) {
+            setError("انقطع الاتصال بالإنترنت. يرجى التحقق من اتصال الشبكة وإعادة المحاولة.");
+          } else {
+            setAccess("denied");
+            setError(customerMessage(e, "تعذر التحقق من صلاحية المتجر."));
+          }
         }
       }
     }
+
+    const onOnline = () => {
+      if (active) {
+        setError("");
+        setRevision(r => r + 1);
+      }
+    };
+    window.addEventListener('online', onOnline);
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!active) return;
@@ -136,6 +155,8 @@ export default function MerchantApp() {
       } else {
         setAccess("login");
       }
+    }).catch(() => {
+      if (active) setError("انقطع الاتصال بالإنترنت. يرجى التحقق من اتصال الشبكة.");
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -146,6 +167,7 @@ export default function MerchantApp() {
 
     return () => {
       active = false;
+      window.removeEventListener('online', onOnline);
       subscription.unsubscribe();
     };
   }, [revision]);
@@ -448,10 +470,28 @@ export default function MerchantApp() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 text-center font-cairo" dir="rtl">
         <div className="relative mb-4">
-          <img src={SANGOUB_MASCOT} alt="سنجوب" className="w-24 h-24 object-contain animate-bounce" />
+          <img src={SANGOUB_MASCOT} alt="سنجوب" className="w-24 h-24 object-contain" />
         </div>
-        <h2 className="text-base font-bold text-slate-800">جارٍ التحقق من صلاحيات بوابة الشركاء…</h2>
-        <p className="text-xs text-slate-500 mt-1">سنجوب يجهز لك لوحة المطبخ والطلبات اللحظية</p>
+        {error ? (
+          <div className="max-w-md w-full p-5 bg-white border border-amber-200 shadow-md rounded-2xl text-slate-800 space-y-3">
+            <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+              <AlertCircle size={22} />
+            </div>
+            <p className="text-xs font-bold text-slate-700">{error}</p>
+            <button
+              type="button"
+              onClick={() => { setError(''); setRevision(r => r + 1); }}
+              className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+            >
+              إعادة المحاولة الآن
+            </button>
+          </div>
+        ) : (
+          <>
+            <h2 className="text-base font-bold text-slate-800">جارٍ التحقق من صلاحيات بوابة الشركاء…</h2>
+            <p className="text-xs text-slate-500 mt-1">سنجوب يجهز لك لوحة المطبخ والطلبات اللحظية</p>
+          </>
+        )}
       </div>
     );
   }

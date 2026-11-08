@@ -21,7 +21,14 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     if (!user) throw new Error('يرجى تسجيل الدخول أولاً.');
 
     if (body.action === 'profile') {
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+      let profile: any = null;
+      try {
+        const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+        profile = p;
+      } catch (err) {
+        console.warn('[operationsApi] profiles fetch warning:', err);
+      }
+
       const isAdmin = profile?.role === 'admin' || 
         user.email === 'meskllcqa@gmail.com' || 
         user.email === 'el7lm25@gmail.com' || 
@@ -31,13 +38,17 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       
       if (isAdmin) {
         let adminStore: any = null;
-        if (profile?.store_id) {
-          const { data: s } = await supabase.from('stores').select('id, name, category, status').eq('id', profile.store_id).maybeSingle();
-          adminStore = s;
-        }
-        if (!adminStore) {
-          const { data: s } = await supabase.from('stores').select('id, name, category, status').limit(1).maybeSingle();
-          adminStore = s;
+        try {
+          if (profile?.store_id) {
+            const { data: s } = await supabase.from('stores').select('id, name, category, status').eq('id', profile.store_id).maybeSingle();
+            adminStore = s;
+          }
+          if (!adminStore) {
+            const { data: s } = await supabase.from('stores').select('id, name, category, status').limit(1).maybeSingle();
+            adminStore = s;
+          }
+        } catch (err) {
+          console.warn('[operationsApi] adminStore fetch warning:', err);
         }
 
         return {
