@@ -1,27 +1,40 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, BellOff, ChefHat, PackageCheck, Clock, CheckCircle2, Bike, Send, AlertCircle, Sparkles, Filter } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  ChefHat,
+  PackageCheck,
+  Clock,
+  CheckCircle2,
+  Bike,
+  AlertCircle,
+  Navigation,
+  MapPin,
+  FileText,
+} from "lucide-react";
 import type { Order, Store } from "../types";
 import { kitchenStage } from "../utils/orderIntegration";
 
 type Stage = "received" | "preparing" | "ready";
+
 const stages: { id: Stage; title: string; color: string; badgeColor: string }[] = [
   {
     id: "received",
     title: "طلبات جديدة بانتظار القبول",
-    color: "bg-white/80 border-amber-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)]",
-    badgeColor: "bg-amber-500/10 text-amber-700 border-amber-500/20",
+    color: "border-amber-200/90 bg-amber-50/20",
+    badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
   },
   {
     id: "preparing",
     title: "مقبول وجارٍ التحضير والتجهيز",
-    color: "bg-white/80 border-blue-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)]",
-    badgeColor: "bg-blue-500/10 text-blue-700 border-blue-500/20",
+    color: "border-blue-200/90 bg-blue-50/20",
+    badgeColor: "bg-blue-100 text-blue-800 border-blue-200",
   },
   {
     id: "ready",
-    title: "تم التجهيز والتسليم للمندوب",
-    color: "bg-white/80 border-emerald-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)]",
-    badgeColor: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
+    title: "تم التجهيز وجاهز بالمحل",
+    color: "border-emerald-200/90 bg-emerald-50/20",
+    badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
   },
 ];
 
@@ -31,6 +44,7 @@ export function KitchenDisplay({
   fixedStoreId,
   connected,
   onChange,
+  onNavigateRadar,
   readOnly = false,
 }: {
   readOnly?: boolean;
@@ -39,6 +53,7 @@ export function KitchenDisplay({
   fixedStoreId?: string;
   connected: boolean;
   onChange: (id: string, storeId: string, stage: "preparing" | "ready") => Promise<void>;
+  onNavigateRadar?: () => void;
 }) {
   const [selection, setSelection] = useState("");
   const [ministry, setMinistry] = useState("");
@@ -134,90 +149,84 @@ export function KitchenDisplay({
   }
 
   return (
-    <section dir="rtl" className="space-y-5" aria-label="محطة تحضير وتجهيز الطلبات">
-      {/* Apple / Google Minimalist Top Bar */}
-      <div className="bg-white/80 backdrop-blur-xl border border-slate-200/80 rounded-[28px] p-5 shadow-xs flex flex-wrap justify-between gap-4 items-center">
+    <section dir="rtl" className="space-y-3.5" aria-label="محطة تحضير وتجهيز الطلبات">
+      {/* ── 1. Compact & Clean Header Bar ── */}
+      <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs flex flex-wrap justify-between gap-2.5 items-center">
         <div>
-          <span className="text-orange-600 font-mono text-[10px] font-bold uppercase tracking-widest bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-100">
-            ORDER DISPATCH · محطة تحضير وتجهيز الطلبات
-          </span>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2 mt-1.5 tracking-tight">
-            <PackageCheck className="text-orange-600" /> تذاكر وطلبات العملاء الفورية
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            استقبل الطلب، أضف ملاحظات التجهيز، اضغط «قبول والبدء بالتجهيز»، ثم «جاهز للتسليم للكابتن».
+          <div className="flex items-center gap-2">
+            <PackageCheck size={16} className="text-orange-600 shrink-0" />
+            <h2 className="text-xs sm:text-sm font-black text-slate-900">
+              تذاكر وتحضير الطلبات الفورية
+            </h2>
+            <span
+              className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                connected
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-amber-50 text-amber-700 border-amber-200"
+              }`}
+            >
+              {connected ? "● متصل لحظياً" : "الاتصال غير مؤكد"}
+            </span>
+          </div>
+          <p className="text-[10px] text-slate-500 mt-0.5">
+            استقبل الطلب، أضف ملاحظات التجهيز، اضغط «قبول وبدء التجهيز»، ثم «جاهز للاستلام بالمحل».
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span
-            className={`text-xs font-bold px-3 py-1 rounded-full border ${
-              connected
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : "bg-amber-50 text-amber-700 border-amber-200"
-            }`}
+        {/* Header Actions & Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Destination Filter */}
+          <select
+            aria-label="تصفية الطلبات حسب منطقة أو وجهة التوصيل"
+            value={ministry}
+            onChange={(e) => setMinistry(e.target.value)}
+            className="h-8 px-2.5 text-[11px] font-bold border border-slate-200 rounded-lg bg-slate-50 text-slate-800 shadow-2xs focus:outline-none focus:border-orange-500 cursor-pointer"
           >
-            {connected ? "● متصل بالبث الحي" : "الاتصال غير مؤكد"}
-          </span>
+            <option value="">كافة مناطق ووجهات التوصيل</option>
+            {[...new Set(tickets.map((order) => order.deliveryAddress || order.ministry).filter(Boolean))].sort().map((name) => (
+              <option key={name}>{name}</option>
+            ))}
+          </select>
 
+          {/* Sound Alert Toggle */}
           <button
+            type="button"
             onClick={toggleSound}
             aria-pressed={sound}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
+            className={`h-8 flex items-center gap-1.5 px-2.5 rounded-lg text-[11px] font-bold transition-all shadow-2xs cursor-pointer ${
               sound
                 ? "bg-slate-900 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200"
             }`}
           >
-            {sound ? <Bell size={14} className="text-amber-400" /> : <BellOff size={14} />}
-            <span>{sound ? "جرس الطلبات مفعّل" : "تفعيل التنبيه الصوتي"}</span>
+            {sound ? <Bell size={13} className="text-amber-400" /> : <BellOff size={13} />}
+            <span>{sound ? "تنبيه مفعّل" : "تفعيل التنبيه الصوتي"}</span>
           </button>
+
+          {/* Radar Shortcut */}
+          {onNavigateRadar && (
+            <button
+              type="button"
+              onClick={onNavigateRadar}
+              className="h-8 flex items-center gap-1.5 px-2.5 rounded-lg text-[11px] font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs transition-all cursor-pointer"
+              title="الانتقال لشاشة تتبع المناديب ورادار التوصيل"
+            >
+              <Navigation size={13} className="text-orange-600" />
+              <span>رادار التوصيل</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Filter Selectors (Apple Clean Inset Pill Selects) */}
-      <div className="flex flex-wrap gap-2.5">
-        {!fixedStoreId && (
-          <select
-            aria-label="اختيار المتجر والفرع"
-            value={storeId}
-            onChange={(e) => {
-              setSelection(e.target.value);
-              setMinistry("");
-            }}
-            className="px-4 py-2 text-xs font-bold border border-slate-200 rounded-2xl bg-white text-slate-800 shadow-xs focus:ring-2 focus:ring-orange-500/20"
-          >
-            {!stores.length && <option value="">لا توجد متاجر مسجلة</option>}
-            {stores.map((store) => (
-              <option key={store.id} value={store.id}>
-                {store.name}
-              </option>
-            ))}
-          </select>
-        )}
-
-        <select
-          aria-label="تصفية الطلبات حسب منطقة أو وجهة التوصيل"
-          value={ministry}
-          onChange={(e) => setMinistry(e.target.value)}
-          className="px-4 py-2 text-xs font-bold border border-slate-200 rounded-2xl bg-white text-slate-800 shadow-xs focus:ring-2 focus:ring-orange-500/20"
-        >
-          <option value="">كافة مناطق ووجهات التوصيل</option>
-          {[...new Set(tickets.map((order) => order.deliveryAddress || order.ministry).filter(Boolean))].sort().map((name) => (
-            <option key={name}>{name}</option>
-          ))}
-        </select>
-      </div>
-
       {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2">
-          <AlertCircle size={15} className="text-rose-600" />
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 p-2.5 rounded-xl text-[11px] font-bold flex items-center gap-2">
+          <AlertCircle size={14} className="text-rose-600 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Kanban / Stage Columns (Apple Clean Card Containers) */}
-      <div className="grid lg:grid-cols-3 gap-5 items-start">
+      {/* ── 2. Kanban Stage Columns ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 items-start">
         {stages.map((stage) => {
           const list = tickets
             .filter((order) => kitchenStage(order, storeId) === stage.id && (!ministry || order.ministry === ministry))
@@ -226,45 +235,49 @@ export function KitchenDisplay({
           return (
             <div
               key={stage.id}
-              className={`rounded-[28px] p-4 border backdrop-blur-md ${stage.color}`}
+              className={`rounded-xl p-3 border shadow-2xs ${stage.color}`}
             >
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 px-1">
-                <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
+              <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-200/60 px-0.5">
+                <h3 className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
                   <span>{stage.title}</span>
                 </h3>
-                <span className={`px-2.5 py-0.5 rounded-full border text-xs font-black ${stage.badgeColor}`}>
+                <span className={`px-2 py-0.2 rounded-full border text-[10px] font-black font-mono ${stage.badgeColor}`}>
                   {list.length}
                 </span>
               </div>
 
-              <div className="space-y-3.5">
+              <div className="space-y-2.5">
                 {list.map((order) => {
                   const items = order.items.filter((item) => item.product.storeId === storeId);
                   const minutes = order.createdAt
                     ? Math.max(0, Math.floor((now - Date.parse(order.createdAt)) / 60000))
                     : null;
+                  const hasCourier = Boolean(order.courierId || order.courierName);
 
                   return (
                     <article
                       key={order.id}
-                      className="bg-white rounded-[24px] p-4.5 shadow-[0_2px_12px_rgb(0,0,0,0.04)] border border-slate-200/90 space-y-3 hover:border-slate-300 transition-all"
+                      className="bg-white rounded-lg p-3 shadow-2xs border border-slate-200 space-y-2 hover:border-slate-300 transition-all"
                     >
                       {/* Ticket Header */}
                       <div className="flex justify-between items-center gap-2">
-                        <strong className="text-orange-600 font-mono text-base font-black tracking-tight" dir="ltr">
+                        <strong className="text-orange-600 font-mono text-xs font-black tracking-tight" dir="ltr">
                           {order.orderNumber}
                         </strong>
-                        <span className="text-[11px] text-slate-500 font-bold flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-full">
-                          <Clock size={12} className="text-slate-400" />
+                        <span className="text-[10px] text-slate-500 font-bold flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded font-mono">
+                          <Clock size={11} className="text-slate-400" />
                           {minutes === null ? "الآن" : `${minutes} دقيقة`}
                         </span>
                       </div>
 
                       {/* Customer Destination / Address */}
-                      <div className="text-xs bg-slate-50/90 p-3 rounded-2xl border border-slate-100">
-                        <p className="font-black text-slate-900">{order.deliveryAddress || order.ministry || "عنوان العميل المعتمد"}</p>
+                      <div className="text-[11px] bg-slate-50 p-2 rounded-lg border border-slate-100 space-y-0.5">
+                        <p className="font-bold text-slate-900 flex items-start gap-1">
+                          <MapPin size={12} className="text-slate-400 shrink-0 mt-0.5" />
+                          <span>{order.deliveryAddress || order.ministry || "عنوان العميل المعتمد"}</span>
+                        </p>
                         {(order.floorNumber || order.roomNumber || order.profileName) && (
-                          <p className="text-slate-500 mt-0.5">
+                          <p className="text-[10px] text-slate-500 pr-4">
                             {order.floorNumber ? `الدور: ${order.floorNumber}` : ''}
                             {order.roomNumber ? ` • رقم: ${order.roomNumber}` : ''}
                             {order.profileName ? ` (العميل: ${order.profileName})` : ''}
@@ -273,34 +286,34 @@ export function KitchenDisplay({
                       </div>
 
                       {/* Items List */}
-                      <ul className="border-y border-slate-100 py-3 space-y-2">
+                      <ul className="border-y border-slate-100 py-2 space-y-1">
                         {items.map((item, index) => (
-                          <li key={item.id || index} className="text-xs">
+                          <li key={item.id || index} className="text-[11px] flex flex-wrap items-baseline gap-1">
                             <strong className="text-orange-600 font-bold">{item.quantity} × </strong>
                             <span className="font-bold text-slate-800">{item.product.name}</span>
                             {Object.keys(item.selectedOptions || {}).length > 0 && (
-                              <p className="text-[11px] text-slate-400 mt-0.5">
-                                {Object.values(item.selectedOptions).join("، ")}
-                              </p>
+                              <span className="text-[10px] text-slate-400">
+                                ({Object.values(item.selectedOptions).join("، ")})
+                              </span>
                             )}
                             {item.notes && (
-                              <p className="text-[11px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md mt-1 font-medium">
+                              <p className="w-full text-[10px] text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded mt-0.5 font-medium">
                                 {item.notes}
                               </p>
                             )}
                           </li>
                         ))}
                         {!items.length && (
-                          <li className="text-xs text-slate-500">
+                          <li className="text-[10px] text-slate-400">
                             {order.itemsSummary || order.legacySummary || "تفاصيل الأصناف غير متاحة"}
                           </li>
                         )}
                       </ul>
 
-                      {/* Customer Note */}
+                      {/* Customer Special Note */}
                       {order.notes && (
-                        <div className="text-xs bg-amber-50/80 border border-amber-200/50 p-2.5 rounded-xl text-amber-900 font-medium">
-                          <strong className="block text-[10px] text-amber-700 uppercase font-bold mb-0.5">
+                        <div className="text-[10px] bg-amber-50/80 border border-amber-200/60 p-2 rounded-lg text-amber-900 font-medium">
+                          <strong className="block text-[9px] text-amber-700 uppercase font-bold mb-0.5">
                             ملاحظة العميل الخاصة:
                           </strong>
                           {order.notes}
@@ -311,46 +324,65 @@ export function KitchenDisplay({
                       <div>
                         <input
                           type="text"
-                          placeholder="اكتب ملاحظة على التذكرة (اختياري)..."
+                          placeholder="ملاحظة المطبخ (اختياري)..."
                           value={ticketNotes[order.id] || ""}
                           onChange={(e) => setTicketNotes({ ...ticketNotes, [order.id]: e.target.value })}
-                          className="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                          className="w-full text-[10px] h-7 px-2 border border-slate-200 rounded-md bg-slate-50 text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-orange-500"
                         />
                       </div>
 
-                      {/* Action Buttons (Apple Tactile Pill Buttons) */}
+                      {/* Action Area Based on Stage & Real Courier State */}
                       {readOnly ? (
-                        <p className="text-xs text-slate-400 text-center py-1">التحديث من حساب المتجر في التطبيق.</p>
+                        <p className="text-[10px] text-slate-400 text-center py-1">التحديث من حساب المتجر في التطبيق.</p>
                       ) : stage.id !== "ready" ? (
                         <button
+                          type="button"
                           disabled={!connected || pending.includes(order.id)}
                           onClick={() => advance(order, stage.id === "received" ? "preparing" : "ready")}
-                          className={`w-full py-3 rounded-2xl text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] disabled:opacity-40 ${
+                          className={`w-full h-8 rounded-lg text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-[0.98] disabled:opacity-40 cursor-pointer ${
                             stage.id === "received"
-                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/20"
-                              : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-500/20"
+                              ? "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
+                              : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
                           }`}
                         >
                           {pending.includes(order.id) ? (
                             "جارٍ الحفظ والمزامنة…"
                           ) : stage.id === "received" ? (
                             <>
-                              <PackageCheck size={16} /> قبول وبدء التجهيز
+                              <PackageCheck size={14} />
+                              <span>قبول وبدء التجهيز</span>
                             </>
                           ) : (
                             <>
-                              <Bike size={16} /> تم التجهيز وجاهز للاستلام
+                              <CheckCircle2 size={14} />
+                              <span>تم التجهيز وجاهز للاستلام 📦</span>
                             </>
                           )}
                         </button>
                       ) : (
-                        <div className="bg-emerald-50 border border-emerald-200/80 p-2.5 rounded-2xl text-center">
-                          <p className="text-emerald-800 text-xs font-black flex items-center justify-center gap-1.5">
-                            <CheckCircle2 size={15} /> تم تسليم الطلب لكابتن التوصيل بنجاح
-                          </p>
-                          <p className="text-[10px] text-emerald-600 mt-0.5">
-                            الطلب في عهدة كابتن التوصيل ويظهر للعميل في شاشة التتبع اللحظية
-                          </p>
+                        /* Stage: READY (تم التجهيز) -> Differentiate assigned courier vs waiting for courier */
+                        <div className="space-y-1.5">
+                          {hasCourier ? (
+                            <div className="bg-emerald-50 border border-emerald-200 p-2 rounded-lg text-center space-y-0.5">
+                              <p className="text-emerald-900 text-[11px] font-bold flex items-center justify-center gap-1">
+                                <Bike size={13} className="text-emerald-700" />
+                                <span>الكابتن المكلف: {order.courierName || 'مندوب معتمد'}</span>
+                              </p>
+                              <p className="text-[9px] text-emerald-700">
+                                الطلب جاهز ومغلف بالمحل — بانتظار استلام الكابتن للطلب
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="bg-amber-50/80 border border-amber-200 p-2 rounded-lg text-center space-y-0.5">
+                              <p className="text-amber-900 text-[11px] font-bold flex items-center justify-center gap-1">
+                                <Clock size={13} className="text-amber-700" />
+                                <span>جاهز ومغلف — بانتظار تكليف المندوب ⏳</span>
+                              </p>
+                              <p className="text-[9px] text-amber-700/90 leading-tight">
+                                لم يتم تعيين مندوب حتى الآن؛ الطلب معروض في رادار المناديب للتكليف والاستلام.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </article>
@@ -358,7 +390,7 @@ export function KitchenDisplay({
                 })}
 
                 {!list.length && (
-                  <div className="text-center py-12 text-slate-400 text-xs font-bold">
+                  <div className="text-center py-8 text-slate-400 text-xs font-bold">
                     لا توجد تذاكر في هذه المرحلة
                   </div>
                 )}

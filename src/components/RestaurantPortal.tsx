@@ -1923,9 +1923,6 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
           {/* PAGE: KITCHEN / ORDER PREPARATION DISPLAY */}
           {activeTab === "kitchen" && (
             <section aria-label="شاشة تحضير وتجهيز الطلبات الحية">
-              <button onClick={() => navigateSection('radar')} className="p-2 border rounded-xl mb-3 text-xs font-bold bg-white hover:bg-slate-50 transition cursor-pointer">
-                تتبع طلبات المتجر
-              </button>
               {preparationContent}
               {(!preparationContent || orders.some(o => o.fulfillmentVersion !== 2 && ["received", "preparing"].includes(o.orderStatus))) && (
                 <KitchenDisplay
@@ -1934,6 +1931,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                   fixedStoreId={userStore.id}
                   connected={connected}
                   onChange={onKitchenChange}
+                  onNavigateRadar={() => navigateSection('radar')}
                 />
               )}
             </section>
