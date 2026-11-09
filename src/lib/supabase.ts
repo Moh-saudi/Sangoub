@@ -385,7 +385,13 @@ export async function getSupabaseProducts(storeId?: string): Promise<Product[]> 
     }
     const { data, error } = await query;
     if (!error && data && data.length > 0) {
-      dbProducts = (data || []).map((row: any) => {
+      dbProducts = (data || []).filter((row: any) => {
+        if (!row || !row.id || !row.name) return false;
+        if (row.id === '00000000-1111-2222-3333-444444444444' || String(row.id).startsWith('00000000-')) return false;
+        const n = String(row.name).toLowerCase();
+        if (n.includes('تجريب') || n.includes('اختبار') || n.includes('test') || n.includes('dummy')) return false;
+        return true;
+      }).map((row: any) => {
         let imageUrl = row.image_url || row.banner || row.banner_url || '';
 
         // Authentic local & verified fallback for products with missing or broken image assets:

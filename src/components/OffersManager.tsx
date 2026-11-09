@@ -26,6 +26,8 @@ import {
   XCircle,
   ShieldCheck,
   Clock3,
+  LayoutGrid,
+  Table2,
 } from 'lucide-react';
 import type { Product, Store, Order } from '../types';
 import { formatEGP } from '../utils/orderCalculations';
@@ -69,9 +71,27 @@ export function OffersManager({
 }: OffersManagerProps) {
   
   // Filter products scoped strictly to store if fixedStoreId is provided (Merchant Store Isolation)
+  // Strips all fake, test, and duplicate items
   const scopedProducts = useMemo(() => {
-    if (!fixedStoreId) return products.filter((p) => !p.archived);
-    return products.filter((p) => !p.archived && (matchStoreId(p.storeId, fixedStoreId) || p.storeId === fixedStoreId));
+    let list = products.filter((p) => {
+      if (p.archived) return false;
+      if (p.id?.startsWith('00000000-')) return false;
+      const n = (p.name || '').trim().toLowerCase();
+      if (n.includes('تجريب') || n.includes('اختبار') || n.includes('test') || n.includes('dummy')) return false;
+      return true;
+    });
+
+    // Deduplicate identical items in same store to avoid mock/duplicate clutter
+    const seen = new Set<string>();
+    list = list.filter((p) => {
+      const key = `${p.storeId || ''}::${(p.name || '').trim().toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    if (!fixedStoreId) return list;
+    return list.filter((p) => matchStoreId(p.storeId, fixedStoreId) || p.storeId === fixedStoreId);
   }, [products, fixedStoreId]);
 
   // Current store object (if fixedStoreId)
@@ -80,14 +100,43 @@ export function OffersManager({
     return stores.find((s) => matchStoreId(s.id, fixedStoreId) || s.id === fixedStoreId);
   }, [stores, fixedStoreId]);
 
+  // View Mode: Cards vs Table
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
+    try {
+      return (localStorage.getItem('admin_offers_view_mode') as 'cards' | 'table') || 'cards';
+    } catch {
+      return 'cards';
+    }
+  });
+
+  const handleSetViewMode = (mode: 'cards' | 'table') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('admin_offers_view_mode', mode);
+    } catch {}
+  };
+
+  // Offer Scope Filter: All Discounted Catalog vs Featured Promotional Deals
+  const [offerScope, setOfferScope] = useState<'all' | 'promotional'>('all');
+
   // All offers: items with valid originalPrice > price OR with offer status (pending approval, approved, rejected)
   const allOffers = useMemo(() => {
     return scopedProducts.filter((p) => {
       const hasClassicOffer = typeof p.originalPrice === 'number' && p.originalPrice > p.price;
       const hasOfferStatus = Boolean(p.offerStatus) || Boolean(p.offerProposedPrice) || Boolean(p.offerTitle);
-      return hasClassicOffer || hasOfferStatus;
+      if (!hasClassicOffer && !hasOfferStatus) return false;
+
+      if (offerScope === 'promotional') {
+        const orig = p.originalPrice || p.price;
+        const sale = p.offerProposedPrice || p.price;
+        const disc = orig > 0 ? Math.round((1 - sale / orig) * 100) : 0;
+        const hasPromoBadge = Boolean(p.badge && (p.badge.includes('عرض') || p.badge.includes('توفير') || p.badge.includes('خصم')));
+        return disc >= 12 || hasPromoBadge || Boolean(p.offerTitle) || Boolean(p.isOccasion) || Boolean(p.offerStatus);
+      }
+
+      return true;
     });
-  }, [scopedProducts]);
+  }, [scopedProducts, offerScope]);
 
   // ── Filters & Search State ──
   const [searchQuery, setSearchQuery] = useState('');
@@ -999,7 +1048,76 @@ export function OffersManager({
       </div>
 
       {/* ════════════════════════════════════════════════════════════
-          4. OFFERS GRID (ENTERPRISE NOON / TALABAT CARDS)
+          3.5 VIEW MODE & SCOPE TOGGLE BAR (CARDS VS TABLE)
+          ════════════════════════════════════════════════════════════ */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Scope Toggle: All Discounted Catalog vs Featured Promotional Deals */}
+          <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 shadow-2xs text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setOfferScope('all')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                offerScope === 'all'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Tag size={13} className={offerScope === 'all' ? 'text-orange-500' : ''} />
+              <span>جميع العروض والخصومات ({scopedProducts.filter(p => typeof p.originalPrice === 'number' && p.originalPrice > p.price).length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setOfferScope('promotional')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                offerScope === 'promotional'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Sparkles size={13} className={offerScope === 'promotional' ? 'text-amber-500' : ''} />
+              <span>الصفقات الترويجية الكبرى ⭐</span>
+            </button>
+          </div>
+
+          <span className="text-[11px] text-slate-400 font-bold hidden md:inline">
+            معروض {filteredOffers.length} من أصل {allOffers.length}
+          </span>
+        </div>
+
+        {/* View Toggle: Cards vs Table */}
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 shadow-2xs text-xs font-bold self-end sm:self-auto">
+          <button
+            type="button"
+            onClick={() => handleSetViewMode('cards')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewMode === 'cards'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+            title="عرض الكروت"
+          >
+            <LayoutGrid size={14} className={viewMode === 'cards' ? 'text-orange-500' : ''} />
+            <span>عرض كروت 🎴</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSetViewMode('table')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewMode === 'table'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+            title="عرض الجدول"
+          >
+            <Table2 size={14} className={viewMode === 'table' ? 'text-orange-500' : ''} />
+            <span>عرض جدول 📊</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════
+          4. OFFERS VIEW (CARDS OR INTERACTIVE TABLE)
           ════════════════════════════════════════════════════════════ */}
       {filteredOffers.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/90 shadow-2xs space-y-4">
@@ -1044,8 +1162,204 @@ export function OffersManager({
             </button>
           )}
         </div>
+      ) : viewMode === 'table' ? (
+        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden animate-in fade-in duration-200">
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
+                <tr>
+                  <th className="p-3.5">الصنف</th>
+                  {!fixedStoreId && <th className="p-3.5">المتجر</th>}
+                  <th className="p-3.5">القسم</th>
+                  <th className="p-3.5">السعر المخفض</th>
+                  <th className="p-3.5">السعر الأصلي</th>
+                  <th className="p-3.5">نسبة الخصم والتوفير</th>
+                  <th className="p-3.5">الشارة / المناسبة</th>
+                  <th className="p-3.5">التوفر</th>
+                  <th className="p-3.5">الاعتماد</th>
+                  <th className="p-3.5 text-center">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredOffers.map((product) => {
+                  const orig = product.originalPrice || product.price;
+                  const sale = product.offerProposedPrice && product.offerProposedPrice > 0 ? product.offerProposedPrice : product.price;
+                  const discountPercent = orig > 0 ? Math.round((1 - sale / orig) * 100) : 0;
+                  const savingsAmount = Math.max(0, orig - sale);
+                  const store = stores.find((s) => s.id === product.storeId || matchStoreId(s.id, product.storeId));
+                  const isPending = product.offerStatus === 'pending_approval';
+                  const isRejected = product.offerStatus === 'rejected';
+                  const isApproved = product.offerStatus === 'approved' || (!product.offerStatus && typeof product.originalPrice === 'number' && product.originalPrice > product.price);
+
+                  return (
+                    <tr key={product.id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* Product Name & Image */}
+                      <td className="p-3.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0 shadow-2xs">
+                            {product.imageUrl ? (
+                              <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-sm">🛍️</div>
+                            )}
+                          </div>
+                          <div className="min-w-0 max-w-xs">
+                            <strong className="block font-black text-slate-900 truncate" title={product.name}>
+                              {product.name}
+                            </strong>
+                            {product.offerTitle && (
+                              <span className="text-[10px] text-orange-600 font-bold block truncate">
+                                {product.offerTitle}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Store Name (Admin only) */}
+                      {!fixedStoreId && (
+                        <td className="p-3.5 font-bold text-slate-700">
+                          {store?.name || product.storeName || 'سنجوب ماركت'}
+                        </td>
+                      )}
+
+                      {/* Category */}
+                      <td className="p-3.5 text-slate-600 font-medium">
+                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[11px] font-bold">
+                          {product.category || 'عام'}
+                        </span>
+                      </td>
+
+                      {/* Sale Price */}
+                      <td className="p-3.5">
+                        <span className="font-mono font-black text-orange-600 text-sm">
+                          {formatEGP(sale)}
+                        </span>
+                      </td>
+
+                      {/* Original Price */}
+                      <td className="p-3.5">
+                        <del className="font-mono font-bold text-slate-400 text-xs">
+                          {formatEGP(orig)}
+                        </del>
+                      </td>
+
+                      {/* Discount % & Savings */}
+                      <td className="p-3.5">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="inline-flex items-center gap-1 font-mono font-black text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md text-[11px] w-fit">
+                            <span>خصم {discountPercent}%</span>
+                          </span>
+                          <span className="text-[10px] text-emerald-700 font-bold">
+                            وفر {formatEGP(savingsAmount)}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Badge or Occasion */}
+                      <td className="p-3.5">
+                        {product.isOccasion ? (
+                          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[10.5px] font-bold inline-flex items-center gap-1">
+                            <span>🌙</span>
+                            <span>{product.occasionName || 'مناسبة'}</span>
+                          </span>
+                        ) : product.badge ? (
+                          <span className="bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md text-[10.5px] font-bold">
+                            {product.badge}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">—</span>
+                        )}
+                      </td>
+
+                      {/* In-Stock Status Toggle */}
+                      <td className="p-3.5">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAvailability(product)}
+                          className={`px-2 py-1 rounded-lg text-[10.5px] font-bold border transition cursor-pointer ${
+                            product.inStock !== false
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                          }`}
+                        >
+                          {product.inStock !== false ? '🟢 متاح' : '⏸️ موقوف'}
+                        </button>
+                      </td>
+
+                      {/* Approval Status */}
+                      <td className="p-3.5">
+                        {isPending ? (
+                          <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md text-[10px] font-black border border-amber-300 inline-flex items-center gap-1">
+                            <Clock3 size={11} />
+                            <span>قيد الاعتماد</span>
+                          </span>
+                        ) : isRejected ? (
+                          <span className="bg-rose-100 text-rose-800 px-2 py-0.5 rounded-md text-[10px] font-black border border-rose-300 inline-flex items-center gap-1">
+                            <XCircle size={11} />
+                            <span>مرفوض</span>
+                          </span>
+                        ) : (
+                          <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md text-[10px] font-black border border-emerald-300 inline-flex items-center gap-1">
+                            <CheckCircle size={11} />
+                            <span>معتمد ونشط</span>
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="p-3.5">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {!fixedStoreId && isPending && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleApproveOffer(product)}
+                                className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition cursor-pointer"
+                                title="اعتماد وتفعيل العرض"
+                              >
+                                <Check size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRejectOffer(product)}
+                                className="p-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
+                                title="رفض العرض"
+                              >
+                                <X size={14} />
+                              </button>
+                            </>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleEditOffer(product)}
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                            title="تعديل بيانات العرض"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={isSubmitting}
+                            onClick={() => handleCancelOffer(product)}
+                            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition cursor-pointer"
+                            title="إلغاء الخصم واستعادة السعر الأصلي"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-200">
           {filteredOffers.map((product) => {
             const orig = product.originalPrice || product.price;
             const sale = product.offerProposedPrice && product.offerProposedPrice > 0 ? product.offerProposedPrice : product.price;
