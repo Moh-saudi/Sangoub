@@ -51,7 +51,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({
   onOpenAreaModal,
   isMobile = false,
 }) => {
-  const { user, setUser, serviceArea, navigate, activeCoupons, unreadNotificationsCount, setIsNotificationsModalOpen } = useStore();
+  const { user, setUser, serviceArea, navigate, activeCoupons, unreadNotificationsCount, setIsNotificationsModalOpen, clearCart } = useStore();
   const [currentView, setCurrentView] = useState<AccountView>('main');
   const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
   const [showCouponsModal, setShowCouponsModal] = useState(false);
@@ -239,6 +239,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({
       localStorage.removeItem('sangoub_last_phone');
       localStorage.removeItem('sangoub_last_order');
       sessionStorage.clear();
+      clearCart();
       window.dispatchEvent(new CustomEvent('sangoub:logged_out'));
       setAvatarUrl('');
       setEmail('');

@@ -64,7 +64,7 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
 
   // Slide Editor State
   const [editor, setEditor] = useState<{ campaign?: Promotion } | null>(null);
-  const [targetType, setTargetType] = useState<'product' | 'store' | 'category' | 'offers' | 'url'>('product');
+  const [targetType, setTargetType] = useState<'product' | 'store' | 'category' | 'offers' | 'none' | 'url'>('product');
   const [targetId, setTargetId] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [currentImageUrl, setCurrentImageUrl] = useState('');
@@ -415,6 +415,15 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
         mainText: camp.targetId || 'كل الأقسام',
         subText: 'تصفية المنتجات حسب القسم',
         badgeColor: 'bg-purple-50 text-purple-800 border-purple-200'
+      };
+    }
+    if (camp.targetType === 'none') {
+      return {
+        icon: '🖼️',
+        typeLabel: 'للعرض فقط',
+        mainText: 'صورة إعلانية بدون توجيه',
+        subText: 'لا تنقل لصفحة أخرى عند النقر',
+        badgeColor: 'bg-slate-50 text-slate-700 border-slate-200'
       };
     }
     return {
@@ -1175,8 +1184,8 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                 </p>
               </div>
 
-              {/* 4 Primary Target Type Buttons */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {/* 5 Primary Target Type Buttons */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -1243,6 +1252,23 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                   <span className="text-lg mb-0.5">🏷️</span>
                   <span className="text-xs">صفحة العروض</span>
                   <span className="text-[9px] text-slate-500 font-medium mt-0.5">كل التخفيضات</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetType('none');
+                    setTargetId('');
+                  }}
+                  className={`p-2.5 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center justify-center ${
+                    targetType === 'none'
+                      ? 'bg-orange-50 border-orange-500 text-orange-950 font-black ring-2 ring-orange-500/20 shadow-xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 font-bold hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="text-lg mb-0.5">🖼️</span>
+                  <span className="text-xs">للعرض فقط</span>
+                  <span className="text-[9px] text-slate-500 font-medium mt-0.5">بدون توجيه</span>
                 </button>
               </div>
 

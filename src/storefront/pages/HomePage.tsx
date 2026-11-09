@@ -120,10 +120,29 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
 
     if (activeFilter === 'offers' && !searchQuery?.trim()) {
       list = list.filter((p) => {
-        const isClosed = stores.some((s) => s.status === 'closed' && (matchStoreId(s.id, p.storeId) || s.id === p.storeId || (s.name && p.storeName === s.name)));
-        if (isClosed) return false;
+        // Exclude paused / out of stock items from customer offers page
+        if (p.inStock === false || (p as any).is_available === false) return false;
+
+        // Exclude closed or inactive stores
+        const store = stores.find(s => matchStoreId(s.id, p.storeId) || s.id === p.storeId || (s.name && p.storeName === s.name));
+        if (p.storeId && p.storeId !== 'a0000000-0000-0000-0000-000000000001') {
+          if (!store || store.status === 'closed' || (store as any).is_active === false || (store as any).stopped_at) return false;
+        } else {
+          const central = stores.find(st => st.id === 'a0000000-0000-0000-0000-000000000001' || st.name?.includes('سنجوب'));
+          if (central?.status === 'closed') return false;
+        }
+
         if (p.offerStatus === 'pending_approval' || p.offerStatus === 'rejected') return false;
         return (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم') || Boolean(p.offerTitle);
+      }).sort((a, b) => {
+        const origA = a.originalPrice || a.price;
+        const origB = b.originalPrice || b.price;
+        const discA = origA > 0 ? ((origA - a.price) / origA) : 0;
+        const discB = origB > 0 ? ((origB - b.price) / origB) : 0;
+        if (discB !== discA) return discB - discA; // Highest discount percentage first (% الأعلى خصماً)
+        const savingsA = Math.max(0, origA - a.price);
+        const savingsB = Math.max(0, origB - b.price);
+        return savingsB - savingsA; // Highest savings in EGP second (أعلى توفير)
       });
     } else if (activeFilter === 'popular' && !searchQuery?.trim()) {
       list = list.filter((p) => p.isPopular || p.badge?.includes('طلب') || p.badge?.includes('الأكثر'));

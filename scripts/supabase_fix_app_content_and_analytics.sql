@@ -61,3 +61,4 @@ VALUES (true, 0, now(), now())
 ON CONFLICT (id) DO NOTHING;
 
 GRANT EXECUTE ON FUNCTION public.record_sangoub_site_visit(text, date, text, text) TO anon, authenticated;
+

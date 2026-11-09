@@ -557,6 +557,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } catch {}
       }
 
+      // 3. Local offline cache fallback
+      if (!data) {
+        try {
+          const cached = localStorage.getItem('sangoub_cached_app_content');
+          if (cached) data = JSON.parse(cached);
+        } catch {}
+      }
+
       if (data) {
         if (data.martBanner) {
           setMartBanner(data.martBanner);
@@ -646,6 +654,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       onSelectOffers?: () => void;
     }
   ) => {
+    // Pure display banner (no click navigation)
+    if (banner.targetType === 'none') {
+      return;
+    }
+
     if (banner.targetType === 'offers') {
       if (callbacks?.onSelectOffers) {
         callbacks.onSelectOffers();
@@ -1084,13 +1097,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (active) syncUser(session?.user || null);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) syncUser(session?.user || null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (active) {
+        if (event === 'SIGNED_OUT') {
+          clearCart();
+        }
+        syncUser(session?.user || null);
+      }
     });
+
+    const handleLoggedOutEvent = () => {
+      clearCart();
+    };
+    window.addEventListener('sangoub:logged_out', handleLoggedOutEvent);
 
     return () => {
       active = false;
       subscription.unsubscribe();
+      window.removeEventListener('sangoub:logged_out', handleLoggedOutEvent);
     };
   }, []);
 

@@ -28,3 +28,4 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 5. Grant execute on the visit recording RPC function
 GRANT EXECUTE ON FUNCTION public.record_sangoub_site_visit(text, date, text, text) TO anon, authenticated;
+
