@@ -17,6 +17,7 @@ import {OrderMap} from './OrderMap';
 import { EmptyState } from './ui/DataStates';
 import { cairoDay } from "../utils/orderIntegration";
 import { KitchenDisplay } from "./KitchenDisplay";
+import { MerchantOrdersKanban } from "./MerchantOrdersKanban";
 import { CouriersLiveMap } from "./CouriersLiveMap";
 import { cleanCourierName, cleanCustomerName } from "../utils/sanitizeName";
 import React, { useState, useMemo, useEffect } from "react";
@@ -503,7 +504,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   const [radarViewMode, setRadarViewMode] = useState<'cards' | 'map'>('cards');
   const [radarFilter, setRadarFilter] = useState<'all' | 'in_transit' | 'ready' | 'delivered'>('all');
   const [radarSearch, setRadarSearch] = useState('');
-  const sections=[['dashboard','الرئيسية'],['kitchen','الطلبات'],['menu','المنتجات والأسعار'],['offers','العروض والتخفيضات'],['inventory','المخزون'],['customers','العملاء'],['accounting','التقارير'],['payments','المدفوعات'],['reviews','تقييمات العملاء'],['settings','الإعدادات'],['support','الدعم والمساعدة']] as const;
+  const sections=[['dashboard','الرئيسية'],['kitchen','استقبال وإدارة الطلبات'],['menu','المنتجات والأسعار'],['offers','العروض والتخفيضات'],['inventory','المخزون'],['customers','العملاء'],['accounting','التقارير'],['payments','المدفوعات'],['reviews','تقييمات العملاء'],['settings','الإعدادات'],['support','الدعم والمساعدة']] as const;
   const slugs:Record<string,string>={dashboard:'dashboard',kitchen:'orders',menu:'products',offers:'offers',inventory:'inventory',customers:'customers',accounting:'reports',payments:'payments',reviews:'reviews',settings:'settings',support:'support',radar:'tracking',storeCouriers:'couriers'};
   const sectionFromPath=()=>Object.keys(slugs).find(key=>slugs[key]===location.pathname.split('/')[2])||'dashboard';
   const [activeTab,setActiveTab]=useState(sectionFromPath);
@@ -596,7 +597,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 
   const sectionMeta = [
     { key: 'dashboard', label: 'الرئيسية', icon: LayoutDashboard },
-    { key: 'kitchen', label: 'الطلبات والتجهيز', icon: ChefHat },
+    { key: 'kitchen', label: 'استقبال وإدارة الطلبات', icon: ClipboardList },
     { key: 'menu', label: 'المنتجات والتسعير', icon: Package },
     { key: 'inventory', label: 'المخزون والجرد', icon: Boxes },
     { key: 'customers', label: 'العملاء', icon: Users },
@@ -612,7 +613,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
       title: "العمليات الفورية",
       items: [
         { key: "dashboard", label: "الرئيسية والمؤشرات", icon: LayoutDashboard },
-        { key: "kitchen", label: "تحضير وتجهيز الطلبات", icon: ClipboardList },
+        { key: "kitchen", label: "استقبال وإدارة الطلبات", icon: ClipboardList },
         { key: "radar", label: "تتبع المناديب والتوصيل", icon: Navigation },
         { key: "storeCouriers", label: "طاقم العمل والورديات", icon: Users },
       ],
@@ -1992,22 +1993,23 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             </section>
           )}
 
-          {/* PAGE: KITCHEN / ORDER PREPARATION DISPLAY */}
+          {/* PAGE: KITCHEN / KANBAN ORDERS BOARD */}
           {activeTab === "kitchen" && (
-            <section aria-label="شاشة تحضير وتجهيز الطلبات الحية">
-              {preparationContent}
-              {(!preparationContent || orders.some(o => o.fulfillmentVersion !== 2 && ["received", "preparing"].includes(o.orderStatus))) && (
-                <KitchenDisplay
-                  orders={orders.filter(o => o.fulfillmentVersion !== 2)}
-                  stores={stores}
-                  fixedStoreId={userStore.id}
-                  connected={connected}
-                  couriers={couriers && couriers.length > 0 ? couriers : storeCouriers}
-                  onAssignCourier={onAssignCourier}
-                  onChange={onKitchenChange}
-                  onNavigateRadar={() => navigateSection('radar')}
-                />
-              )}
+            <section aria-label="استقبال وإدارة الطلبات الحية">
+              <MerchantOrdersKanban
+                orders={orders.filter(o => o.fulfillmentVersion !== 2)}
+                stores={stores}
+                fixedStoreId={userStore.id}
+                userStore={userStore}
+                products={products}
+                connected={connected}
+                couriers={couriers && couriers.length > 0 ? couriers : storeCouriers}
+                onAssignCourier={onAssignCourier}
+                onChange={onKitchenChange}
+                onToggleStoreStatus={onToggleStoreStatus}
+                onNavigateRadar={() => navigateSection('radar')}
+                onRefreshOrders={onLoadHistory}
+              />
             </section>
           )}
 

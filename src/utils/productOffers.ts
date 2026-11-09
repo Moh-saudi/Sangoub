@@ -1,5 +1,5 @@
 import type { Product, Store } from "../types";
-import { matchStoreId } from "./storeAssets";
+import { matchStoreId } from "./storeAssets.ts";
 
 export function hasProductOffer(product: Product): boolean {
   return Number.isFinite(product.price) && product.price >= 0 &&

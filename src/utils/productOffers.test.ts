@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Product, Store } from "../types";
-import { availableOffers, hasProductOffer, productDiscountPercent } from "./productOffers";
+import { availableOffers, hasProductOffer, productDiscountPercent } from "./productOffers.ts";
 
 const product = { id: "offer", name: "وجبة", storeId: "open", price: 75, originalPrice: 100, inStock: true } as Product;
 const stores = [{ id: "open", status: "open" }, { id: "closed", status: "closed" }] as Store[];
