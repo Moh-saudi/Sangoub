@@ -1143,7 +1143,7 @@ export default function CourierApp() {
                                   id: order.id,
                                   orderStatus: order.orderStatus,
                                   coordinates: order.coordinates,
-                                  courierId: courierProfile?.id
+                                  courierId: order.courierId || uid
                                 }}
                               />
                             </div>
