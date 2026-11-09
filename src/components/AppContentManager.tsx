@@ -20,6 +20,33 @@ interface GalleryItem {
 
 const labels = { slider: 'سلايدر العروض', stores: 'المتاجر', offers: 'المنتجات المخفضة', products: 'المنتجات والتصنيفات' };
 
+const FIX_APP_CONTENT_SQL = `-- تفعيل صلاحية حفظ وتعديل السلايدر في Supabase SQL Editor
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_content TO authenticated;
+GRANT SELECT ON public.app_content TO anon;
+
+ALTER TABLE public.app_content ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow authenticated all app_content" ON public.app_content;
+CREATE POLICY "Allow authenticated all app_content" ON public.app_content
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public read app_content" ON public.app_content;
+CREATE POLICY "Public read app_content" ON public.app_content
+  FOR SELECT TO anon, authenticated USING (true);
+
+INSERT INTO public.app_content (id, content) VALUES (true, '{}'::jsonb) ON CONFLICT (id) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION public.save_sangoub_app_content(p_content jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+BEGIN
+  INSERT INTO public.app_content (id, content, updated_at)
+  VALUES (true, p_content, now())
+  ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content, updated_at = now();
+  RETURN p_content;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.save_sangoub_app_content(jsonb) TO authenticated, anon;`;
+
 export function AppContentManager({ stores, products }: { stores: Store[]; products: Product[] }) {
   const [config, setConfig] = useState<CustomerHome>(structuredClone(defaultCustomerHome));
   const [campaigns, setCampaigns] = useState<Promotion[]>([]);
@@ -30,6 +57,7 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [sqlCopied, setSqlCopied] = useState(false);
 
   // View mode: 'cards' or 'table'
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
@@ -470,12 +498,38 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
       </header>
 
       {/* Notification and Error Alerts */}
-      {error && (
+      {error === 'PERMISSION_DENIED_APP_CONTENT' ? (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs space-y-3 font-bold text-amber-950 mb-2" dir="rtl">
+          <div className="flex items-center gap-2 text-amber-800">
+            <span className="text-base">🔒</span>
+            <span className="font-black text-sm">تعديل السلايدر يتطلب تشغيل سكريبت الصلاحيات لمرة واحدة في Supabase</span>
+          </div>
+          <p className="font-normal text-amber-900 leading-relaxed">
+            تم حفظ تعديلاتك محلياً بشكل مؤقت. لكي يتم حفظ تعديلات السلايدر في قاعدة بيانات Supabase نهائياً وتظهر لجميع العملاء، يرجى تشغيل سكريبت الصلاحيات لمرة واحدة في <strong>Supabase Dashboard &gt; SQL Editor</strong>.
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(FIX_APP_CONTENT_SQL);
+                  setSqlCopied(true);
+                  setTimeout(() => setSqlCopied(false), 3000);
+                } catch {}
+              }}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
+            >
+              <span>{sqlCopied ? 'تم نسخ كود SQL بنجاح ✓' : 'نسخ كود تفعيل الصلاحيات (SQL) 📋'}</span>
+            </button>
+            <span className="text-[11px] text-amber-700 font-normal">الكود متوفر أيضاً بالملف: <code>scripts/supabase_fix_app_content_and_analytics.sql</code></span>
+          </div>
+        </div>
+      ) : error ? (
         <div role="alert" className="p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold flex items-center gap-2">
           <span>⚠️</span>
           <span>{error}</span>
         </div>
-      )}
+      ) : null}
       {notice && (
         <div role="status" className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2">
           <span>✅</span>

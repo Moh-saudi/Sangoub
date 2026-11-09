@@ -783,12 +783,45 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
 
   // 3. Direct Supabase Fallback for app-content
   if (endpoint === 'app-content') {
-    const getStoredContent = async () => {
-      const { data: row } = await supabase.from('app_content').select('content').eq('id', true).maybeSingle();
-      let content = (row?.content && typeof row.content === 'object') ? row.content : {};
-      if (typeof row?.content === 'string') {
-        try { content = JSON.parse(row.content); } catch {}
+    const persistContent = async (content: any) => {
+      // 1. Try RPC first (SECURITY DEFINER, completely immune to RLS/permission issues)
+      try {
+        const { error: rpcErr } = await supabase.rpc('save_sangoub_app_content', { p_content: content });
+        if (!rpcErr) return;
+      } catch {}
+
+      // 2. Direct upsert fallback
+      const { error: upsertErr } = await supabase.from('app_content').upsert({ id: true, content });
+      if (upsertErr) {
+        console.warn('app_content upsert notice:', upsertErr);
+        try {
+          localStorage.setItem('sangoub_cached_app_content', JSON.stringify(content));
+        } catch {}
+        if (upsertErr.code === '42501' || (upsertErr as any).status === 403 || upsertErr.message?.includes('permission')) {
+          throw new Error('PERMISSION_DENIED_APP_CONTENT');
+        }
+        throw upsertErr;
       }
+    };
+
+    const getStoredContent = async () => {
+      let content: any = null;
+      try {
+        const { data: row } = await supabase.from('app_content').select('content').eq('id', true).maybeSingle();
+        content = (row?.content && typeof row.content === 'object') ? row.content : null;
+        if (typeof row?.content === 'string') {
+          try { content = JSON.parse(row.content); } catch {}
+        }
+      } catch {}
+
+      if (!content) {
+        try {
+          const cached = localStorage.getItem('sangoub_cached_app_content');
+          if (cached) content = JSON.parse(cached);
+        } catch {}
+      }
+
+      content = content || {};
 
       // Ensure config sections exist
       if (!content.config || !Array.isArray(content.config.sections)) {
@@ -873,7 +906,7 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
         });
       }
 
-      await supabase.from('app_content').upsert({ id: true, content });
+      await persistContent(content);
       return { ok: true, campaigns: content.campaigns, slides: content.campaigns };
     }
 
@@ -883,7 +916,7 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
         c.id === body.id ? { ...c, enabled: !c.enabled } : c
       );
       content.slides = content.campaigns;
-      await supabase.from('app_content').upsert({ id: true, content });
+      await persistContent(content);
       return { ok: true, campaigns: content.campaigns };
     }
 
@@ -891,7 +924,7 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       const content = await getStoredContent();
       content.campaigns = content.campaigns.filter((c: any) => c.id !== body.id);
       content.slides = content.campaigns;
-      await supabase.from('app_content').upsert({ id: true, content });
+      await persistContent(content);
       return { ok: true, campaigns: content.campaigns };
     }
 
@@ -899,7 +932,7 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       const content = await getStoredContent();
       if (!Array.isArray(content.gallery)) content.gallery = [];
       content.gallery = [body.item, ...content.gallery.filter((g: any) => g.url !== body.item.url)];
-      await supabase.from('app_content').upsert({ id: true, content });
+      await persistContent(content);
       return { ok: true, gallery: content.gallery };
     }
 
@@ -908,21 +941,21 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       if (Array.isArray(content.gallery)) {
         content.gallery = content.gallery.filter((g: any) => g.id !== body.id);
       }
-      await supabase.from('app_content').upsert({ id: true, content });
+      await persistContent(content);
       return { ok: true, gallery: content.gallery };
     }
 
     if (body.action === 'save-mart-banner') {
       const content = await getStoredContent();
       content.martBanner = body.martBanner;
-      await supabase.from('app_content').upsert({ id: true, content });
+      await persistContent(content);
       return { ok: true, martBanner: content.martBanner };
     }
 
     if (body.action === 'save-home') {
       const content = await getStoredContent();
       content.config = body.config;
-      await supabase.from('app_content').upsert({ id: true, content });
+      await persistContent(content);
       return { ok: true, config: content.config };
     }
 
@@ -931,12 +964,12 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       content.disabledStoreTypes = body.disabledStoreTypes;
       content.disabledCategories = body.disabledCategories;
       content.categoryOverrides = body.categoryOverrides;
-      await supabase.from('app_content').upsert({ id: true, content });
+      await persistContent(content);
       return { ok: true };
     }
 
     if (body.action === 'save' || body.content) {
-      await supabase.from('app_content').upsert({ id: true, content: body.content || body });
+      await persistContent(body.content || body);
       return { ok: true };
     }
 
