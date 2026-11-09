@@ -376,42 +376,34 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
 
         const pickedUpAt = new Date().toISOString();
 
-        // Update orders table
-        const { error: updErr } = await supabase.from('orders').update({
+        // Update orders table (Try with_courier first, fallback to picked_up if constraint limits)
+        let { error: updErr } = await supabase.from('orders').update({
           status: 'with_courier',
-          picked_up_at: pickedUpAt,
           updated_at: pickedUpAt
         }).eq('id', orderId);
 
         if (updErr) {
-          console.warn('[operationsApi] courier-pickup fallback:', updErr);
-          await supabase.from('orders').update({
+          console.warn('[operationsApi] with_courier status constraint fallback to picked_up:', updErr);
+          const { error: fbErr } = await supabase.from('orders').update({
             status: 'picked_up',
             updated_at: pickedUpAt
           }).eq('id', orderId);
+          if (fbErr) {
+            console.error('[operationsApi] courier pickup update error:', fbErr);
+          }
         }
 
-        // Update fulfillments if any
+        // Try non-blocking metadata update if table supports picked_up_at
         try {
-          if (body.storeId) {
-            await supabase.from('order_fulfillments').update({
-              status: 'picked_up',
-              picked_up_by: user.id,
-              picked_up_at: pickedUpAt
-            }).eq('order_id', orderId).eq('store_id', body.storeId);
-          } else {
-            await supabase.from('order_fulfillments').update({
-              status: 'picked_up',
-              picked_up_by: user.id,
-              picked_up_at: pickedUpAt
-            }).eq('order_id', orderId);
-          }
+          await supabase.from('orders').update({
+            picked_up_at: pickedUpAt
+          }).eq('id', orderId);
         } catch {}
 
         const orderNum = ord?.order_number || String(orderId).slice(0, 8);
         const courierName = ord?.courier_name || user.displayName || 'الكابتن';
 
-        // 1. Notify Customer
+        // 1. Notify Customer in Supabase
         if (ord?.customer_id) {
           try {
             await supabase.from('notifications').insert({
@@ -421,10 +413,26 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
               type: 'order',
               data: { orderId, status: 'with_courier' }
             });
-          } catch {}
+          } catch (err) {
+            console.warn('[operationsApi] Customer notification warning:', err);
+          }
         }
 
-        // 2. Notify Merchant
+        // LocalStorage fallback for customer
+        try {
+          const guestNotifs = JSON.parse(localStorage.getItem('sangoub_guest_notifications') || '[]');
+          guestNotifs.unshift({
+            id: `notif-${Date.now()}`,
+            title: 'المندوب استلم طلبك وهو في الطريق إليك 🛵',
+            body: `تم استلام طلبك رقم #${orderNum} من المتجر بواسطة ${courierName}.`,
+            created_at: pickedUpAt,
+            is_read: false,
+            data: { orderId, status: 'with_courier' }
+          });
+          localStorage.setItem('sangoub_guest_notifications', JSON.stringify(guestNotifs.slice(0, 30)));
+        } catch {}
+
+        // 2. Notify Merchant in Supabase
         if (ord?.store_id) {
           try {
             const { data: merchants } = await supabase
@@ -442,7 +450,9 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
               }));
               await supabase.from('notifications').insert(notifs);
             }
-          } catch {}
+          } catch (err) {
+            console.warn('[operationsApi] Merchant notification warning:', err);
+          }
         }
 
         return { ok: true, status: 'with_courier' };

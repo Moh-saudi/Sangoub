@@ -33,3 +33,4 @@ test('cleanCustomerName replaces corrupted customer names with valid fallbacks',
   assert.equal(cleanCustomerName('??????', null, null), 'عميل سنجوب');
   assert.equal(cleanCustomerName('Mesk LLC', '01122334455'), 'Mesk LLC');
 });
+

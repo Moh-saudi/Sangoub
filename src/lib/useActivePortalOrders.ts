@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { operationsApi } from './operationsApi';
-import { supabase } from './supabase';
+import { supabase, resolveSupabaseStoreUuid } from './supabase';
 import { playAirportChime } from '../utils/audioAlerts';
 export function useActivePortalOrders(uid: string | undefined, storeId?: string) {
   const [items, setItems] = useState<any[]>([]),
@@ -24,6 +24,7 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
       again = false,
       liveConnected = false;
     let queued: ReturnType<typeof setTimeout> | undefined;
+    const targetStoreUuid = storeId ? resolveSupabaseStoreUuid(storeId) : undefined;
     const load = async () => {
       if (!active || !uid) return;
       if (inflight) {
@@ -34,7 +35,7 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
       try {
         const result = await operationsApi('operations', {
           action: 'portal-active',
-          ...(storeId ? { storeId } : {}),
+          ...(targetStoreUuid ? { storeId: targetStoreUuid } : storeId ? { storeId } : {}),
           ...(uid && !storeId ? { courierId: uid } : {})
         });
         if (active) {
@@ -62,9 +63,9 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
     };
     refresher.current = load;
     void load();
-    const filter = storeId ? `store_id=eq.${storeId}` : `courier_id=eq.${uid}`;
-    const channel = supabase.channel(`portal-orders:${storeId || uid}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter }, () => {
+    const filter = targetStoreUuid ? `store_id=eq.${targetStoreUuid}` : (uid ? `courier_id=eq.${uid}` : undefined);
+    const channel = supabase.channel(`portal-orders:${targetStoreUuid || storeId || uid}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', ...(filter ? { filter } : {}) }, () => {
         if (!active) return;
         liveConnected = true;
         setLive(true);
@@ -87,10 +88,10 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
     window.addEventListener('online', reconnect);
     window.addEventListener('offline', reconnect);
     document.addEventListener('visibilitychange', visible);
-    // Reconcile old clients/server-only integrations too; this is visibly a fallback when signals are unavailable.
+    // Auto-refresh active portal orders every 8 seconds for responsive merchant dispatch
     const timer = setInterval(() => {
       if (!document.hidden && navigator.onLine) void load();
-    }, 30000);
+    }, 8000);
     return () => {
       active = false;
       void supabase.removeChannel(channel);

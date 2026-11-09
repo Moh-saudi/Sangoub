@@ -3112,7 +3112,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
               o.storeIds?.includes(userStore?.id) ||
               o.items?.some((it: any) => it.product?.storeId === userStore?.id);
 
-            const inTransit = orders.filter(o => isStoreOrder(o) && o.orderStatus === 'with_courier');
+            const inTransit = orders.filter(o => isStoreOrder(o) && (o.orderStatus === 'with_courier' || o.orderStatus === 'picked_up'));
             const readyAssigned = orders.filter(o => isStoreOrder(o) && o.orderStatus === 'ready' && Boolean(o.courierId));
             const allActiveStoreOrders = [...inTransit, ...readyAssigned];
 
@@ -3526,7 +3526,7 @@ function MerchantOrderTracking({
   const [assignBusy, setAssignBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const isWithCourier = order.orderStatus === 'with_courier';
+  const isWithCourier = order.orderStatus === 'with_courier' || order.orderStatus === 'picked_up';
   const courierName = cleanCourierName(order.courierName, order.courierPhone);
   const customerName = cleanCustomerName(order.profileName, order.phone);
   const courierPhone = order.courierPhone || '';

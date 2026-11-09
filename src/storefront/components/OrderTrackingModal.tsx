@@ -121,7 +121,7 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
       try {
         let query = supabase
           .from('orders')
-          .select('id, status, payment_status, courier_checklist');
+          .select('id, status, payment_status');
 
         if (isUuid) {
           query = query.eq('id', cleanUuid);
@@ -133,9 +133,13 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
         const { data, error } = await query.maybeSingle();
 
         if (!error && data) {
-          if (data.status) setCurrentStatus(data.status as OrderStatus);
-          if (data.payment_status) setPaymentStatus(data.payment_status);
-          if (data.courier_checklist?.collectedPayment) {
+          if (data.status && data.status !== currentStatus) {
+            setCurrentStatus(data.status as OrderStatus);
+          }
+          if (data.payment_status) {
+            setPaymentStatus(data.payment_status);
+          }
+          if (data.status === 'delivered' || data.payment_status === 'paid') {
             setCourierCollected(true);
           }
         }
@@ -146,7 +150,12 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
 
     void fetchLatest();
 
-    // 2. Real-time channel listener
+    // 2. Continuous 4-second polling timer as rock-solid fallback
+    const pollInterval = setInterval(() => {
+      if (!document.hidden) void fetchLatest();
+    }, 4000);
+
+    // 3. Real-time channel listener
     const realtimeFilter = isUuid ? `id=eq.${cleanUuid}` : `order_number=eq.${rawId}`;
     const channel = supabase
       .channel(`order-track-${rawId}`)
@@ -162,7 +171,7 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
             if (payload.new.payment_status) {
               setPaymentStatus(payload.new.payment_status);
             }
-            if (payload.new.courier_checklist?.collectedPayment) {
+            if (payload.new.status === 'delivered' || payload.new.payment_status === 'paid' || payload.new.courier_checklist?.collectedPayment) {
               setCourierCollected(true);
             }
           }
@@ -171,6 +180,7 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
       .subscribe();
 
     return () => {
+      clearInterval(pollInterval);
       void supabase.removeChannel(channel);
     };
   }, [isOpen, order?.orderId]);
