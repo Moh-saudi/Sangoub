@@ -21,7 +21,7 @@ import { supabase } from "../lib/supabase";
 import { operationsApi } from "../lib/operationsApi";
 import { cleanCourierName, cleanCustomerName } from "../utils/sanitizeName";
 
-type Stage = "received" | "preparing" | "ready";
+type Stage = "received" | "preparing" | "ready" | "delivered";
 
 const stages: { id: Stage; title: string; color: string; badgeColor: string }[] = [
   {
@@ -41,6 +41,12 @@ const stages: { id: Stage; title: string; color: string; badgeColor: string }[] 
     title: "تم التجهيز وجاهز بالمحل",
     color: "border-emerald-200/90 bg-emerald-50/20",
     badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  },
+  {
+    id: "delivered",
+    title: "مكتمل وتم التسليم بنجاح ✓",
+    color: "border-teal-200/90 bg-teal-50/20",
+    badgeColor: "bg-teal-100 text-teal-800 border-teal-200",
   },
 ];
 
@@ -164,10 +170,19 @@ export function KitchenDisplay({
   }
 
   const storeId = fixedStoreId || selection || stores[0]?.id || "";
+
+  function getTicketStage(order: Order, sId: string): Stage {
+    if (order.orderStatus === "delivered") return "delivered";
+    if (order.orderStatus === "with_courier") return "ready";
+    const st = kitchenStage(order, sId);
+    if (st === "preparing" || st === "ready") return st;
+    return "received";
+  }
+
   const tickets = orders.filter(
     (order) =>
       order.storeIds?.includes(storeId) &&
-      ["received", "preparing", "ready"].includes(order.orderStatus)
+      ["received", "preparing", "ready", "with_courier", "delivered"].includes(order.orderStatus)
   );
 
   const incomingIds = tickets
@@ -323,11 +338,11 @@ export function KitchenDisplay({
         </div>
       )}
 
-      {/* ── 2. Kanban Stage Columns ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 items-start">
+      {/* ── 2. Kanban Stage Columns (4 Comprehensive Stages) ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 items-start">
         {stages.map((stage) => {
           const list = tickets
-            .filter((order) => kitchenStage(order, storeId) === stage.id && (!ministry || order.ministry === ministry))
+            .filter((order) => getTicketStage(order, storeId) === stage.id && (!ministry || order.ministry === ministry))
             .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
           return (
@@ -363,7 +378,7 @@ export function KitchenDisplay({
                   return (
                     <article
                       key={order.id}
-                      className="bg-white rounded-lg p-3 shadow-2xs border border-slate-200 space-y-2 hover:border-slate-300 transition-all"
+                      className="bg-white rounded-lg p-2.5 sm:p-3 shadow-2xs border border-slate-200 space-y-2 hover:border-slate-300 transition-all text-xs"
                     >
                       {/* Ticket Header */}
                       <div className="flex justify-between items-center gap-2">
@@ -382,17 +397,18 @@ export function KitchenDisplay({
                           <MapPin size={12} className="text-slate-400 shrink-0 mt-0.5" />
                           <span>{order.deliveryAddress || order.ministry || "عنوان العميل المعتمد"}</span>
                         </p>
-                        {(order.floorNumber || order.roomNumber || order.profileName) && (
-                          <p className="text-[10px] text-slate-500 pr-4">
-                            {order.floorNumber ? `الدور: ${order.floorNumber}` : ''}
-                            {order.roomNumber ? ` • رقم: ${order.roomNumber}` : ''}
-                            {order.profileName ? ` (العميل: ${order.profileName})` : ''}
-                          </p>
-                        )}
+                        <p className="text-[10px] text-slate-600 pr-4">
+                          {[
+                            order.buildingNumber ? `عمارة: ${order.buildingNumber}` : '',
+                            order.floorNumber ? `الدور: ${order.floorNumber}` : '',
+                            order.roomNumber ? `رقم: ${order.roomNumber}` : '',
+                            order.profileName ? `(العميل: ${order.profileName})` : ''
+                          ].filter(Boolean).join(' • ')}
+                        </p>
                       </div>
 
                       {/* Items List */}
-                      <ul className="border-y border-slate-100 py-2 space-y-1">
+                      <ul className="border-y border-slate-100 py-1.5 space-y-1">
                         {items.map((item, index) => (
                           <li key={item.id || index} className="text-[11px] flex flex-wrap items-baseline gap-1">
                             <strong className="text-orange-600 font-bold">{item.quantity} × </strong>
@@ -418,9 +434,9 @@ export function KitchenDisplay({
 
                       {/* Customer Special Note */}
                       {order.notes && (
-                        <div className="text-[10px] bg-amber-50/80 border border-amber-200/60 p-2 rounded-lg text-amber-900 font-medium">
+                        <div className="text-[10px] bg-amber-50/80 border border-amber-200/60 p-1.5 rounded-lg text-amber-900 font-medium">
                           <strong className="block text-[9px] text-amber-700 uppercase font-bold mb-0.5">
-                            ملاحظة العميل الخاصة:
+                            ملاحظة العميل:
                           </strong>
                           {order.notes}
                         </div>
@@ -440,6 +456,22 @@ export function KitchenDisplay({
                       {/* Action Area Based on Stage & Real Courier State */}
                       {readOnly ? (
                         <p className="text-[10px] text-slate-400 text-center py-1">التحديث من حساب المتجر في التطبيق.</p>
+                      ) : stage.id === "delivered" ? (
+                        <div className="bg-teal-50 border border-teal-200/90 p-2 rounded-xl space-y-1">
+                          <div className="flex items-center justify-between text-teal-900 font-bold text-xs">
+                            <span className="flex items-center gap-1">
+                              <CheckCircle2 size={13} className="text-teal-600" />
+                              <span>تم التسليم بنجاح ✓</span>
+                            </span>
+                            <span className="text-[10px] font-mono text-teal-700 bg-white px-1.5 py-0.5 rounded border border-teal-200">
+                              {order.deliveredAt ? new Date(order.deliveredAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : 'مكتمل'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-600 flex items-center justify-between pt-0.5 border-t border-teal-100">
+                            <span>الكابتن: <strong className="text-slate-800">{order.courierName || 'كابتن معتمد'}</strong></span>
+                            <span className="font-mono font-bold text-slate-800">{order.total} ج.م</span>
+                          </div>
+                        </div>
                       ) : stage.id !== "ready" ? (
                         <button
                           type="button"
@@ -465,6 +497,26 @@ export function KitchenDisplay({
                             </>
                           )}
                         </button>
+                      ) : order.orderStatus === "with_courier" ? (
+                        <div className="bg-blue-50 border border-blue-200 p-2.5 rounded-xl space-y-1">
+                          <div className="flex items-center justify-between text-blue-900 font-bold text-xs">
+                            <span className="flex items-center gap-1">
+                              <Bike size={13} className="text-blue-600 animate-pulse" />
+                              <span>في الطريق للعميل</span>
+                            </span>
+                            <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-mono font-bold">
+                              بالطريق 🛵
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-600 flex items-center justify-between pt-0.5 border-t border-blue-100">
+                            <span>الكابتن: <strong className="text-slate-800">{order.courierName || 'كابتن معتمد'}</strong></span>
+                            {order.courierPhone && (
+                              <a href={`tel:${order.courierPhone}`} className="text-blue-700 font-bold hover:underline">
+                                {order.courierPhone}
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       ) : (
                         /* Stage: READY (تم التجهيز بالمحل) -> Courier Selection, Assignment & Management */
                         <div className="space-y-2">

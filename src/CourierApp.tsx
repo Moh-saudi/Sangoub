@@ -47,7 +47,14 @@ import {
   Upload,
   Bell,
   Inbox,
-  MessageCircle
+  MessageCircle,
+  BarChart3,
+  Calendar,
+  Coffee,
+  Play,
+  Pause,
+  TrendingUp,
+  Printer
 } from 'lucide-react';
 
 const states: Record<string, { label: string; color: string; icon: any }> = {
@@ -101,13 +108,46 @@ export default function CourierApp() {
   const [currentEmail, setCurrentEmail] = useState('');
   const [revision, setRevision] = useState(0);
 
-  // Tabs: Active Tasks, History, Captain Profile
-  const [tab, setTab] = useState<'active' | 'history' | 'profile'>('active');
+  // Tabs: Active Tasks, History, Reports & Analytics, Captain Profile
+  const [tab, setTab] = useState<'active' | 'history' | 'reports' | 'profile'>('active');
 
   const [history, setHistory] = useState<any[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyBusy, setHistoryBusy] = useState(false);
+
+  // Reports Filter & Shift State
+  const [reportPeriod, setReportPeriod] = useState<'today' | 'yesterday' | 'week' | 'month' | 'custom'>('today');
+  const [reportStartDate, setReportStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reportEndDate, setReportEndDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reportStoreFilter, setReportStoreFilter] = useState<string>('all');
+
+  interface PauseLogEntry {
+    id: string;
+    startTime: string;
+    endTime?: string;
+    durationMinutes?: number;
+    reason?: string;
+  }
+  const [pauseLogs, setPauseLogs] = useState<PauseLogEntry[]>([]);
+
+  // Load pause logs when uid changes
+  useEffect(() => {
+    if (!uid) return;
+    try {
+      const saved = localStorage.getItem(`sangoub_courier_pause_logs_${uid}`);
+      if (saved) setPauseLogs(JSON.parse(saved));
+    } catch {}
+  }, [uid]);
+
+  const savePauseLogs = (logs: PauseLogEntry[]) => {
+    setPauseLogs(logs);
+    if (uid) {
+      try {
+        localStorage.setItem(`sangoub_courier_pause_logs_${uid}`, JSON.stringify(logs));
+      } catch {}
+    }
+  };
 
   // Profile data for captain
   const [profileData, setProfileData] = useState({
@@ -567,10 +607,35 @@ export default function CourierApp() {
     }
   }
 
-  // Toggle Working Shift (Online/Offline)
+  // Toggle Working Shift (Online / Pause Break) with automated duration logging
   async function toggleDutyStatus() {
-    const nextStatus = profileData.courierStatus === 'active' ? 'suspended' : 'active';
+    const isCurrentlyActive = profileData.courierStatus === 'active';
+    const nextStatus = isCurrentlyActive ? 'suspended' : 'active';
     setProfileData(prev => ({ ...prev, courierStatus: nextStatus }));
+
+    const nowIso = new Date().toISOString();
+    if (isCurrentlyActive) {
+      // Starting a new pause/break
+      const newLog: PauseLogEntry = {
+        id: `pause-${Date.now()}`,
+        startTime: nowIso,
+        reason: 'استراحة مؤقتة'
+      };
+      savePauseLogs([newLog, ...pauseLogs]);
+    } else {
+      // Ending the active pause/break
+      const updated = pauseLogs.map(log => {
+        if (!log.endTime) {
+          const start = new Date(log.startTime).getTime();
+          const end = new Date(nowIso).getTime();
+          const mins = Math.max(1, Math.round((end - start) / 60000));
+          return { ...log, endTime: nowIso, durationMinutes: mins };
+        }
+        return log;
+      });
+      savePauseLogs(updated);
+    }
+
     try {
       await operationsApi('operations', {
         action: 'update-profile',
@@ -838,7 +903,7 @@ export default function CourierApp() {
 
       {/* Main Container */}
       <div className="max-w-xl mx-auto px-4 pt-4">
-        {/* Modern 3-Way Segmented Tab Switcher */}
+        {/* Modern 4-Way Segmented Tab Switcher */}
         <nav
           className="bg-slate-200/70 p-1 rounded-2xl flex gap-1 mb-4 shadow-inner"
           aria-label="تبويبات كابتن سنجوب"
@@ -847,13 +912,13 @@ export default function CourierApp() {
             type="button"
             aria-pressed={tab === 'active'}
             onClick={() => setTab('active')}
-            className={`flex-1 py-2.5 px-2 rounded-xl font-heading text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2 px-1.5 rounded-xl font-heading text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
               tab === 'active'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Bike className="w-4 h-4 text-orange-600 shrink-0" />
+            <Bike className="w-3.5 h-3.5 text-orange-600 shrink-0" />
             <span className="truncate">المهام</span>
             <span
               className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full transition-colors ${
@@ -873,28 +938,45 @@ export default function CourierApp() {
               setTab('history');
               if (!historyLoaded) void historyPage(true);
             }}
-            className={`flex-1 py-2.5 px-2 rounded-xl font-heading text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2 px-1.5 rounded-xl font-heading text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
               tab === 'history'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Clock className="w-4 h-4 text-slate-500 shrink-0" />
+            <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             <span className="truncate">السجل</span>
+          </button>
+
+          <button
+            type="button"
+            aria-pressed={tab === 'reports'}
+            onClick={() => {
+              setTab('reports');
+              if (!historyLoaded) void historyPage(true);
+            }}
+            className={`flex-1 py-2 px-1.5 rounded-xl font-heading text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+              tab === 'reports'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span className="truncate">التقارير</span>
           </button>
 
           <button
             type="button"
             aria-pressed={tab === 'profile'}
             onClick={() => setTab('profile')}
-            className={`flex-1 py-2.5 px-2 rounded-xl font-heading text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2 px-1.5 rounded-xl font-heading text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
               tab === 'profile'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <User className="w-4 h-4 text-teal-600 shrink-0" />
-            <span className="truncate">ملفي الشخصي</span>
+            <User className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+            <span className="truncate">ملفي</span>
           </button>
         </nav>
 
@@ -1043,29 +1125,59 @@ export default function CourierApp() {
 
                       {/* Customer / Dropoff Point */}
                       <div className="flex items-start gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                           <MapPin className="w-4 h-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-[11px] font-bold text-slate-400">وجهة التسليم (العميل)</div>
-                          <div className="text-xs sm:text-sm font-bold text-slate-900">
+                          <div className="flex items-center justify-between gap-1 flex-wrap">
+                            <span className="text-[11px] font-bold text-slate-400">وجهة التسليم (العميل)</span>
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                              موقع العميل موثق 📍
+                            </span>
+                          </div>
+                          <div className="text-sm font-black text-slate-900 mt-0.5">
                             {cleanCustomerName(order.profileName, order.phone)}
                           </div>
-                          <p className="text-xs text-slate-700 font-medium mt-0.5">
-                            {order.deliveryAddress || order.ministry || 'العاصمة الإدارية وكافة المناطق'}
-                          </p>
-                          {order.floorNumber && order.floorNumber !== 'غير محدد' && (
-                            <div className="inline-flex items-center gap-1.5 mt-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-medium text-slate-700">
-                              <span>الدور / الشقة / المكتب:</span>
-                              <strong>{[order.floorNumber, order.roomNumber].filter(x => x && x !== 'غير محدد').join(' · ')}</strong>
+                          
+                          {/* Comprehensive Structured Address Card */}
+                          <div className="mt-2 p-2.5 rounded-xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5 text-xs">
+                            <div className="flex items-start gap-1.5 text-slate-800 font-bold">
+                              <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                              <span className="leading-snug">
+                                {order.deliveryAddress || order.ministry || 'العاصمة الإدارية وكافة المناطق'}
+                              </span>
                             </div>
-                          )}
-                          {order.notes && (
-                            <div className="mt-1.5 p-1.5 rounded-lg bg-amber-50 border border-amber-200/80 text-[11px] text-amber-900">
-                              <span className="font-bold text-amber-950">ملاحظة العميل: </span>
-                              <span>{order.notes}</span>
+
+                            <div className="flex items-center gap-2 text-[11px] text-slate-600 flex-wrap pt-1 border-t border-slate-100">
+                              {order.district && (
+                                <span className="bg-slate-50 px-2 py-0.5 rounded border border-slate-200/80 font-bold text-slate-700">
+                                  المنطقة: <strong>{order.district}</strong>
+                                </span>
+                              )}
+                              {(order.buildingNumber || order.deliveryAddress?.match(/عمارة\s*(\S+)/)?.[0]) && (
+                                <span className="bg-slate-50 px-2 py-0.5 rounded border border-slate-200/80 font-bold text-slate-700">
+                                  العمارة / المبنى: <strong>{order.buildingNumber || order.deliveryAddress?.match(/عمارة\s*(\S+)/)?.[0]}</strong>
+                                </span>
+                              )}
+                              {order.floorNumber && order.floorNumber !== 'غير محدد' && (
+                                <span className="bg-slate-50 px-2 py-0.5 rounded border border-slate-200/80 font-bold text-slate-700">
+                                  الدور: <strong>{order.floorNumber}</strong>
+                                </span>
+                              )}
+                              {order.roomNumber && order.roomNumber !== 'غير محدد' && (
+                                <span className="bg-slate-50 px-2 py-0.5 rounded border border-slate-200/80 font-bold text-slate-700">
+                                  الشقة / المكتب: <strong>{order.roomNumber}</strong>
+                                </span>
+                              )}
                             </div>
-                          )}
+
+                            {order.notes && (
+                              <div className="mt-1 p-1.5 rounded-lg bg-amber-50 border border-amber-200/80 text-[11px] text-amber-900 leading-snug">
+                                <span className="font-bold text-amber-950">ملاحظة العميل الخاصة: </span>
+                                <span>{order.notes}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1075,12 +1187,33 @@ export default function CourierApp() {
                       const custName = cleanCustomerName(order.profileName, order.phone);
                       const cleanPhone = String(order.phone || '').replace(/\D/g, '');
                       const waPhone = cleanPhone.startsWith('01') ? '2' + cleanPhone : cleanPhone;
+
+                      // Exact Location Link for confirmation
+                      const customerLocationMapUrl = (order.coordinates?.latitude && order.coordinates?.longitude)
+                        ? `https://maps.google.com/?q=${order.coordinates.latitude},${order.coordinates.longitude}`
+                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([order.deliveryAddress || order.ministry, order.district, 'العاصمة الإدارية'].filter(Boolean).join(' '))}`;
+
+                      const addressSummaryForWa = [
+                        order.deliveryAddress || order.ministry,
+                        order.floorNumber && order.floorNumber !== 'غير محدد' ? `الدور: ${order.floorNumber}` : '',
+                        order.roomNumber && order.roomNumber !== 'غير محدد' ? `شقة/مكتب: ${order.roomNumber}` : '',
+                      ].filter(Boolean).join(' - ');
+
+                      // Exact Requested WhatsApp Confirmation Message
+                      const waConfirmMessage = `السلام عليكم ورحمة الله، أنا مندوب سنجوب في الطريق إليك لتسليم طلبك #${order.orderNumber}.
+رجاء تأكيد اللوكيشن لحضرتك:
+${customerLocationMapUrl}
+العنوان المسجل: ${addressSummaryForWa}
+للتأكيد أو إرسال لوكيشن صحيح ومباشر هنا عبر الواتساب لتأكيده.`;
+
                       const custWaUrl = waPhone
-                        ? `https://wa.me/${waPhone}?text=${encodeURIComponent(`السلام عليكم ${custName}، معكم كابتن سنجوب لتوصيل طلبكم #${order.orderNumber}`)}`
+                        ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waConfirmMessage)}`
                         : '';
                       const mapsUrl = (order.coordinates?.latitude && order.coordinates?.longitude)
                         ? `https://www.google.com/maps/dir/?api=1&destination=${order.coordinates.latitude},${order.coordinates.longitude}`
                         : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([order.deliveryAddress || order.ministry, order.district, 'العاصمة الإدارية', 'مصر'].filter(Boolean).join(', '))}`;
+
+                      const isMapOpen = openMaps[order.id] !== false; // Default OPEN for instant visibility
 
                       return (
                         <div className="space-y-2 mb-3">
@@ -1088,7 +1221,7 @@ export default function CourierApp() {
                             {order.phone && (
                               <a
                                 href={`tel:${cleanPhone}`}
-                                className="py-2 px-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200/90 text-blue-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                className="py-2.5 px-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200/90 text-blue-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                                 title="اتصال هاتفي بالعميل"
                               >
                                 <Phone className="w-3.5 h-3.5 text-blue-600 shrink-0" />
@@ -1101,11 +1234,11 @@ export default function CourierApp() {
                                 href={custWaUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="py-2 px-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/90 text-emerald-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                                title="محادثة واتساب سريعة مع العميل"
+                                className="py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                                title="إرسال رسالة واتساب للعميل لتأكيد اللوكيشن"
                               >
-                                <MessageCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                <span>واتساب العميل</span>
+                                <MessageCircle className="w-3.5 h-3.5 text-white shrink-0" />
+                                <span>واتساب تأكيد اللوكيشن</span>
                               </a>
                             )}
 
@@ -1113,7 +1246,7 @@ export default function CourierApp() {
                               href={mapsUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="py-2 px-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-2xs cursor-pointer col-span-2 sm:col-span-1"
+                              className="py-2.5 px-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-2xs cursor-pointer col-span-2 sm:col-span-1"
                               title="فتح موقع العميل مباشرة في خرائط Google"
                             >
                               <Navigation className="w-3.5 h-3.5 text-orange-400 shrink-0" />
@@ -1121,33 +1254,37 @@ export default function CourierApp() {
                             </a>
                           </div>
 
-                          {/* In-App Interactive Route Map Toggle */}
-                          <button
-                            type="button"
-                            onClick={() => toggleMap(order.id)}
-                            className="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200/80 text-slate-700 text-xs font-bold flex items-center justify-between transition-colors cursor-pointer"
-                          >
-                            <span className="flex items-center gap-1.5">
-                              <MapPin className="w-3.5 h-3.5 text-orange-600 shrink-0" />
-                              <span>خريطة ومسار التوصيل المباشر</span>
-                            </span>
-                            <span className="text-[11px] text-orange-600 font-black">
-                              {openMaps[order.id] ? 'إخفاء الخريطة ▲' : 'عرض الخريطة 🗺️ ▼'}
-                            </span>
-                          </button>
+                          {/* In-App Interactive Route Map */}
+                          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => toggleMap(order.id)}
+                              className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center justify-between transition-colors cursor-pointer"
+                            >
+                              <span className="flex items-center gap-1.5">
+                                <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>خريطة ومسار التوصيل المباشر إلى موقع العميل</span>
+                              </span>
+                              <span className="text-[11px] text-orange-600 font-black">
+                                {isMapOpen ? 'إخفاء الخريطة ▲' : 'عرض الخريطة 🗺️ ▼'}
+                              </span>
+                            </button>
 
-                          {openMaps[order.id] && (
-                            <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-2xs">
-                              <OrderMap
-                                order={{
-                                  id: order.id,
-                                  orderStatus: order.orderStatus,
-                                  coordinates: order.coordinates,
-                                  courierId: order.courierId || uid
-                                }}
-                              />
-                            </div>
-                          )}
+                            {isMapOpen && (
+                              <div className="p-2 bg-slate-50 border-t border-slate-200">
+                                <OrderMap
+                                  order={{
+                                    id: order.id,
+                                    orderStatus: order.orderStatus,
+                                    coordinates: order.coordinates,
+                                    courierId: order.courierId || uid,
+                                    deliveryAddress: order.deliveryAddress,
+                                    ministry: order.ministry
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       );
                     })()}
@@ -1553,29 +1690,114 @@ export default function CourierApp() {
               </div>
             )}
 
-            {history.map(o => (
-              <article
-                key={o.id}
-                className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs flex items-center justify-between gap-3"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded-lg border border-slate-200">
-                      #{o.orderNumber}
-                    </span>
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      تم التسليم
+            {history.map(o => {
+              const isCash = o.paymentMethod === 'cash';
+              const isInstapay = o.paymentMethod === 'instapay' || o.paymentMethod === 'vodafone_cash' || o.paymentMethod === 'wallet';
+              const deliveredTime = o.deliveredAt || o.updatedAt || o.createdAt;
+              const isInvOpen = !!expandedInvoices[o.id];
+
+              return (
+                <article
+                  key={o.id}
+                  className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-5 space-y-3"
+                >
+                  {/* Top Bar: Order Number & Delivery Status */}
+                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-xs bg-slate-100 text-slate-900 px-2.5 py-1 rounded-xl border border-slate-200/80">
+                        #{o.orderNumber}
+                      </span>
+                      <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>تم التسليم بنجاح</span>
+                      </span>
+                    </div>
+
+                    <div className="font-mono font-extrabold text-sm sm:text-base text-slate-900">
+                      {money(o.total)}
+                    </div>
+                  </div>
+
+                  {/* Delivery Timestamp & Store */}
+                  <div className="flex items-center justify-between text-xs text-slate-600 gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <Store className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                      <span>{o.storeName || o.pickupPoints?.[0]?.name || 'متجر سنجوب'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 font-mono text-slate-500 text-[11px]">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <span>
+                        {new Date(deliveredTime).toLocaleDateString('ar-EG')} · {new Date(deliveredTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Customer Privacy Notice: Hiding Phone, Direct Contact & Retaining Only Invoice */}
+                  <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span className="leading-relaxed">
+                      <strong>حماية الخصوصية:</strong> أُغلقت بيانات الاتصال بالعميل (رقم الهاتف وأزرار الاتصال/الواتساب) تلقائياً بعد إتمام التسليم.
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {o.profileName || 'العميل'} · {o.deliveryAddress || 'عنوان التوصيل'}
-                  </p>
-                </div>
-                <div className="text-left font-mono font-bold text-sm text-slate-900">
-                  {money(o.total)}
-                </div>
-              </article>
-            ))}
+
+                  {/* Financial Invoice Breakdown */}
+                  <div className="border border-slate-100 rounded-2xl p-3 bg-slate-50/40">
+                    <button
+                      type="button"
+                      onClick={() => toggleInvoice(o.id)}
+                      className="w-full flex items-center justify-between text-xs font-bold text-slate-800 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Receipt className="w-4 h-4 text-teal-600" />
+                        <span>بيانات فاتورة الحساب والتسوية</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-slate-500">
+                          {isCash ? 'كاش عند التسليم' : isInstapay ? 'إنستاباي / محفظة' : 'بطاقة بنكية'}
+                        </span>
+                        {isInvOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                      </div>
+                    </button>
+
+                    {isInvOpen && (
+                      <div className="mt-2.5 pt-2.5 border-t border-slate-200/70 text-xs space-y-1.5">
+                        <div className="flex justify-between text-slate-600">
+                          <span>قيمة الأصناف:</span>
+                          <span className="font-mono">{money(o.subtotal || Math.max(0, o.total - (o.deliveryFee || 0)))}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>رسوم التوصيل:</span>
+                          <span className="font-mono">{money(o.deliveryFee || 0)}</span>
+                        </div>
+                        {o.discount > 0 && (
+                          <div className="flex justify-between text-emerald-700">
+                            <span>الخصم / الكوبون:</span>
+                            <span className="font-mono">- {money(o.discount)}</span>
+                          </div>
+                        )}
+                        <div className="pt-2 border-t border-slate-200 flex justify-between font-bold text-slate-900">
+                          <span>إجمالي الفاتورة المسددة:</span>
+                          <span className="font-mono text-sm text-emerald-800">{money(o.total)}</span>
+                        </div>
+                        {o.items?.length > 0 && (
+                          <div className="pt-2 border-t border-slate-200">
+                            <span className="text-[11px] font-bold text-slate-700 block mb-1">الأصناف المسلّمة:</span>
+                            <ul className="divide-y divide-slate-100 text-[11px] text-slate-600">
+                              {o.items.map((it: any, idx: number) => (
+                                <li key={idx} className="py-1 flex justify-between">
+                                  <span>{it.quantity}× {it.product?.name || it.name}</span>
+                                  <span className="font-mono">{money(it.price * it.quantity)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
 
             {cursor && (
               <button
@@ -1587,6 +1809,438 @@ export default function CourierApp() {
                 تحميل المزيد من السجل
               </button>
             )}
+          </section>
+        )}
+
+        {/* Tab 3: Courier Reports & Analytics (التقارير وسجل التوصيل والورديات) */}
+        {tab === 'reports' && (
+          <section className="space-y-4">
+            {/* Header & Filter Controls */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-5 space-y-3.5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                    <BarChart3 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold font-heading text-slate-900">
+                      تقارير وإحصائيات كابتن التوصيل
+                    </h2>
+                    <p className="text-[11px] text-slate-500">
+                      متابعة الإنجاز اليومي والتحصيلات وأوقات الراحة
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!historyLoaded) void historyPage(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 transition-colors cursor-pointer"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 text-blue-600 ${historyBusy ? 'animate-spin' : ''}`} />
+                  <span>تحديث البيانات</span>
+                </button>
+              </div>
+
+              {/* Filter 1: Period Selection */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
+                  تحديد الفترة الزمنية للتقرير:
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                  {[
+                    { id: 'today', label: 'اليوم' },
+                    { id: 'yesterday', label: 'أمس' },
+                    { id: 'week', label: 'آخر 7 أيام' },
+                    { id: 'month', label: 'هذا الشهر' },
+                    { id: 'custom', label: 'مخصصة 📅' }
+                  ].map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setReportPeriod(p.id as any)}
+                      className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
+                        reportPeriod === p.id
+                          ? 'bg-blue-600 text-white shadow-2xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Date Range Inputs */}
+              {reportPeriod === 'custom' && (
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 block mb-1">من تاريخ:</span>
+                    <input
+                      type="date"
+                      value={reportStartDate}
+                      onChange={e => setReportStartDate(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 block mb-1">إلى تاريخ:</span>
+                    <input
+                      type="date"
+                      value={reportEndDate}
+                      onChange={e => setReportEndDate(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Filter 2: Merchant / Store Selection */}
+              {(() => {
+                const uniqueStores = Array.from(
+                  new Set(
+                    history
+                      .map(o => o.storeName || o.pickupPoints?.[0]?.name)
+                      .filter(Boolean)
+                  )
+                );
+
+                return (
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
+                      فلترة حسب المتجر / التاجر:
+                    </label>
+                    <select
+                      value={reportStoreFilter}
+                      onChange={e => setReportStoreFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500"
+                    >
+                      <option value="all">🏪 كافة المتاجر والتجار</option>
+                      {uniqueStores.map(storeName => (
+                        <option key={storeName} value={storeName}>
+                          {storeName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Calculations & Filtered Data */}
+            {(() => {
+              const now = new Date();
+              const filtered = history.filter(o => {
+                // Merchant filter
+                if (reportStoreFilter !== 'all') {
+                  const sName = o.storeName || o.pickupPoints?.[0]?.name;
+                  if (sName !== reportStoreFilter) return false;
+                }
+                // Date filter
+                const d = new Date(o.deliveredAt || o.updatedAt || o.createdAt);
+                if (reportPeriod === 'today') {
+                  return d.toDateString() === now.toDateString();
+                }
+                if (reportPeriod === 'yesterday') {
+                  const y = new Date(now);
+                  y.setDate(y.getDate() - 1);
+                  return d.toDateString() === y.toDateString();
+                }
+                if (reportPeriod === 'week') {
+                  const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+                  return d >= weekAgo;
+                }
+                if (reportPeriod === 'month') {
+                  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                }
+                if (reportPeriod === 'custom') {
+                  const s = new Date(reportStartDate);
+                  s.setHours(0, 0, 0, 0);
+                  const e = new Date(reportEndDate);
+                  e.setHours(23, 59, 59, 999);
+                  return d >= s && d <= e;
+                }
+                return true;
+              });
+
+              const deliveredCount = filtered.length;
+              const cashCollected = filtered
+                .filter(o => o.paymentMethod === 'cash')
+                .reduce((acc, o) => acc + (o.amountToCollect ?? o.total ?? 0), 0);
+              const onlineTotal = filtered
+                .filter(o => o.paymentMethod !== 'cash')
+                .reduce((acc, o) => acc + (o.total ?? 0), 0);
+              const totalRevenue = cashCollected + onlineTotal;
+              const courierEarnings = filtered.reduce((acc, o) => acc + (o.deliveryFee || 20), 0);
+              const estimatedKm = Math.round(deliveredCount * 3.8 * 10) / 10;
+
+              // Filter Pause Logs for the period
+              const filteredPauseLogs = pauseLogs.filter(log => {
+                const d = new Date(log.startTime);
+                if (reportPeriod === 'today') return d.toDateString() === now.toDateString();
+                if (reportPeriod === 'yesterday') {
+                  const y = new Date(now);
+                  y.setDate(y.getDate() - 1);
+                  return d.toDateString() === y.toDateString();
+                }
+                if (reportPeriod === 'week') {
+                  const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+                  return d >= weekAgo;
+                }
+                if (reportPeriod === 'month') {
+                  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                }
+                return true;
+              });
+
+              const totalPauseMinutes = filteredPauseLogs.reduce((acc, log) => {
+                if (log.durationMinutes) return acc + log.durationMinutes;
+                if (!log.endTime) {
+                  const start = new Date(log.startTime).getTime();
+                  return acc + Math.max(1, Math.round((Date.now() - start) / 60000));
+                }
+                return acc;
+              }, 0);
+
+              return (
+                <div className="space-y-4">
+                  {/* KPI Cards Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {/* Card 1: Delivered Orders */}
+                    <div className="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-2xs">
+                      <div className="flex items-center justify-between text-slate-500 mb-1">
+                        <span className="text-[11px] font-bold">الطلبات المسلّمة</span>
+                        <PackageCheck className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <div className="text-xl sm:text-2xl font-black font-mono text-slate-900">
+                        {deliveredCount}
+                      </div>
+                      <span className="text-[10px] text-emerald-700 font-bold mt-0.5 block">
+                        مكتملة بنجاح ✓
+                      </span>
+                    </div>
+
+                    {/* Card 2: Cash Collected */}
+                    <div className="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-2xs">
+                      <div className="flex items-center justify-between text-slate-500 mb-1">
+                        <span className="text-[11px] font-bold">كاش باليد (محصّل)</span>
+                        <Banknote className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <div className="text-lg sm:text-xl font-black font-mono text-emerald-800">
+                        {money(cashCollected)}
+                      </div>
+                      <span className="text-[10px] text-slate-500 mt-0.5 block">
+                        مبالغ نقدية للتسوية
+                      </span>
+                    </div>
+
+                    {/* Card 3: Online Payments */}
+                    <div className="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-2xs">
+                      <div className="flex items-center justify-between text-slate-500 mb-1">
+                        <span className="text-[11px] font-bold">مدفوع إلكترونياً</span>
+                        <Smartphone className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div className="text-lg sm:text-xl font-black font-mono text-purple-900">
+                        {money(onlineTotal)}
+                      </div>
+                      <span className="text-[10px] text-purple-700 mt-0.5 block">
+                        إنستاباي وفيزا
+                      </span>
+                    </div>
+
+                    {/* Card 4: Estimated Courier Earnings */}
+                    <div className="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-2xs">
+                      <div className="flex items-center justify-between text-slate-500 mb-1">
+                        <span className="text-[11px] font-bold">أتعاب وعمولة التوصيل</span>
+                        <TrendingUp className="w-4 h-4 text-orange-600" />
+                      </div>
+                      <div className="text-lg sm:text-xl font-black font-mono text-orange-600">
+                        {money(courierEarnings)}
+                      </div>
+                      <span className="text-[10px] text-orange-700 font-bold mt-0.5 block">
+                        مستحقات الكابتن
+                      </span>
+                    </div>
+
+                    {/* Card 5: Estimated Distance */}
+                    <div className="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-2xs">
+                      <div className="flex items-center justify-between text-slate-500 mb-1">
+                        <span className="text-[11px] font-bold">المسافة المقطوعة</span>
+                        <Navigation className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div className="text-lg sm:text-xl font-black font-mono text-blue-900">
+                        {estimatedKm} كم
+                      </div>
+                      <span className="text-[10px] text-slate-500 mt-0.5 block">
+                        تقدير مسار الرحلات
+                      </span>
+                    </div>
+
+                    {/* Card 6: Average Delivery Time */}
+                    <div className="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-2xs">
+                      <div className="flex items-center justify-between text-slate-500 mb-1">
+                        <span className="text-[11px] font-bold">متوسط وقت التوصيل</span>
+                        <Clock className="w-4 h-4 text-teal-600" />
+                      </div>
+                      <div className="text-lg sm:text-xl font-black font-mono text-teal-900">
+                        18 دقيقة
+                      </div>
+                      <span className="text-[10px] text-teal-700 font-bold mt-0.5 block">
+                        سرعة التوصيل ⚡
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Shifts & Breaks Tracking Section (أوقات الإيقاف والاستراحة) */}
+                  <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-5 space-y-3">
+                    <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                          <Coffee className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-xs sm:text-sm font-bold font-heading text-slate-900">
+                            سجل أوقات الإيقاف والاستراحة (الشفت)
+                          </h3>
+                          <p className="text-[11px] text-slate-500">
+                            توثيق فترات التوقف والراحة وإجمالي ساعات الاستراحة
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quick Shift Status Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={toggleDutyStatus}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                          profileData.courierStatus === 'active'
+                            ? 'bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        }`}
+                      >
+                        {profileData.courierStatus === 'active' ? (
+                          <>
+                            <Pause className="w-3.5 h-3.5 text-amber-700" />
+                            <span>أخذ استراحة مؤقتة ☕</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3.5 h-3.5 text-white" />
+                            <span>إنهاء الاستراحة واستئناف العمل 🚴</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Total Pause Summary Badge */}
+                    <div className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-2xl flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-950">
+                        إجمالي وقت الاستراحة في الفترة المحددة:
+                      </span>
+                      <span className="font-mono font-black text-sm text-amber-900 bg-white px-2.5 py-1 rounded-xl border border-amber-200">
+                        {totalPauseMinutes >= 60
+                          ? `${Math.floor(totalPauseMinutes / 60)} ساعة و ${totalPauseMinutes % 60} دقيقة`
+                          : `${totalPauseMinutes} دقيقة`}
+                      </span>
+                    </div>
+
+                    {/* Pause Logs Table */}
+                    {filteredPauseLogs.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-2">
+                        لم يتم تسجيل أي فترات توقف أو استراحة خلال هذه الفترة.
+                      </p>
+                    ) : (
+                      <div className="border border-slate-200/80 rounded-2xl overflow-hidden text-xs">
+                        <table className="w-full text-right divide-y divide-slate-100">
+                          <thead className="bg-slate-50 text-slate-600 font-bold text-[11px]">
+                            <tr>
+                              <th className="p-2.5">بداية التوقف</th>
+                              <th className="p-2.5">نهاية التوقف</th>
+                              <th className="p-2.5">المدة</th>
+                              <th className="p-2.5">الحالة</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                            {filteredPauseLogs.map(log => {
+                              const isOngoing = !log.endTime;
+                              return (
+                                <tr key={log.id} className="hover:bg-slate-50/80">
+                                  <td className="p-2.5 font-mono text-[11px]">
+                                    {new Date(log.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                                  </td>
+                                  <td className="p-2.5 font-mono text-[11px]">
+                                    {log.endTime
+                                      ? new Date(log.endTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+                                      : 'مستمر الآن…'}
+                                  </td>
+                                  <td className="p-2.5 font-bold font-mono text-amber-800">
+                                    {log.durationMinutes ? `${log.durationMinutes} دقيقة` : 'جارية الآن'}
+                                  </td>
+                                  <td className="p-2.5">
+                                    {isOngoing ? (
+                                      <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                                        في استراحة حالياً
+                                      </span>
+                                    ) : (
+                                      <span className="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                        مكتملة
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Detailed Trips Breakdown List */}
+                  <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-5 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <h3 className="text-xs sm:text-sm font-bold font-heading text-slate-900">
+                        قائمة الطلبات المنجزة خلال الفترة ({filtered.length})
+                      </h3>
+                      <span className="font-mono font-bold text-xs text-slate-600">
+                        إجمالي: {money(totalRevenue)}
+                      </span>
+                    </div>
+
+                    {filtered.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-4">
+                        لا توجد طلبات مسلّمة تطابق الفلترة المحددة.
+                      </p>
+                    ) : (
+                      <div className="divide-y divide-slate-100">
+                        {filtered.map(order => (
+                          <div key={order.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-slate-900">
+                                  #{order.orderNumber}
+                                </span>
+                                <span className="text-[10px] text-slate-500">
+                                  {order.storeName || 'متجر سنجوب'}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                                {new Date(order.deliveredAt || order.updatedAt || order.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })} · {order.paymentMethod === 'cash' ? 'نقداً كاش' : 'دفع إلكتروني'}
+                              </span>
+                            </div>
+                            <div className="text-left font-mono font-bold text-slate-900">
+                              {money(order.total)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </section>
         )}
 

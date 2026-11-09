@@ -81,6 +81,7 @@ export default function MerchantApp() {
   const historyGeneration=useRef(0);
   useEffect(()=>{historyGeneration.current++;setHistory([]);setHistoryCursor(null);setHistoryBusy(false);setHistoryLoaded(false)},[identity?.uid,profile?.storeId,access]);
   async function loadHistory(){if(historyBusy)return;const generation=historyGeneration.current;setHistoryBusy(true);try{const result=await operationsApi('operations',{action:'portal-history',...(historyCursor?{cursor:historyCursor}:{})});if(generation!==historyGeneration.current)return;setHistory(prev=>[...new Map([...prev,...result.items.map(normalizeOrder)].map(o=>[o.id,o])).values()]);setHistoryCursor(result.nextCursor);setHistoryLoaded(true)}catch{if(generation===historyGeneration.current)setError('تعذر تحميل السجل؛ أعد المحاولة.')}finally{if(generation===historyGeneration.current)setHistoryBusy(false)}}
+  useEffect(()=>{if(access==='merchant'&&profile?.storeId&&!historyLoaded&&!historyBusy){void loadHistory();}},[access,profile?.storeId]);
   const refreshMerchant=useRef<()=>Promise<void>>(async()=>{});
     useEffect(() => {
     let active = true;

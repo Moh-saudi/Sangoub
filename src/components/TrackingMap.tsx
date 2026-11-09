@@ -2,7 +2,7 @@ import {useEffect,useRef} from 'react';
 import L from 'leaflet';import 'leaflet/dist/leaflet.css';
 import {OSM_CONFIG,type Coordinates,type RouteResult} from '../services/osmRouting';
 const valid=(p?:Coordinates|null)=>p&&Number.isFinite(p.latitude)&&Number.isFinite(p.longitude)&&Math.abs(p.latitude)<=90&&Math.abs(p.longitude)<=180;
-const pin=(label:string,color:string)=>L.divIcon({className:'tracking-map-pin',html:`<span style="display:block;width:28px;height:28px;border:3px solid white;border-radius:50%;background:${color};box-shadow:0 2px 8px #0006;text-align:center;color:white">${label}</span>`,iconSize:[28,28],iconAnchor:[14,14]});
+const pin=(label:string,color:string)=>L.divIcon({className:'tracking-map-pin',html:`<span style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:2.5px solid white;border-radius:50%;background:${color};box-shadow:0 3px 10px rgba(0,0,0,0.35);color:white;font-size:13px;font-weight:bold">${label}</span>`,iconSize:[30,30],iconAnchor:[15,15]});
 /** Read-only view. Coordinates update markers, never rebuild the Leaflet instance. No Firebase access. */
 export interface TrackingPeer {id:string;point:Coordinates;label:string;stale?:boolean}
 export function TrackingMap({mapKey,point,destination,route,peers=[],onSelectPeer,live=true}:{mapKey:string;point?:Coordinates|null;destination?:Coordinates|null;route?:RouteResult|null;peers?:TrackingPeer[];onSelectPeer?:(id:string)=>void;live?:boolean}){
@@ -18,13 +18,13 @@ export function TrackingMap({mapKey,point,destination,route,peers=[],onSelectPee
  },[mapKey,hasCenter]);
  useEffect(()=>{
   const instance=map.current;if(!instance)return;
-  if(valid(destination)){const location:L.LatLngExpression=[destination!.latitude,destination!.longitude];if(!customer.current)customer.current=L.marker(location,{icon:pin('●','#2D3142'),title:'موقع العميل'}).addTo(instance);else customer.current.setLatLng(location);}
+  if(valid(destination)){const location:L.LatLngExpression=[destination!.latitude,destination!.longitude];if(!customer.current)customer.current=L.marker(location,{icon:pin('📍','#16a34a'),title:'وجهة تسليم العميل'}).addTo(instance);else customer.current.setLatLng(location);}
   if(!valid(point)&&courier.current){cancelAnimationFrame(frame.current);courier.current.remove();courier.current=null;}
   if(!valid(destination)&&customer.current){customer.current.remove();customer.current=null;}
   if(!route&&line.current){line.current.remove();line.current=null;}
   if(valid(point)){
    const target=L.latLng(point!.latitude,point!.longitude);
-   if(!courier.current)courier.current=L.marker(target,{icon:pin('↗','#b83f00'),title:'آخر موقع للمندوب'}).addTo(instance);
+   if(!courier.current)courier.current=L.marker(target,{icon:pin('🛵','#ea580c'),title:'موقع المندوب'}).addTo(instance);
    else{cancelAnimationFrame(frame.current);const marker=courier.current,start=marker.getLatLng(),at=performance.now();const duration=matchMedia('(prefers-reduced-motion: reduce)').matches?0:800;const animate=(now:number)=>{const t=duration?Math.min(1,(now-at)/duration):1;marker.setLatLng([start.lat+(target.lat-start.lat)*t,start.lng+(target.lng-start.lng)*t]);if(t<1)frame.current=requestAnimationFrame(animate)};frame.current=requestAnimationFrame(animate);}
   }
   courier.current?.setOpacity(live?1:.45);
