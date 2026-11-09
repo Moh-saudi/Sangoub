@@ -144,6 +144,15 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
           }
           if (data.status === 'delivered' || data.payment_status === 'paid') {
             setCourierCollected(true);
+            try {
+              const last = localStorage.getItem('sangoub_last_order');
+              if (last) {
+                const parsed = JSON.parse(last);
+                parsed.orderStatus = data.status || 'delivered';
+                localStorage.setItem('sangoub_last_order', JSON.stringify(parsed));
+              }
+              window.dispatchEvent(new CustomEvent('sangoub:order_updated', { detail: { orderId: cleanUuid || rawId, status: data.status || 'delivered' } }));
+            } catch {}
           }
         }
       } catch {
@@ -176,6 +185,15 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
             }
             if (payload.new.status === 'delivered' || payload.new.payment_status === 'paid' || payload.new.courier_checklist?.collectedPayment) {
               setCourierCollected(true);
+              try {
+                const last = localStorage.getItem('sangoub_last_order');
+                if (last) {
+                  const parsed = JSON.parse(last);
+                  parsed.orderStatus = payload.new.status || 'delivered';
+                  localStorage.setItem('sangoub_last_order', JSON.stringify(parsed));
+                }
+                window.dispatchEvent(new CustomEvent('sangoub:order_updated', { detail: { orderId: cleanUuid || rawId, status: payload.new.status || 'delivered' } }));
+              } catch {}
             }
           }
         }

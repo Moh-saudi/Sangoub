@@ -81,30 +81,21 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       window.dispatchEvent(new CustomEvent('sangoub:order_rated', { detail: { orderId, rating: star } }));
     } catch {}
 
-    // Persist to Supabase orders table
+    // Persist directly to Supabase orders table via notes tag (avoids 400 Bad Request on non-existent customer_rating column)
     try {
-      const { error } = await supabase
+      const ord = orders.find(o => o.id === orderId);
+      const existingNotes = ord?.rawOrder?.notes || '';
+      const cleanNotes = existingNotes.replace(/\[RATING:\d+\]/g, '').trim();
+      const updatedNotes = cleanNotes ? `${cleanNotes} [RATING:${star}]` : `[RATING:${star}]`;
+
+      await supabase
         .from('orders')
         .update({
-          customer_rating: star,
-          customer_rated_at: new Date().toISOString(),
+          notes: updatedNotes,
         })
         .eq('id', orderId);
-
-      if (error) {
-        // Fallback: append rating tag in notes
-        const ord = orders.find(o => o.id === orderId);
-        const existingNotes = ord?.rawOrder?.notes || '';
-        const cleanNotes = existingNotes.replace(/\[RATING:\d+\]/g, '').trim();
-        await supabase
-          .from('orders')
-          .update({
-            notes: cleanNotes ? `${cleanNotes} [RATING:${star}]` : `[RATING:${star}]`,
-          })
-          .eq('id', orderId);
-      }
     } catch (err) {
-      console.warn('Saving rating fallback notice:', err);
+      console.warn('Saving rating notice:', err);
     }
   };
 
@@ -169,32 +160,54 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       const { data: sbOrders } = await query.limit(30);
       if (sbOrders && sbOrders.length > 0) {
         for (const ord of sbOrders) {
-          if (!loadedList.some((o) => o.id === ord.id)) {
-            const statusKey = ord.status || 'pending';
-            const st = STATUS_MAP[statusKey] || { label: 'قيد المعالجة', color: 'bg-gray-100 text-gray-800 border-gray-200' };
-            const existingRating = ord.customer_rating || (ord.notes?.match(/\[RATING:(\d+)\]/)?.[1] ? Number(ord.notes.match(/\[RATING:(\d+)\]/)[1]) : undefined);
+          const statusKey = ord.status || 'pending';
+          const st = STATUS_MAP[statusKey] || { label: 'قيد المعالجة', color: 'bg-gray-100 text-gray-800 border-gray-200' };
+          const existingRating = ord.customer_rating || (ord.notes?.match(/\[RATING:(\d+)\]/)?.[1] ? Number(ord.notes.match(/\[RATING:(\d+)\]/)[1]) : undefined);
 
-            loadedList.push({
-              id: ord.id,
-              orderNumber: formatOrderNumber(ord.order_number || ord.id),
-              createdAt: ord.created_at || new Date().toISOString(),
-              status: statusKey,
-              statusText: st.label,
-              statusColor: st.color,
-              total: Number(ord.total_amount) || 0,
-              paymentMethod: ord.payment_method === 'cash' ? 'نقدًا عند الاستلام' : 'دفع إلكتروني',
-              destination: ord.delivery_address || ord.delivery_ministry || 'العاصمة الإدارية',
-              storeId: ord.store_id,
-              storeName: ord.restaurant_name,
-              customerRating: existingRating,
-              items: Array.isArray(ord.order_items) ? ord.order_items.map((i: any) => ({
-                name: i.product_name || 'صنف',
-                quantity: i.quantity || 1,
-                price: Number(i.price) || 0,
-                imageUrl: i.image_url,
-              })) : [],
-              rawOrder: ord,
-            });
+          const freshDisplay: OrderItemDisplay = {
+            id: ord.id,
+            orderNumber: formatOrderNumber(ord.order_number || ord.id),
+            createdAt: ord.created_at || new Date().toISOString(),
+            status: statusKey,
+            statusText: st.label,
+            statusColor: st.color,
+            total: Number(ord.total_amount) || 0,
+            paymentMethod: ord.payment_method === 'cash' ? 'نقدًا عند الاستلام' : 'دفع إلكتروني',
+            destination: ord.delivery_address || ord.delivery_ministry || 'العاصمة الإدارية',
+            storeId: ord.store_id,
+            storeName: ord.restaurant_name,
+            customerRating: existingRating,
+            items: Array.isArray(ord.order_items) ? ord.order_items.map((i: any) => ({
+              name: i.product_name || 'صنف',
+              quantity: i.quantity || 1,
+              price: Number(i.price) || 0,
+              imageUrl: i.image_url,
+            })) : [],
+            rawOrder: ord,
+          };
+
+          const existingIdx = loadedList.findIndex(
+            (o) => o.id === ord.id || (ord.client_request_id && o.rawOrder?.client_request_id === ord.client_request_id) || (ord.order_number && o.orderNumber === formatOrderNumber(ord.order_number))
+          );
+          if (existingIdx >= 0) {
+            loadedList[existingIdx] = freshDisplay;
+          } else {
+            loadedList.push(freshDisplay);
+          }
+
+          // If this order in DB is delivered or cancelled, sync localStorage sangoub_last_order and activeOrder
+          if (statusKey === 'delivered' || statusKey === 'cancelled') {
+            try {
+              const lastStr = localStorage.getItem('sangoub_last_order');
+              if (lastStr) {
+                const parsed = JSON.parse(lastStr);
+                if (parsed.orderId === ord.id || parsed.orderNumber === ord.order_number || parsed.orderId === ord.client_request_id) {
+                  parsed.orderStatus = statusKey;
+                  localStorage.setItem('sangoub_last_order', JSON.stringify(parsed));
+                  window.dispatchEvent(new CustomEvent('sangoub:order_updated', { detail: { orderId: ord.id, status: statusKey } }));
+                }
+              }
+            } catch {}
           }
         }
       }
@@ -212,7 +225,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
     return {
       id: to.orderId,
-      orderNumber: formatOrderNumber(to.orderId),
+      orderNumber: formatOrderNumber(to.orderNumber || to.orderId),
       createdAt: to.createdAt || to.time || new Date().toISOString(),
       status: statusKey,
       statusText: st.label,

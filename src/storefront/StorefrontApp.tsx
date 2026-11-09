@@ -18,6 +18,7 @@ import { OrdersPage } from './pages/OrdersPage';
 import { AccountPage } from './pages/AccountPage';
 import { LAUNCH_CONFIG } from '../config/launchConfig';
 import { enableWebPushNotifications } from '../lib/webPushNotifications';
+import { supabase } from '../lib/supabase';
 
 /**
  * Hook to detect viewport width changes in real time
@@ -45,7 +46,68 @@ const StorefrontRouter: React.FC = () => {
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [trackingModalOpen, setTrackingModalOpen] = useState(false);
-  const [activeOrder, setActiveOrder] = useState<TrackableOrder | null>(null);
+  const [activeOrder, setActiveOrder] = useState<TrackableOrder | null>(() => {
+    try {
+      const saved = localStorage.getItem('sangoub_last_order');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.orderStatus !== 'delivered' && parsed.orderStatus !== 'cancelled') {
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  });
+
+  // Verify and sync live status of activeOrder with Supabase (dismisses banner if delivered/cancelled)
+  useEffect(() => {
+    if (!activeOrder?.orderId) return;
+    const rawId = activeOrder.orderId.replace(/^(ord-|order-)/i, '').trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
+
+    const checkLiveStatus = async () => {
+      try {
+        let query = supabase.from('orders').select('id, status, payment_status, order_number');
+        if (isUuid) {
+          query = query.eq('id', rawId);
+        } else {
+          query = query.or(`order_number.eq.${rawId},client_request_id.eq.${rawId}`);
+        }
+        const { data } = await query.maybeSingle();
+        if (data?.status) {
+          if (data.status === 'delivered' || data.status === 'cancelled') {
+            setActiveOrder((prev) => prev ? { ...prev, orderStatus: data.status as any } : null);
+            try {
+              const last = localStorage.getItem('sangoub_last_order');
+              if (last) {
+                const parsed = JSON.parse(last);
+                parsed.orderStatus = data.status;
+                localStorage.setItem('sangoub_last_order', JSON.stringify(parsed));
+              }
+            } catch {}
+          } else if (data.status !== activeOrder.orderStatus) {
+            setActiveOrder((prev) => prev ? { ...prev, orderStatus: data.status as any } : null);
+          }
+        }
+      } catch {}
+    };
+
+    void checkLiveStatus();
+
+    const handleOrderUpdated = (e: any) => {
+      const detail = e.detail;
+      if (detail && (detail.orderId === activeOrder.orderId || detail.orderId === rawId)) {
+        if (detail.status === 'delivered' || detail.status === 'cancelled') {
+          setActiveOrder((prev) => prev ? { ...prev, orderStatus: detail.status } : null);
+        } else if (detail.status) {
+          setActiveOrder((prev) => prev ? { ...prev, orderStatus: detail.status } : null);
+        }
+      }
+    };
+
+    window.addEventListener('sangoub:order_updated', handleOrderUpdated);
+    return () => window.removeEventListener('sangoub:order_updated', handleOrderUpdated);
+  }, [activeOrder?.orderId]);
 
   const isMobile = useIsMobile();
   const isStoresList = currentPath === '/stores';
