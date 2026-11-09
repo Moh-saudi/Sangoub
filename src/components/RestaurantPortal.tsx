@@ -18,6 +18,7 @@ import { EmptyState } from './ui/DataStates';
 import { cairoDay } from "../utils/orderIntegration";
 import { KitchenDisplay } from "./KitchenDisplay";
 import { MerchantOrdersKanban } from "./MerchantOrdersKanban";
+import { MerchantOrderHistory } from "./MerchantOrderHistory";
 import { CouriersLiveMap } from "./CouriersLiveMap";
 import { cleanCourierName, cleanCustomerName } from "../utils/sanitizeName";
 import React, { useState, useMemo, useEffect } from "react";
@@ -504,8 +505,8 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   const [radarViewMode, setRadarViewMode] = useState<'cards' | 'map'>('cards');
   const [radarFilter, setRadarFilter] = useState<'all' | 'in_transit' | 'ready' | 'delivered'>('all');
   const [radarSearch, setRadarSearch] = useState('');
-  const sections=[['dashboard','الرئيسية'],['kitchen','استقبال وإدارة الطلبات'],['menu','المنتجات والأسعار'],['offers','العروض والتخفيضات'],['inventory','المخزون'],['customers','العملاء'],['accounting','التقارير'],['payments','المدفوعات'],['reviews','تقييمات العملاء'],['settings','الإعدادات'],['support','الدعم والمساعدة']] as const;
-  const slugs:Record<string,string>={dashboard:'dashboard',kitchen:'orders',menu:'products',offers:'offers',inventory:'inventory',customers:'customers',accounting:'reports',payments:'payments',reviews:'reviews',settings:'settings',support:'support',radar:'tracking',storeCouriers:'couriers'};
+  const sections=[['dashboard','الرئيسية'],['kitchen','استقبال وإدارة الطلبات'],['orderHistory','سجل الطلبات'],['menu','المنتجات والأسعار'],['offers','العروض والتخفيضات'],['inventory','المخزون'],['customers','العملاء'],['accounting','التقارير'],['payments','المدفوعات'],['reviews','تقييمات العملاء'],['settings','الإعدادات'],['support','الدعم والمساعدة']] as const;
+  const slugs:Record<string,string>={dashboard:'dashboard',kitchen:'orders',orderHistory:'history',menu:'products',offers:'offers',inventory:'inventory',customers:'customers',accounting:'reports',payments:'payments',reviews:'reviews',settings:'settings',support:'support',radar:'tracking',storeCouriers:'couriers'};
   const sectionFromPath=()=>Object.keys(slugs).find(key=>slugs[key]===location.pathname.split('/')[2])||'dashboard';
   const [activeTab,setActiveTab]=useState(sectionFromPath);
   function navigateSection(key:string){setActiveTab(key);window.history.pushState({},'', '/merchant/'+slugs[key]+location.search);}
@@ -598,6 +599,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   const sectionMeta = [
     { key: 'dashboard', label: 'الرئيسية', icon: LayoutDashboard },
     { key: 'kitchen', label: 'استقبال وإدارة الطلبات', icon: ClipboardList },
+    { key: 'orderHistory', label: 'سجل الطلبات', icon: Archive },
     { key: 'menu', label: 'المنتجات والتسعير', icon: Package },
     { key: 'inventory', label: 'المخزون والجرد', icon: Boxes },
     { key: 'customers', label: 'العملاء', icon: Users },
@@ -614,6 +616,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
       items: [
         { key: "dashboard", label: "الرئيسية والمؤشرات", icon: LayoutDashboard },
         { key: "kitchen", label: "استقبال وإدارة الطلبات", icon: ClipboardList },
+        { key: "orderHistory", label: "سجل الطلبات والأرشيف", icon: Archive },
         { key: "radar", label: "تتبع المناديب والتوصيل", icon: Navigation },
         { key: "storeCouriers", label: "طاقم العمل والورديات", icon: Users },
       ],
@@ -2008,7 +2011,25 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                 onChange={onKitchenChange}
                 onToggleStoreStatus={onToggleStoreStatus}
                 onNavigateRadar={() => navigateSection('radar')}
+                onNavigateHistory={() => navigateSection('orderHistory')}
                 onRefreshOrders={onLoadHistory}
+              />
+            </section>
+          )}
+
+          {/* PAGE: ORDER HISTORY & ARCHIVE */}
+          {activeTab === "orderHistory" && (
+            <section aria-label="سجل الطلبات السابقة والأرشيف">
+              <MerchantOrderHistory
+                orders={orders}
+                stores={stores}
+                fixedStoreId={userStore.id}
+                userStore={userStore}
+                products={products}
+                couriers={couriers && couriers.length > 0 ? couriers : storeCouriers}
+                onLoadMoreHistory={onLoadHistory}
+                hasMoreHistory={Boolean(historyCursor)}
+                historyLoading={historyBusy}
               />
             </section>
           )}

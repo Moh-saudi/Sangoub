@@ -50,6 +50,7 @@ export interface MerchantOrdersKanbanProps {
   onAssignCourier?: (orderId: string, courierId: string, courierName?: string, courierPhone?: string) => Promise<void>;
   onChange: (id: string, storeId: string, stage: 'preparing' | 'ready') => Promise<void>;
   onNavigateRadar?: () => void;
+  onNavigateHistory?: () => void;
   onUpdateOrderStatus?: (orderId: string, status: Order['orderStatus']) => Promise<void>;
   onRefreshOrders?: () => void;
 }
@@ -70,6 +71,7 @@ export function MerchantOrdersKanban({
   onAssignCourier,
   onChange,
   onNavigateRadar,
+  onNavigateHistory,
   onUpdateOrderStatus,
   onRefreshOrders,
 }: MerchantOrdersKanbanProps) {
@@ -653,7 +655,7 @@ export function MerchantOrdersKanban({
 
           <button
             type="button"
-            onClick={() => setActiveFilter('archive')}
+            onClick={() => onNavigateHistory ? onNavigateHistory() : setActiveFilter('archive')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
               activeFilter === 'archive'
                 ? 'bg-slate-700 text-white shadow-2xs'
@@ -1679,3 +1681,4 @@ function OrderDetailsDrawer({
     </div>
   );
 }
+
