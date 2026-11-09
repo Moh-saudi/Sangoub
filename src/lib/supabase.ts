@@ -29,6 +29,42 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+// Cleanly handle browser Back-Forward Cache (bfcache) navigation lifecycle
+if (typeof window !== 'undefined') {
+  window.addEventListener('pageshow', (event) => {
+    // When the page is restored from bfcache, reconnect Realtime cleanly
+    if (event.persisted) {
+      try {
+        if (supabase?.realtime && !supabase.realtime.isConnected()) {
+          supabase.realtime.connect();
+        }
+      } catch {}
+    }
+  });
+
+  window.addEventListener('pagehide', (event) => {
+    // Gracefully disconnect WebSockets before the browser pauses the page in bfcache
+    if (event.persisted) {
+      try {
+        if (supabase?.realtime) {
+          supabase.realtime.disconnect();
+        }
+      } catch {}
+    }
+  });
+
+  // Also ensure connection is restored when returning to a hidden tab
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      try {
+        if (supabase?.realtime && !supabase.realtime.isConnected()) {
+          supabase.realtime.connect();
+        }
+      } catch {}
+    }
+  });
+}
+
 export const STORE_SLUG_TO_SUPABASE_UUID: Record<string, string> = {
   'sangoub-market': 'a0000000-0000-0000-0000-000000000001',
   'sangoub-express': 'a0000000-0000-0000-0000-000000000001',
