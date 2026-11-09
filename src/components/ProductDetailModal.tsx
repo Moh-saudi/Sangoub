@@ -21,12 +21,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onClose,
   onAddToCartWithOptions,
 }) => {
-  if (!product) return null;
-
   const [quantity, setQuantity] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
-    if (product.optionGroups) {
+    if (product?.optionGroups) {
       product.optionGroups.forEach((grp) => {
         if (grp.options.length > 0) {
           initial[grp.title] = grp.options[0].name;
@@ -36,6 +34,25 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     return initial;
   });
   const [notes, setNotes] = useState('');
+
+  // Reset modal state whenever the active product changes
+  React.useEffect(() => {
+    if (product) {
+      setQuantity(1);
+      const initial: Record<string, string> = {};
+      if (product.optionGroups) {
+        product.optionGroups.forEach((grp) => {
+          if (grp.options.length > 0) {
+            initial[grp.title] = grp.options[0].name;
+          }
+        });
+      }
+      setSelectedOptions(initial);
+      setNotes('');
+    }
+  }, [product?.id]);
+
+  if (!product) return null;
 
   // Calculate extra price
   let totalExtraPrice = 0;

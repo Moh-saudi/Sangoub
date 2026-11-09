@@ -8,8 +8,6 @@ interface PartnerRegisterModalProps {
 }
 
 export const PartnerRegisterModal: React.FC<PartnerRegisterModalProps> = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
-
   const [businessName, setBusinessName] = useState('');
   const [partnerType, setPartnerType] = useState('supermarket');
   const [contactName, setContactName] = useState('');
@@ -21,6 +19,8 @@ export const PartnerRegisterModal: React.FC<PartnerRegisterModalProps> = ({ isOp
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

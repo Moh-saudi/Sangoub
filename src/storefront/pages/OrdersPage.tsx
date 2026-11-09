@@ -59,6 +59,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [phoneSearch, setPhoneSearch] = useState('');
   const [searchError, setSearchError] = useState('');
+  const [showGuestSearch, setShowGuestSearch] = useState(false);
 
   // Ratings map stored locally and synced to Supabase: { [orderId]: { rating: number, ratedAt: string } }
   const [ratings, setRatings] = useState<Record<string, { rating: number; ratedAt: string }>>(() => {
@@ -324,8 +325,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       o.items.some((i) => i.name.toLowerCase().includes(q))
     );
   });
-
-  const [showGuestSearch, setShowGuestSearch] = useState(false);
 
   return (
     <div className={`w-full ${isMobile ? 'px-3 py-2 pb-24' : 'max-w-4xl mx-auto px-4 py-8'} select-none font-['Cairo',sans-serif]`} dir="rtl">
