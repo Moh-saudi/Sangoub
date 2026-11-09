@@ -1145,9 +1145,9 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
       )}
 
       {/* ══════════════════════════════════════════════════════════════
-          9.5 LIVE ORDER TRACKING FLOATING BANNER
+          9.5 LIVE ORDER TRACKING FLOATING BANNER (Only for Active In-Flight Orders)
           ══════════════════════════════════════════════════════════════ */}
-      {activeOrder && (
+      {activeOrder && activeOrder.orderStatus !== 'delivered' && activeOrder.orderStatus !== 'cancelled' && (
         <aside
           onClick={() => {
             if (onOpenTrackingModal) onOpenTrackingModal();
@@ -1166,7 +1166,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             </div>
             <div className="min-w-0">
               <p className="text-xs font-black text-white flex items-center gap-1.5 truncate">
-                <span>طلبك قيد التوصيل ({activeOrder.orderId})</span>
+                <span>طلبك قيد التوصيل (#{activeOrder.orderNumber || (activeOrder.orderId ? `SG-${activeOrder.orderId.slice(0, 6).toUpperCase()}` : '')})</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
               </p>
               <p className="text-[10px] text-gray-300">

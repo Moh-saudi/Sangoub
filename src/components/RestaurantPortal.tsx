@@ -84,6 +84,7 @@ import {
   MessageCircle,
   User,
   Copy,
+  Star,
 } from "lucide-react";
 import type { Order, Product, Profile, Store, CourierRadarProfile } from "../types/index.ts";
 import {
@@ -502,12 +503,37 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   const [radarViewMode, setRadarViewMode] = useState<'cards' | 'map'>('cards');
   const [radarFilter, setRadarFilter] = useState<'all' | 'in_transit' | 'ready' | 'delivered'>('all');
   const [radarSearch, setRadarSearch] = useState('');
-  const sections=[['dashboard','الرئيسية'],['kitchen','الطلبات'],['menu','المنتجات والأسعار'],['offers','العروض والتخفيضات'],['inventory','المخزون'],['customers','العملاء'],['accounting','التقارير'],['payments','المدفوعات'],['settings','الإعدادات'],['support','الدعم والمساعدة']] as const;
-  const slugs:Record<string,string>={dashboard:'dashboard',kitchen:'orders',menu:'products',offers:'offers',inventory:'inventory',customers:'customers',accounting:'reports',payments:'payments',settings:'settings',support:'support',radar:'tracking',storeCouriers:'couriers'};
+  const sections=[['dashboard','الرئيسية'],['kitchen','الطلبات'],['menu','المنتجات والأسعار'],['offers','العروض والتخفيضات'],['inventory','المخزون'],['customers','العملاء'],['accounting','التقارير'],['payments','المدفوعات'],['reviews','تقييمات العملاء'],['settings','الإعدادات'],['support','الدعم والمساعدة']] as const;
+  const slugs:Record<string,string>={dashboard:'dashboard',kitchen:'orders',menu:'products',offers:'offers',inventory:'inventory',customers:'customers',accounting:'reports',payments:'payments',reviews:'reviews',settings:'settings',support:'support',radar:'tracking',storeCouriers:'couriers'};
   const sectionFromPath=()=>Object.keys(slugs).find(key=>slugs[key]===location.pathname.split('/')[2])||'dashboard';
   const [activeTab,setActiveTab]=useState(sectionFromPath);
   function navigateSection(key:string){setActiveTab(key);window.history.pushState({},'', '/merchant/'+slugs[key]+location.search);}
   useEffect(()=>{const changed=()=>setActiveTab(sectionFromPath());window.addEventListener('popstate',changed);return()=>window.removeEventListener('popstate',changed);},[]);
+
+  // Customer Ratings & Reviews state for merchant
+  const [localRatings, setLocalRatings] = useState<Record<string, { rating: number; ratedAt: string }>>(() => {
+    try {
+      const saved = localStorage.getItem('sangoub_order_ratings');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    const handleRated = () => {
+      try {
+        const saved = localStorage.getItem('sangoub_order_ratings');
+        if (saved) setLocalRatings(JSON.parse(saved));
+      } catch {}
+    };
+    window.addEventListener('sangoub:order_rated', handleRated);
+    window.addEventListener('storage', handleRated);
+    return () => {
+      window.removeEventListener('sangoub:order_rated', handleRated);
+      window.removeEventListener('storage', handleRated);
+    };
+  }, []);
 
   // New item modal state
   const [isAddingItem, setIsAddingItem] = useState(false);
@@ -530,6 +556,40 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
     (o) => o.orderStatus === "received" || o.orderStatus === "preparing"
   );
 
+  // Compute live customer ratings & reviews summary
+  const reviewsSummary = useMemo(() => {
+    const ratedList = storeOrders.map((ord) => {
+      const matchLocal = localRatings[ord.id] || localRatings[ord.orderNumber];
+      const ratingFromNotes = ord.notes?.match(/\[RATING:(\d+)\]/)?.[1]
+        ? Number(ord.notes.match(/\[RATING:(\d+)\]/)[1])
+        : undefined;
+      const score = (ord as any).customerRating || ratingFromNotes || matchLocal?.rating;
+
+      return {
+        order: ord,
+        score: score,
+        ratedAt: matchLocal?.ratedAt || (ord as any).customerRatedAt || ord.deliveredAt || ord.updatedAt || ord.createdAt,
+      };
+    }).filter(r => typeof r.score === 'number' && r.score! > 0);
+
+    const totalReviews = ratedList.length;
+    const sumScores = ratedList.reduce((acc, r) => acc + (r.score || 0), 0);
+    const averageScore = totalReviews > 0 ? (sumScores / totalReviews).toFixed(1) : (userStore?.rating?.toFixed(1) || '5.0');
+
+    const distribution: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    ratedList.forEach(r => {
+      const s = Math.min(5, Math.max(1, Math.round(r.score || 5)));
+      distribution[s] = (distribution[s] || 0) + 1;
+    });
+
+    return {
+      totalReviews,
+      averageScore: Number(averageScore),
+      distribution,
+      ratedList,
+    };
+  }, [storeOrders, localRatings, userStore?.rating]);
+
   // Products from Supabase use UUID as storeId, but userStore.id may be a slug.
   const userStoreId = userStore?.id || '';
   const storeProducts = products.filter((p) => matchStoreId(p.storeId, userStoreId));
@@ -542,6 +602,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
     { key: 'customers', label: 'العملاء', icon: Users },
     { key: 'accounting', label: 'التقارير والأداء', icon: TrendingUp },
     { key: 'payments', label: 'المدفوعات', icon: Wallet },
+    { key: 'reviews', label: 'تقييمات العملاء', icon: Star },
     { key: 'settings', label: 'الإعدادات', icon: Settings },
     { key: 'support', label: 'الدعم والمساعدة', icon: HelpCircle },
   ] as const;
@@ -569,6 +630,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
       items: [
         { key: "accounting", label: "التقارير والمبيعات", icon: TrendingUp },
         { key: "payments", label: "كشف الحساب والتسويات", icon: Wallet },
+        { key: "reviews", label: "تقييمات العملاء", icon: Star },
       ],
     },
     {
@@ -3037,6 +3099,177 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
       )}
 
       {/* ════════════════════════════════════════════════════════════════════════
+          3.5 تبويب تقييمات العملاء ومراجعات المتجر
+          ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "reviews" && (
+        <section className="space-y-4" aria-label="تقييمات ومراجعات العملاء">
+          {/* Header Card */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold shadow-2xs shrink-0">
+                <Star size={22} className="fill-amber-400" />
+              </span>
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 font-heading">
+                  تقييمات العملاء ورضا الخدمة
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  متابعة تقييمات العملاء لكل طلب منتهي، ومؤشرات الجودة والرضا لمتجرك في سنجوب.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-2xs">
+                <CheckCircle2 size={14} className="text-emerald-600" />
+                <span>متجر معتمد وموثوق</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Aggregate Rating & Stats Banner */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* 1. Overall Score Box */}
+            <div className="bg-gradient-to-br from-amber-50 via-white to-orange-50/40 rounded-2xl p-4 border border-amber-200/90 shadow-2xs flex flex-col items-center justify-center text-center">
+              <span className="text-xs font-bold text-amber-900 mb-1">المعدل الإجمالي للتقييم</span>
+              <div className="flex items-center gap-2 my-1">
+                <span className="text-4xl font-black text-slate-900 font-mono tracking-tight">
+                  {reviewsSummary.averageScore}
+                </span>
+                <span className="text-sm font-bold text-slate-400">/ 5.0</span>
+              </div>
+              <div className="flex items-center gap-1 my-1">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star
+                    key={s}
+                    size={17}
+                    className={s <= Math.round(reviewsSummary.averageScore) ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}
+                  />
+                ))}
+              </div>
+              <span className="text-[11px] text-slate-600 font-bold mt-1">
+                بناءً على {reviewsSummary.totalReviews} طلب مقيّم
+              </span>
+            </div>
+
+            {/* 2. Rating Breakdown Bars */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs md:col-span-2 space-y-2 flex flex-col justify-center">
+              <span className="text-xs font-black text-slate-800">توزيع تقييمات النجوم:</span>
+              <div className="space-y-1.5">
+                {[5, 4, 3, 2, 1].map((stars) => {
+                  const count = reviewsSummary.distribution[stars] || 0;
+                  const pct = reviewsSummary.totalReviews > 0 ? Math.round((count / reviewsSummary.totalReviews) * 100) : (stars === 5 ? 100 : 0);
+
+                  return (
+                    <div key={stars} className="flex items-center gap-2 text-xs">
+                      <span className="w-12 font-bold text-slate-600 flex items-center gap-1 shrink-0">
+                        <span>{stars}</span>
+                        <Star size={11} className="text-amber-400 fill-amber-400 inline" />
+                      </span>
+                      <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className="h-full bg-amber-400 rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="w-12 text-left font-mono font-bold text-[11px] text-slate-500 shrink-0">
+                        {count} ({pct}%)
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Rated Orders List */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                <ClipboardList size={15} className="text-orange-500" />
+                <span>سجل تقييمات الطلبات المستلمة ({reviewsSummary.ratedList.length})</span>
+              </h4>
+              <span className="text-[11px] text-slate-500 font-bold">
+                تحديث تلقائي وفوري
+              </span>
+            </div>
+
+            {reviewsSummary.ratedList.length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200">
+                <Star size={28} className="text-amber-300 mx-auto mb-2" />
+                <p className="text-xs font-bold text-slate-700">لا توجد تقييمات مسجلة بعد</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  عندما ينهي العملاء استلام طلباتهم ويقيمون تجربتهم ستظهر النجوم وملاحظاتهم هنا مباشرة.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {reviewsSummary.ratedList.map(({ order, score, ratedAt }) => {
+                  const custName = cleanCustomerName(order.profileName, order.phone);
+                  const custPhone = order.phone || '';
+
+                  return (
+                    <div
+                      key={order.id}
+                      className="p-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-black text-xs text-slate-900">
+                            #{order.orderNumber}
+                          </span>
+                          <div className="flex items-center gap-0.5 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <Star
+                                key={s}
+                                size={12}
+                                className={s <= (score || 5) ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}
+                              />
+                            ))}
+                            <span className="text-[10px] font-black font-mono text-amber-800 mr-1">
+                              ({score}/5)
+                            </span>
+                          </div>
+                          <span className="text-[10.5px] text-slate-400 font-medium">
+                            {ratedAt ? new Date(ratedAt).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                        </div>
+
+                        <div className="text-xs text-slate-700 flex items-center gap-2 flex-wrap">
+                          <span>العميل: <strong className="text-slate-900">{custName}</strong></span>
+                          <span>•</span>
+                          <span className="text-slate-500 truncate max-w-xs">
+                            {order.items?.map(it => `${it.quantity}x ${it.product?.name || 'صنف'}`).join('، ') || 'أصناف الطلب'}
+                          </span>
+                          <span>•</span>
+                          <span className="font-mono font-bold text-slate-800">{formatEGP(order.total)}</span>
+                        </div>
+                      </div>
+
+                      {custPhone && (
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                          <a
+                            href={`https://wa.me/${custPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`السلام عليكم ${custName}، شكراً لطلبك من ${userStore.name} وتقييمك لخدمتنا!`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1 transition"
+                            title="إرسال شكر أو رسالة متابعة للعميل"
+                          >
+                            <MessageCircle size={12} />
+                            <span>واتساب</span>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════
           4. تبويب رادار المناديب وتتبع التوصيل الحي
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "radar" && (
@@ -3565,6 +3798,22 @@ function MerchantOrderTracking({
   const courierPhone = order.courierPhone || '';
   const customerPhone = order.phone || '';
 
+  // Customer rating derivation for this order
+  let orderRating: number | undefined = (order as any).customerRating;
+  if (!orderRating && order.notes?.includes('[RATING:')) {
+    const match = order.notes.match(/\[RATING:(\d+)\]/);
+    if (match?.[1]) orderRating = Number(match[1]);
+  }
+  if (!orderRating) {
+    try {
+      const saved = localStorage.getItem('sangoub_order_ratings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        orderRating = parsed[order.id]?.rating || parsed[order.orderNumber]?.rating;
+      }
+    } catch {}
+  }
+
   const cleanPhoneForWa = (p: string) => {
     let clean = p.replace(/\D/g, '');
     if (clean.startsWith('01')) clean = '2' + clean;
@@ -3667,6 +3916,19 @@ function MerchantOrderTracking({
 
               {renderPaymentBadge()}
 
+              {isDelivered && (
+                orderRating ? (
+                  <span className="flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-lg text-[10px] font-black shadow-2xs">
+                    <Star size={11} className="text-amber-500 fill-amber-400" />
+                    <span>تقييم العميل: {orderRating}/5</span>
+                  </span>
+                ) : (
+                  <span className="text-[9.5px] text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-md border border-slate-200 font-medium">
+                    بانتظار التقييم
+                  </span>
+                )
+              )}
+
               <span className="text-xs font-mono font-black text-slate-800 mr-auto sm:mr-0">
                 {formatEGP(order.total)}
               </span>
@@ -3752,21 +4014,42 @@ function MerchantOrderTracking({
       {/* ── Expanded Deep Dossier ── */}
       {open && (
         <div className="border-t border-slate-200/80 bg-slate-50/40 p-3 sm:p-4 space-y-3 sm:space-y-4">
-          {/* Delivered Status Notice */}
+          {/* Delivered Status Notice & Customer Rating Dossier */}
           {isDelivered && (
-            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between shadow-2xs">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
-                <div>
-                  <strong className="block font-black text-emerald-950 text-xs sm:text-sm">تم توصيل وتسليم هذا الطلب للعميل بنجاح ✓</strong>
-                  <span className="text-[11px] text-emerald-700">
-                    وقت التسليم المؤكد: {new Date(order.deliveredAt || order.updatedAt || order.createdAt).toLocaleString('ar-EG', { timeZone: 'Africa/Cairo', dateStyle: 'short', timeStyle: 'short' })}
-                  </span>
+            <div className="space-y-2">
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                  <div>
+                    <strong className="block font-black text-emerald-950 text-xs sm:text-sm">تم توصيل وتسليم هذا الطلب للعميل بنجاح ✓</strong>
+                    <span className="text-[11px] text-emerald-700">
+                      وقت التسليم المؤكد: {new Date(order.deliveredAt || order.updatedAt || order.createdAt).toLocaleString('ar-EG', { timeZone: 'Africa/Cairo', dateStyle: 'short', timeStyle: 'short' })}
+                    </span>
+                  </div>
                 </div>
+                <span className="text-xs font-black bg-white px-2.5 py-1 rounded-lg text-emerald-800 border border-emerald-200 font-mono">
+                  {formatEGP(order.total)}
+                </span>
               </div>
-              <span className="text-xs font-black bg-white px-2.5 py-1 rounded-lg text-emerald-800 border border-emerald-200 font-mono">
-                {formatEGP(order.total)}
-              </span>
+
+              {orderRating && (
+                <div className="p-2.5 bg-gradient-to-r from-amber-50 via-white to-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Star size={16} className="text-amber-500 fill-amber-400 shrink-0" />
+                    <span className="font-bold text-amber-950">تقييم العميل لهذا الطلب:</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        size={14}
+                        className={s <= orderRating! ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}
+                      />
+                    ))}
+                    <span className="font-mono font-black text-amber-900 mr-1">({orderRating}/5)</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

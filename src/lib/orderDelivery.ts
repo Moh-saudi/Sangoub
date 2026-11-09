@@ -42,17 +42,7 @@ export async function orderDelivery(body: { action: "code" | "deliver"; orderId:
 
   // 2. Direct Supabase Fallback
   if (body.action === "code") {
-    // Attempt to read from order_secrets if permitted
-    try {
-      const { data: sec } = await supabase
-        .from('order_secrets')
-        .select('otp_code')
-        .eq('order_id', body.orderId)
-        .maybeSingle();
-      if (sec?.otp_code) return { otpCode: sec.otp_code };
-    } catch {}
-
-    // Fallback: derive code from order_number
+    // Derive deterministic OTP code safely without calling restricted tables
     try {
       const { data: ord } = await supabase
         .from('orders')
