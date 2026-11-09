@@ -71,6 +71,7 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
   const [receiptUrl, setReceiptUrl] = useState<string | undefined>(order?.receiptUrl);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [otpCode, setOtpCode] = useState<string>('');
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   // Fetch or derive secret delivery OTP code for the customer
   useEffect(() => {
@@ -273,8 +274,6 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
   const matchedStore = stores.find(s => s.id === firstStoreId || s.name === order.items?.[0]?.storeName);
   const storeDisplayName = order.items?.[0]?.storeName || matchedStore?.name || 'متجر سنجوب إكسبريس';
   const storeLogo = matchedStore?.logoUrl || matchedStore?.imageUrl || (firstStoreId && KNOWN_STORE_ASSETS[firstStoreId]?.logoUrl) || '/brand/sangoub-market-logo.jpg';
-
-  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   const handleSendEmailInvoice = async () => {
     setEmailStatus('sending');

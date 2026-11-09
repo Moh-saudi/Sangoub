@@ -1147,7 +1147,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
       {/* ══════════════════════════════════════════════════════════════
           9.5 LIVE ORDER TRACKING FLOATING BANNER (Only for Active In-Flight Orders)
           ══════════════════════════════════════════════════════════════ */}
-      {activeOrder && activeOrder.orderStatus !== 'delivered' && activeOrder.orderStatus !== 'cancelled' && (
+      {user && !user.isGuest && activeOrder && activeOrder.orderStatus !== 'delivered' && activeOrder.orderStatus !== 'cancelled' && (
         <aside
           onClick={() => {
             if (onOpenTrackingModal) onOpenTrackingModal();

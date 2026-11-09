@@ -239,6 +239,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({
       localStorage.removeItem('sangoub_last_phone');
       localStorage.removeItem('sangoub_last_order');
       sessionStorage.clear();
+      window.dispatchEvent(new CustomEvent('sangoub:logged_out'));
       setAvatarUrl('');
       setEmail('');
       setFirstName('');

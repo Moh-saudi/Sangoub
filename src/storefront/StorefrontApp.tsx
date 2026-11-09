@@ -59,6 +59,29 @@ const StorefrontRouter: React.FC = () => {
     return null;
   });
 
+  // Clear active order tracking bar immediately upon sign out or for guest visitors
+  useEffect(() => {
+    if (!user || user.isGuest) {
+      setActiveOrder(null);
+      setTrackingModalOpen(false);
+      try {
+        localStorage.removeItem('sangoub_last_order');
+      } catch {}
+    }
+  }, [user?.id, user?.isGuest]);
+
+  useEffect(() => {
+    const handleLogoutEvent = () => {
+      setActiveOrder(null);
+      setTrackingModalOpen(false);
+      try {
+        localStorage.removeItem('sangoub_last_order');
+      } catch {}
+    };
+    window.addEventListener('sangoub:logged_out', handleLogoutEvent);
+    return () => window.removeEventListener('sangoub:logged_out', handleLogoutEvent);
+  }, []);
+
   // Verify and sync live status of activeOrder with Supabase (dismisses banner if delivered/cancelled)
   useEffect(() => {
     if (!activeOrder?.orderId) return;
@@ -182,7 +205,7 @@ const StorefrontRouter: React.FC = () => {
                 navigate('/my-orders');
               }
             }}
-            hasActiveOrder={Boolean(activeOrder)}
+            hasActiveOrder={Boolean(user && !user.isGuest && activeOrder && activeOrder.orderStatus !== 'delivered' && activeOrder.orderStatus !== 'cancelled')}
           />
           <main className="flex-1">
             {isSingleProduct ? (
