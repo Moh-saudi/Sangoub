@@ -649,7 +649,8 @@ export function subscribeToAdminOrders(
     }
   };
   void load();
-  const channel = supabase.channel('admin-orders-feed')
+  const channelTopic = `admin-orders-feed-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const channel = supabase.channel(channelTopic)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload: any) => {
       if (payload.eventType === 'INSERT') {
         void playAirportChime();

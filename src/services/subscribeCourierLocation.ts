@@ -18,7 +18,15 @@ export function subscribeCourierLocation(
       updatedAt,
     } : null, false);
   };
-  const channel = supabase.channel(`courier-location:${courierId}`)
+  // Clean up any previously created channels with the same courier id to prevent
+  // "cannot add postgres_changes callbacks after subscribe()" error
+  const existingChannels = supabase.getChannels().filter(c => c.topic.includes(`courier-location:${courierId}`) || c.topic.includes(`courier-loc-${courierId}`));
+  for (const c of existingChannels) {
+    try { void supabase.removeChannel(c); } catch {}
+  }
+
+  const channelTopic = `courier-loc-${courierId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const channel = supabase.channel(channelTopic)
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'courier_locations', filter: `courier_id=eq.${courierId}`,
     }, payload => emitRow(payload.new && Object.keys(payload.new).length ? payload.new : null))

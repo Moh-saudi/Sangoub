@@ -95,6 +95,301 @@ function estimateDistance(
   return { distanceKm: Math.max(0.4, roadKm), durationMin };
 }
 
+function ReceiptCameraModal({
+  isOpen,
+  orderId,
+  orderNumber,
+  onClose,
+  onCapture,
+}: {
+  isOpen: boolean;
+  orderId: string;
+  orderNumber?: string;
+  onClose: () => void;
+  onCapture: (dataUrl: string) => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [loadingCamera, setLoadingCamera] = useState(true);
+  const fileFallbackRef = useRef<HTMLInputElement>(null);
+  const galleryFallbackRef = useRef<HTMLInputElement>(null);
+
+  const stopStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      stopStream();
+      setCapturedImage(null);
+      setCameraError(null);
+      return;
+    }
+
+    let active = true;
+    setLoadingCamera(true);
+    setCameraError(null);
+    setCapturedImage(null);
+
+    const startCamera = async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error('الكاميرا المباشرة غير مدعومة في هذا المتصفح');
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          },
+          audio: false
+        });
+        if (!active) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+        setLoadingCamera(false);
+      } catch (err: any) {
+        if (!active) return;
+        setLoadingCamera(false);
+        setCameraError(err.message || 'تعذر الوصول إلى الكاميرا. يرجى السماح بصلاحية الكاميرا.');
+      }
+    };
+
+    void startCamera();
+
+    return () => {
+      active = false;
+      stopStream();
+    };
+  }, [isOpen]);
+
+  const handleCaptureFrame = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    setCapturedImage(dataUrl);
+    stopStream();
+  };
+
+  const handleRetake = () => {
+    setCapturedImage(null);
+    setLoadingCamera(true);
+    navigator.mediaDevices?.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    }).then((stream) => {
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        void videoRef.current.play();
+      }
+      setLoadingCamera(false);
+    }).catch((err) => {
+      setLoadingCamera(false);
+      setCameraError(err.message || 'تعذر إعادة فتح الكاميرا');
+    });
+  };
+
+  const handleConfirm = () => {
+    if (capturedImage) {
+      onCapture(capturedImage);
+      onClose();
+    }
+  };
+
+  const handleFallbackFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (typeof ev.target?.result === 'string') {
+        onCapture(ev.target.result);
+        onClose();
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col justify-between p-3 sm:p-5 backdrop-blur-xs select-none font-['Cairo',sans-serif]" dir="rtl">
+      {/* Top Header */}
+      <div className="flex items-center justify-between text-white z-10 px-2 py-1">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-purple-600 flex items-center justify-center font-bold text-sm">
+            📷
+          </div>
+          <div>
+            <h3 className="font-bold text-sm sm:text-base">تصوير إيصال التحويل (شاشة العميل)</h3>
+            <p className="text-[11px] text-gray-300">طلب #{orderNumber || orderId.slice(0, 8)}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white transition-colors cursor-pointer"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Main Viewfinder Area */}
+      <div className="relative flex-1 my-2 rounded-2xl overflow-hidden bg-black flex items-center justify-center border-2 border-white/20">
+        {capturedImage ? (
+          <img src={capturedImage} alt="لقطة الإيصال" className="w-full h-full object-contain" />
+        ) : (
+          <>
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              autoPlay
+              className="w-full h-full object-cover"
+            />
+            {/* Target Alignment Scanner Frame */}
+            <div className="absolute inset-6 sm:inset-12 border-2 border-purple-400 rounded-2xl pointer-events-none flex flex-col justify-between p-3 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
+              <div className="flex justify-between items-center text-purple-300 text-[10px] font-bold">
+                <span>زاوية الشاشة</span>
+                <span>إشعار التحويل</span>
+              </div>
+              <p className="text-center text-xs font-bold text-white bg-black/60 px-3 py-1 rounded-full self-center">
+                وجه الكاميرا نحو شاشة موبايل العميل
+              </p>
+              <div className="flex justify-between items-center text-purple-300 text-[10px] font-bold">
+                <span>المبلغ ورقم العملية</span>
+                <span>تأكيد الاستلام</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {loadingCamera && !capturedImage && (
+          <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white gap-2">
+            <RotateCw className="w-8 h-8 animate-spin text-purple-500" />
+            <p className="text-xs font-bold">جارٍ تشغيل الكاميرا الخلفية…</p>
+          </div>
+        )}
+
+        {cameraError && !capturedImage && (
+          <div className="absolute inset-0 bg-black/90 p-5 flex flex-col items-center justify-center text-center text-white space-y-3">
+            <AlertCircle className="w-10 h-10 text-amber-500" />
+            <p className="text-xs font-bold text-amber-200">{cameraError}</p>
+            <p className="text-[11px] text-gray-400">يمكنك استخدام الكاميرا القياسية أو اختيار لقطة شاشة من الاستوديو</p>
+            <div className="flex items-center gap-2 flex-wrap justify-center">
+              <button
+                type="button"
+                onClick={() => fileFallbackRef.current?.click()}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md cursor-pointer flex items-center gap-2"
+              >
+                <Camera className="w-4 h-4" />
+                <span>التقاط بالكاميرا القياسية 📸</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => galleryFallbackRef.current?.click()}
+                className="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold cursor-pointer flex items-center gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                <span>المعرض 📁</span>
+              </button>
+            </div>
+            <input
+              type="file"
+              ref={fileFallbackRef}
+              accept="image/*"
+              capture="environment"
+              onChange={handleFallbackFile}
+              className="hidden"
+            />
+            <input
+              type="file"
+              ref={galleryFallbackRef}
+              accept="image/*"
+              onChange={handleFallbackFile}
+              className="hidden"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Controls Bar */}
+      <div className="flex items-center justify-center gap-3 p-2 z-10 flex-wrap">
+        {capturedImage ? (
+          <>
+            <button
+              type="button"
+              onClick={handleRetake}
+              className="px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition"
+            >
+              <RotateCw className="w-4 h-4" />
+              <span>إعادة التصوير 🔄</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm flex items-center gap-2 shadow-lg cursor-pointer transition"
+            >
+              <Check className="w-4 h-4" />
+              <span>تأكيد واستخدام الإيصال ✓</span>
+            </button>
+          </>
+        ) : (
+          <div className="flex items-center gap-4">
+            <label className="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition">
+              <Upload className="w-4 h-4 text-purple-400" />
+              <span>الاستوديو</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFallbackFile}
+                className="hidden"
+              />
+            </label>
+
+            <button
+              type="button"
+              disabled={loadingCamera || Boolean(cameraError)}
+              onClick={handleCaptureFrame}
+              className="w-16 h-16 rounded-full bg-white border-4 border-purple-500 hover:bg-purple-50 active:scale-95 shadow-xl flex items-center justify-center text-purple-600 cursor-pointer disabled:opacity-50 transition"
+              title="التقاط الصورة الآن"
+            >
+              <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white">
+                <Camera className="w-6 h-6" />
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 text-xs font-bold cursor-pointer transition"
+            >
+              إلغاء
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CourierApp() {
   const [uid, setUid] = useState<string>();
   const [access, setAccess] = useState<'checking' | 'login' | 'denied' | 'courier'>('checking');
@@ -184,6 +479,7 @@ export default function CourierApp() {
   const [receipts, setReceipts] = useState<Record<string, string>>({});
   const [uploadingReceipt, setUploadingReceipt] = useState<Record<string, boolean>>({});
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
+  const [activeCameraOrderId, setActiveCameraOrderId] = useState<string | null>(null);
 
   // In-App Notifications State for Courier
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -551,7 +847,72 @@ export default function CourierApp() {
     }));
   }
 
-  // Handle Receipt Upload for InstaPay / E-Wallets
+  // Helper to compress camera and file images for fast upload
+  async function compressImageToDataUrl(fileOrBlob: File | Blob, maxWidth = 1280, maxHeight = 1280, quality = 0.82): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(typeof reader.result === 'string' ? reader.result : '');
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        img.src = typeof e.target?.result === 'string' ? e.target.result : '';
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(fileOrBlob);
+    });
+  }
+
+  // Unified process and save receipt for InstaPay / Wallets
+  async function processAndSaveReceipt(orderId: string, fileOrDataUrl: File | Blob | string) {
+    setUploadingReceipt(prev => ({ ...prev, [orderId]: true }));
+    try {
+      let dataUrl: string;
+      if (typeof fileOrDataUrl === 'string') {
+        dataUrl = fileOrDataUrl;
+      } else {
+        dataUrl = await compressImageToDataUrl(fileOrDataUrl);
+      }
+      setReceipts(prev => ({ ...prev, [orderId]: dataUrl }));
+      await operationsApi('operations', {
+        action: 'upload-receipt',
+        orderId,
+        receiptUrl: dataUrl
+      });
+      // Also refresh active feed so all parties see it
+      void feed.refresh();
+    } catch (err) {
+      console.warn('Failed to upload receipt:', err);
+      alert('تعذر حفظ صورة الإيصال، يرجى المحاولة مرة أخرى.');
+    } finally {
+      setUploadingReceipt(prev => ({ ...prev, [orderId]: false }));
+    }
+  }
+
+  // Handle Receipt Upload via file picker
   async function handleReceiptUpload(orderId: string, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -559,33 +920,8 @@ export default function CourierApp() {
       alert('يرجى اختيار ملف صورة صالح (JPG, PNG, WebP).');
       return;
     }
-    if (file.size > 4 * 1024 * 1024) {
-      alert('حجم الصورة كبير؛ يرجى اختيار صورة أقل من 4 ميجابايت.');
-      return;
-    }
-
-    setUploadingReceipt(prev => ({ ...prev, [orderId]: true }));
-    const reader = new FileReader();
-    reader.onload = async () => {
-      if (typeof reader.result === 'string') {
-        const dataUrl = reader.result;
-        setReceipts(prev => ({ ...prev, [orderId]: dataUrl }));
-        try {
-          await operationsApi('operations', {
-            action: 'upload-receipt',
-            orderId,
-            receiptUrl: dataUrl
-          });
-          // Also refresh active feed so all parties see it
-          void feed.refresh();
-        } catch (err) {
-          console.warn('Failed to upload receipt:', err);
-        } finally {
-          setUploadingReceipt(prev => ({ ...prev, [orderId]: false }));
-        }
-      }
-    };
-    reader.readAsDataURL(file);
+    e.target.value = '';
+    await processAndSaveReceipt(orderId, file);
   }
 
   // Handle Avatar Upload with FileReader
@@ -1471,22 +1807,35 @@ ${customerLocationMapUrl}
 
                         {/* Receipt Upload / Preview Box */}
                         <div className="pt-2 border-t border-purple-200/60">
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
                             <div className="text-[11px] font-bold text-purple-900">
                               إيصال التحويل (ريست إنستاباي):
                             </div>
 
-                            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer">
-                              <Camera className="w-3.5 h-3.5" />
-                              <span>{uploadingReceipt[order.id] ? 'جارٍ الحفظ…' : currentReceipt ? 'إعادة تصوير الإيصال' : 'تصوير / إرفاق الإيصال'}</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                onChange={e => handleReceiptUpload(order.id, e)}
-                                className="hidden"
-                              />
-                            </label>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {/* 1. Direct Camera Button to capture customer mobile screen */}
+                              <button
+                                type="button"
+                                onClick={() => setActiveCameraOrderId(order.id)}
+                                disabled={uploadingReceipt[order.id]}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-black text-xs shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                              >
+                                <Camera className="w-3.5 h-3.5" />
+                                <span>{uploadingReceipt[order.id] ? 'جارٍ الحفظ…' : currentReceipt ? 'إعادة التصوير بالكاميرا 📷' : 'تصوير شاشة العميل 📷'}</span>
+                              </button>
+
+                              {/* 2. Gallery / File Upload Button */}
+                              <label className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 border border-purple-300 text-purple-800 font-bold text-xs shadow-2xs transition-colors cursor-pointer">
+                                <Upload className="w-3.5 h-3.5 text-purple-600" />
+                                <span>المعرض 📁</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={e => handleReceiptUpload(order.id, e)}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
                           </div>
 
                           {currentReceipt && (
@@ -1503,17 +1852,28 @@ ${customerLocationMapUrl}
                                     <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                                     <span>تم إرفاق الإيصال بنجاح</span>
                                   </div>
-                                  <div className="text-[10px] text-slate-500">تم تسجيل التحويل للطلب</div>
+                                  <div className="text-[10px] text-slate-500">تم تسجيل التحويل وتوثيقه للطلب</div>
                                 </div>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => setPreviewReceiptUrl(currentReceipt)}
-                                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
-                              >
-                                <Eye className="w-3 h-3" />
-                                <span>معاينة</span>
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewReceiptUrl(currentReceipt)}
+                                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>معاينة</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveCameraOrderId(order.id)}
+                                  className="px-2 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                  title="إعادة التصوير بالكاميرا"
+                                >
+                                  <Camera className="w-3 h-3" />
+                                  <span>تغيير</span>
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -2739,6 +3099,20 @@ ${customerLocationMapUrl}
               </div>
             </div>
           </div>
+        )}
+
+        {/* Modal: Live Camera Shutter for Receipt Capture (Taking photo of customer screen) */}
+        {activeCameraOrderId && (
+          <ReceiptCameraModal
+            isOpen={Boolean(activeCameraOrderId)}
+            orderId={activeCameraOrderId}
+            orderNumber={feed.items.find(o => o.id === activeCameraOrderId)?.orderNumber}
+            onClose={() => setActiveCameraOrderId(null)}
+            onCapture={(dataUrl) => {
+              void processAndSaveReceipt(activeCameraOrderId, dataUrl);
+              setActiveCameraOrderId(null);
+            }}
+          />
         )}
 
         {/* Mobile Footer */}

@@ -64,7 +64,8 @@ export function useActivePortalOrders(uid: string | undefined, storeId?: string)
     refresher.current = load;
     void load();
     const filter = targetStoreUuid ? `store_id=eq.${targetStoreUuid}` : (uid ? `courier_id=eq.${uid}` : undefined);
-    const channel = supabase.channel(`portal-orders:${targetStoreUuid || storeId || uid}`)
+    const channelTopic = `portal-orders-${targetStoreUuid || storeId || uid}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const channel = supabase.channel(channelTopic)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', ...(filter ? { filter } : {}) }, () => {
         if (!active) return;
         liveConnected = true;
