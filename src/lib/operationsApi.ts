@@ -4,7 +4,7 @@ import systemAccounts from '../data/systemAccounts.json';
 import { defaultCustomerHome } from '../types/appContent';
 
 function mapOrderRow(row: any) {
-  const appStatus = row.status === 'assigned' || row.status === 'picked_up' ? 'with_courier' : (row.status || 'received');
+  const appStatus = row.status === 'assigned' || row.status === 'picked_up' || row.status === 'with_courier' ? 'with_courier' : (row.status || 'received');
   const isCash = (row.payment_method || 'cash') === 'cash';
   const totalAmount = Number(row.total_amount) || Number(row.total) || 0;
   return {
@@ -21,6 +21,7 @@ function mapOrderRow(row: any) {
     orderNumber: row.order_number || row.id,
     orderStatus: appStatus,
     status: appStatus,
+    received: Boolean(row.received || row.picked_up_at || row.status === 'picked_up' || row.status === 'with_courier' || row.status === 'delivered'),
     estimatedDelivery: row.estimated_delivery || '',
     subtotal: Number(row.subtotal) || 0,
     deliveryFee: Number(row.delivery_fee) || 0,
@@ -358,6 +359,138 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       } catch {}
 
       return { ok: true };
+    }
+
+    // -------------------------------------------------------------
+    // Courier Pickup from Store
+    // -------------------------------------------------------------
+    if (body.action === 'courier-pickup' || body.action === 'pickup') {
+      const orderId = body.orderId || body.id;
+      if (orderId) {
+        const { data: ord } = await supabase
+          .from('orders')
+          .select('id, customer_id, store_id, order_number, courier_name')
+          .eq('id', orderId)
+          .maybeSingle();
+
+        const pickedUpAt = new Date().toISOString();
+
+        // Update orders table
+        const { error: updErr } = await supabase.from('orders').update({
+          status: 'with_courier',
+          picked_up_at: pickedUpAt,
+          updated_at: pickedUpAt
+        }).eq('id', orderId);
+
+        if (updErr) {
+          console.warn('[operationsApi] courier-pickup fallback:', updErr);
+          await supabase.from('orders').update({
+            status: 'picked_up',
+            updated_at: pickedUpAt
+          }).eq('id', orderId);
+        }
+
+        // Update fulfillments if any
+        try {
+          if (body.storeId) {
+            await supabase.from('order_fulfillments').update({
+              status: 'picked_up',
+              picked_up_by: user.id,
+              picked_up_at: pickedUpAt
+            }).eq('order_id', orderId).eq('store_id', body.storeId);
+          } else {
+            await supabase.from('order_fulfillments').update({
+              status: 'picked_up',
+              picked_up_by: user.id,
+              picked_up_at: pickedUpAt
+            }).eq('order_id', orderId);
+          }
+        } catch {}
+
+        const orderNum = ord?.order_number || String(orderId).slice(0, 8);
+        const courierName = ord?.courier_name || user.displayName || 'الكابتن';
+
+        // 1. Notify Customer
+        if (ord?.customer_id) {
+          try {
+            await supabase.from('notifications').insert({
+              user_id: ord.customer_id,
+              title: 'المندوب استلم طلبك وهو في الطريق إليك 🛵',
+              body: `تم استلام طلبك رقم #${orderNum} من المتجر بواسطة ${courierName}، وهو في طريقه إليك الآن.`,
+              type: 'order',
+              data: { orderId, status: 'with_courier' }
+            });
+          } catch {}
+        }
+
+        // 2. Notify Merchant
+        if (ord?.store_id) {
+          try {
+            const { data: merchants } = await supabase
+              .from('profiles')
+              .select('id')
+              .or(`store_id.eq.${ord.store_id},role.eq.merchant`);
+
+            if (merchants && merchants.length > 0) {
+              const notifs = merchants.slice(0, 5).map(m => ({
+                user_id: m.id,
+                title: 'تم استلام الطلب من المحل 📦',
+                body: `استلم ${courierName} الطلب رقم #${orderNum} بنجاح وانطلق لتسليمه للعميل.`,
+                type: 'order',
+                data: { orderId, status: 'with_courier' }
+              }));
+              await supabase.from('notifications').insert(notifs);
+            }
+          } catch {}
+        }
+
+        return { ok: true, status: 'with_courier' };
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Courier Depart / In Transit
+    // -------------------------------------------------------------
+    if (body.action === 'courier-depart' || body.action === 'depart') {
+      const orderId = body.orderId || body.id;
+      if (orderId) {
+        const departedAt = new Date().toISOString();
+        const { error: updErr } = await supabase.from('orders').update({
+          status: 'with_courier',
+          updated_at: departedAt
+        }).eq('id', orderId);
+
+        if (updErr) {
+          console.warn('[operationsApi] courier-depart fallback:', updErr);
+          await supabase.from('orders').update({
+            status: 'picked_up',
+            updated_at: departedAt
+          }).eq('id', orderId);
+        }
+
+        const { data: ord } = await supabase
+          .from('orders')
+          .select('id, customer_id, order_number, courier_name')
+          .eq('id', orderId)
+          .maybeSingle();
+
+        const orderNum = ord?.order_number || String(orderId).slice(0, 8);
+        const courierName = ord?.courier_name || user.displayName || 'الكابتن';
+
+        if (ord?.customer_id) {
+          try {
+            await supabase.from('notifications').insert({
+              user_id: ord.customer_id,
+              title: 'الكابتن في الطريق إليك 🛵',
+              body: `${courierName} انطلق الآن لتوصيل طلبك رقم #${orderNum}. يرجى تجهيز رمز الاستلام.`,
+              type: 'order',
+              data: { orderId, status: 'with_courier' }
+            });
+          } catch {}
+        }
+
+        return { ok: true, status: 'with_courier' };
+      }
     }
 
     if (body.action === 'set-product-stock' && body.id) {

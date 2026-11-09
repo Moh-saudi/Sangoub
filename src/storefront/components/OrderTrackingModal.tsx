@@ -15,10 +15,12 @@ import {
   MessageCircle, 
   Camera, 
   Upload, 
-  AlertCircle 
+  AlertCircle,
+  KeyRound
 } from 'lucide-react';
 import type { OrderStatus } from '../../types';
 import { playAirportChime } from '../../utils/audioAlerts';
+import { deriveOrderOtp, orderDelivery } from '../../lib/orderDelivery';
 
 export interface TrackableOrder {
   orderId: string;
@@ -65,6 +67,27 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
   const [courierCollected, setCourierCollected] = useState<boolean>(Boolean(order?.courierCollected));
   const [receiptUrl, setReceiptUrl] = useState<string | undefined>(order?.receiptUrl);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [otpCode, setOtpCode] = useState<string>('');
+
+  // Fetch or derive secret delivery OTP code for the customer
+  useEffect(() => {
+    if (!order?.orderId) return;
+    let active = true;
+    async function loadOtp() {
+      try {
+        const res = await orderDelivery({ action: 'code', orderId: order!.orderId });
+        if (active && res?.otpCode) {
+          setOtpCode(res.otpCode);
+          return;
+        }
+      } catch {}
+      if (active) {
+        setOtpCode(deriveOrderOtp(order!.orderId, order!.orderNumber));
+      }
+    }
+    void loadOtp();
+    return () => { active = false; };
+  }, [order?.orderId, order?.orderNumber]);
 
   // Sync internal state with order prop changes
   useEffect(() => {
@@ -171,6 +194,8 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
       case 'ready':
         return 1;
       case 'with_courier':
+      case 'picked_up':
+      case 'assigned':
       case 'on_the_way':
       case 'delivering':
         return 2;
@@ -365,6 +390,22 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
                   المتجر: <strong className="text-slate-700">{storeDisplayName}</strong> • الوقت المقدر: 15-25 دقيقة
                 </p>
               </div>
+
+              {/* Secret Delivery OTP Code for Handover */}
+              {activeStageIndex >= 1 && activeStageIndex < 3 && otpCode && (
+                <div className="mt-3 p-3.5 bg-amber-50/90 border-2 border-dashed border-amber-300 rounded-2xl text-center space-y-1 shadow-2xs">
+                  <div className="flex items-center justify-center gap-1.5 text-amber-900 text-xs font-bold">
+                    <KeyRound size={15} className="text-amber-600" />
+                    <span>رمز الاستلام السري للكابتن (OTP)</span>
+                  </div>
+                  <div dir="ltr" className="text-3xl font-mono font-black tracking-widest text-amber-600 py-1 select-all">
+                    {otpCode}
+                  </div>
+                  <p className="text-[11px] text-amber-800 font-medium">
+                    شارك هذا الرمز مع الكابتن عند وصوله لتأكيد استلامك للطلب
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </section>
