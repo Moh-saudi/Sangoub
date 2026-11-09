@@ -7,6 +7,7 @@ import { useActivePortalOrders } from './lib/useActivePortalOrders';
 import { LoadingState, ErrorState } from './components/ui/DataStates';
 import { BRAND } from './brand';
 import { customerMessage } from './utils/customerMessage';
+import { triggerPwaUpdate } from './lib/pwaAutoUpdate';
 import './courier.css';
 import {
   PackageCheck,
@@ -787,6 +788,16 @@ export default function CourierApp() {
               />
               <span>{!feed.online ? 'غير متصل' : feed.live ? 'لحظي' : 'متصل'}</span>
             </div>
+
+            {/* 1-Click PWA Update Button */}
+            <button
+              type="button"
+              onClick={() => void triggerPwaUpdate()}
+              title="تحديث المنظومة فوراً لتنزيل أحدث نسخة"
+              className="p-2 rounded-xl text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 border border-slate-200/80 transition-colors cursor-pointer bg-white"
+            >
+              <RotateCw className="w-4 h-4" />
+            </button>
 
             {/* Notification Bell */}
             <button

@@ -78,23 +78,32 @@ export function KitchenDisplay({
   const audio = useRef<AudioContext | null>(null);
   const previous = useRef<Set<string> | null>(null);
 
-  // Auto-fetch fleet couriers from Supabase if not provided
+  // Auto-fetch fleet couriers from Supabase if not provided (strictly isolated to this store or unassigned fleet)
+  const currentStore = fixedStoreId || selection || stores[0]?.id || "";
+
   useEffect(() => {
     let active = true;
     async function loadCouriers() {
       try {
         const { data } = await supabase
           .from('profiles')
-          .select('id, full_name, phone, avatar_url, vehicle_type, vehicle_plate, courier_status')
+          .select('id, full_name, phone, avatar_url, vehicle_type, vehicle_plate, courier_status, store_id')
           .eq('role', 'courier');
         if (active && data && data.length > 0) {
-          setInternalCouriers(data.map(c => ({
+          // Exclude any courier belonging to other stores
+          const isolated = data.filter((c: any) => {
+            const sId = c.store_id || (c as any).storeId;
+            if (!sId) return true; // general platform fleet
+            return sId === currentStore || sId === fixedStoreId;
+          });
+          setInternalCouriers(isolated.map(c => ({
             id: c.id,
             name: c.full_name || 'كابتن توصيل',
             phone: c.phone || '',
             avatarUrl: c.avatar_url,
             vehicleType: c.vehicle_type,
             vehiclePlate: c.vehicle_plate,
+            storeId: c.store_id || '',
             courierStatus: c.courier_status || 'active',
             status: c.courier_status === 'active' ? 'available' : 'busy'
           })));
@@ -107,11 +116,17 @@ export function KitchenDisplay({
       void loadCouriers();
     }
     return () => { active = false; };
-  }, [couriers]);
+  }, [couriers, currentStore, fixedStoreId]);
 
-  const fleetCouriers = (couriers && couriers.length > 0 ? couriers : internalCouriers).filter(
-    (c: any, index: number, self: any[]) => self.findIndex((item: any) => item.id === c.id) === index
-  );
+  const fleetCouriers = (couriers && couriers.length > 0 ? couriers : internalCouriers)
+    .filter((c: any) => {
+      const sId = c.storeId || c.store_id;
+      if (!sId) return true; // platform fleet
+      return sId === currentStore || sId === fixedStoreId;
+    })
+    .filter(
+      (c: any, index: number, self: any[]) => self.findIndex((item: any) => item.id === c.id) === index
+    );
 
   function getCourierWorkload(courierId: string) {
     return orders.filter(

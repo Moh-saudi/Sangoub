@@ -3032,13 +3032,98 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
           4. تبويب رادار المناديب الأقرب والأسرع (APPLE FIND MY + RADAR PULSE)
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "radar" && (
-        <section className="rounded-xl border border-slate-200/80 bg-white p-3 space-y-3" aria-label="تتبع طلبات المتجر">
-          <div>
-            <h3 className="text-xs sm:text-sm font-black text-slate-900">تتبع توصيل طلبات متجرك</h3>
-            <p className="text-[10px] text-slate-500 mt-0.5">موقع المندوب المكلف بطلبات متجرك (تحديث دوري كل 10 ثوانٍ أثناء فتح الخريطة).</p>
+        <section className="space-y-4" aria-label="تتبع توصيل طلبات المتجر ورادار المناديب">
+          {/* Header Card */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center font-bold">
+                  <Navigation size={18} />
+                </span>
+                <h3 className="text-base font-black text-slate-900 font-heading">رادار المناديب وتتبع التوصيل الحـي</h3>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                متابعة حركة المناديب على الخريطة التفاعلية وحالة تسليم طلبات متجرك في الحي الحكومي والعاصمة لحظة بلحظة.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const b = document.querySelector('button[title*="تحديث"]') as HTMLButtonElement;
+                if (b) b.click();
+                else window.location.reload();
+              }}
+              className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer self-start sm:self-auto"
+            >
+              <RefreshCw size={14} />
+              <span>تحديث البيانات الحية</span>
+            </button>
           </div>
-          {orders.filter(order=>order.storeIds?.includes(userStore?.id)&&order.orderStatus==='with_courier').length===0&&<p className="text-xs text-slate-500 py-3 text-center">لا توجد طلبات من متجرك قيد التوصيل الآن.</p>}
-          {orders.filter(order=>order.storeIds?.includes(userStore?.id)&&order.orderStatus==='with_courier').slice(0,50).map(order=><MerchantOrderTracking key={order.id} order={order} open={trackingOrderId===order.id} onToggle={open=>setTrackingOrderId(current=>open?order.id:current===order.id?"":current)}/>)}
+
+          {/* Quick Metrics & Live Tracking Orders */}
+          {(() => {
+            const isStoreOrder = (o: Order) =>
+              o.storeId === userStore?.id ||
+              o.storeIds?.includes(userStore?.id) ||
+              o.items?.some((it: any) => it.product?.storeId === userStore?.id);
+
+            const inTransit = orders.filter(o => isStoreOrder(o) && o.orderStatus === 'with_courier');
+            const readyAssigned = orders.filter(o => isStoreOrder(o) && o.orderStatus === 'ready' && !!o.courierId);
+            const activeTrackingOrders = [...inTransit, ...readyAssigned];
+
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="bg-white rounded-2xl p-4 border border-blue-200/80 shadow-2xs">
+                    <span className="text-[11px] font-bold text-blue-700 block mb-1">في الطريق للعميل</span>
+                    <div className="text-2xl font-black text-blue-900 font-mono">{inTransit.length}</div>
+                    <span className="text-[10px] text-slate-400">رحلات جارية بالرادار</span>
+                  </div>
+                  <div className="bg-white rounded-2xl p-4 border border-emerald-200/80 shadow-2xs">
+                    <span className="text-[11px] font-bold text-emerald-700 block mb-1">جاهز ومكلّف لكابتن</span>
+                    <div className="text-2xl font-black text-emerald-900 font-mono">{readyAssigned.length}</div>
+                    <span className="text-[10px] text-slate-400">بانتظار الاستلام والانطلاق</span>
+                  </div>
+                  <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs col-span-2 sm:col-span-1">
+                    <span className="text-[11px] font-bold text-slate-700 block mb-1">إجمالي قيد المتابعة</span>
+                    <div className="text-2xl font-black text-slate-900 font-mono">{activeTrackingOrders.length}</div>
+                    <span className="text-[10px] text-slate-400">طلبات نشطة لمتجرك</span>
+                  </div>
+                </div>
+
+                {activeTrackingOrders.length === 0 ? (
+                  <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+                      <Bike size={24} />
+                    </div>
+                    <h4 className="text-sm font-black text-slate-800">لا توجد طلبات جارية مع المناديب حالياً</h4>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                      عندما يقوم المتجر بتجهيز الطلب وتكليف كابتن توصيل من شاشة «تحضير وتجهيز الطلبات»، ستظهر حركة الكابتن ومساره هنا فورياً على الخريطة.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => navigateSection('kitchen')}
+                      className="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-xs transition-colors inline-flex items-center gap-2 cursor-pointer"
+                    >
+                      <Package size={14} />
+                      <span>الانتقال لشاشة تجهيز الطلبات وتكليف المناديب</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {activeTrackingOrders.map(order => (
+                      <MerchantOrderTracking
+                        key={order.id}
+                        order={order}
+                        open={trackingOrderId === order.id || activeTrackingOrders.length === 1}
+                        onToggle={open => setTrackingOrderId(current => open ? order.id : current === order.id ? "" : current)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </section>
       )}
 
@@ -3244,4 +3329,97 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 };
 
 
-function MerchantOrderTracking({order,open,onToggle}:{order:Order;open:boolean;onToggle:(open:boolean)=>void}){return <details open={open} className="rounded-xl border p-3" onToggle={e=>onToggle(e.currentTarget.open)}><summary>طلب {order.orderNumber} · {order.courierName||'المندوب المسند'}</summary>{open&&<OrderMap merchant order={{id:order.id,orderStatus:order.orderStatus,coordinates:undefined}}/>}</details>;}
+function MerchantOrderTracking({
+  order,
+  open,
+  onToggle
+}: {
+  order: Order;
+  open: boolean;
+  onToggle: (open: boolean) => void;
+}) {
+  const isWithCourier = order.orderStatus === 'with_courier';
+  const courierPhone = order.courierPhone || '';
+  const customerPhone = order.phone || '';
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
+      {/* Header Bar */}
+      <div
+        onClick={() => onToggle(!open)}
+        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/80 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+            isWithCourier ? 'bg-blue-600 text-white shadow-xs' : 'bg-emerald-600 text-white shadow-xs'
+          }`}>
+            <Bike size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <strong className="text-sm font-black text-slate-900 font-mono">
+                #{order.orderNumber}
+              </strong>
+              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border ${
+                isWithCourier
+                  ? 'bg-blue-50 text-blue-800 border-blue-200'
+                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              }`}>
+                {isWithCourier ? '🛵 في الطريق للعميل' : '📦 جاهز ومكلف للكابتن'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              الكابتن: <strong className="text-slate-700">{order.courierName || 'كابتن توصيل'}</strong>
+              {order.profileName ? ` · العميل: ${order.profileName}` : ''}
+              {order.ministry ? ` · ${order.ministry}` : ''}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-auto" onClick={e => e.stopPropagation()}>
+          {courierPhone && (
+            <a
+              href={`tel:${courierPhone}`}
+              className="px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
+            >
+              <Phone size={13} />
+              <span>اتصال بالكابتن</span>
+            </a>
+          )}
+          {customerPhone && (
+            <a
+              href={`tel:${customerPhone}`}
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+            >
+              <Phone size={13} />
+              <span>العميل</span>
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={() => onToggle(!open)}
+            className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold transition-colors cursor-pointer"
+            title={open ? "إخفاء الخريطة" : "عرض الخريطة الحية"}
+          >
+            {open ? "▲" : "▼"}
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded Live Tracking Map */}
+      {open && (
+        <div className="border-t border-slate-100 p-3 sm:p-4 bg-slate-50/50">
+          <OrderMap
+            merchant
+            order={{
+              id: order.id,
+              orderStatus: order.orderStatus,
+              coordinates: order.coordinates,
+              courierId: order.courierId
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

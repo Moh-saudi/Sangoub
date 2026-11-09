@@ -3,7 +3,8 @@ import { useActivePortalOrders } from './lib/useActivePortalOrders';
 import { normalizeOrder } from './utils/orderIntegration';
 import { PreparationTasks } from './components/PreparationTasks';
 import { LoadingState, ErrorState, EmptyState, ConnectionState } from './components/ui/DataStates';
-import {operationsApi} from './lib/operationsApi';
+import { operationsApi } from './lib/operationsApi';
+import { triggerPwaUpdate } from './lib/pwaAutoUpdate';
 import { BRAND } from './brand';
 import { MerchantLoginLayout } from './components/MerchantLoginLayout';
 import React, { useEffect, useState, useRef } from "react";
@@ -208,7 +209,7 @@ export default function MerchantApp() {
             console.warn('Failed to fetch products from Supabase:', err);
             return [] as Product[];
           }),
-          supabase.from('profiles').select('id, full_name, phone, avatar_url, vehicle_type, vehicle_plate, courier_status').eq('role', 'courier').then(r => r.data || []).catch(() => []),
+          supabase.from('profiles').select('id, full_name, phone, avatar_url, vehicle_type, vehicle_plate, courier_status, store_id').eq('role', 'courier').then(r => r.data || []).catch(() => []),
           operationsApi('operations', { action: 'store-dashboard', storeId: currentStoreId, includeOrders: false }).catch(() => null)
         ]);
 
@@ -230,13 +231,22 @@ export default function MerchantApp() {
         }
         if (active) {
           if (Array.isArray(sbCouriers)) {
-            setCouriers(sbCouriers.map((c: any) => ({
+            // Strict Isolation: Merchant must ONLY see their store's couriers or unassigned fleet
+            // Couriers assigned to other stores (store_id !== currentStoreId) MUST NEVER appear!
+            const isolatedCouriers = sbCouriers.filter((c: any) => {
+              const cStore = c.store_id || (c as any).storeId;
+              if (!cStore) return true; // general platform fleet
+              return cStore === currentStoreId || cStore === targetStoreUuid;
+            });
+
+            setCouriers(isolatedCouriers.map((c: any) => ({
               id: c.id,
               name: c.full_name || 'كابتن توصيل',
               phone: c.phone || '',
               avatarUrl: c.avatar_url,
               vehicleType: c.vehicle_type,
               vehiclePlate: c.vehicle_plate,
+              storeId: c.store_id || '',
               courierStatus: c.courier_status || 'active',
               status: c.courier_status === 'active' ? 'available' : 'busy'
             })));
@@ -786,20 +796,25 @@ export default function MerchantApp() {
               </p>
             </div>
 
-            {/* Actions: Live Sync Badge + Cheerful Mascot Support + Logout */}
+            {/* Actions: Live Sync / Update Badge + Cheerful Mascot Support + Logout */}
             <div className="flex items-center gap-2 shrink-0">
-              <span
-                className={`hidden sm:inline-flex items-center justify-center w-7 h-7 rounded-lg border transition-colors ${
+              <button
+                type="button"
+                onClick={() => void triggerPwaUpdate()}
+                className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
                   !feed.online
-                    ? "bg-rose-500/10 text-rose-300 border-rose-500/30"
+                    ? "bg-rose-500/10 text-rose-300 border-rose-500/30 hover:bg-rose-500/20"
                     : feed.live
-                    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
-                    : "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20"
+                    : "bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
                 }`}
-                title={!feed.online ? "غير متصل" : feed.live ? "متصل لحظياً" : `تحديث دوري ${feed.updatedAt ? `(آخر تحقق: ${new Date(feed.updatedAt).toLocaleTimeString('ar-EG')})` : ''}`}
+                title="تحديث المنظومة: اضغط للتحقق الفوري وتنزيل أحدث نسخة"
               >
                 <RefreshCw size={12} className={feed.live ? "text-emerald-400" : !feed.online ? "text-rose-400" : "text-amber-400"} />
-              </span>
+                <span className="text-[10px] font-bold text-slate-200 hidden md:inline">
+                  {feed.live ? "محدّث لحظياً ↻" : "تحديث التطبيق ↻"}
+                </span>
+              </button>
 
               <button
                 type="button"
