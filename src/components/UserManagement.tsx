@@ -17,6 +17,7 @@ import {
   Clock, CheckCircle2, Wallet, DollarSign, Coins, ChevronDown, Send, Sparkles, Key
 } from 'lucide-react';
 import { adminApi } from '../lib/adminApi';
+import { isCorruptedName } from '../utils/sanitizeName';
 import type { Store, UserRole } from '../types';
 
 const roleNames: Record<string, string> = {
@@ -122,7 +123,7 @@ export function sanitizeDisplayName(
   email?: string | null,
   storeName?: string | null
 ): string {
-  if (fullName && !/^[\?\s]+$/.test(fullName.trim())) {
+  if (fullName && !isCorruptedName(fullName)) {
     return fullName.trim();
   }
   if (role === 'courier') return 'كابتن توصيل';
@@ -130,7 +131,7 @@ export function sanitizeDisplayName(
   if (role === 'admin') return 'مدير النظام';
   if (email && email.includes('@')) {
     const local = email.split('@')[0];
-    if (local && !/^[\?\s]+$/.test(local)) return local;
+    if (local && !isCorruptedName(local)) return local;
   }
   return 'مستخدم منصة';
 }

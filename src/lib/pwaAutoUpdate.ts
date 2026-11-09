@@ -119,3 +119,4 @@ export async function triggerPwaUpdate(): Promise<void> {
   // Hard reload
   window.location.reload();
 }
+

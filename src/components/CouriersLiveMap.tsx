@@ -3,6 +3,7 @@ import {supabase} from '../lib/supabase';import type {Order,Store} from '../type
 import {TrackingMap} from './TrackingMap';import {trackingStatusText} from './OrderMap';
 import {startTrackingObserver,type ObservedTracking} from '../services/trackingObserver';import {useOsmRoute} from '../services/useOsmRoute';
 import {subscribeCourierLocation} from '../services/subscribeCourierLocation';
+import {cleanCourierName} from '../utils/sanitizeName';
 /** Admin map: bounded, per-active-order documents. No blanket tracking collection listener. */
 export function CouriersLiveMap({orders,stores:_stores,couriers,connected}:{orders:Order[];stores:Store[];couriers:Array<{id:string;name:string;phone:string}>;connected:boolean}){
  const [uid,setUid]=useState<string>(),[states,setStates]=useState<Record<string,ObservedTracking>>({}),[selected,setSelected]=useState(''),[search,setSearch]=useState('');
@@ -22,15 +23,15 @@ export function CouriersLiveMap({orders,stores:_stores,couriers,connected}:{orde
   for(const courierId of wanted)if(!subscriptions.current.has(courierId))subscriptions.current.set(courierId,startTrackingObserver({orderStatus:'with_courier',notify:state=>{if(uid)setStates(prev=>({...prev,...Object.fromEntries(active.filter(order=>order.courierId===courierId).map(order=>[order.id,state]))}))},listen:(next,error)=>subscribeCourierLocation(courierId,next,error)}));
  },[uid,assignments]);
 
- const visible=active.slice(0,50).filter(o=>`${o.orderNumber} ${o.courierName||''} ${o.ministry||''}`.includes(search));
+ const visible=active.slice(0,50).filter(o=>`${o.orderNumber} ${cleanCourierName(o.courierName, o.courierPhone)} ${o.ministry||''}`.includes(search));
  const order=visible.find(o=>o.id===selected)||visible[0],state=order?states[order.id]:null;
  const {route,remaining}=useOsmRoute(state?.status==='tracking'?state.point:null,order?.coordinates,order?.id);
- const peers=useMemo(()=>active.slice(0,50).flatMap(o=>states[o.id]?.point&&o.id!==order?.id?[{id:o.id,point:states[o.id].point!,label:`${o.courierName||'مندوب'} · ${o.orderNumber}`,stale:states[o.id].status!=='tracking'}]:[]),[assignments,states,order?.id]);
+ const peers=useMemo(()=>active.slice(0,50).flatMap(o=>states[o.id]?.point&&o.id!==order?.id?[{id:o.id,point:states[o.id].point!,label:`${cleanCourierName(o.courierName, o.courierPhone)} · ${o.orderNumber}`,stale:states[o.id].status!=='tracking'}]:[]),[assignments,states,order?.id]);
  return <section aria-label="خريطة المناديب والرحلات الحية" className="rounded-2xl border bg-white p-4 space-y-3" dir="rtl">
  <h2 className="font-bold text-lg">خريطة المناديب والرحلات الحية</h2><p role="status">{connected?'اتصال الإدارة متاح':'اتصال الإدارة غير مؤكد'} · {active.length} رحلة توصيل · {couriers.length} مندوب مسجل</p>
- <label>البحث في الرحلات<input value={search} onChange={e=>setSearch(e.target.value)} className="block w-full border rounded-lg p-2"/></label>
+ <label>البحث في الرحلات<input value={search} onChange={e=>setSearch(e.target.value)} className="block w-full border rounded-lg p-2" placeholder="ابحث برقم الطلب أو اسم المندوب أو الوجهة..."/></label>
  {active.length>50&&<p>تعرض الخريطة أول 50 رحلة نشطة لتقييد عدد الاشتراكات.</p>}
  <div className="grid gap-4 lg:grid-cols-3"><div className="lg:col-span-2">{order?<><TrackingMap mapKey={order.id} point={state?.point} destination={order.coordinates} route={state?.status==='tracking'?route:null} live={state?.status==='tracking'} peers={peers} onSelectPeer={setSelected}/><p>{trackingStatusText[state?.status||'waiting']}</p>{remaining&&state?.status==='tracking'&&<p>{route?.isFallback?'تقدير خط مستقيم':'المتبقي تقديريًا'}: {Math.ceil(remaining.durationSeconds/60)} دقيقة</p>}</>:<p>لا توجد رحلات توصيل مطابقة. لا تُعرض مواقع افتراضية.</p>}</div>
- <div className="space-y-2 max-h-96 overflow-y-auto">{visible.map(o=><button type="button" key={o.id} aria-pressed={o.id===order?.id} className="block w-full rounded-xl border p-3 text-right" onClick={()=>setSelected(o.id)}><strong>{o.orderNumber} · {o.courierName||'المندوب المسند'}</strong><span className="block text-xs">{trackingStatusText[states[o.id]?.status||'waiting']}</span></button>)}</div></div>
+ <div className="space-y-2 max-h-96 overflow-y-auto">{visible.map(o=><button type="button" key={o.id} aria-pressed={o.id===order?.id} className="block w-full rounded-xl border p-3 text-right cursor-pointer hover:bg-slate-50 transition" onClick={()=>setSelected(o.id)}><strong>{o.orderNumber} · {cleanCourierName(o.courierName, o.courierPhone)}</strong><span className="block text-xs">{trackingStatusText[states[o.id]?.status||'waiting']}</span></button>)}</div></div>
  </section>;
 }

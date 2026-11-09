@@ -19,6 +19,7 @@ import type { Order, Store } from "../types";
 import { kitchenStage } from "../utils/orderIntegration";
 import { supabase } from "../lib/supabase";
 import { operationsApi } from "../lib/operationsApi";
+import { cleanCourierName, cleanCustomerName } from "../utils/sanitizeName";
 
 type Stage = "received" | "preparing" | "ready";
 
@@ -98,7 +99,7 @@ export function KitchenDisplay({
           });
           setInternalCouriers(isolated.map(c => ({
             id: c.id,
-            name: c.full_name || 'كابتن توصيل',
+            name: cleanCourierName(c.full_name, c.phone),
             phone: c.phone || '',
             avatarUrl: c.avatar_url,
             vehicleType: c.vehicle_type,

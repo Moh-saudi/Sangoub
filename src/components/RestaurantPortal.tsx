@@ -17,6 +17,8 @@ import {OrderMap} from './OrderMap';
 import { EmptyState } from './ui/DataStates';
 import { cairoDay } from "../utils/orderIntegration";
 import { KitchenDisplay } from "./KitchenDisplay";
+import { CouriersLiveMap } from "./CouriersLiveMap";
+import { cleanCourierName, cleanCustomerName } from "../utils/sanitizeName";
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Menu,
@@ -79,6 +81,9 @@ import {
   Barcode,
   Save,
   MessageSquare,
+  MessageCircle,
+  User,
+  Copy,
 } from "lucide-react";
 import type { Order, Product, Profile, Store, CourierRadarProfile } from "../types/index.ts";
 import {
@@ -494,6 +499,9 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   // userStore defined at top
 
   const [trackingOrderId,setTrackingOrderId] = useState("");
+  const [radarViewMode, setRadarViewMode] = useState<'cards' | 'map'>('cards');
+  const [radarFilter, setRadarFilter] = useState<'all' | 'in_transit' | 'ready'>('all');
+  const [radarSearch, setRadarSearch] = useState('');
   const sections=[['dashboard','الرئيسية'],['kitchen','الطلبات'],['menu','المنتجات والأسعار'],['offers','العروض والتخفيضات'],['inventory','المخزون'],['customers','العملاء'],['accounting','التقارير'],['payments','المدفوعات'],['settings','الإعدادات'],['support','الدعم والمساعدة']] as const;
   const slugs:Record<string,string>={dashboard:'dashboard',kitchen:'orders',menu:'products',offers:'offers',inventory:'inventory',customers:'customers',accounting:'reports',payments:'payments',settings:'settings',support:'support',radar:'tracking',storeCouriers:'couriers'};
   const sectionFromPath=()=>Object.keys(slugs).find(key=>slugs[key]===location.pathname.split('/')[2])||'dashboard';
@@ -3029,35 +3037,72 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
       )}
 
       {/* ════════════════════════════════════════════════════════════════════════
-          4. تبويب رادار المناديب الأقرب والأسرع (APPLE FIND MY + RADAR PULSE)
+          4. تبويب رادار المناديب وتتبع التوصيل الحي
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "radar" && (
         <section className="space-y-4" aria-label="تتبع توصيل طلبات المتجر ورادار المناديب">
           {/* Header Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center font-bold">
-                  <Navigation size={18} />
+              <div className="flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center font-bold shadow-2xs">
+                  <Navigation size={20} />
                 </span>
-                <h3 className="text-base font-black text-slate-900 font-heading">رادار المناديب وتتبع التوصيل الحـي</h3>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 font-heading">
+                    غرفة عمليات ورادار المناديب وتتبع التوصيل الحي
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    متابعة دقيقة لكل طلب: المسار اللحظي، تفاصيل العميل، تواصل مباشر، وإعادة التكليف الفوري.
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                متابعة حركة المناديب على الخريطة التفاعلية وحالة تسليم طلبات متجرك في الحي الحكومي والعاصمة لحظة بلحظة.
-              </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                const b = document.querySelector('button[title*="تحديث"]') as HTMLButtonElement;
-                if (b) b.click();
-                else window.location.reload();
-              }}
-              className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer self-start sm:self-auto"
-            >
-              <RefreshCw size={14} />
-              <span>تحديث البيانات الحية</span>
-            </button>
+
+            {/* View Mode & Live Refresh */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Toggle Cards vs Global Map */}
+              <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setRadarViewMode('cards')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                    radarViewMode === 'cards'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Package size={14} />
+                  <span>بطاقات تفصيلية</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRadarViewMode('map')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                    radarViewMode === 'map'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <MapPin size={14} />
+                  <span>الخريطة المجمعة</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const b = document.querySelector('button[title*="تحديث"]') as HTMLButtonElement;
+                  if (b) b.click();
+                  else window.location.reload();
+                }}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                title="تحديث البيانات اللحظية فوراً"
+              >
+                <RefreshCw size={13} />
+                <span>تحديث حي</span>
+              </button>
+            </div>
           </div>
 
           {/* Quick Metrics & Live Tracking Orders */}
@@ -3068,37 +3113,157 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
               o.items?.some((it: any) => it.product?.storeId === userStore?.id);
 
             const inTransit = orders.filter(o => isStoreOrder(o) && o.orderStatus === 'with_courier');
-            const readyAssigned = orders.filter(o => isStoreOrder(o) && o.orderStatus === 'ready' && !!o.courierId);
-            const activeTrackingOrders = [...inTransit, ...readyAssigned];
+            const readyAssigned = orders.filter(o => isStoreOrder(o) && o.orderStatus === 'ready' && Boolean(o.courierId));
+            const allActiveStoreOrders = [...inTransit, ...readyAssigned];
+
+            // Apply Status Filter
+            const statusFiltered = radarFilter === 'in_transit'
+              ? inTransit
+              : radarFilter === 'ready'
+              ? readyAssigned
+              : allActiveStoreOrders;
+
+            // Apply Search Query
+            const query = radarSearch.trim().toLowerCase();
+            const filteredOrders = statusFiltered.filter(o => {
+              if (!query) return true;
+              const oNum = (o.orderNumber || '').toLowerCase();
+              const cName = cleanCourierName(o.courierName, o.courierPhone).toLowerCase();
+              const custName = cleanCustomerName(o.profileName, o.phone).toLowerCase();
+              const dest = (o.deliveryAddress || o.ministry || '').toLowerCase();
+              const itNames = (o.items || []).map(i => i.product?.name || '').join(' ').toLowerCase();
+              return oNum.includes(query) || cName.includes(query) || custName.includes(query) || dest.includes(query) || itNames.includes(query);
+            });
 
             return (
               <div className="space-y-4">
+                {/* 3 Metric Summary Badges */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="bg-white rounded-2xl p-4 border border-blue-200/80 shadow-2xs">
-                    <span className="text-[11px] font-bold text-blue-700 block mb-1">في الطريق للعميل</span>
-                    <div className="text-2xl font-black text-blue-900 font-mono">{inTransit.length}</div>
-                    <span className="text-[10px] text-slate-400">رحلات جارية بالرادار</span>
+                  <div
+                    onClick={() => setRadarFilter(f => f === 'in_transit' ? 'all' : 'in_transit')}
+                    className={`bg-white rounded-2xl p-4 border transition-all cursor-pointer shadow-2xs ${
+                      radarFilter === 'in_transit' ? 'border-blue-500 ring-2 ring-blue-100 bg-blue-50/20' : 'border-blue-200/80 hover:border-blue-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-blue-700">في الطريق للعميل</span>
+                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+                    </div>
+                    <div className="text-2xl font-black text-blue-900 font-mono mt-1">{inTransit.length}</div>
+                    <span className="text-[10px] text-slate-400">رحلات جارية بالرادار الآن</span>
                   </div>
-                  <div className="bg-white rounded-2xl p-4 border border-emerald-200/80 shadow-2xs">
-                    <span className="text-[11px] font-bold text-emerald-700 block mb-1">جاهز ومكلّف لكابتن</span>
-                    <div className="text-2xl font-black text-emerald-900 font-mono">{readyAssigned.length}</div>
+
+                  <div
+                    onClick={() => setRadarFilter(f => f === 'ready' ? 'all' : 'ready')}
+                    className={`bg-white rounded-2xl p-4 border transition-all cursor-pointer shadow-2xs ${
+                      radarFilter === 'ready' ? 'border-emerald-500 ring-2 ring-emerald-100 bg-emerald-50/20' : 'border-emerald-200/80 hover:border-emerald-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-emerald-700">جاهز ومكلّف لكابتن</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    </div>
+                    <div className="text-2xl font-black text-emerald-900 font-mono mt-1">{readyAssigned.length}</div>
                     <span className="text-[10px] text-slate-400">بانتظار الاستلام والانطلاق</span>
                   </div>
-                  <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs col-span-2 sm:col-span-1">
-                    <span className="text-[11px] font-bold text-slate-700 block mb-1">إجمالي قيد المتابعة</span>
-                    <div className="text-2xl font-black text-slate-900 font-mono">{activeTrackingOrders.length}</div>
+
+                  <div
+                    onClick={() => setRadarFilter('all')}
+                    className={`bg-white rounded-2xl p-4 border transition-all cursor-pointer shadow-2xs col-span-2 sm:col-span-1 ${
+                      radarFilter === 'all' ? 'border-slate-800 ring-2 ring-slate-100' : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700">إجمالي قيد المتابعة</span>
+                      <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-bold text-slate-600">الكل</span>
+                    </div>
+                    <div className="text-2xl font-black text-slate-900 font-mono mt-1">{allActiveStoreOrders.length}</div>
                     <span className="text-[10px] text-slate-400">طلبات نشطة لمتجرك</span>
                   </div>
                 </div>
 
-                {activeTrackingOrders.length === 0 ? (
+                {/* Filter & Search Bar */}
+                {allActiveStoreOrders.length > 0 && radarViewMode === 'cards' && (
+                  <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+                    {/* Status Tabs */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setRadarFilter('all')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          radarFilter === 'all'
+                            ? 'bg-slate-900 text-white shadow-2xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        الكل ({allActiveStoreOrders.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRadarFilter('in_transit')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          radarFilter === 'in_transit'
+                            ? 'bg-blue-600 text-white shadow-2xs'
+                            : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/60'
+                        }`}
+                      >
+                        في الطريق ({inTransit.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRadarFilter('ready')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          radarFilter === 'ready'
+                            ? 'bg-emerald-600 text-white shadow-2xs'
+                            : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/60'
+                        }`}
+                      >
+                        جاهز للكابتن ({readyAssigned.length})
+                      </button>
+                    </div>
+
+                    {/* Search Input */}
+                    <div className="relative min-w-[220px] flex-1 sm:flex-initial">
+                      <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={radarSearch}
+                        onChange={(e) => setRadarSearch(e.target.value)}
+                        placeholder="بحث برقم الطلب، العميل، الكابتن، العنوان..."
+                        className="w-full pr-8 pl-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:border-orange-500"
+                      />
+                      {radarSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setRadarSearch('')}
+                          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* View 1: Global Map Mode */}
+                {radarViewMode === 'map' ? (
+                  <div className="bg-white rounded-2xl border border-slate-200 p-3 shadow-2xs">
+                    <CouriersLiveMap
+                      orders={orders.filter(isStoreOrder)}
+                      stores={stores}
+                      couriers={couriers && couriers.length > 0 ? couriers : storeCouriers}
+                      connected={connected}
+                    />
+                  </div>
+                ) : allActiveStoreOrders.length === 0 ? (
+                  /* Empty State */
                   <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
-                      <Bike size={24} />
+                    <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-600 mx-auto flex items-center justify-center shadow-2xs">
+                      <Bike size={28} />
                     </div>
                     <h4 className="text-sm font-black text-slate-800">لا توجد طلبات جارية مع المناديب حالياً</h4>
                     <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                      عندما يقوم المتجر بتجهيز الطلب وتكليف كابتن توصيل من شاشة «تحضير وتجهيز الطلبات»، ستظهر حركة الكابتن ومساره هنا فورياً على الخريطة.
+                      عندما يقوم المتجر بتجهيز الطلب وتكليف كابتن توصيل من شاشة «تحضير وتجهيز الطلبات»، ستظهر حركة الكابتن ومساره وتفاصيل العميل كاملة هنا لحظة بلحظة.
                     </p>
                     <button
                       type="button"
@@ -3109,14 +3274,28 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                       <span>الانتقال لشاشة تجهيز الطلبات وتكليف المناديب</span>
                     </button>
                   </div>
+                ) : filteredOrders.length === 0 ? (
+                  <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center space-y-2">
+                    <p className="text-xs font-bold text-slate-600">لا توجد نتائج تطابق بحثك الحالي: «{radarSearch}»</p>
+                    <button
+                      type="button"
+                      onClick={() => { setRadarSearch(''); setRadarFilter('all'); }}
+                      className="text-xs text-orange-600 font-bold hover:underline"
+                    >
+                      إعادة ضبط التصفية
+                    </button>
+                  </div>
                 ) : (
+                  /* View 2: Detailed Cards Mode */
                   <div className="space-y-3">
-                    {activeTrackingOrders.map(order => (
+                    {filteredOrders.map(order => (
                       <MerchantOrderTracking
                         key={order.id}
                         order={order}
-                        open={trackingOrderId === order.id || activeTrackingOrders.length === 1}
+                        open={trackingOrderId === order.id || (trackingOrderId === "" && filteredOrders.length <= 2)}
                         onToggle={open => setTrackingOrderId(current => open ? order.id : current === order.id ? "" : current)}
+                        availableCouriers={couriers && couriers.length > 0 ? couriers : storeCouriers}
+                        onAssignCourier={onAssignCourier}
                       />
                     ))}
                   </div>
@@ -3332,92 +3511,410 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 function MerchantOrderTracking({
   order,
   open,
-  onToggle
+  onToggle,
+  availableCouriers = [],
+  onAssignCourier,
 }: {
   order: Order;
   open: boolean;
   onToggle: (open: boolean) => void;
+  availableCouriers?: any[];
+  onAssignCourier?: (orderId: string, courierId: string, courierName?: string, courierPhone?: string) => Promise<void>;
 }) {
+  const [isReassigning, setIsReassigning] = useState(false);
+  const [selectedCourierId, setSelectedCourierId] = useState(order.courierId || "");
+  const [assignBusy, setAssignBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   const isWithCourier = order.orderStatus === 'with_courier';
+  const courierName = cleanCourierName(order.courierName, order.courierPhone);
+  const customerName = cleanCustomerName(order.profileName, order.phone);
   const courierPhone = order.courierPhone || '';
   const customerPhone = order.phone || '';
 
+  const cleanPhoneForWa = (p: string) => {
+    let clean = p.replace(/\D/g, '');
+    if (clean.startsWith('01')) clean = '2' + clean;
+    return clean;
+  };
+
+  const customerWaUrl = customerPhone
+    ? `https://wa.me/${cleanPhoneForWa(customerPhone)}?text=${encodeURIComponent(`السلام عليكم ${customerName}، معكم متجر سنجوب بخصوص طلبكم #${order.orderNumber}`)}`
+    : '';
+
+  const courierWaUrl = courierPhone
+    ? `https://wa.me/${cleanPhoneForWa(courierPhone)}?text=${encodeURIComponent(`السلام عليكم كابتن ${courierName}، معكم متجر سنجوب بخصوص طلب #${order.orderNumber}`)}`
+    : '';
+
+  const handleReassign = async (newCourierId: string) => {
+    if (!newCourierId || newCourierId === order.courierId || !onAssignCourier) return;
+    const target = availableCouriers.find((c: any) => c.id === newCourierId);
+    setAssignBusy(true);
+    try {
+      await onAssignCourier(order.id, newCourierId, target?.name || target?.full_name, target?.phone);
+      setIsReassigning(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAssignBusy(false);
+    }
+  };
+
+  const handleCopyOrderNumber = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      navigator.clipboard?.writeText(order.orderNumber);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+
+  // Payment badge formatting
+  const renderPaymentBadge = () => {
+    switch (order.paymentMethod) {
+      case 'cash':
+        return <span className="bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md text-[10px] font-bold">كاش عند الاستلام</span>;
+      case 'instapay':
+        return <span className="bg-purple-50 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-md text-[10px] font-bold">إنستا باي</span>;
+      case 'vodafone_cash':
+        return <span className="bg-rose-50 text-rose-800 border border-rose-200 px-2 py-0.5 rounded-md text-[10px] font-bold">فودافون كاش</span>;
+      case 'card':
+        return <span className="bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-md text-[10px] font-bold">بطاقة بنكية</span>;
+      default:
+        return <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-bold">دفع إلكتروني</span>;
+    }
+  };
+
+  // Full destination address
+  const fullDestination = [
+    order.deliveryAddress || order.ministry,
+    order.floorNumber ? `الدور ${order.floorNumber}` : '',
+    order.roomNumber ? `مكتب/غرفة ${order.roomNumber}` : '',
+  ].filter(Boolean).join(' • ') || 'العاصمة الإدارية';
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
-      {/* Header Bar */}
+    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all hover:border-slate-300">
+      {/* ── Top Bar / Header ── */}
       <div
         onClick={() => onToggle(!open)}
-        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/80 transition-colors"
+        className="p-3.5 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/70 transition-colors"
       >
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-            isWithCourier ? 'bg-blue-600 text-white shadow-xs' : 'bg-emerald-600 text-white shadow-xs'
+        <div className="flex items-start sm:items-center gap-3">
+          {/* Status Indicator Icon */}
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
+            isWithCourier ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'
           }`}>
-            <Bike size={20} />
+            <Bike size={20} className={isWithCourier ? 'animate-pulse' : ''} />
           </div>
+
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <strong className="text-sm font-black text-slate-900 font-mono">
                 #{order.orderNumber}
               </strong>
-              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border ${
+              <button
+                type="button"
+                onClick={handleCopyOrderNumber}
+                className="text-[10px] text-slate-500 hover:text-slate-700 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 flex items-center gap-1 cursor-pointer"
+                title="نسخ رقم الطلب"
+              >
+                {copied ? 'تم النسخ ✓' : <Copy size={11} />}
+              </button>
+
+              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border flex items-center gap-1 ${
                 isWithCourier
                   ? 'bg-blue-50 text-blue-800 border-blue-200'
                   : 'bg-emerald-50 text-emerald-800 border-emerald-200'
               }`}>
-                {isWithCourier ? '🛵 في الطريق للعميل' : '📦 جاهز ومكلف للكابتن'}
+                <span className={`w-1.5 h-1.5 rounded-full ${isWithCourier ? 'bg-blue-500 animate-ping' : 'bg-emerald-500'}`} />
+                <span>{isWithCourier ? 'في الطريق للعميل' : 'جاهز ومكلف للكابتن'}</span>
+              </span>
+
+              {renderPaymentBadge()}
+
+              <span className="text-xs font-mono font-black text-slate-800 mr-auto sm:mr-0">
+                {formatEGP(order.total)}
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              الكابتن: <strong className="text-slate-700">{order.courierName || 'كابتن توصيل'}</strong>
-              {order.profileName ? ` · العميل: ${order.profileName}` : ''}
-              {order.ministry ? ` · ${order.ministry}` : ''}
-            </p>
+
+            {/* Quick Summary Line (Cleaned Names) */}
+            <div className="text-xs text-slate-600 mt-1 flex items-center gap-2 flex-wrap">
+              <span>
+                الكابتن: <strong className="text-slate-900 font-bold">{courierName}</strong>
+              </span>
+              <span>•</span>
+              <span>
+                العميل: <strong className="text-slate-900 font-bold">{customerName}</strong>
+              </span>
+              <span>•</span>
+              <span className="text-slate-500 max-w-[280px] truncate" title={fullDestination}>
+                📍 {fullDestination}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-auto" onClick={e => e.stopPropagation()}>
+        {/* Action Controls & Contact Buttons */}
+        <div className="flex items-center gap-2 self-end md:self-auto shrink-0" onClick={e => e.stopPropagation()}>
+          {/* Direct Courier Call */}
           {courierPhone && (
             <a
               href={`tel:${courierPhone}`}
-              className="px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
+              className="px-2.5 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-bold flex items-center gap-1 transition-colors"
+              title="اتصال هاتفي بالكابتن"
             >
               <Phone size={13} />
-              <span>اتصال بالكابتن</span>
+              <span className="hidden sm:inline">اتصال بالكابتن</span>
             </a>
           )}
+
+          {/* Courier WhatsApp */}
+          {courierWaUrl && (
+            <a
+              href={courierWaUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1 transition-colors"
+              title="محادثة واتساب مع الكابتن"
+            >
+              <MessageCircle size={13} />
+              <span className="hidden sm:inline">واتساب</span>
+            </a>
+          )}
+
+          {/* Customer Call */}
           {customerPhone && (
             <a
               href={`tel:${customerPhone}`}
-              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 transition-colors"
+              title="اتصال هاتفي بالعميل"
             >
               <Phone size={13} />
-              <span>العميل</span>
+              <span className="hidden sm:inline">العميل</span>
             </a>
           )}
+
+          {/* Expand Toggle */}
           <button
             type="button"
             onClick={() => onToggle(!open)}
             className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold transition-colors cursor-pointer"
-            title={open ? "إخفاء الخريطة" : "عرض الخريطة الحية"}
+            title={open ? "طي البطاقة" : "فتح التفاصيل والخريطة"}
           >
             {open ? "▲" : "▼"}
           </button>
         </div>
       </div>
 
-      {/* Expanded Live Tracking Map */}
+      {/* ── Expanded Deep Dossier ── */}
       {open && (
-        <div className="border-t border-slate-100 p-3 sm:p-4 bg-slate-50/50">
-          <OrderMap
-            merchant
-            order={{
-              id: order.id,
-              orderStatus: order.orderStatus,
-              coordinates: order.coordinates,
-              courierId: order.courierId
-            }}
-          />
+        <div className="border-t border-slate-200/80 bg-slate-50/40 p-4 space-y-4">
+          {/* Dossier Grid: Customer & Courier Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* 1. Customer Dossier Card */}
+            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-2xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                  <User size={14} className="text-blue-600" />
+                  <span>بيانات العميل ووجهة التسليم</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {order.createdAt ? new Date(order.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : ''}
+                </span>
+              </div>
+
+              <div className="space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">اسم العميل:</span>
+                  <strong className="text-slate-900">{customerName}</strong>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">رقم الهاتف:</span>
+                  <div className="flex items-center gap-2">
+                    <span dir="ltr" className="font-mono text-slate-700">{customerPhone || 'غير متوفر'}</span>
+                    {customerPhone && (
+                      <a href={`tel:${customerPhone}`} className="text-blue-600 hover:underline text-[11px] font-bold">
+                        اتصال
+                      </a>
+                    )}
+                    {customerWaUrl && (
+                      <a href={customerWaUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline text-[11px] font-bold">
+                        واتساب
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-slate-500 shrink-0">عنوان التوصيل:</span>
+                  <span className="text-slate-800 font-medium text-left text-[11px]">
+                    {fullDestination}
+                  </span>
+                </div>
+
+                {order.notes && (
+                  <div className="p-2 bg-amber-50/80 border border-amber-200/80 rounded-lg text-[11px] text-amber-900">
+                    <strong className="block text-amber-950 font-bold">ملاحظة العميل:</strong>
+                    <span>{order.notes}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 2. Courier Dossier Card & Reassignment */}
+            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-2xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                  <Bike size={14} className="text-orange-600" />
+                  <span>كابتن التوصيل والمسار</span>
+                </span>
+
+                {/* Inline Reassignment Toggle Button */}
+                {onAssignCourier && (
+                  <button
+                    type="button"
+                    onClick={() => setIsReassigning(!isReassigning)}
+                    className="text-[10px] font-bold text-orange-600 hover:text-orange-700 hover:bg-orange-50 px-2 py-0.5 rounded border border-orange-200 transition-colors cursor-pointer"
+                  >
+                    {isReassigning ? 'إلغاء التغيير ✕' : 'تغيير الكابتن ↺'}
+                  </button>
+                )}
+              </div>
+
+              {/* Reassignment Dropdown Panel */}
+              {isReassigning && onAssignCourier ? (
+                <div className="p-2.5 bg-orange-50/80 border border-orange-200 rounded-xl space-y-2">
+                  <label className="text-[11px] font-bold text-orange-950 block">
+                    اختر كابتن متاح لإعادة تكليفه بهذا الطلب:
+                  </label>
+                  <div className="flex gap-1.5">
+                    <select
+                      value={selectedCourierId}
+                      onChange={(e) => setSelectedCourierId(e.target.value)}
+                      className="flex-1 text-xs border border-orange-300 rounded-lg p-1.5 bg-white text-slate-800 focus:outline-none"
+                    >
+                      <option value="">-- اختر كابتن توصيل --</option>
+                      {availableCouriers.map((c: any) => (
+                        <option key={c.id} value={c.id}>
+                          {cleanCourierName(c.name || c.full_name, c.phone)} {c.phone ? `(${c.phone})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={assignBusy || !selectedCourierId || selectedCourierId === order.courierId}
+                      onClick={() => void handleReassign(selectedCourierId)}
+                      className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-300 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      {assignBusy ? 'جارٍ…' : 'تأكيد'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">اسم الكابتن:</span>
+                    <strong className="text-slate-900">{courierName}</strong>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">هاتف الكابتن:</span>
+                    <div className="flex items-center gap-2">
+                      <span dir="ltr" className="font-mono text-slate-700">{courierPhone || 'غير متوفر'}</span>
+                      {courierPhone && (
+                        <a href={`tel:${courierPhone}`} className="text-orange-600 hover:underline text-[11px] font-bold">
+                          اتصال
+                        </a>
+                      )}
+                      {courierWaUrl && (
+                        <a href={courierWaUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline text-[11px] font-bold">
+                          واتساب
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">حالة الشحنة:</span>
+                    <span className="font-bold text-[11px]">
+                      {isWithCourier ? '🛵 الكابتن استلم الطلب وهو في الطريق للعميل' : '📦 الطلب جاهز بالمحل بانتظار استلام الكابتن'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Order Items & Invoice Breakdown */}
+          <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-2xs space-y-2.5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                <Package size={14} className="text-slate-600" />
+                <span>محتويات وأصناف الطلب ({order.items?.length || 0})</span>
+              </span>
+              <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                <span>الدفع:</span>
+                {renderPaymentBadge()}
+              </span>
+            </div>
+
+            {/* Items List */}
+            <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto">
+              {(order.items || []).map((item, idx) => (
+                <div key={item.id || idx} className="py-2 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-black flex items-center justify-center font-mono">
+                      {item.quantity}×
+                    </span>
+                    <span className="font-bold text-slate-900">{item.product?.name || 'صنف'}</span>
+                    {item.notes && <span className="text-[10px] text-amber-600">({item.notes})</span>}
+                  </div>
+                  <span className="font-mono text-slate-700 font-bold">
+                    {formatEGP((item.product?.price || 0) * item.quantity)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Financial Summary */}
+            <div className="border-t border-slate-100 pt-2 flex items-center justify-between text-xs font-bold">
+              <div className="text-slate-500 flex items-center gap-3">
+                <span>قيمة الأصناف: <strong className="text-slate-800 font-mono">{formatEGP(order.subtotal || (order.total - (order.deliveryFee || 0)))}</strong></span>
+                {typeof order.deliveryFee === 'number' && (
+                  <span>التوصيل: <strong className="text-slate-800 font-mono">{formatEGP(order.deliveryFee)}</strong></span>
+                )}
+              </div>
+              <div className="text-sm font-black text-slate-900 flex items-center gap-1">
+                <span>الإجمالي:</span>
+                <span className="font-mono text-orange-600">{formatEGP(order.total)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive Live Map */}
+          <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                <Navigation size={14} className="text-blue-600" />
+                <span>الخريطة والمسار المباشر للطلب #{order.orderNumber}</span>
+              </span>
+              <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>تحديث موقع الكابتن لحظي عبر GPS</span>
+              </span>
+            </div>
+
+            <OrderMap
+              merchant
+              order={{
+                id: order.id,
+                orderStatus: order.orderStatus,
+                coordinates: order.coordinates,
+                courierId: order.courierId
+              }}
+            />
+          </div>
         </div>
       )}
     </div>

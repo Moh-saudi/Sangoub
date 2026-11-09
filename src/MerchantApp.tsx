@@ -5,6 +5,7 @@ import { PreparationTasks } from './components/PreparationTasks';
 import { LoadingState, ErrorState, EmptyState, ConnectionState } from './components/ui/DataStates';
 import { operationsApi } from './lib/operationsApi';
 import { triggerPwaUpdate } from './lib/pwaAutoUpdate';
+import { cleanCourierName, cleanCustomerName } from './utils/sanitizeName';
 import { BRAND } from './brand';
 import { MerchantLoginLayout } from './components/MerchantLoginLayout';
 import React, { useEffect, useState, useRef } from "react";
@@ -241,7 +242,7 @@ export default function MerchantApp() {
 
             setCouriers(isolatedCouriers.map((c: any) => ({
               id: c.id,
-              name: c.full_name || 'كابتن توصيل',
+              name: cleanCourierName(c.full_name, c.phone),
               phone: c.phone || '',
               avatarUrl: c.avatar_url,
               vehicleType: c.vehicle_type,

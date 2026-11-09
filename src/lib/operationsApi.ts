@@ -2,6 +2,7 @@ import { authenticatedApi } from './authenticatedApi';
 import { supabase, resolveSupabaseStoreUuid } from './supabase';
 import systemAccounts from '../data/systemAccounts.json';
 import { defaultCustomerHome } from '../types/appContent';
+import { cleanCourierName, cleanCustomerName } from '../utils/sanitizeName';
 
 function mapOrderRow(row: any) {
   const appStatus = row.status === 'assigned' || row.status === 'picked_up' || row.status === 'with_courier' ? 'with_courier' : (row.status || 'received');
@@ -10,10 +11,10 @@ function mapOrderRow(row: any) {
   return {
     id: row.id,
     profileId: row.customer_id,
-    profileName: row.customer_name || '',
+    profileName: cleanCustomerName(row.customer_name, row.customer_phone, row.customer_email),
     phone: row.customer_phone || '',
     courierId: row.courier_id || '',
-    courierName: row.courier_name || '',
+    courierName: cleanCourierName(row.courier_name, row.courier_phone),
     courierPhone: row.courier_phone || '',
     storeId: row.store_id,
     storeIds: row.store_ids || (row.store_id ? [row.store_id] : []),
@@ -318,13 +319,13 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     }
 
     if (body.action === 'assign-courier' && body.orderId && body.courierId) {
-      let courierName = body.courierName;
+      let courierName = cleanCourierName(body.courierName, body.courierPhone);
       let courierPhone = body.courierPhone;
-      if (!courierName || !courierPhone) {
+      if (!courierName || courierName === 'كابتن توصيل' || !courierPhone) {
         try {
           const { data: prof } = await supabase.from('profiles').select('full_name, phone').eq('id', body.courierId).maybeSingle();
           if (prof) {
-            courierName = courierName || prof.full_name || 'كابتن توصيل';
+            courierName = cleanCourierName(body.courierName || prof.full_name, prof.phone);
             courierPhone = courierPhone || prof.phone || '';
           }
         } catch {}
@@ -332,7 +333,7 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
 
       const { error: updateErr } = await supabase.from('orders').update({
         courier_id: body.courierId,
-        courier_name: courierName || 'كابتن توصيل',
+        courier_name: courierName,
         courier_phone: courierPhone || null,
         status: body.nextStatus || 'ready',
         updated_at: new Date().toISOString()
