@@ -207,7 +207,7 @@ export function OperationsDashboard({ orders, stores, couriers, connected, onNav
                 <p>كل الطلبات النشطة، عبر جميع الأيام</p>
               </div>
               <button className="admin-text-button btn btn-link" onClick={() => onNavigate("kitchen")}>
-                <ChefHat size={16} />فتح المطبخ
+                <ChefHat size={16} />شاشة تجهيز الطلبات
               </button>
             </div>
             <div className="ops-pipeline">

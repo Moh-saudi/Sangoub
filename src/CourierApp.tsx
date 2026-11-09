@@ -1,5 +1,7 @@
 import { supabase, signOutFromSupabase } from './lib/supabase';
 import { CourierTracking } from './components/CourierTracking';
+import { OrderMap } from './components/OrderMap';
+import { cleanCustomerName } from './utils/sanitizeName';
 import { useEffect, useRef, useState } from 'react';
 import { operationsApi } from './lib/operationsApi';
 import { orderDelivery } from './lib/orderDelivery';
@@ -44,7 +46,8 @@ import {
   X,
   Upload,
   Bell,
-  Inbox
+  Inbox,
+  MessageCircle
 } from 'lucide-react';
 
 const states: Record<string, { label: string; color: string; icon: any }> = {
@@ -146,6 +149,12 @@ export default function CourierApp() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const unreadNotificationsCount = notifications.filter(n => !n.read).length;
+
+  // In-App Map expansion toggle per order
+  const [openMaps, setOpenMaps] = useState<Record<string, boolean>>({});
+  const toggleMap = (orderId: string) => {
+    setOpenMaps(prev => ({ ...prev, [orderId]: !prev[orderId] }));
+  };
 
   const mutation = useRef(false);
   const generation = useRef(0);
@@ -1040,15 +1049,21 @@ export default function CourierApp() {
                         <div className="min-w-0 flex-1">
                           <div className="text-[11px] font-bold text-slate-400">وجهة التسليم (العميل)</div>
                           <div className="text-xs sm:text-sm font-bold text-slate-900">
-                            {order.profileName || 'عميل سنجوب'}
+                            {cleanCustomerName(order.profileName, order.phone)}
                           </div>
-                          <p className="text-xs text-slate-600 mt-0.5">
-                            {order.deliveryAddress || order.ministry || 'العاصمة وكافة المناطق'}
+                          <p className="text-xs text-slate-700 font-medium mt-0.5">
+                            {order.deliveryAddress || order.ministry || 'العاصمة الإدارية وكافة المناطق'}
                           </p>
                           {order.floorNumber && order.floorNumber !== 'غير محدد' && (
                             <div className="inline-flex items-center gap-1.5 mt-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-medium text-slate-700">
-                              <span>الدور / الشقة:</span>
+                              <span>الدور / الشقة / المكتب:</span>
                               <strong>{[order.floorNumber, order.roomNumber].filter(x => x && x !== 'غير محدد').join(' · ')}</strong>
+                            </div>
+                          )}
+                          {order.notes && (
+                            <div className="mt-1.5 p-1.5 rounded-lg bg-amber-50 border border-amber-200/80 text-[11px] text-amber-900">
+                              <span className="font-bold text-amber-950">ملاحظة العميل: </span>
+                              <span>{order.notes}</span>
                             </div>
                           )}
                         </div>
@@ -1056,29 +1071,86 @@ export default function CourierApp() {
                     </div>
 
                     {/* Quick Contact & Navigation Buttons */}
-                    <div className="flex items-center gap-2 mb-3">
-                      {order.phone && (
-                        <a
-                          href={`tel:${String(order.phone).replace(/[^+0-9]/g, '')}`}
-                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/90 text-emerald-800 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                        >
-                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>اتصال بالعميل</span>
-                        </a>
-                      )}
+                    {(() => {
+                      const custName = cleanCustomerName(order.profileName, order.phone);
+                      const cleanPhone = String(order.phone || '').replace(/\D/g, '');
+                      const waPhone = cleanPhone.startsWith('01') ? '2' + cleanPhone : cleanPhone;
+                      const custWaUrl = waPhone
+                        ? `https://wa.me/${waPhone}?text=${encodeURIComponent(`السلام عليكم ${custName}، معكم كابتن سنجوب لتوصيل طلبكم #${order.orderNumber}`)}`
+                        : '';
+                      const mapsUrl = (order.coordinates?.latitude && order.coordinates?.longitude)
+                        ? `https://www.google.com/maps/dir/?api=1&destination=${order.coordinates.latitude},${order.coordinates.longitude}`
+                        : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([order.deliveryAddress || order.ministry, order.district, 'العاصمة الإدارية', 'مصر'].filter(Boolean).join(', '))}`;
 
-                      {order.coordinates && (
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${order.coordinates.latitude},${order.coordinates.longitude}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                        >
-                          <Navigation className="w-3.5 h-3.5 text-slate-600" />
-                          <span>توجيه الخريطة</span>
-                        </a>
-                      )}
-                    </div>
+                      return (
+                        <div className="space-y-2 mb-3">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {order.phone && (
+                              <a
+                                href={`tel:${cleanPhone}`}
+                                className="py-2 px-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200/90 text-blue-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                title="اتصال هاتفي بالعميل"
+                              >
+                                <Phone className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                <span>اتصال هاتفي</span>
+                              </a>
+                            )}
+
+                            {custWaUrl && (
+                              <a
+                                href={custWaUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="py-2 px-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/90 text-emerald-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                title="محادثة واتساب سريعة مع العميل"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>واتساب العميل</span>
+                              </a>
+                            )}
+
+                            <a
+                              href={mapsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="py-2 px-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-2xs cursor-pointer col-span-2 sm:col-span-1"
+                              title="فتح موقع العميل مباشرة في خرائط Google"
+                            >
+                              <Navigation className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                              <span>ملاحة Google Maps</span>
+                            </a>
+                          </div>
+
+                          {/* In-App Interactive Route Map Toggle */}
+                          <button
+                            type="button"
+                            onClick={() => toggleMap(order.id)}
+                            className="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200/80 text-slate-700 text-xs font-bold flex items-center justify-between transition-colors cursor-pointer"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                              <span>خريطة ومسار التوصيل المباشر</span>
+                            </span>
+                            <span className="text-[11px] text-orange-600 font-black">
+                              {openMaps[order.id] ? 'إخفاء الخريطة ▲' : 'عرض الخريطة 🗺️ ▼'}
+                            </span>
+                          </button>
+
+                          {openMaps[order.id] && (
+                            <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-2xs">
+                              <OrderMap
+                                order={{
+                                  id: order.id,
+                                  orderStatus: order.orderStatus,
+                                  coordinates: order.coordinates,
+                                  courierId: courierProfile?.id
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Order Items Accordion */}
                     <div className="border border-slate-100 rounded-2xl p-3 mb-3 bg-slate-50/50">

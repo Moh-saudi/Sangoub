@@ -500,7 +500,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 
   const [trackingOrderId,setTrackingOrderId] = useState("");
   const [radarViewMode, setRadarViewMode] = useState<'cards' | 'map'>('cards');
-  const [radarFilter, setRadarFilter] = useState<'all' | 'in_transit' | 'ready'>('all');
+  const [radarFilter, setRadarFilter] = useState<'all' | 'in_transit' | 'ready' | 'delivered'>('all');
   const [radarSearch, setRadarSearch] = useState('');
   const sections=[['dashboard','الرئيسية'],['kitchen','الطلبات'],['menu','المنتجات والأسعار'],['offers','العروض والتخفيضات'],['inventory','المخزون'],['customers','العملاء'],['accounting','التقارير'],['payments','المدفوعات'],['settings','الإعدادات'],['support','الدعم والمساعدة']] as const;
   const slugs:Record<string,string>={dashboard:'dashboard',kitchen:'orders',menu:'products',offers:'offers',inventory:'inventory',customers:'customers',accounting:'reports',payments:'payments',settings:'settings',support:'support',radar:'tracking',storeCouriers:'couriers'};
@@ -3114,13 +3114,16 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
 
             const inTransit = orders.filter(o => isStoreOrder(o) && (o.orderStatus === 'with_courier' || o.orderStatus === 'picked_up'));
             const readyAssigned = orders.filter(o => isStoreOrder(o) && o.orderStatus === 'ready' && Boolean(o.courierId));
-            const allActiveStoreOrders = [...inTransit, ...readyAssigned];
+            const deliveredOrders = orders.filter(o => isStoreOrder(o) && o.orderStatus === 'delivered');
+            const allActiveStoreOrders = [...inTransit, ...readyAssigned, ...deliveredOrders];
 
             // Apply Status Filter
             const statusFiltered = radarFilter === 'in_transit'
               ? inTransit
               : radarFilter === 'ready'
               ? readyAssigned
+              : radarFilter === 'delivered'
+              ? deliveredOrders
               : allActiveStoreOrders;
 
             // Apply Search Query
@@ -3136,12 +3139,13 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
             });
 
             return (
-              <div className="space-y-4">
-                {/* 3 Metric Summary Badges */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="space-y-3">
+                {/* 4 Sleek Compact Metric Summary Badges */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                  {/* 1. In Transit */}
                   <div
                     onClick={() => setRadarFilter(f => f === 'in_transit' ? 'all' : 'in_transit')}
-                    className={`bg-white rounded-2xl p-4 border transition-all cursor-pointer shadow-2xs ${
+                    className={`bg-white rounded-xl p-2.5 sm:p-3 border transition-all cursor-pointer shadow-2xs flex flex-col justify-between ${
                       radarFilter === 'in_transit' ? 'border-blue-500 ring-2 ring-blue-100 bg-blue-50/20' : 'border-blue-200/80 hover:border-blue-300'
                     }`}
                   >
@@ -3149,48 +3153,65 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                       <span className="text-[11px] font-bold text-blue-700">في الطريق للعميل</span>
                       <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
                     </div>
-                    <div className="text-2xl font-black text-blue-900 font-mono mt-1">{inTransit.length}</div>
-                    <span className="text-[10px] text-slate-400">رحلات جارية بالرادار الآن</span>
+                    <div className="text-xl sm:text-2xl font-black text-blue-900 font-mono mt-0.5">{inTransit.length}</div>
+                    <span className="text-[10px] text-slate-400">رحلات جارية بالرادار</span>
                   </div>
 
+                  {/* 2. Ready for Captain */}
                   <div
                     onClick={() => setRadarFilter(f => f === 'ready' ? 'all' : 'ready')}
-                    className={`bg-white rounded-2xl p-4 border transition-all cursor-pointer shadow-2xs ${
-                      radarFilter === 'ready' ? 'border-emerald-500 ring-2 ring-emerald-100 bg-emerald-50/20' : 'border-emerald-200/80 hover:border-emerald-300'
+                    className={`bg-white rounded-xl p-2.5 sm:p-3 border transition-all cursor-pointer shadow-2xs flex flex-col justify-between ${
+                      radarFilter === 'ready' ? 'border-amber-500 ring-2 ring-amber-100 bg-amber-50/20' : 'border-amber-200/80 hover:border-amber-300'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-emerald-700">جاهز ومكلّف لكابتن</span>
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="text-[11px] font-bold text-amber-700">جاهز ومكلّف لكابتن</span>
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
                     </div>
-                    <div className="text-2xl font-black text-emerald-900 font-mono mt-1">{readyAssigned.length}</div>
+                    <div className="text-xl sm:text-2xl font-black text-amber-900 font-mono mt-0.5">{readyAssigned.length}</div>
                     <span className="text-[10px] text-slate-400">بانتظار الاستلام والانطلاق</span>
                   </div>
 
+                  {/* 3. Delivered */}
                   <div
-                    onClick={() => setRadarFilter('all')}
-                    className={`bg-white rounded-2xl p-4 border transition-all cursor-pointer shadow-2xs col-span-2 sm:col-span-1 ${
-                      radarFilter === 'all' ? 'border-slate-800 ring-2 ring-slate-100' : 'border-slate-200 hover:border-slate-300'
+                    onClick={() => setRadarFilter(f => f === 'delivered' ? 'all' : 'delivered')}
+                    className={`bg-white rounded-xl p-2.5 sm:p-3 border transition-all cursor-pointer shadow-2xs flex flex-col justify-between ${
+                      radarFilter === 'delivered' ? 'border-emerald-500 ring-2 ring-emerald-100 bg-emerald-50/20' : 'border-emerald-200/80 hover:border-emerald-300'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-700">إجمالي قيد المتابعة</span>
+                      <span className="text-[11px] font-bold text-emerald-700">تم التسليم بنجاح</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    </div>
+                    <div className="text-xl sm:text-2xl font-black text-emerald-900 font-mono mt-0.5">{deliveredOrders.length}</div>
+                    <span className="text-[10px] text-slate-400">طلبات مكتملة ومسلمة</span>
+                  </div>
+
+                  {/* 4. Total */}
+                  <div
+                    onClick={() => setRadarFilter('all')}
+                    className={`bg-white rounded-xl p-2.5 sm:p-3 border transition-all cursor-pointer shadow-2xs flex flex-col justify-between ${
+                      radarFilter === 'all' ? 'border-slate-800 ring-2 ring-slate-100 bg-slate-50/30' : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700">إجمالي المتابعة</span>
                       <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-bold text-slate-600">الكل</span>
                     </div>
-                    <div className="text-2xl font-black text-slate-900 font-mono mt-1">{allActiveStoreOrders.length}</div>
-                    <span className="text-[10px] text-slate-400">طلبات نشطة لمتجرك</span>
+                    <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">{allActiveStoreOrders.length}</div>
+                    <span className="text-[10px] text-slate-400">كافة طلبات الرادار</span>
                   </div>
                 </div>
 
                 {/* Filter & Search Bar */}
                 {allActiveStoreOrders.length > 0 && radarViewMode === 'cards' && (
-                  <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+                  <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
                     {/* Status Tabs */}
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <button
                         type="button"
                         onClick={() => setRadarFilter('all')}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                           radarFilter === 'all'
                             ? 'bg-slate-900 text-white shadow-2xs'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -3201,7 +3222,7 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                       <button
                         type="button"
                         onClick={() => setRadarFilter('in_transit')}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                           radarFilter === 'in_transit'
                             ? 'bg-blue-600 text-white shadow-2xs'
                             : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/60'
@@ -3212,18 +3233,29 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
                       <button
                         type="button"
                         onClick={() => setRadarFilter('ready')}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                           radarFilter === 'ready'
-                            ? 'bg-emerald-600 text-white shadow-2xs'
-                            : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/60'
+                            ? 'bg-amber-600 text-white shadow-2xs'
+                            : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/60'
                         }`}
                       >
                         جاهز للكابتن ({readyAssigned.length})
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setRadarFilter('delivered')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          radarFilter === 'delivered'
+                            ? 'bg-emerald-600 text-white shadow-2xs'
+                            : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/60'
+                        }`}
+                      >
+                        تم التسليم ({deliveredOrders.length})
+                      </button>
                     </div>
 
                     {/* Search Input */}
-                    <div className="relative min-w-[220px] flex-1 sm:flex-initial">
+                    <div className="relative min-w-[200px] flex-1 sm:flex-initial">
                       <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
                         type="text"
@@ -3526,6 +3558,7 @@ function MerchantOrderTracking({
   const [assignBusy, setAssignBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const isDelivered = order.orderStatus === 'delivered';
   const isWithCourier = order.orderStatus === 'with_courier' || order.orderStatus === 'picked_up';
   const courierName = cleanCourierName(order.courierName, order.courierPhone);
   const customerName = cleanCustomerName(order.profileName, order.phone);
@@ -3597,14 +3630,14 @@ function MerchantOrderTracking({
       {/* ── Top Bar / Header ── */}
       <div
         onClick={() => onToggle(!open)}
-        className="p-3.5 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/70 transition-colors"
+        className="p-3 sm:p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-2.5 cursor-pointer hover:bg-slate-50/70 transition-colors"
       >
         <div className="flex items-start sm:items-center gap-3">
           {/* Status Indicator Icon */}
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
-            isWithCourier ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'
+          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
+            isDelivered ? 'bg-emerald-600 text-white' : isWithCourier ? 'bg-blue-600 text-white' : 'bg-amber-600 text-white'
           }`}>
-            <Bike size={20} className={isWithCourier ? 'animate-pulse' : ''} />
+            {isDelivered ? <CheckCircle2 size={19} /> : <Bike size={19} className={isWithCourier ? 'animate-pulse' : ''} />}
           </div>
 
           <div>
@@ -3622,12 +3655,14 @@ function MerchantOrderTracking({
               </button>
 
               <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border flex items-center gap-1 ${
-                isWithCourier
+                isDelivered
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : isWithCourier
                   ? 'bg-blue-50 text-blue-800 border-blue-200'
-                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
               }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isWithCourier ? 'bg-blue-500 animate-ping' : 'bg-emerald-500'}`} />
-                <span>{isWithCourier ? 'في الطريق للعميل' : 'جاهز ومكلف للكابتن'}</span>
+                <span className={`w-1.5 h-1.5 rounded-full ${isDelivered ? 'bg-emerald-500' : isWithCourier ? 'bg-blue-500 animate-ping' : 'bg-amber-500'}`} />
+                <span>{isDelivered ? 'تم التسليم بنجاح ✓' : isWithCourier ? 'في الطريق للعميل' : 'جاهز ومكلف للكابتن'}</span>
               </span>
 
               {renderPaymentBadge()}
@@ -3646,6 +3681,14 @@ function MerchantOrderTracking({
               <span>
                 العميل: <strong className="text-slate-900 font-bold">{customerName}</strong>
               </span>
+              {isDelivered && (
+                <>
+                  <span>•</span>
+                  <span className="text-emerald-700 font-bold">
+                    وقت التسليم: {new Date(order.deliveredAt || order.updatedAt || order.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </>
+              )}
               <span>•</span>
               <span className="text-slate-500 max-w-[280px] truncate" title={fullDestination}>
                 📍 {fullDestination}
@@ -3708,7 +3751,25 @@ function MerchantOrderTracking({
 
       {/* ── Expanded Deep Dossier ── */}
       {open && (
-        <div className="border-t border-slate-200/80 bg-slate-50/40 p-4 space-y-4">
+        <div className="border-t border-slate-200/80 bg-slate-50/40 p-3 sm:p-4 space-y-3 sm:space-y-4">
+          {/* Delivered Status Notice */}
+          {isDelivered && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                <div>
+                  <strong className="block font-black text-emerald-950 text-xs sm:text-sm">تم توصيل وتسليم هذا الطلب للعميل بنجاح ✓</strong>
+                  <span className="text-[11px] text-emerald-700">
+                    وقت التسليم المؤكد: {new Date(order.deliveredAt || order.updatedAt || order.createdAt).toLocaleString('ar-EG', { timeZone: 'Africa/Cairo', dateStyle: 'short', timeStyle: 'short' })}
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs font-black bg-white px-2.5 py-1 rounded-lg text-emerald-800 border border-emerald-200 font-mono">
+                {formatEGP(order.total)}
+              </span>
+            </div>
+          )}
+
           {/* Dossier Grid: Customer & Courier Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* 1. Customer Dossier Card */}
@@ -3770,8 +3831,8 @@ function MerchantOrderTracking({
                   <span>كابتن التوصيل والمسار</span>
                 </span>
 
-                {/* Inline Reassignment Toggle Button */}
-                {onAssignCourier && (
+                {/* Inline Reassignment Toggle Button (Only for active non-delivered orders) */}
+                {onAssignCourier && !isDelivered && (
                   <button
                     type="button"
                     onClick={() => setIsReassigning(!isReassigning)}
@@ -3783,7 +3844,7 @@ function MerchantOrderTracking({
               </div>
 
               {/* Reassignment Dropdown Panel */}
-              {isReassigning && onAssignCourier ? (
+              {isReassigning && onAssignCourier && !isDelivered ? (
                 <div className="p-2.5 bg-orange-50/80 border border-orange-200 rounded-xl space-y-2">
                   <label className="text-[11px] font-bold text-orange-950 block">
                     اختر كابتن متاح لإعادة تكليفه بهذا الطلب:
@@ -3838,7 +3899,11 @@ function MerchantOrderTracking({
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">حالة الشحنة:</span>
                     <span className="font-bold text-[11px]">
-                      {isWithCourier ? '🛵 الكابتن استلم الطلب وهو في الطريق للعميل' : '📦 الطلب جاهز بالمحل بانتظار استلام الكابتن'}
+                      {isDelivered
+                        ? '✅ تم تسليم الطلب للعميل بنجاح'
+                        : isWithCourier
+                        ? '🛵 الكابتن استلم الطلب وهو في الطريق للعميل'
+                        : '📦 الطلب جاهز بالمحل بانتظار استلام الكابتن'}
                     </span>
                   </div>
                 </div>

@@ -106,7 +106,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
                 </span>
               )}
             </div>
-            <span className="text-[11px] mt-0.5 tracking-tight">مطبخ المطعم</span>
+            <span className="text-[11px] mt-0.5 tracking-tight">تجهيز الطلبات</span>
           </button>
 
           <button

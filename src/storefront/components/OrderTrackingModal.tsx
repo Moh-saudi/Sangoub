@@ -21,6 +21,7 @@ import {
 import type { OrderStatus } from '../../types';
 import { playAirportChime } from '../../utils/audioAlerts';
 import { deriveOrderOtp, orderDelivery } from '../../lib/orderDelivery';
+import { cleanCourierName } from '../../utils/sanitizeName';
 
 export interface TrackableOrder {
   orderId: string;
@@ -387,19 +388,54 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
                 })}
               </div>
 
-              {/* Current Stage Narrative Card */}
-              <div className="mt-4 p-3 bg-gradient-to-r from-orange-50/80 via-white to-amber-50/60 border border-orange-100 rounded-xl text-center space-y-1">
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-orange-500 text-white">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                  {STAGES[Math.max(0, activeStageIndex)].title}
-                </span>
-                <p className="text-xs font-black text-slate-800 leading-snug">
-                  {STAGES[Math.max(0, activeStageIndex)].desc}
-                </p>
-                <p className="text-[10px] text-slate-500">
-                  المتجر: <strong className="text-slate-700">{storeDisplayName}</strong> • الوقت المقدر: 15-25 دقيقة
-                </p>
-              </div>
+              {/* Current Stage Narrative Card / Delivered Completion Dossier */}
+              {activeStageIndex === 3 || currentStatus === 'delivered' ? (
+                <div className="mt-4 p-3.5 bg-gradient-to-r from-emerald-50 via-white to-teal-50 border border-emerald-200 rounded-xl space-y-2 text-right">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white shadow-2xs">
+                      <CheckCircle2 size={12} />
+                      <span>تم تسليم الطلب بنجاح ✓</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-800 font-bold">
+                      {order.time ? `التوقيت: ${order.time}` : 'اكتملت الرحلة'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-slate-700 pt-1.5 border-t border-emerald-100">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">المتجر:</span>
+                      <strong className="text-slate-900">{storeDisplayName}</strong>
+                    </div>
+                    {order.courierName && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">كابتن التوصيل:</span>
+                        <strong className="text-slate-900">{cleanCourierName(order.courierName, order.courierPhone)}</strong>
+                      </div>
+                    )}
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-slate-500 shrink-0">مكان الاستلام:</span>
+                      <span className="text-slate-800 font-medium text-left text-[11px]">{order.destination}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-emerald-800 font-bold pt-0.5">
+                      <span>إجمالي الفاتورة:</span>
+                      <span className="font-mono">{formatEGP(order.total)}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 p-3 bg-gradient-to-r from-orange-50/80 via-white to-amber-50/60 border border-orange-100 rounded-xl text-center space-y-1">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-orange-500 text-white">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                    {STAGES[Math.max(0, activeStageIndex)].title}
+                  </span>
+                  <p className="text-xs font-black text-slate-800 leading-snug">
+                    {STAGES[Math.max(0, activeStageIndex)].desc}
+                  </p>
+                  <p className="text-[10px] text-slate-500">
+                    المتجر: <strong className="text-slate-700">{storeDisplayName}</strong> • الوقت المقدر: 15-25 دقيقة
+                  </p>
+                </div>
+              )}
 
               {/* Secret Delivery OTP Code for Handover */}
               {activeStageIndex >= 1 && activeStageIndex < 3 && otpCode && (

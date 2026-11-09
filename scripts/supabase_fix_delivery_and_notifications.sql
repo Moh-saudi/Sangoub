@@ -161,3 +161,4 @@ CREATE TRIGGER trg_orders_lifecycle_notifications
   AFTER UPDATE OF status ON public.orders
   FOR EACH ROW
   EXECUTE FUNCTION public.trg_notify_order_events();
+

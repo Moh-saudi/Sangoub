@@ -528,8 +528,8 @@ export const CartModal: React.FC<CartModalProps> = ({
                         حدد ساعة التسليم المطلوبة:
                       </label>
                       <span className="text-[10px] text-slate-500">
-                        يبدأ المطبخ في التجهيز قبل الموعد بـ 25 دقيقة لضمان وصول
-                        الوجبة ساخنة
+                        يبدأ المتجر في التجهيز قبل الموعد بـ 25 دقيقة لضمان وصول
+                        الطلب في أفضل حالة
                       </span>
                     </div>
                     <input
@@ -544,7 +544,7 @@ export const CartModal: React.FC<CartModalProps> = ({
                 <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 flex items-center gap-2">
                   <CalendarClock className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>
-                    سيتم حجز طلبك في مطبخ المطعم وتجهيزه ليصل إلى{" "}
+                    سيتم حجز طلبك وتجهيزه بعناية في المتجر ليصل إلى{" "}
                     <strong>
                       {ministry} ({floorNumber})
                     </strong>{" "}

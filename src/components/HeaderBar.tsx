@@ -158,7 +158,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 }`}
               >
                 <ChefHat className="w-3.5 h-3.5" />
-                <span>المطبخ</span>
+                <span>تجهيز الطلبات</span>
               </button>
             )}
 
