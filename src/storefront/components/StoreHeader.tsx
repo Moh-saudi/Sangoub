@@ -57,7 +57,13 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      if (currentPath !== '/') {
+        navigate('/');
+      }
+      setTimeout(() => {
+        const el = document.getElementById('search-results-section') || document.getElementById('products-grid') || document.getElementById('mobile-products-grid');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
   };
 
@@ -321,21 +327,32 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({
               </button>
             </div>
 
-            {/* Mobile Search Input */}
-            <form onSubmit={handleSearchSubmit} className="flex items-center w-full bg-[#F3F4F6] rounded-xl border border-[#E5E7EB] focus-within:border-[#FF5900] focus-within:bg-white p-1">
-              <Search size={15} className="text-[#9CA3AF] mr-2 shrink-0 pointer-events-none" />
+            {/* Mobile Search Input (Sleek Compact Height & Visible Search Button) */}
+            <form onSubmit={handleSearchSubmit} className="flex items-center w-full bg-[#F3F4F6] rounded-xl border border-[#E5E7EB] focus-within:border-[#FF5900] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#FF5900]/15 transition-all px-2 py-0.5 h-9">
+              <Search size={14} className="text-[#9CA3AF] ml-1.5 shrink-0 pointer-events-none" />
               <input
                 type="search"
                 style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
-                className="w-full bg-transparent text-xs text-[#111827] placeholder-[#9CA3AF] px-2 py-1 !outline-none !border-none !ring-0 !shadow-none font-medium"
-                placeholder="ابحث عن صنف أو بقالة…"
+                className="w-full bg-transparent text-xs text-[#111827] placeholder-[#9CA3AF] !outline-none !border-none !ring-0 !shadow-none font-medium h-full"
+                placeholder="ابحث عن صنف، قسم، بقالة، أو عرض…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="بحث"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-[#9CA3AF] hover:text-[#111827] text-xs font-bold px-1.5 cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
               <button 
                 type="submit" 
-                className="px-3 py-1 bg-[#FF5900] text-white rounded-lg text-xs font-bold shrink-0"
+                className="h-7 px-2.5 bg-[#FF5900] hover:bg-[#E04E00] active:scale-95 text-white rounded-lg text-xs font-bold shrink-0 flex items-center justify-center cursor-pointer transition-all shadow-2xs mr-0.5"
+                aria-label="بحث"
+                title="تنفيذ البحث"
               >
                 بحث
               </button>

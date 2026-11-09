@@ -185,34 +185,92 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     ).slice(0, 8);
   }, [products]);
 
-  // Filtered products list
+  // Comprehensive Search across products, categories, offers, and stores
+  const isSearchActive = Boolean(searchQuery.trim());
+
+  // Matching categories when searching
+  const matchingCategories = useMemo(() => {
+    if (!isSearchActive) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return supermarketCategories.filter((c) =>
+      c.name_ar.toLowerCase().includes(q) ||
+      c.code.toLowerCase().includes(q)
+    );
+  }, [searchQuery, isSearchActive, supermarketCategories]);
+
+  // Matching stores when searching
+  const matchingStores = useMemo(() => {
+    if (!isSearchActive) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return stores.filter((s) =>
+      s.name.toLowerCase().includes(q) ||
+      (s.description && s.description.toLowerCase().includes(q)) ||
+      (s.category && s.category.toLowerCase().includes(q))
+    );
+  }, [searchQuery, isSearchActive, stores]);
+
+  // Filtered products list (Search in name, description, store, category, badge, brand, offers)
   const filteredProducts = useMemo(() => {
     let list = [...products];
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter((p) => p.name.toLowerCase().includes(q) || p.storeName?.toLowerCase().includes(q));
+    if (isSearchActive) {
+      const q = searchQuery.toLowerCase().trim();
+      const isOffersKeyword = q.includes('عرض') || q.includes('عروض') || q.includes('تخفيض') || q.includes('خصم') || q.includes('وفر');
+
+      list = list.filter((p) => {
+        // 1. Name
+        if (p.name.toLowerCase().includes(q)) return true;
+
+        // 2. Store Name
+        if (p.storeName?.toLowerCase().includes(q)) return true;
+
+        // 3. Category
+        if (p.category?.toLowerCase().includes(q)) return true;
+        if ((p as any).category_code?.toLowerCase().includes(q)) return true;
+        if ((p as any).categoryName?.toLowerCase().includes(q)) return true;
+
+        // 4. Description
+        if (p.description?.toLowerCase().includes(q)) return true;
+
+        // 5. Brand
+        if (p.brand?.toLowerCase().includes(q) || (p as any).brand_name?.toLowerCase().includes(q)) return true;
+
+        // 6. Badges & Offer Title
+        if (p.badge?.toLowerCase().includes(q) || p.offerTitle?.toLowerCase().includes(q)) return true;
+
+        // 7. Offers & discounts keyword
+        if (isOffersKeyword && ((p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم') || Boolean(p.offerTitle))) {
+          return true;
+        }
+
+        // 8. Matching categories cross-check
+        if (matchingCategories.some(cat => matchProductToCategory(p, cat.code) || matchProductToCategory(p, cat.name_ar))) {
+          return true;
+        }
+
+        return false;
+      });
     }
 
-    if (selectedCategory) {
+    if (selectedCategory && !isSearchActive) {
       list = list.filter((p) => matchProductToCategory(p, selectedCategory));
     }
 
-    if (activeFilter === 'offers') {
+    if (activeFilter === 'offers' && !isSearchActive) {
       list = list.filter((p) => {
         const isClosed = stores.some((s) => s.status === 'closed' && (matchStoreId(s.id, p.storeId) || s.id === p.storeId || (s.name && p.storeName === s.name)));
         if (isClosed) return false;
         if (p.offerStatus === 'pending_approval' || p.offerStatus === 'rejected') return false;
         return (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم') || Boolean(p.offerTitle);
       });
-    } else if (activeFilter === 'popular') {
+    } else if (activeFilter === 'popular' && !isSearchActive) {
       list = list.filter((p) => p.isPopular || p.badge?.includes('طلب'));
-    } else if (activeFilter === 'fast_delivery') {
+    } else if (activeFilter === 'fast_delivery' && !isSearchActive) {
       list = list.filter((p) => p.category === 'فطور' || p.category === 'سندوتشات' || p.category === 'مشروبات');
     }
 
     return list;
-  }, [products, searchQuery, selectedCategory, activeFilter, stores]);
+  }, [products, searchQuery, isSearchActive, selectedCategory, activeFilter, stores, matchingCategories]);
 
   // Dynamic product count per category
   const categoryProductCounts = useMemo(() => {
@@ -231,8 +289,127 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const el = document.getElementById('mobile-products-grid');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    if (searchQuery.trim()) {
+      const el = document.getElementById('search-results-section') || document.getElementById('mobile-products-grid');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  // Reusable Native Mobile Product Card
+  const renderProductArticle = (product: Product) => {
+    const cartItem = cartItems.find((item) => item.product.id === product.id);
+    const quantity = cartItem ? cartItem.quantity : 0;
+    const wishlisted = isWishlisted(product.id);
+
+    return (
+      <article
+        key={product.id}
+        onClick={() => setSelectedProductForModal(product)}
+        className="bg-white border border-[#E5E7EB] rounded-xl p-1.5 flex flex-col justify-between shadow-2xs active:scale-98 transition-all relative select-none cursor-pointer"
+      >
+        {/* Wishlist Heart */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleWishlist(product.id);
+          }}
+          className="absolute top-2.5 left-2.5 z-10 w-5 h-5 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-[#9CA3AF] shadow-2xs cursor-pointer"
+          aria-label="المفضلة"
+        >
+          <Heart size={11} fill={wishlisted ? '#FF5900' : 'none'} className={wishlisted ? 'text-[#FF5900]' : ''} />
+        </button>
+
+        {/* Image */}
+        <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-[#F9FAFB] mb-1">
+          <img
+            src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
+            alt={product.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
+            }}
+          />
+          {product.badge && (
+            <span className="absolute top-1 right-1 bg-[#FF5900] text-white text-[7.5px] font-black px-1.5 py-0.2 rounded-md">
+              {product.badge}
+            </span>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 flex flex-col justify-between">
+          <div>
+            <p className="text-[8px] font-bold text-[#6B7280] truncate mb-0.5">
+              {product.storeName || 'سنجوب'}
+            </p>
+            <h3 className="text-[10.5px] font-bold text-[#111827] line-clamp-1 mb-0.5" title={product.name}>
+              {product.name}
+            </h3>
+            <div className="flex items-center gap-1 text-[7.5px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded w-fit mb-1">
+              <Clock size={8} />
+              <span>15-25 د</span>
+            </div>
+          </div>
+
+          {/* Price & Counter */}
+          <div className="flex items-center justify-between pt-1 border-t border-[#F3F4F6] mt-auto">
+            <div className="leading-tight">
+              <span className="text-[11px] font-black text-[#FF5900]">
+                {formatEGP(product.price)}
+              </span>
+              {product.originalPrice && product.originalPrice > product.price && (
+                <span className="text-[7.5px] text-[#9CA3AF] line-through block">
+                  {formatEGP(product.originalPrice)}
+                </span>
+              )}
+            </div>
+
+            {quantity > 0 ? (
+              <div
+                className="flex items-center gap-0.5 bg-[#FFF2EC] border border-[#FFD4C2] rounded-lg px-1 py-0.5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => updateQuantity(cartItem!.id, -1)}
+                  className="w-3.5 h-3.5 bg-white text-[#FF5900] rounded flex items-center justify-center font-black cursor-pointer"
+                  aria-label="تقليل"
+                >
+                  <Minus size={8} strokeWidth={3} />
+                </button>
+                <span className="text-[11px] font-black text-[#FF5900] px-0.5">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => updateQuantity(cartItem!.id, 1)}
+                  className="w-3.5 h-3.5 bg-[#FF5900] text-white rounded flex items-center justify-center font-black cursor-pointer"
+                  aria-label="زيادة"
+                >
+                  <Plus size={8} strokeWidth={3} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (product.optionGroups && product.optionGroups.length > 0) {
+                    setSelectedProductForModal(product);
+                  } else {
+                    addToCart(product, 1);
+                  }
+                }}
+                className="w-6 h-6 rounded-lg bg-[#FFF2EC] active:bg-[#FF5900] text-[#FF5900] active:text-white flex items-center justify-center font-black shadow-2xs cursor-pointer"
+                aria-label={`إضافة ${product.name}`}
+              >
+                <Plus size={13} strokeWidth={2.5} />
+              </button>
+            )}
+          </div>
+        </div>
+      </article>
+    );
   };
 
   return (
@@ -246,14 +423,14 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
         style={{ position: 'sticky', top: 0, zIndex: 50 }}
       >
         
-        {/* Top Mini Row: Brand (Right in RTL) & Location (Left in RTL) */}
-        <div className="flex items-center justify-between gap-2 mb-2">
+        {/* Top Mini Row: Brand (Right in RTL), Expanded Centered Location, Bell (Left in RTL) */}
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2 mb-2">
           
           {/* 1. Sangoub Avatar & Brand (Right side in RTL - Click to Home) */}
           <button
             type="button"
-            onClick={() => { setSelectedCategory(null); setActiveFilter('all'); navigate('/'); }}
-            className="flex items-center gap-2 cursor-pointer active:scale-95 transition-transform shrink-0"
+            onClick={() => { setSelectedCategory(null); setActiveFilter('all'); setSearchQuery(''); navigate('/'); }}
+            className="flex items-center gap-1.5 cursor-pointer active:scale-95 transition-transform shrink-0"
             aria-label="الرئيسية - سنجوب"
             title="الرئيسية"
           >
@@ -270,65 +447,73 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             </div>
           </button>
 
-          {/* 2. Left Side Actions: Compact Location + Notification Bell */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            {/* Compact Location Chip */}
-            <button
-              type="button"
-              onClick={onOpenAreaModal}
-              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] text-right active:scale-95 transition-all max-w-[130px] sm:max-w-[150px] cursor-pointer"
-              aria-label="تغيير موقع التوصيل"
-              title="انقر لتغيير العنوان"
-            >
-              <div className="w-5 h-5 rounded-lg bg-[#FFF2EC] text-[#FF5900] flex items-center justify-center shrink-0">
+          {/* 2. Expanded Location Pill (Starts from logo to notification bell, centered & spacious) */}
+          <button
+            type="button"
+            onClick={onOpenAreaModal}
+            className="flex-1 min-w-0 mx-1 flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] active:scale-98 transition-all cursor-pointer shadow-2xs group"
+            aria-label="تغيير موقع التوصيل"
+            title="انقر لتغيير العنوان"
+          >
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <div className="w-5 h-5 rounded-lg bg-[#FFF2EC] text-[#FF5900] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <MapPin size={11} />
               </div>
-              <span className="text-[11px] font-black text-[#111827] truncate">
-                {serviceArea.name || 'حدد موقعك'}
+              <span className="text-[11px] font-black text-[#111827] group-hover:text-[#FF5900] truncate">
+                {serviceArea.name || 'حدد موقع التوصيل'}
               </span>
-              <ChevronDown size={10} className="text-[#FF5900] shrink-0" />
-            </button>
+            </div>
+            <ChevronDown size={11} className="text-[#FF5900] shrink-0 mr-1" />
+          </button>
 
-            {/* Notification Bell Button */}
-            <button
-              type="button"
-              onClick={() => setIsNotificationsModalOpen(true)}
-              className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] text-[#111827] flex items-center justify-center relative cursor-pointer active:scale-95 transition-all shrink-0"
-              aria-label="الإشعارات والتنبيهات"
-              title="الإشعارات"
-            >
-              <Bell size={15} />
-              {unreadNotificationsCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#FF5900] text-white text-[9px] font-black flex items-center justify-center border border-white shadow-2xs">
-                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
-                </span>
-              )}
-            </button>
-          </div>
+          {/* 3. Notification Bell Button (Left side in RTL) */}
+          <button
+            type="button"
+            onClick={() => setIsNotificationsModalOpen(true)}
+            className="w-8 h-8 rounded-xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] text-[#111827] flex items-center justify-center relative cursor-pointer active:scale-95 transition-all shrink-0"
+            aria-label="الإشعارات والتنبيهات"
+            title="الإشعارات"
+          >
+            <Bell size={15} />
+            {unreadNotificationsCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#FF5900] text-white text-[9px] font-black flex items-center justify-center border border-white shadow-2xs">
+                {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+              </span>
+            )}
+          </button>
 
         </div>
 
-        {/* Search Bar Input (No browser cyan outline) */}
-        <form onSubmit={handleSearchSubmit} className="relative flex items-center w-full bg-[#F3F4F6] rounded-xl border border-[#E5E7EB] focus-within:border-[#FF5900] focus-within:bg-white transition-all px-2.5 py-1.5">
-          <Search size={15} className="text-[#9CA3AF] ml-2 shrink-0 pointer-events-none" />
+        {/* Search Bar Input (Sleek Compact Height & Visible Functional Search Button) */}
+        <form onSubmit={handleSearchSubmit} className="relative flex items-center w-full bg-[#F3F4F6] rounded-xl border border-[#E5E7EB] focus-within:border-[#FF5900] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#FF5900]/15 transition-all px-2 py-0.5 h-9 sm:h-9.5">
+          <Search size={14} className="text-[#9CA3AF] ml-1.5 shrink-0 pointer-events-none" />
           <input
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ابحث عن صنف أو بقالة…"
+            placeholder="ابحث عن صنف، قسم، بقالة، أو عرض…"
             style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
-            className="w-full bg-transparent text-xs text-[#111827] placeholder-[#9CA3AF] !outline-none !border-none !ring-0 !shadow-none font-medium"
+            className="w-full bg-transparent text-xs text-[#111827] placeholder-[#9CA3AF] !outline-none !border-none !ring-0 !shadow-none font-medium h-full"
             aria-label="بحث في سنجوب"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="text-[#9CA3AF] hover:text-[#111827] text-xs font-bold px-1"
+              className="text-[#9CA3AF] hover:text-[#111827] text-xs font-bold px-1.5 cursor-pointer"
+              title="مسح"
             >
               ✕
             </button>
           )}
+          <button
+            type="submit"
+            className="h-7 px-2.5 bg-[#FF5900] hover:bg-[#E04E00] active:scale-95 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 shrink-0 transition-all shadow-2xs cursor-pointer mr-0.5"
+            aria-label="بحث"
+            title="تنفيذ البحث"
+          >
+            <span>بحث</span>
+          </button>
         </form>
 
       </header>
@@ -368,6 +553,98 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             onOpenAreaModal={onOpenAreaModal}
             isMobile={true}
           />
+        ) : isSearchActive ? (
+          /* ══════════════════════════════════════════════════════════════
+             COMPREHENSIVE SEARCH RESULTS VIEW (Mobile-First)
+             ══════════════════════════════════════════════════════════════ */
+          <div id="search-results-section" className="space-y-3 pt-1">
+            {/* Search Header Badge & Reset */}
+            <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-[#E5E7EB] shadow-2xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Search size={15} className="text-[#FF5900] shrink-0" />
+                <span className="text-xs font-black text-[#111827] truncate">
+                  نتائج البحث عن: <span className="text-[#FF5900]">"{searchQuery}"</span>
+                </span>
+                <span className="text-[10px] text-[#6B7280] font-bold shrink-0">({filteredProducts.length} صنف)</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="text-[10px] text-[#EF4444] hover:bg-rose-50 px-2 py-0.5 rounded-md font-bold transition-colors cursor-pointer shrink-0"
+              >
+                مسح البحث ✕
+              </button>
+            </div>
+
+            {/* Matched Categories (if any) */}
+            {matchingCategories.length > 0 && (
+              <div className="p-2.5 bg-white rounded-xl border border-[#E5E7EB] shadow-2xs space-y-1.5">
+                <span className="text-[10px] font-black text-[#6B7280] block">الأقسام المطابقة للبحث:</span>
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                  {matchingCategories.map((cat) => (
+                    <button
+                      key={cat.code}
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSelectedCategory(cat.code);
+                      }}
+                      className="px-2.5 py-1 bg-orange-50 hover:bg-orange-100 text-[#FF5900] border border-orange-200 rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <span>{cat.name_ar}</span>
+                      <ChevronLeft size={11} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Matched Stores (if any) */}
+            {matchingStores.length > 0 && (
+              <div className="p-2.5 bg-white rounded-xl border border-[#E5E7EB] shadow-2xs space-y-1.5">
+                <span className="text-[10px] font-black text-[#6B7280] block">المتاجر المطابقة للبحث:</span>
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                  {matchingStores.map((st) => (
+                    <div
+                      key={st.id}
+                      onClick={() => navigate(`/stores/${st.id}`)}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#F9FAFB] border border-[#E5E7EB] shrink-0 cursor-pointer active:scale-95"
+                    >
+                      <img src={getStoreLogo(st)} alt={st.name} className="w-6 h-6 rounded-full object-cover" />
+                      <div className="text-right">
+                        <span className="text-[11px] font-black text-[#111827] block">{st.name}</span>
+                        <span className="text-[9px] text-[#6B7280]">{st.category || 'متجر'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Matching Products Grid */}
+            {filteredProducts.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2">
+                {filteredProducts.map((product) => renderProductArticle(product))}
+              </div>
+            ) : (
+              <div className="text-center py-10 bg-white rounded-2xl border border-[#E5E7EB] p-6 space-y-3 shadow-2xs">
+                <div className="w-12 h-12 rounded-full bg-orange-50 text-[#FF5900] flex items-center justify-center mx-auto">
+                  <Search size={22} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-[#111827]">لا توجد نتائج مطابقة لـ "{searchQuery}"</h3>
+                  <p className="text-xs text-[#6B7280] mt-1">جرب البحث بكلمة أخرى أو تصفح الأقسام والعروض</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="px-4 py-1.5 bg-[#FF5900] text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
+                >
+                  عرض كافة الأصناف
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           <>
         {/* 2. DEDICATED MOBILE HERO SLIDER (Compact 120px Height) */}
@@ -808,121 +1085,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           {/* 8. PRODUCTS 2-COLUMN GRID (Compact, Sleek & Modern) */}
           {filteredProducts.length > 0 ? (
             <div className="grid grid-cols-2 gap-2">
-              {filteredProducts.map((product) => {
-                const cartItem = cartItems.find((item) => item.product.id === product.id);
-                const quantity = cartItem ? cartItem.quantity : 0;
-                const wishlisted = isWishlisted(product.id);
-
-                return (
-                  <article
-                    key={product.id}
-                    onClick={() => setSelectedProductForModal(product)}
-                    className="bg-white border border-[#E5E7EB] rounded-xl p-1.5 flex flex-col justify-between shadow-2xs active:scale-98 transition-all relative select-none"
-                  >
-                    {/* Wishlist Heart */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleWishlist(product.id);
-                      }}
-                      className="absolute top-2.5 left-2.5 z-10 w-5 h-5 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-[#9CA3AF] shadow-2xs"
-                      aria-label="المفضلة"
-                    >
-                      <Heart size={11} fill={wishlisted ? '#FF5900' : 'none'} className={wishlisted ? 'text-[#FF5900]' : ''} />
-                    </button>
-
-                    {/* Image */}
-                    <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-[#F9FAFB] mb-1">
-                      <img
-                        src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
-                        }}
-                      />
-                      {product.badge && (
-                        <span className="absolute top-1 right-1 bg-[#FF5900] text-white text-[7.5px] font-black px-1.5 py-0.2 rounded-md">
-                          {product.badge}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 flex flex-col justify-between">
-                      <div>
-                        <p className="text-[8px] font-bold text-[#6B7280] truncate mb-0.5">
-                          {product.storeName || 'سنجوب'}
-                        </p>
-                        <h3 className="text-[10.5px] font-bold text-[#111827] line-clamp-1 mb-0.5" title={product.name}>
-                          {product.name}
-                        </h3>
-                        <div className="flex items-center gap-1 text-[7.5px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded w-fit mb-1">
-                          <Clock size={8} />
-                          <span>15-25 د</span>
-                        </div>
-                      </div>
-
-                      {/* Price & Counter */}
-                      <div className="flex items-center justify-between pt-1 border-t border-[#F3F4F6] mt-auto">
-                        <div className="leading-tight">
-                          <span className="text-[11px] font-black text-[#FF5900]">
-                            {formatEGP(product.price)}
-                          </span>
-                          {product.originalPrice && product.originalPrice > product.price && (
-                            <span className="text-[7.5px] text-[#9CA3AF] line-through block">
-                              {formatEGP(product.originalPrice)}
-                            </span>
-                          )}
-                        </div>
-
-                        {quantity > 0 ? (
-                          <div
-                            className="flex items-center gap-0.5 bg-[#FFF2EC] border border-[#FFD4C2] rounded-lg px-1 py-0.5"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => updateQuantity(cartItem!.id, -1)}
-                              className="w-3.5 h-3.5 bg-white text-[#FF5900] rounded flex items-center justify-center font-black"
-                              aria-label="تقليل"
-                            >
-                              <Minus size={8} strokeWidth={3} />
-                            </button>
-                            <span className="text-[11px] font-black text-[#FF5900] px-0.5">{quantity}</span>
-                            <button
-                              type="button"
-                              onClick={() => updateQuantity(cartItem!.id, 1)}
-                              className="w-3.5 h-3.5 bg-[#FF5900] text-white rounded flex items-center justify-center font-black"
-                              aria-label="زيادة"
-                            >
-                              <Plus size={8} strokeWidth={3} />
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (product.optionGroups && product.optionGroups.length > 0) {
-                                setSelectedProductForModal(product);
-                              } else {
-                                addToCart(product, 1);
-                              }
-                            }}
-                            className="w-6 h-6 rounded-lg bg-[#FFF2EC] active:bg-[#FF5900] text-[#FF5900] active:text-white flex items-center justify-center font-black shadow-2xs"
-                            aria-label={`إضافة ${product.name}`}
-                          >
-                            <Plus size={13} strokeWidth={2.5} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
+              {filteredProducts.map((product) => renderProductArticle(product))}
             </div>
           ) : (
             <div className="text-center py-8 bg-white rounded-2xl border border-[#E5E7EB] p-4">

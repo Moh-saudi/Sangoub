@@ -60,7 +60,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     navigate,
     cartItems,
     subtotal,
-    addToCart
+    addToCart,
+    searchQuery,
+    setSearchQuery
   } = useStore();
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -88,29 +90,49 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     ).slice(0, 10);
   }, [products]);
 
-  // Filter products by category or active filter
+  // Filter products by search query, category, or active filter
   const displayedProducts = useMemo(() => {
     let list = [...products];
 
-    if (selectedCategory) {
+    if (searchQuery?.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const isOffersKeyword = q.includes('عرض') || q.includes('عروض') || q.includes('تخفيض') || q.includes('خصم') || q.includes('وفر');
+
+      list = list.filter((p) => {
+        if (p.name.toLowerCase().includes(q)) return true;
+        if (p.storeName?.toLowerCase().includes(q)) return true;
+        if (p.category?.toLowerCase().includes(q)) return true;
+        if ((p as any).category_code?.toLowerCase().includes(q)) return true;
+        if ((p as any).categoryName?.toLowerCase().includes(q)) return true;
+        if (p.description?.toLowerCase().includes(q)) return true;
+        if (p.brand?.toLowerCase().includes(q) || (p as any).brand_name?.toLowerCase().includes(q)) return true;
+        if (p.badge?.toLowerCase().includes(q) || p.offerTitle?.toLowerCase().includes(q)) return true;
+        if (isOffersKeyword && ((p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم') || Boolean(p.offerTitle))) {
+          return true;
+        }
+        return false;
+      });
+    }
+
+    if (selectedCategory && !searchQuery?.trim()) {
       list = list.filter((p) => matchProductToCategory(p, selectedCategory));
     }
 
-    if (activeFilter === 'offers') {
+    if (activeFilter === 'offers' && !searchQuery?.trim()) {
       list = list.filter((p) => {
         const isClosed = stores.some((s) => s.status === 'closed' && (matchStoreId(s.id, p.storeId) || s.id === p.storeId || (s.name && p.storeName === s.name)));
         if (isClosed) return false;
         if (p.offerStatus === 'pending_approval' || p.offerStatus === 'rejected') return false;
         return (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم') || Boolean(p.offerTitle);
       });
-    } else if (activeFilter === 'popular') {
+    } else if (activeFilter === 'popular' && !searchQuery?.trim()) {
       list = list.filter((p) => p.isPopular || p.badge?.includes('طلب') || p.badge?.includes('الأكثر'));
-    } else if (activeFilter === 'fast_delivery') {
+    } else if (activeFilter === 'fast_delivery' && !searchQuery?.trim()) {
       list = list.filter((p) => p.category === 'فطور' || p.category === 'سندوتشات' || p.category === 'مشروبات');
     }
 
     return list;
-  }, [products, selectedCategory, activeFilter, stores]);
+  }, [products, searchQuery, selectedCategory, activeFilter, stores]);
 
   // URL query params listener (e.g. ?product=id or ?filter=offers from slider / notifications)
   useEffect(() => {
