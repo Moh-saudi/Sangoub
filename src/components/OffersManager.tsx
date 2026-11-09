@@ -70,14 +70,40 @@ export function OffersManager({
   fixedStoreId,
 }: OffersManagerProps) {
   
+  // Store status filter: open_only by default to prevent showing products from closed stores
+  const [storeStatusFilter, setStoreStatusFilter] = useState<'open_only' | 'all'>('open_only');
+
+  // Helper to check if a product is in stock and available
+  const isProductAvailable = (p: Product) => {
+    return p.inStock !== false && (p as any).is_available !== false && (p as any).isAvailable !== false;
+  };
+
+  // Helper to find store for product
+  const getProductStore = (p: Product) => {
+    return stores.find((s) => matchStoreId(s.id, p.storeId) || s.id === p.storeId || (s.name && p.storeName === s.name));
+  };
+
   // Filter products scoped strictly to store if fixedStoreId is provided (Merchant Store Isolation)
   // Strips all fake, test, and duplicate items
+  // When storeStatusFilter === 'open_only' (default), strictly excludes products from closed stores
   const scopedProducts = useMemo(() => {
     let list = products.filter((p) => {
       if (p.archived) return false;
       if (p.id?.startsWith('00000000-')) return false;
       const n = (p.name || '').trim().toLowerCase();
       if (n.includes('تجريب') || n.includes('اختبار') || n.includes('test') || n.includes('dummy')) return false;
+
+      // Closed store exclusion if storeStatusFilter is 'open_only' (Default)
+      if (storeStatusFilter === 'open_only') {
+        const store = stores.find((s) => matchStoreId(s.id, p.storeId) || s.id === p.storeId || (s.name && p.storeName === s.name));
+        if (store) {
+          if (store.status === 'closed' || (store as any).stopped_at || (store as any).is_archived) return false;
+        } else if (!p.storeId) {
+          const central = stores.find((st) => st.id === 'a0000000-0000-0000-0000-000000000001' || st.name?.includes('سنجوب'));
+          if (central?.status === 'closed') return false;
+        }
+      }
+
       return true;
     });
 
@@ -92,7 +118,7 @@ export function OffersManager({
 
     if (!fixedStoreId) return list;
     return list.filter((p) => matchStoreId(p.storeId, fixedStoreId) || p.storeId === fixedStoreId);
-  }, [products, fixedStoreId]);
+  }, [products, stores, fixedStoreId, storeStatusFilter]);
 
   // Current store object (if fixedStoreId)
   const currentStore = useMemo(() => {
@@ -145,7 +171,15 @@ export function OffersManager({
   const [discountTier, setDiscountTier] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [storeFilter, setStoreFilter] = useState<string>('');
-  const [sortBy, setSortBy] = useState<'discount_desc' | 'price_asc' | 'price_desc' | 'savings_desc' | 'name'>('discount_desc');
+  const [sortBy, setSortBy] = useState<'discount_desc' | 'price_asc' | 'price_desc' | 'savings_desc' | 'store' | 'name'>('discount_desc');
+
+  // Filtered stores list for the store dropdown
+  const filteredStoresList = useMemo(() => {
+    if (storeStatusFilter === 'open_only') {
+      return stores.filter((s) => s.status === 'open' && !s.name?.includes('اختبار') && !s.name?.includes('تجريب'));
+    }
+    return stores.filter((s) => !s.name?.includes('اختبار') && !s.name?.includes('تجريب'));
+  }, [stores, storeStatusFilter]);
 
   // ── Modal State for Launching / Editing Offer ──
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -273,26 +307,76 @@ export function OffersManager({
         return false;
       }
 
+      // 6. Store Status Filter: Open only by default
+      if (storeStatusFilter === 'open_only') {
+        const store = stores.find((s) => s.id === product.storeId || matchStoreId(s.id, product.storeId) || (s.name && product.storeName === s.name));
+        if (store) {
+          if (store.status === 'closed' || (store as any).stopped_at || (store as any).is_archived) return false;
+        } else if (!product.storeId) {
+          const central = stores.find((st) => st.id === 'a0000000-0000-0000-0000-000000000001' || st.name?.includes('سنجوب'));
+          if (central?.status === 'closed') return false;
+        }
+      }
+
       return true;
     }).sort((a, b) => {
+      const availA = isProductAvailable(a) ? 1 : 0;
+      const availB = isProductAvailable(b) ? 1 : 0;
+
+      // In-stock / available products always prioritized over paused/out-of-stock items
+      if (availA !== availB) {
+        return availB - availA;
+      }
+
       const origA = a.originalPrice || a.price;
-      const saleA = a.offerProposedPrice || a.price;
+      const saleA = a.offerProposedPrice && a.offerProposedPrice > 0 ? a.offerProposedPrice : a.price;
       const origB = b.originalPrice || b.price;
-      const saleB = b.offerProposedPrice || b.price;
+      const saleB = b.offerProposedPrice && b.offerProposedPrice > 0 ? b.offerProposedPrice : b.price;
 
       const discA = origA > 0 ? Math.round((1 - saleA / origA) * 100) : 0;
       const discB = origB > 0 ? Math.round((1 - saleB / origB) * 100) : 0;
       const savingsA = Math.max(0, origA - saleA);
       const savingsB = Math.max(0, origB - saleB);
 
-      if (sortBy === 'discount_desc') return discB - discA;
-      if (sortBy === 'price_asc') return saleA - saleB;
-      if (sortBy === 'price_desc') return saleB - saleA;
-      if (sortBy === 'savings_desc') return savingsB - savingsA;
+      if (sortBy === 'discount_desc') {
+        if (discB !== discA) return discB - discA;
+        if (savingsB !== savingsA) return savingsB - savingsA;
+        if (saleA !== saleB) return saleA - saleB;
+        return a.name.localeCompare(b.name, 'ar');
+      }
+
+      if (sortBy === 'savings_desc') {
+        if (savingsB !== savingsA) return savingsB - savingsA;
+        if (discB !== discA) return discB - discA;
+        if (saleA !== saleB) return saleA - saleB;
+        return a.name.localeCompare(b.name, 'ar');
+      }
+
+      if (sortBy === 'price_asc') {
+        if (saleA !== saleB) return saleA - saleB;
+        if (discB !== discA) return discB - discA;
+        return a.name.localeCompare(b.name, 'ar');
+      }
+
+      if (sortBy === 'price_desc') {
+        if (saleB !== saleA) return saleB - saleA;
+        if (discB !== discA) return discB - discA;
+        return a.name.localeCompare(b.name, 'ar');
+      }
+
+      if (sortBy === 'store') {
+        const storeA = a.storeName || '';
+        const storeB = b.storeName || '';
+        const cmp = storeA.localeCompare(storeB, 'ar');
+        if (cmp !== 0) return cmp;
+        if (discB !== discA) return discB - discA;
+        return savingsB - savingsA;
+      }
+
       if (sortBy === 'name') return a.name.localeCompare(b.name, 'ar');
       return 0;
     });
-  }, [allOffers, approvalFilter, searchQuery, statusFilter, discountTier, categoryFilter, storeFilter, sortBy, fixedStoreId]);
+  }, [allOffers, approvalFilter, searchQuery, statusFilter, discountTier, categoryFilter, storeFilter, storeStatusFilter, sortBy, fixedStoreId, stores]);
 
   // Open modal for editing an existing offer
   const handleEditOffer = (product: Product) => {
@@ -993,6 +1077,21 @@ export function OffersManager({
             </select>
           </div>
 
+          {/* Store Status Toggle Filter (Only in Admin view) */}
+          {!fixedStoreId && (
+            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200">
+              <span className="text-[10px] font-bold text-slate-500">حالة المتاجر:</span>
+              <select
+                value={storeStatusFilter}
+                onChange={(e) => setStoreStatusFilter(e.target.value as any)}
+                className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
+              >
+                <option value="open_only">🟢 المتاجر المفتوحة فقط</option>
+                <option value="all">🏪 كل المتاجر (بما فيها المغلقة)</option>
+              </select>
+            </div>
+          )}
+
           {/* Store Filter (Only in Admin view) */}
           {!fixedStoreId && (
             <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200">
@@ -1002,10 +1101,14 @@ export function OffersManager({
                 onChange={(e) => setStoreFilter(e.target.value)}
                 className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
               >
-                <option value="">جميع المتاجر ({stores.length})</option>
-                {stores.map((s) => (
+                <option value="">
+                  {storeStatusFilter === 'open_only'
+                    ? `المتاجر المفتوحة (${filteredStoresList.length})`
+                    : `جميع المتاجر (${filteredStoresList.length})`}
+                </option>
+                {filteredStoresList.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name}
+                    {s.status === 'open' ? '🟢 ' : '🔴 '} {s.name}
                   </option>
                 ))}
               </select>
@@ -1020,16 +1123,17 @@ export function OffersManager({
               onChange={(e) => setSortBy(e.target.value as any)}
               className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
             >
-              <option value="discount_desc">الأعلى نسبة خصم %</option>
+              <option value="discount_desc">الأعلى نسبة خصم % (مع أولوية التوفر)</option>
               <option value="savings_desc">الأكبر توفيراً (ج.م)</option>
               <option value="price_asc">الأقل سعراً بعد الخصم</option>
               <option value="price_desc">الأعلى سعراً بعد الخصم</option>
+              <option value="store">حسب المتجر</option>
               <option value="name">الاسم أبجدياً</option>
             </select>
           </div>
 
           {/* Reset Filters */}
-          {(searchQuery || statusFilter !== 'all' || discountTier !== 'all' || categoryFilter !== 'all' || storeFilter) && (
+          {(searchQuery || statusFilter !== 'all' || discountTier !== 'all' || categoryFilter !== 'all' || storeFilter || storeStatusFilter !== 'open_only') && (
             <button
               type="button"
               onClick={() => {
@@ -1038,6 +1142,7 @@ export function OffersManager({
                 setDiscountTier('all');
                 setCategoryFilter('all');
                 setStoreFilter('');
+                setStoreStatusFilter('open_only');
               }}
               className="text-[11px] text-orange-600 hover:text-orange-700 font-bold px-2 py-1 cursor-pointer"
             >
@@ -1166,16 +1271,77 @@ export function OffersManager({
         <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden animate-in fade-in duration-200">
           <div className="overflow-x-auto">
             <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold select-none">
                 <tr>
-                  <th className="p-3.5">الصنف</th>
-                  {!fixedStoreId && <th className="p-3.5">المتجر</th>}
+                  <th
+                    onClick={() => setSortBy('name')}
+                    className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                    title="ترتيب أبجدي حسب اسم الصنف"
+                  >
+                    <span className="flex items-center gap-1">
+                      <span>الصنف</span>
+                      {sortBy === 'name' && <span className="text-orange-600 text-[10px]">▼</span>}
+                    </span>
+                  </th>
+                  {!fixedStoreId && (
+                    <th
+                      onClick={() => setSortBy('store')}
+                      className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                      title="ترتيب وتجميع حسب المتجر"
+                    >
+                      <span className="flex items-center gap-1">
+                        <span>المتجر</span>
+                        {sortBy === 'store' && <span className="text-orange-600 text-[10px]">▼</span>}
+                      </span>
+                    </th>
+                  )}
                   <th className="p-3.5">القسم</th>
-                  <th className="p-3.5">السعر المخفض</th>
-                  <th className="p-3.5">السعر الأصلي</th>
-                  <th className="p-3.5">نسبة الخصم والتوفير</th>
+                  <th
+                    onClick={() => setSortBy(sortBy === 'price_asc' ? 'price_desc' : 'price_asc')}
+                    className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                    title="ترتيب حسب السعر المخفض"
+                  >
+                    <span className="flex items-center gap-1">
+                      <span>السعر المخفض</span>
+                      {sortBy === 'price_asc' ? (
+                        <span className="text-orange-600 text-[10px]">▲</span>
+                      ) : sortBy === 'price_desc' ? (
+                        <span className="text-orange-600 text-[10px]">▼</span>
+                      ) : null}
+                    </span>
+                  </th>
+                  <th
+                    onClick={() => setSortBy(sortBy === 'price_desc' ? 'price_asc' : 'price_desc')}
+                    className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                    title="ترتيب حسب السعر الأصلي"
+                  >
+                    <span>السعر الأصلي</span>
+                  </th>
+                  <th
+                    onClick={() => setSortBy(sortBy === 'discount_desc' ? 'savings_desc' : 'discount_desc')}
+                    className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                    title="ترتيب حسب أعلى نسبة خصم أو أكبر توفير"
+                  >
+                    <span className="flex items-center gap-1">
+                      <span>نسبة الخصم والتوفير</span>
+                      {sortBy === 'discount_desc' ? (
+                        <span className="text-rose-600 text-[10px]">▼ %</span>
+                      ) : sortBy === 'savings_desc' ? (
+                        <span className="text-emerald-600 text-[10px]">▼ ج.م</span>
+                      ) : null}
+                    </span>
+                  </th>
                   <th className="p-3.5">الشارة / المناسبة</th>
-                  <th className="p-3.5">التوفر</th>
+                  <th
+                    onClick={() => setStatusFilter(statusFilter === 'in_stock' ? 'all' : 'in_stock')}
+                    className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                    title="تصفية الأصناف المتاحة للطلب فقط"
+                  >
+                    <span className="flex items-center gap-1">
+                      <span>التوفر</span>
+                      {statusFilter === 'in_stock' && <span className="text-emerald-600 text-[10px]">🟢</span>}
+                    </span>
+                  </th>
                   <th className="p-3.5">الاعتماد</th>
                   <th className="p-3.5 text-center">الإجراءات</th>
                 </tr>
@@ -1219,7 +1385,15 @@ export function OffersManager({
                       {/* Store Name (Admin only) */}
                       {!fixedStoreId && (
                         <td className="p-3.5 font-bold text-slate-700">
-                          {store?.name || product.storeName || 'سنجوب ماركت'}
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`w-2 h-2 rounded-full shrink-0 ${
+                                store?.status === 'open' ? 'bg-emerald-500' : 'bg-rose-500'
+                              }`}
+                              title={store?.status === 'open' ? 'متجر مفتوح ونشط' : 'متجر مغلق'}
+                            />
+                            <span className="truncate max-w-[150px]">{store?.name || product.storeName || 'متجر سنجوب إكسبريس'}</span>
+                          </div>
                         </td>
                       )}
 
