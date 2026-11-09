@@ -2,6 +2,7 @@ import { authenticatedApi } from './authenticatedApi';
 import { supabase, resolveSupabaseStoreUuid } from './supabase';
 import systemAccounts from '../data/systemAccounts.json';
 import { defaultCustomerHome } from '../types/appContent';
+import { DEFAULT_SANGOUB_BANNERS } from '../storefront/types/banner';
 import { cleanCourierName, cleanCustomerName } from '../utils/sanitizeName';
 
 function mapOrderRow(row: any) {
@@ -782,9 +783,14 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
 
   // 3. Direct Supabase Fallback for app-content
   if (endpoint === 'app-content') {
-    if (body.action === 'admin' || body.action === 'get') {
+    const getStoredContent = async () => {
       const { data: row } = await supabase.from('app_content').select('content').eq('id', true).maybeSingle();
-      const content = (row?.content && typeof row.content === 'object') ? row.content : {};
+      let content = (row?.content && typeof row.content === 'object') ? row.content : {};
+      if (typeof row?.content === 'string') {
+        try { content = JSON.parse(row.content); } catch {}
+      }
+
+      // Ensure config sections exist
       if (!content.config || !Array.isArray(content.config.sections)) {
         content.config = {
           ...defaultCustomerHome,
@@ -794,12 +800,146 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
             : defaultCustomerHome.sections
         };
       }
+
+      // Ensure campaigns/slides exist; if empty, initialize from DEFAULT_SANGOUB_BANNERS
+      if (!Array.isArray(content.campaigns) || content.campaigns.length === 0) {
+        content.campaigns = DEFAULT_SANGOUB_BANNERS.map((b, idx) => ({
+          id: String(b.id || `slide-${idx + 1}`),
+          title: b.title || '',
+          subtitle: b.subtitle || '',
+          imageUrl: b.imageUrl || b.image || '',
+          enabled: true,
+          priority: (idx + 1) * 10,
+          targetType: b.targetType || 'offers',
+          targetId: b.targetId || '',
+          startsAt: new Date(Date.now() - 86400000).toISOString(),
+          endsAt: new Date(Date.now() + 365 * 86400000).toISOString(),
+          hideOverlay: true,
+          hideButton: true,
+          btnText: '',
+        }));
+      }
+      content.slides = content.campaigns;
+
+      // Ensure gallery has initial default images
+      if (!Array.isArray(content.gallery) || content.gallery.length === 0) {
+        content.gallery = content.campaigns.map((c: any, i: number) => ({
+          id: `gal-default-${i + 1}`,
+          title: c.title || `شريحة ${i + 1}`,
+          url: c.imageUrl,
+          addedAt: new Date().toISOString(),
+        }));
+      }
+
       return content;
+    };
+
+    if (body.action === 'admin' || body.action === 'get') {
+      const content = await getStoredContent();
+      return {
+        ok: true,
+        config: content.config,
+        campaigns: content.campaigns,
+        slides: content.campaigns,
+        gallery: content.gallery || [],
+        martBanner: content.martBanner,
+        disabledStoreTypes: content.disabledStoreTypes || [],
+        disabledCategories: content.disabledCategories || [],
+        categoryOverrides: content.categoryOverrides || {},
+        operationsReady: true,
+        operationsEnabled: true,
+      };
     }
+
+    if (body.action === 'save-campaign') {
+      const content = await getStoredContent();
+      const campaign = body.campaign;
+      const targetId = body.id || campaign.id;
+      const existingIdx = content.campaigns.findIndex((c: any) => c.id === targetId || c.id === campaign.id);
+      if (existingIdx !== -1) {
+        content.campaigns[existingIdx] = { ...content.campaigns[existingIdx], ...campaign, id: targetId };
+      } else {
+        content.campaigns.unshift({ ...campaign, id: targetId || `campaign-${Date.now()}` });
+      }
+      content.slides = content.campaigns;
+
+      // Ensure new image is in gallery
+      if (campaign.imageUrl && !content.gallery.some((g: any) => g.url === campaign.imageUrl)) {
+        content.gallery.unshift({
+          id: `gal-${Date.now()}`,
+          title: campaign.title || 'شريحة سلايدر',
+          url: campaign.imageUrl,
+          addedAt: new Date().toISOString(),
+        });
+      }
+
+      await supabase.from('app_content').upsert({ id: true, content });
+      return { ok: true, campaigns: content.campaigns, slides: content.campaigns };
+    }
+
+    if (body.action === 'toggle-campaign') {
+      const content = await getStoredContent();
+      content.campaigns = content.campaigns.map((c: any) =>
+        c.id === body.id ? { ...c, enabled: !c.enabled } : c
+      );
+      content.slides = content.campaigns;
+      await supabase.from('app_content').upsert({ id: true, content });
+      return { ok: true, campaigns: content.campaigns };
+    }
+
+    if (body.action === 'delete-campaign') {
+      const content = await getStoredContent();
+      content.campaigns = content.campaigns.filter((c: any) => c.id !== body.id);
+      content.slides = content.campaigns;
+      await supabase.from('app_content').upsert({ id: true, content });
+      return { ok: true, campaigns: content.campaigns };
+    }
+
+    if (body.action === 'add-to-gallery') {
+      const content = await getStoredContent();
+      if (!Array.isArray(content.gallery)) content.gallery = [];
+      content.gallery = [body.item, ...content.gallery.filter((g: any) => g.url !== body.item.url)];
+      await supabase.from('app_content').upsert({ id: true, content });
+      return { ok: true, gallery: content.gallery };
+    }
+
+    if (body.action === 'delete-from-gallery') {
+      const content = await getStoredContent();
+      if (Array.isArray(content.gallery)) {
+        content.gallery = content.gallery.filter((g: any) => g.id !== body.id);
+      }
+      await supabase.from('app_content').upsert({ id: true, content });
+      return { ok: true, gallery: content.gallery };
+    }
+
+    if (body.action === 'save-mart-banner') {
+      const content = await getStoredContent();
+      content.martBanner = body.martBanner;
+      await supabase.from('app_content').upsert({ id: true, content });
+      return { ok: true, martBanner: content.martBanner };
+    }
+
+    if (body.action === 'save-home') {
+      const content = await getStoredContent();
+      content.config = body.config;
+      await supabase.from('app_content').upsert({ id: true, content });
+      return { ok: true, config: content.config };
+    }
+
+    if (body.action === 'save-category-config') {
+      const content = await getStoredContent();
+      content.disabledStoreTypes = body.disabledStoreTypes;
+      content.disabledCategories = body.disabledCategories;
+      content.categoryOverrides = body.categoryOverrides;
+      await supabase.from('app_content').upsert({ id: true, content });
+      return { ok: true };
+    }
+
     if (body.action === 'save' || body.content) {
       await supabase.from('app_content').upsert({ id: true, content: body.content || body });
       return { ok: true };
     }
+
     return { ok: true };
   }
 

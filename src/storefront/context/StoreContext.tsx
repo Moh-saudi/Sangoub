@@ -573,28 +573,47 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (data.config && typeof data.config.showArrows === 'boolean') {
           setSliderShowArrows(data.config.showArrows);
         }
-        if (Array.isArray(data.slides) && data.slides.length > 0) {
-          const mapped: StoreBanner[] = data.slides.map((s: any, idx: number) => ({
-            id: s.id || `campaign-${idx}`,
-            title: s.title || '',
-            subtitle: s.subtitle || '',
-            desc: s.subtitle || '',
-            imageUrl: s.imageUrl || '',
-            image: s.imageUrl || '',
-            hideOverlay: Boolean(s.hideOverlay || (!s.title && !s.subtitle)),
-            tag: (s.hideOverlay || (!s.title && !s.subtitle)) ? '' : (s.targetType === 'offers' ? 'أقوى العروض 🎁' : s.targetType === 'product' ? 'خصم وتوفير 🏷️' : s.targetType === 'store' ? 'متجر مميز 🏪' : 'عرض خاص'),
-            btnText: (s.hideOverlay || (!s.title && !s.subtitle)) ? '' : (s.btnText !== undefined ? s.btnText : (s.targetType === 'offers' ? 'تصفح العروض' : s.targetType === 'product' ? 'اطلب الآن' : 'عرض المزيد')),
-            targetType: s.targetType || 'offers',
-            targetId: s.targetId || '',
-            targetPath: s.targetType === 'offers' ? '/offers' : s.targetType === 'product' ? `/product/${s.targetId}` : s.targetType === 'store' ? `/stores/${getStoreSlug(s.targetId)}` : '',
-            badgeColor: idx % 3 === 0 ? '#FF5900' : idx % 3 === 1 ? '#059669' : '#2563EB',
-            bgGradient: idx % 3 === 0 
-              ? 'linear-gradient(135deg, #131921 0%, #1F2937 100%)' 
-              : idx % 3 === 1 
-              ? 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)' 
-              : 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 100%)',
-            mascotImg: idx % 2 === 0 ? '/brand/sangoub-logo-256x256.png' : '/brand/capital-talabat-mascot-logo-256x256.png'
-          }));
+        const rawSlides = Array.isArray(data.slides) && data.slides.length > 0
+          ? data.slides
+          : (Array.isArray(data.campaigns) && data.campaigns.length > 0 ? data.campaigns : []);
+
+        const enabledSlides = rawSlides.filter((s: any) => s.enabled !== false);
+
+        if (enabledSlides.length > 0) {
+          const mapped: StoreBanner[] = enabledSlides.map((s: any, idx: number) => {
+            const hasExplicitText = Boolean(s.title || s.subtitle);
+            const isCleanBanner = s.hideOverlay ?? (!hasExplicitText);
+            return {
+              id: s.id || `campaign-${idx}`,
+              title: s.title || '',
+              subtitle: s.subtitle || '',
+              desc: s.subtitle || '',
+              imageUrl: s.imageUrl || s.image || '',
+              image: s.imageUrl || s.image || '',
+              hideOverlay: isCleanBanner,
+              hideButton: s.hideButton ?? isCleanBanner,
+              tag: isCleanBanner ? '' : (s.targetType === 'offers' ? 'أقوى العروض 🎁' : s.targetType === 'product' ? 'خصم وتوفير 🏷️' : s.targetType === 'store' ? 'متجر مميز 🏪' : 'عرض خاص'),
+              btnText: isCleanBanner ? '' : (s.btnText !== undefined ? s.btnText : (s.targetType === 'offers' ? 'تصفح العروض' : s.targetType === 'product' ? 'اطلب الآن' : 'عرض المزيد')),
+              targetType: s.targetType || 'offers',
+              targetId: s.targetId || '',
+              targetPath: s.targetType === 'offers'
+                ? '/offers'
+                : s.targetType === 'product'
+                ? `/product/${s.targetId}`
+                : s.targetType === 'store'
+                ? `/stores/${getStoreSlug(s.targetId)}`
+                : s.targetType === 'category'
+                ? `/categories`
+                : (s.targetPath || ''),
+              badgeColor: idx % 3 === 0 ? '#FF5900' : idx % 3 === 1 ? '#059669' : '#2563EB',
+              bgGradient: idx % 3 === 0 
+                ? 'linear-gradient(135deg, #131921 0%, #1F2937 100%)' 
+                : idx % 3 === 1 
+                ? 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)' 
+                : 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 100%)',
+              mascotImg: idx % 2 === 0 ? '/brand/sangoub-logo-256x256.png' : '/brand/capital-talabat-mascot-logo-256x256.png'
+            };
+          });
           setBanners(mapped);
           setIsLoadingBanners(false);
           return;

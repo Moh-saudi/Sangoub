@@ -1,10 +1,15 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Plus, ArrowUp, ArrowDown, X, Megaphone, Image as ImageIcon, Upload, Check, Trash2, Eye, EyeOff } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent, useMemo } from 'react';
+import {
+  Plus, ArrowUp, ArrowDown, X, Megaphone, Image as ImageIcon, Upload, Check, Trash2, Eye, EyeOff,
+  Search, ExternalLink, RefreshCw, Layers, LayoutGrid, List, Sparkles, ShoppingBag, Store as StoreIcon, Tag
+} from 'lucide-react';
 import type { Product, Store } from '../types';
 import { defaultCustomerHome, type CustomerHome, type Promotion } from '../types/appContent';
 import { operationsApi } from '../lib/operationsApi';
 import { cairoDateInput, cairoInputToIso } from '../utils/cairoTime';
 import { uploadCatalogImage } from '../lib/catalogImages';
+import { DEFAULT_SANGOUB_BANNERS } from '../storefront/types/banner';
+import { formatEGP } from '../utils/orderCalculations';
 
 interface GalleryItem {
   id: string;
@@ -13,28 +18,45 @@ interface GalleryItem {
   addedAt: string;
 }
 
-const labels = { slider: 'سلايدر الحملات', stores: 'المتاجر', offers: 'المنتجات المخفضة', products: 'المنتجات والتصنيفات' };
-const field = 'form-control';
+const labels = { slider: 'سلايدر العروض', stores: 'المتاجر', offers: 'المنتجات المخفضة', products: 'المنتجات والتصنيفات' };
 
 export function AppContentManager({ stores, products }: { stores: Store[]; products: Product[] }) {
   const [config, setConfig] = useState<CustomerHome>(structuredClone(defaultCustomerHome));
   const [campaigns, setCampaigns] = useState<Promotion[]>([]);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
-  const [ready, setReady] = useState(false), [enabled, setEnabled] = useState(false), [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false), [revision, setRevision] = useState(0);
-  const [editor, setEditor] = useState<{ campaign?: Promotion } | null>(null), [targetType, setTargetType] = useState('offers');
+  const [ready, setReady] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [revision, setRevision] = useState(0);
+
+  // View mode: 'cards' or 'table'
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+
+  // Slide Editor State
+  const [editor, setEditor] = useState<{ campaign?: Promotion } | null>(null);
+  const [targetType, setTargetType] = useState<'product' | 'store' | 'category' | 'offers' | 'url'>('product');
+  const [targetId, setTargetId] = useState('');
+  const [productSearch, setProductSearch] = useState('');
   const [currentImageUrl, setCurrentImageUrl] = useState('');
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [slidePriority, setSlidePriority] = useState(10);
+  const [slideEnabled, setSlideEnabled] = useState(true);
+
+  // Gallery & Direct Replacement Modals
   const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [targetCampaignForReplacement, setTargetCampaignForReplacement] = useState<Promotion | null>(null);
-  const [useGalleryItemTarget, setUseGalleryItemTarget] = useState<GalleryItem | null>(null);
-  
+
   const dialog = useRef<HTMLDialogElement>(null);
   const galleryDialog = useRef<HTMLDialogElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryUploadRef = useRef<HTMLInputElement>(null);
+  const directReplaceInputRef = useRef<HTMLInputElement>(null);
   const dirty = useRef(false);
 
+  // Orange Mart Banner State
   const [martBanner, setMartBanner] = useState({
     enabled: true,
     title: 'سنجوب ماركت وكل طلبات البيت لحد بابك',
@@ -46,6 +68,7 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
   });
   const [martBannerSaving, setMartBannerSaving] = useState(false);
 
+  // Initial Data Fetching & Sync
   useEffect(() => {
     let active = true;
     setError('');
@@ -61,28 +84,70 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
               : defaultCustomerHome.sections
           });
         }
-        setCampaigns(result.campaigns || []);
-        setGallery(result.gallery || []);
+
+        // Initialize campaigns with default Sangoub slides if empty
+        const incomingCampaigns: Promotion[] = (Array.isArray(result?.campaigns) && result.campaigns.length > 0)
+          ? result.campaigns
+          : (Array.isArray(result?.slides) && result.slides.length > 0)
+          ? result.slides
+          : DEFAULT_SANGOUB_BANNERS.map((b, idx) => ({
+              id: String(b.id || `slide-${idx + 1}`),
+              title: b.title || '',
+              subtitle: b.subtitle || '',
+              imageUrl: b.imageUrl || b.image || '',
+              enabled: true,
+              priority: (idx + 1) * 10,
+              targetType: (b.targetType as any) || 'offers',
+              targetId: b.targetId || '',
+              startsAt: new Date(Date.now() - 86400000).toISOString(),
+              endsAt: new Date(Date.now() + 365 * 86400000).toISOString(),
+              hideOverlay: true,
+              hideButton: true,
+              btnText: '',
+            }));
+
+        setCampaigns(incomingCampaigns);
+
+        // Initialize gallery with slide images if empty
+        const incomingGallery: GalleryItem[] = (Array.isArray(result?.gallery) && result.gallery.length > 0)
+          ? result.gallery
+          : incomingCampaigns.map((c, i) => ({
+              id: `gal-default-${i + 1}`,
+              title: c.title || `صورة شريحة ${i + 1}`,
+              url: c.imageUrl,
+              addedAt: new Date().toISOString()
+            }));
+
+        setGallery(incomingGallery);
+
         if (result.martBanner) setMartBanner(result.martBanner);
-        setReady(result.operationsReady);
-        setEnabled(result.operationsEnabled);
+        setReady(true);
         setLoaded(true);
       })
-      .catch(error => {
-        if (active) setError(error.message);
+      .catch(err => {
+        if (active) setError(err.message || 'تعذر تحميل بيانات السلايدر.');
       });
     return () => { active = false; };
   }, [revision]);
 
+  // Handle Editor Open/Close
   useEffect(() => {
     if (editor) {
-      setCurrentImageUrl(editor.campaign?.imageUrl || '');
+      const camp = editor.campaign;
+      setCurrentImageUrl(camp?.imageUrl || '');
+      setTargetType((camp?.targetType as any) || (products[0] ? 'product' : 'offers'));
+      setTargetId(camp?.targetId || (camp?.targetType === 'product' ? (products[0]?.id || '') : ''));
+      setSlidePriority(camp?.priority ?? (campaigns.length + 1) * 10);
+      setSlideEnabled(camp?.enabled ?? true);
+      setProductSearch('');
+      setShowAdvancedSettings(Boolean(camp?.title || camp?.subtitle));
       dialog.current?.showModal();
     } else {
       dialog.current?.close();
     }
   }, [editor]);
 
+  // Handle Gallery Modal
   useEffect(() => {
     if (isGalleryModalOpen) {
       galleryDialog.current?.showModal();
@@ -91,6 +156,37 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
     }
   }, [isGalleryModalOpen]);
 
+  // Categories list derived from products
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach(p => {
+      if (p.category && p.category.trim()) set.add(p.category.trim());
+    });
+    return Array.from(set).sort();
+  }, [products]);
+
+  // Filtered Products for Destination Picker
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return products.slice(0, 24);
+    const q = productSearch.toLowerCase().trim();
+    return products.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.barcode && p.barcode.toLowerCase().includes(q)) ||
+      (p.storeName && p.storeName.toLowerCase().includes(q))
+    ).slice(0, 30);
+  }, [products, productSearch]);
+
+  const selectedProductObj = useMemo(() => {
+    if (targetType !== 'product' || !targetId) return null;
+    return products.find(p => p.id === targetId) || null;
+  }, [targetType, targetId, products]);
+
+  const selectedStoreObj = useMemo(() => {
+    if (targetType !== 'store' || !targetId) return null;
+    return stores.find(s => s.id === targetId) || null;
+  }, [targetType, targetId, stores]);
+
+  // Core API Mutation
   async function perform(body: object, success: string, close = false) {
     setBusy(true);
     setError('');
@@ -101,31 +197,68 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
       setNotice(success);
       if (close) setEditor(null);
       setRevision(value => value + 1);
-    } catch (error) {
-      setError((error as Error).message);
+    } catch (err: any) {
+      setError(err.message || 'حدث خطأ أثناء حفظ التعديلات.');
     } finally {
       setBusy(false);
     }
   }
 
-  function move(index: number, delta: number) {
-    dirty.current = true;
-    setConfig(previous => {
-      const base = previous || defaultCustomerHome;
-      const sections = [...(Array.isArray(base.sections) ? base.sections : defaultCustomerHome.sections)];
-      if (index + delta < 0 || index + delta >= sections.length) return base;
-      [sections[index], sections[index + delta]] = [sections[index + delta], sections[index]];
-      return { ...base, sections };
-    });
-  }
-
-  function open(campaign?: Promotion) {
+  // Open Editor Modal for Add or Edit
+  function openEditor(campaign?: Promotion) {
     setError('');
-    setTargetType(campaign?.targetType || 'offers');
-    setCurrentImageUrl(campaign?.imageUrl || '');
+    setTargetCampaignForReplacement(null);
     setEditor({ campaign });
   }
 
+  // Quick 1-Click Replace Trigger
+  function triggerDirectImageReplace(campaign: Promotion) {
+    setTargetCampaignForReplacement(campaign);
+    directReplaceInputRef.current?.click();
+  }
+
+  // Upload and Apply Image Directly to a Slide
+  async function handleDirectReplaceFile(file: File) {
+    if (!targetCampaignForReplacement) return;
+    setUploadingImage(true);
+    setError('');
+    setNotice('');
+    try {
+      const res = await uploadCatalogImage('banners', 'slider', file);
+      await applyImageToCampaign(targetCampaignForReplacement, res.url);
+    } catch (err: any) {
+      setError(err.message || 'تعذر رفع واستبدال الصورة.');
+    } finally {
+      setUploadingImage(false);
+      setTargetCampaignForReplacement(null);
+    }
+  }
+
+  // Apply Selected Gallery or Uploaded Image to Slide
+  async function applyImageToCampaign(campaign: Promotion, imageUrl: string) {
+    setBusy(true);
+    setError('');
+    try {
+      const updated: Promotion = {
+        ...campaign,
+        imageUrl,
+        hideOverlay: true,
+        hideButton: true,
+      };
+      await operationsApi('app-content', { action: 'save-campaign', id: campaign.id, campaign: updated });
+      setCampaigns(prev => prev.map(c => c.id === campaign.id ? updated : c));
+      setNotice('تم استبدال صورة الشريحة بنجاح وتحديث سلايدر المتجر فوراً! 🚀');
+      setTargetCampaignForReplacement(null);
+      setIsGalleryModalOpen(false);
+      setRevision(v => v + 1);
+    } catch (err: any) {
+      setError(err.message || 'تعذر استبدال الصورة.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Upload Image to Gallery / Editor
   async function handleFileUpload(file: File, forEditor = false) {
     setUploadingImage(true);
     setError('');
@@ -139,11 +272,11 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
         addedAt: new Date().toISOString()
       };
       await operationsApi('app-content', { action: 'add-to-gallery', item: newItem });
-      setGallery(prev => [newItem, ...prev]);
+      setGallery(prev => [newItem, ...prev.filter(g => g.url !== newItem.url)]);
       if (forEditor) {
         setCurrentImageUrl(res.url);
       }
-      setNotice('تم رفع الصورة وحفظها في معرض السلايدر بنجاح!');
+      setNotice('تم رفع الصورة وحفظها بنجاح!');
     } catch (err: any) {
       setError(err.message || 'تعذر رفع الصورة.');
     } finally {
@@ -151,13 +284,14 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
     }
   }
 
+  // Toggle Active/Inactive
   async function toggleCampaign(id: string) {
     setBusy(true);
     setError('');
     try {
       await operationsApi('app-content', { action: 'toggle-campaign', id });
       setCampaigns(prev => prev.map(c => c.id === id ? { ...c, enabled: !c.enabled } : c));
-      setNotice('تم تحديث حالة الحملة.');
+      setNotice('تم تحديث حالة ظهور الشريحة في المتجر.');
       setRevision(v => v + 1);
     } catch (err: any) {
       setError(err.message);
@@ -166,25 +300,7 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
     }
   }
 
-  async function applyImageToCampaign(campaign: Promotion, imageUrl: string) {
-    setBusy(true);
-    setError('');
-    try {
-      const updated = { ...campaign, imageUrl };
-      await operationsApi('app-content', { action: 'save-campaign', campaign: updated });
-      setCampaigns(prev => prev.map(c => c.id === campaign.id ? updated : c));
-      setNotice(`تم استبدال صورة الشريحة "${campaign.title}" بنجاح! والصورة القديمة محفوظة في الجاليري.`);
-      setTargetCampaignForReplacement(null);
-      setUseGalleryItemTarget(null);
-      setIsGalleryModalOpen(false);
-      setRevision(v => v + 1);
-    } catch (err: any) {
-      setError(err.message || 'تعذر استبدال الصورة.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
+  // Delete from Gallery
   async function deleteFromGallery(id: string) {
     if (!window.confirm('هل تريد حذف هذه الصورة من المعرض؟')) return;
     try {
@@ -196,77 +312,433 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
     }
   }
 
-  async function saveCampaign(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const imageUrl = currentImageUrl.trim() || String(data.get('imageUrl') || '').trim();
-    if (!imageUrl) {
-      setError('يرجى اختيار صورة للحملة من المعرض أو رفع صورة جديدة.');
+  // Save Slide (Add or Edit)
+  async function handleSaveSlide(e: FormEvent) {
+    e.preventDefault();
+    if (!currentImageUrl.trim()) {
+      setError('يرجى اختيار صورة لشريحة السلايدر أولاً.');
+      return;
+    }
+
+    if (targetType === 'product' && !targetId) {
+      setError('يرجى اختيار المنتج المستهدف عند النقر على الشريحة.');
+      return;
+    }
+
+    if (targetType === 'store' && !targetId) {
+      setError('يرجى اختيار المتجر المستهدف.');
       return;
     }
 
     try {
-      const campaign = {
-        title: String(data.get('title') || '').trim(),
-        subtitle: String(data.get('subtitle') || '').trim(),
-        imageUrl,
-        enabled: data.get('enabled') === 'on',
-        priority: Number(data.get('priority')),
-        targetType,
-        targetId: String(data.get('targetId') || ''),
-        startsAt: cairoInputToIso(String(data.get('startsAt'))),
-        endsAt: cairoInputToIso(String(data.get('endsAt')))
+      const id = editor?.campaign?.id || `slide-${Date.now()}`;
+      const payload: Promotion = {
+        id,
+        title: editor?.campaign?.title || '',
+        subtitle: editor?.campaign?.subtitle || '',
+        imageUrl: currentImageUrl.trim(),
+        enabled: slideEnabled,
+        priority: Number(slidePriority) || 10,
+        targetType: targetType as any,
+        targetId: targetId.trim(),
+        startsAt: editor?.campaign?.startsAt || new Date(Date.now() - 86400000).toISOString(),
+        endsAt: editor?.campaign?.endsAt || new Date(Date.now() + 365 * 86400000).toISOString(),
+        hideOverlay: true,
+        hideButton: true,
+        btnText: '',
       };
-      await perform({ action: 'save-campaign', id: editor?.campaign?.id || crypto.randomUUID(), campaign }, 'تم حفظ الحملة بنجاح وتحديث سلايدر المتجر.', true);
-    } catch (error) {
-      setError((error as Error).message);
+
+      await perform(
+        { action: 'save-campaign', id, campaign: payload },
+        'تم حفظ شريحة السلايدر وتحديث المتجر فوراً! 🚀',
+        true
+      );
+    } catch (err: any) {
+      setError(err.message || 'حدث خطأ أثناء الحفظ.');
     }
   }
 
+  // Destination Text Helper
+  function getDestinationDescription(camp: Promotion) {
+    if (camp.targetType === 'product') {
+      const prod = products.find(p => p.id === camp.targetId);
+      return {
+        icon: '🍔',
+        typeLabel: 'منتج محدد',
+        mainText: prod ? prod.name : 'منتج للطلب المباشر',
+        subText: prod ? `${formatEGP(prod.price)} • ${prod.storeName || 'متجر سنجوب'}` : '',
+        badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-200'
+      };
+    }
+    if (camp.targetType === 'store') {
+      const st = stores.find(s => s.id === camp.targetId);
+      return {
+        icon: '🏪',
+        typeLabel: 'متجر محدد',
+        mainText: st ? st.name : 'متجر في سنجوب',
+        subText: st?.category || '',
+        badgeColor: 'bg-blue-50 text-blue-800 border-blue-200'
+      };
+    }
+    if (camp.targetType === 'category') {
+      return {
+        icon: '📁',
+        typeLabel: 'قسم / تصنيف',
+        mainText: camp.targetId || 'كل الأقسام',
+        subText: 'تصفية المنتجات حسب القسم',
+        badgeColor: 'bg-purple-50 text-purple-800 border-purple-200'
+      };
+    }
+    return {
+      icon: '🏷️',
+      typeLabel: 'صفحة العروض',
+      mainText: 'جميع العروض والتخفيضات الحصرية',
+      subText: 'يوجه إلى /offers',
+      badgeColor: 'bg-orange-50 text-orange-800 border-orange-200'
+    };
+  }
+
   return (
-    <section className="space-y-6 font-cairo" aria-label="إدارة واجهة التطبيق والحملات" dir="rtl">
-      
+    <section className="space-y-6 font-['Cairo',sans-serif]" aria-label="إدارة واجهة التطبيق والسلايدر" dir="rtl">
+
+      {/* Hidden File Inputs for Direct Operations */}
+      <input
+        type="file"
+        ref={directReplaceInputRef}
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleDirectReplaceFile(file);
+          e.target.value = '';
+        }}
+      />
+      <input
+        type="file"
+        ref={galleryUploadRef}
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            if (targetCampaignForReplacement) {
+              void handleDirectReplaceFile(file);
+            } else {
+              void handleFileUpload(file);
+            }
+          }
+          e.target.value = '';
+        }}
+      />
+
       {/* ── Top Header ── */}
-      <header className="ops-heading flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
         <div>
-          <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-1">التسويق وتجربة العميل</p>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900">سلايدر العروض والحملات الرئيسية</h1>
-          <p className="text-xs text-slate-500 mt-1">تحكم في شرائح السلايدر للويب وتطبيق الموبايل، واستبدل الصور مع الاحتفاظ بها في الجاليري لإعادة استخدامها.</p>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-600 animate-pulse"></span>
+            <p className="text-xs font-bold text-orange-600 uppercase tracking-wider">سلايدر الواجهة الرئيسية</p>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900">إدارة صور السلايدر والوجهات</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            تحكم كامل في صور السلايدر المعروضة للعميل. يمكنك استبدال الصور بضغطة واحدة، وتحديد وجهة النقر (منتج محدد، متجر، أو عروض) بدون أزرار مشوهة فوق الصورة.
+          </p>
         </div>
-        
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition cursor-pointer"
-            onClick={() => setIsGalleryModalOpen(true)}
+            onClick={() => {
+              setTargetCampaignForReplacement(null);
+              setIsGalleryModalOpen(true);
+            }}
           >
             <ImageIcon size={16} className="text-orange-600" />
-            <span>معرض صور السلايدر ({gallery.length})</span>
+            <span>معرض الصور ({gallery.length})</span>
           </button>
-          
+
           <button
             type="button"
-            className="admin-primary btn btn-primary px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-black rounded-xl flex items-center gap-1.5 shadow-xs transition cursor-pointer"
-            disabled={!loaded || busy || campaigns.length >= 100}
-            onClick={() => open()}
+            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white text-xs font-black rounded-xl flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+            disabled={!loaded || busy}
+            onClick={() => openEditor()}
           >
             <Plus size={18} />
-            <span>إضافة حملة جديدة</span>
+            <span>إضافة شريحة سلايدر جديدة</span>
           </button>
         </div>
       </header>
 
-      {/* Notifications / Errors */}
-      {!editor && error && <p role="alert" className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold">{error}</p>}
-      {notice && <p role="status" className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold">{notice}</p>}
+      {/* Notification and Error Alerts */}
+      {error && (
+        <div role="alert" className="p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold flex items-center gap-2">
+          <span>⚠️</span>
+          <span>{error}</span>
+        </div>
+      )}
+      {notice && (
+        <div role="status" className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2">
+          <span>✅</span>
+          <span>{notice}</span>
+        </div>
+      )}
 
       {!loaded ? (
-        <div className="admin-empty p-12 text-center bg-white rounded-2xl border border-slate-200" role="status">
-          {error ? <button className="admin-primary px-4 py-2 bg-orange-600 text-white rounded-xl text-xs font-bold" onClick={() => setRevision(value => value + 1)}>إعادة المحاولة</button> : 'جارٍ تحميل إعدادات السلايدر والحملات…'}
+        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200" role="status">
+          <RefreshCw className="animate-spin text-orange-600 mx-auto mb-3" size={28} />
+          <p className="text-sm font-bold text-slate-700">جارٍ تحميل وتحديث شرائح السلايدر…</p>
         </div>
       ) : (
         <>
-          {/* ── Fixed Mart Banner Manager (شريط سنجوب ماركت الرئيسي) ── */}
+          {/* ── Main Active Slides Section (Cards & Table) ── */}
+          <section className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <span>شرائح السلايدر الحالية المعروضة في المتجر</span>
+                  <span className="bg-orange-100 text-orange-800 text-xs px-2.5 py-0.5 rounded-full font-black">
+                    {campaigns.length} شرائح
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  تظهر هذه الشرائح كبنرات مصممة نقية بدون أي نصوص أو أزرار إضافية فوق الصورة، وتوجه العميل فوراً عند النقر للوجهة المحددة.
+                </p>
+              </div>
+
+              {/* View Switcher: Cards vs Table */}
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('cards')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1.5 transition cursor-pointer ${
+                    viewMode === 'cards' ? 'bg-white text-orange-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <LayoutGrid size={14} />
+                  <span>عرض الكروت المصورة</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('table')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1.5 transition cursor-pointer ${
+                    viewMode === 'table' ? 'bg-white text-orange-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <List size={14} />
+                  <span>عرض الجدول</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 1. VISUAL CARDS VIEW */}
+            {viewMode === 'cards' && (
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...campaigns].sort((a, b) => a.priority - b.priority).map((campaign, idx) => {
+                  const dest = getDestinationDescription(campaign);
+                  return (
+                    <div
+                      key={campaign.id}
+                      className={`group relative bg-white rounded-2xl border transition-all overflow-hidden flex flex-col justify-between ${
+                        campaign.enabled ? 'border-slate-200 hover:border-orange-400 hover:shadow-md' : 'border-slate-200 opacity-60 bg-slate-50'
+                      }`}
+                    >
+                      {/* Slide Banner Image Preview */}
+                      <div className="relative aspect-[16/7] w-full bg-slate-900 overflow-hidden">
+                        <img
+                          src={campaign.imageUrl}
+                          alt={campaign.title || 'شريحة سلايدر'}
+                          className="w-full h-full object-cover object-center group-hover:scale-102 transition-transform duration-300"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = 'none';
+                          }}
+                        />
+
+                        {/* Top Badges: Priority & Status */}
+                        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
+                          <span className="bg-black/75 backdrop-blur-md text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs">
+                            ترتيب #{idx + 1}
+                          </span>
+                        </div>
+
+                        <div className="absolute top-2.5 left-2.5">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black shadow-xs flex items-center gap-1 ${
+                              campaign.enabled ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-200'
+                            }`}
+                          >
+                            {campaign.enabled ? <Eye size={11} /> : <EyeOff size={11} />}
+                            <span>{campaign.enabled ? 'مفعلة' : 'موقوفة'}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Destination Details / Map */}
+                      <div className="p-3.5 space-y-2.5 flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-xs">{dest.icon}</span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase">{dest.typeLabel}</span>
+                          </div>
+                          <h3 className="text-xs font-black text-slate-900 line-clamp-1">
+                            {dest.mainText}
+                          </h3>
+                          {dest.subText && (
+                            <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                              {dest.subText}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Quick Action Buttons */}
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => triggerDirectImageReplace(campaign)}
+                            className="flex-1 py-1.5 px-2 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-black flex items-center justify-center gap-1 transition cursor-pointer"
+                            title="رفع واستبدال صورة الشريحة مباشرة من جهازك"
+                          >
+                            <RefreshCw size={12} />
+                            <span>استبدال الصورة 🔄</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => openEditor(campaign)}
+                            className="py-1.5 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                            title="تعديل الوجهة وترتيب الشريحة"
+                          >
+                            تعديل
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleCampaign(campaign.id)}
+                            className={`p-1.5 rounded-xl border transition cursor-pointer ${
+                              campaign.enabled
+                                ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
+                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                            }`}
+                            title={campaign.enabled ? 'إيقاف مؤقت' : 'تفعيل العرض'}
+                          >
+                            {campaign.enabled ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm('هل تريد حذف هذه الشريحة من السلايدر؟ (ستظل صورتها محفوظة في الجاليري دائماً).')) {
+                                void perform({ action: 'delete-campaign', id: campaign.id }, 'تم حذف الشريحة بنجاح.');
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition cursor-pointer"
+                            title="حذف الشريحة"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 2. TABLE VIEW */}
+            {viewMode === 'table' && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                    <tr>
+                      <th className="p-3">صورة البانر</th>
+                      <th className="p-3">الوجهة عند النقر (Click Map)</th>
+                      <th className="p-3">الترتيب</th>
+                      <th className="p-3">حالة الظهور</th>
+                      <th className="p-3 text-center">الإجراءات المباشرة</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {[...campaigns].sort((a, b) => a.priority - b.priority).map((campaign, idx) => {
+                      const dest = getDestinationDescription(campaign);
+                      return (
+                        <tr key={campaign.id} className="hover:bg-slate-50/70 transition">
+                          <td className="p-3">
+                            <div className="w-24 h-12 rounded-xl overflow-hidden border border-slate-200 bg-slate-900 shrink-0 shadow-2xs">
+                              <img
+                                src={campaign.imageUrl}
+                                alt={campaign.title || 'شريحة'}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span>{dest.icon}</span>
+                              <span className="font-black text-slate-900">{dest.mainText}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] border ${dest.badgeColor}`}>
+                              {dest.typeLabel} {dest.subText ? `• ${dest.subText}` : ''}
+                            </span>
+                          </td>
+                          <td className="p-3 font-black text-slate-700">
+                            #{idx + 1}
+                          </td>
+                          <td className="p-3">
+                            <button
+                              type="button"
+                              onClick={() => toggleCampaign(campaign.id)}
+                              className={`px-2.5 py-1 rounded-xl font-black text-[11px] flex items-center gap-1 transition cursor-pointer ${
+                                campaign.enabled
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                                  : 'bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200'
+                              }`}
+                            >
+                              {campaign.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
+                              <span>{campaign.enabled ? 'مفعلة وتظهر' : 'موقوفة'}</span>
+                            </button>
+                          </td>
+                          <td className="p-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => triggerDirectImageReplace(campaign)}
+                                className="px-2.5 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-lg font-black text-xs flex items-center gap-1 transition cursor-pointer"
+                              >
+                                <RefreshCw size={11} />
+                                <span>استبدال الصورة</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openEditor(campaign)}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-xs transition cursor-pointer"
+                              >
+                                تعديل
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm('هل تريد حذف هذه الشريحة؟')) {
+                                    void perform({ action: 'delete-campaign', id: campaign.id }, 'تم حذف الشريحة بنجاح.');
+                                  }
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg transition cursor-pointer"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          {/* ── Fixed Mart Banner Manager (شريط سنجوب ماركت الثابت) ── */}
           <section className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-5">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
               <div>
@@ -295,7 +767,7 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
               </div>
             </div>
 
-            {/* Live Visual Preview of the Banner */}
+            {/* Live Visual Preview of Mart Banner */}
             <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
               <p className="text-[11px] font-bold text-slate-400 mb-1.5">معاينة مباشرة للشريط كما يظهر للعميل:</p>
               <div className={`bg-gradient-to-r from-[#FF5900] via-[#FF6A1A] to-[#FF4500] rounded-2xl p-3 sm:p-4 text-white shadow-xs flex items-center justify-between gap-3 ${!martBanner.enabled ? 'opacity-50 grayscale-50' : ''}`}>
@@ -326,7 +798,7 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
               </div>
             </div>
 
-            {/* Form Fields for Editing the Banner */}
+            {/* Form Fields for Editing Mart Banner */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">العنوان الرئيسي للبانر</label>
@@ -362,7 +834,7 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">نص زر الإجراء (Action Button)</label>
+                <label className="block font-bold text-slate-700 mb-1">نص زر الإجراء</label>
                 <input
                   type="text"
                   className="w-full p-2 border border-slate-200 rounded-xl focus:border-orange-500 focus:outline-hidden font-bold"
@@ -392,135 +864,6 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
             </div>
           </section>
 
-          {/* ── Active Campaigns Management Table ── */}
-          <section className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <span>شرائح السلايدر والحملات الحالية</span>
-                  <span className="bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded-full font-bold">{campaigns.length}</span>
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">يمكنك إيقاف أو تفعيل أي حملة بضغطة زر دون حذفها، لتظل محفوظة للاستخدام في المواسم القادمة.</p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
-                  <tr>
-                    <th className="p-3">الصورة</th>
-                    <th className="p-3">عنوان الحملة</th>
-                    <th className="p-3">الهدف والوجهة</th>
-                    <th className="p-3">الموعد</th>
-                    <th className="p-3">الحالة والظهور</th>
-                    <th className="p-3 text-center">الإجراءات</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {[...campaigns].sort((a, b) => a.priority - b.priority).map(campaign => (
-                    <tr key={campaign.id} className="hover:bg-slate-50/70 transition">
-                      <td className="p-3">
-                        <div className="w-16 h-10 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
-                          <img
-                            src={campaign.imageUrl}
-                            alt={campaign.title}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLElement).style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <strong className="text-slate-900 font-black block">{campaign.title}</strong>
-                        <span className="text-[11px] text-slate-500 line-clamp-1">{campaign.subtitle}</span>
-                        <small className="text-[10px] text-orange-600 font-bold block mt-0.5">الترتيب: {campaign.priority}</small>
-                      </td>
-                      <td className="p-3">
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md font-bold text-[11px]">
-                          {campaign.targetType === 'offers' ? '🏷️ صفحة العروض' : campaign.targetType === 'product' ? `🍔 ${products.find(p => p.id === campaign.targetId)?.name || 'منتج'}` : `🏪 ${stores.find(s => s.id === campaign.targetId)?.name || 'متجر'}`}
-                        </span>
-                      </td>
-                      <td className="p-3 text-slate-500 text-[11px]">
-                        <div>{cairoDateInput(campaign.startsAt).replace('T', ' ')}</div>
-                        <div>إلى {cairoDateInput(campaign.endsAt).replace('T', ' ')}</div>
-                      </td>
-                      <td className="p-3">
-                        <button
-                          type="button"
-                          onClick={() => toggleCampaign(campaign.id)}
-                          className={`px-2.5 py-1 rounded-xl font-black text-[11px] flex items-center gap-1 transition cursor-pointer ${
-                            campaign.enabled
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                              : 'bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200'
-                          }`}
-                          title={campaign.enabled ? 'اضغط للإيقاف المؤقت' : 'اضغط للتفعيل على السلايدر'}
-                        >
-                          {campaign.enabled ? (
-                            <>
-                              <Eye size={13} />
-                              <span>مفعلة وتظهر الآن</span>
-                            </>
-                          ) : (
-                            <>
-                              <EyeOff size={13} />
-                              <span>موقوفة مؤقتاً</span>
-                            </>
-                          )}
-                        </button>
-                      </td>
-                      <td className="p-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            className="px-2 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-lg font-bold text-xs flex items-center gap-1 transition cursor-pointer"
-                            disabled={busy}
-                            onClick={() => {
-                              setTargetCampaignForReplacement(campaign);
-                              setIsGalleryModalOpen(true);
-                            }}
-                            title="استبدال صورة هذه الشريحة بصورة من الجاليري مباشرة"
-                          >
-                            <ImageIcon size={12} />
-                            <span>استبدال الصورة</span>
-                          </button>
-                          <button
-                            type="button"
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-orange-50 text-slate-700 hover:text-orange-600 rounded-lg font-bold text-xs transition cursor-pointer"
-                            disabled={busy}
-                            onClick={() => open(campaign)}
-                          >
-                            تعديل
-                          </button>
-                          <button
-                            type="button"
-                            className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg font-bold text-xs transition cursor-pointer"
-                            disabled={busy}
-                            onClick={() => {
-                              if (window.confirm('هل تريد حذف هذه الشريحة؟ (ستظل الصورة محفوظة في الجاليري لاستخدامها لاحقاً).')) {
-                                void perform({ action: 'delete-campaign', id: campaign.id }, 'تم حذف الحملة بنجاح.');
-                              }
-                            }}
-                          >
-                            حذف
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {!campaigns.length && (
-              <div className="p-10 text-center text-slate-500">
-                <Megaphone size={32} className="mx-auto text-slate-300 mb-2" />
-                <h3 className="font-bold text-sm text-slate-700">لا توجد حملات مضافة حالياً</h3>
-                <p className="text-xs text-slate-400 mt-1">اضغط على زر "إضافة حملة جديدة" لاختيار صورة من الجاليري وعرضها في السلايدر.</p>
-              </div>
-            )}
-          </section>
-
           {/* ── Visual Slider Image Gallery (Permanent Preservation) ── */}
           <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 border-b border-slate-100 pb-3">
@@ -530,30 +873,20 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                   <span>معرض صور السلايدر الدائم (Gallery)</span>
                   <span className="text-xs font-normal text-slate-400">({gallery.length} صورة محفوظة)</span>
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">جميع الصور التي ترفعها تظل محفوظة هنا دائماً في Cloudflare R2؛ يمكنك استبدال الصور الحالية وإعادة استخدام الصور القديمة في أي وقت.</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  جميع صور السلايدر التي ترفعها تظل محفوظة هنا دائماً؛ يمكنك استبدال الصور الحالية وإعادة استخدام الصور القديمة في أي وقت دون إعادة الرفع.
+                </p>
               </div>
 
-              {/* Upload to Gallery Button */}
               <div>
-                <input
-                  type="file"
-                  ref={galleryUploadRef}
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void handleFileUpload(file);
-                    e.target.value = '';
-                  }}
-                />
                 <button
                   type="button"
                   disabled={uploadingImage}
                   onClick={() => galleryUploadRef.current?.click()}
-                  className="px-3.5 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
                 >
                   <Upload size={14} />
-                  <span>{uploadingImage ? 'جارٍ رفع الصورة…' : 'رفع صورة جديدة للجليري 📤'}</span>
+                  <span>{uploadingImage ? 'جارٍ رفع الصورة…' : 'رفع صورة جديدة للمعرض 📤'}</span>
                 </button>
               </div>
             </div>
@@ -575,11 +908,14 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => setUseGalleryItemTarget(item)}
+                        onClick={() => {
+                          setCurrentImageUrl(item.url);
+                          openEditor();
+                        }}
                         className="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-md text-[10px] font-bold transition shadow-2xs cursor-pointer"
-                        title="استخدم هذه الصورة لاستبدال شريحة حالية أو إنشاء شريحة جديدة"
+                        title="إنشاء شريحة جديدة بهذه الصورة"
                       >
-                        استخدم الصورة
+                        استخدم
                       </button>
                       <button
                         type="button"
@@ -629,7 +965,16 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                     <button
                       aria-label={`تقديم ${labels[section.type]}`}
                       disabled={busy || index === 0}
-                      onClick={() => move(index, -1)}
+                      onClick={() => {
+                        dirty.current = true;
+                        setConfig(previous => {
+                          const base = previous || defaultCustomerHome;
+                          const sections = [...(Array.isArray(base.sections) ? base.sections : defaultCustomerHome.sections)];
+                          if (index - 1 < 0) return base;
+                          [sections[index], sections[index - 1]] = [sections[index - 1], sections[index]];
+                          return { ...base, sections };
+                        });
+                      }}
                       className="p-1 bg-white hover:bg-slate-200 rounded border border-slate-200 text-slate-600 disabled:opacity-40"
                     >
                       <ArrowUp size={14} />
@@ -637,7 +982,16 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                     <button
                       aria-label={`تأخير ${labels[section.type]}`}
                       disabled={busy || index === arr.length - 1}
-                      onClick={() => move(index, 1)}
+                      onClick={() => {
+                        dirty.current = true;
+                        setConfig(previous => {
+                          const base = previous || defaultCustomerHome;
+                          const sections = [...(Array.isArray(base.sections) ? base.sections : defaultCustomerHome.sections)];
+                          if (index + 1 >= sections.length) return base;
+                          [sections[index], sections[index + 1]] = [sections[index + 1], sections[index]];
+                          return { ...base, sections };
+                        });
+                      }}
                       className="p-1 bg-white hover:bg-slate-200 rounded border border-slate-200 text-slate-600 disabled:opacity-40"
                     >
                       <ArrowDown size={14} />
@@ -645,292 +999,351 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
                   </div>
                 </div>
               ))}
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <label className="block text-xs font-bold text-slate-700">
-                  وضع شرائح السلايدر
-                  <select
-                    className="w-full mt-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
-                    value={config.sliderMode}
-                    onChange={event => {
-                      dirty.current = true;
-                      setConfig(previous => ({ ...previous, sliderMode: event.target.value as CustomerHome['sliderMode'] }));
-                    }}
-                  >
-                    <option value="manual">الحملات اليدوية المفعلة (الموصى به)</option>
-                    <option value="automatic">تلقائي من المنتجات المخفضة</option>
-                  </select>
-                </label>
-
-                <label className="block text-xs font-bold text-slate-700">
-                  أقصى عدد للشرائح المعروضة
-                  <input
-                    className="w-full mt-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={config.maxSlides}
-                    onChange={event => {
-                      dirty.current = true;
-                      setConfig(previous => ({ ...previous, maxSlides: Number(event.target.value) }));
-                    }}
-                  />
-                </label>
-              </div>
-
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-200 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={config.showArrows !== false}
-                  disabled={busy}
-                  onChange={event => {
-                    dirty.current = true;
-                    setConfig(previous => ({ ...previous, showArrows: event.target.checked }));
-                  }}
-                  className="rounded text-orange-600"
-                />
-                <span>إظهار أسهم التنقل الجانبية على السلايدر (للكمبيوتر والتابلت)</span>
-              </label>
-
+            <div className="mt-4 flex justify-end">
               <button
-                className="mt-3 px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                type="button"
+                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black shadow-xs transition"
+                onClick={() => perform({ action: 'save-home', config }, 'تم حفظ إعدادات وترتيب أقسام الصفحة الرئيسية بنجاح.')}
                 disabled={busy}
-                onClick={() => perform({ action: 'save-home', config }, 'تم حفظ ترتيب الصفحة وإعدادات السلايدر.')}
               >
-                حفظ إعدادات الصفحة
+                حفظ ترتيب الأقسام
               </button>
             </div>
           </section>
         </>
       )}
 
-      {/* ── Modal: Campaign Editor (With Gallery Picker Integration) ── */}
+      {/* ── Modal: Streamlined Slider Slide Editor (With Click Destination Map) ── */}
       <dialog
         ref={dialog}
-        className="fixed inset-0 m-auto z-50 rounded-3xl p-0 border border-slate-200 shadow-2xl max-w-lg w-full max-h-[92vh] backdrop:bg-black/60 overflow-y-auto font-cairo"
+        className="fixed inset-0 m-auto z-50 rounded-3xl p-0 border border-slate-200 shadow-2xl max-w-xl w-full max-h-[92vh] backdrop:bg-black/60 overflow-y-auto font-['Cairo',sans-serif]"
         dir="rtl"
-        aria-label="محرر الحملة"
+        aria-label="محرر شريحة السلايدر"
         onCancel={event => { if (busy) event.preventDefault(); else setEditor(null); }}
         onClose={() => { if (!busy) setEditor(null); }}
       >
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-          <h2 className="font-black text-base">{editor?.campaign ? 'تعديل شريحة السلايدر' : 'إضافة شريحة سلايدر جديدة'}</h2>
-          <button disabled={busy} aria-label="إغلاق" onClick={() => setEditor(null)} className="p-1 hover:bg-white/20 rounded-full transition">
+        <div className="p-4 bg-slate-900 text-white flex items-center justify-between sticky top-0 z-20">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+            <h2 className="font-black text-base">
+              {editor?.campaign ? 'تعديل شريحة السلايدر' : 'إضافة شريحة سلايدر جديدة'}
+            </h2>
+          </div>
+          <button
+            disabled={busy}
+            aria-label="إغلاق"
+            onClick={() => setEditor(null)}
+            className="p-1 hover:bg-white/20 rounded-full transition cursor-pointer"
+          >
             <X size={18} />
           </button>
         </div>
 
         {editor && (
-          <form className="p-5 space-y-3.5" onSubmit={saveCampaign}>
-            <fieldset disabled={busy} className="space-y-3">
-              
-              {/* Campaign Title (Optional) */}
-              <div>
-                <label className="block text-xs font-black text-slate-800 mb-1">
-                  عنوان الحملة الرئيسي <span className="text-slate-400 font-normal">(اختياري - اتركه فارغاً إذا كان التصميم يحتوي على نص):</span>
-                </label>
-                <input
-                  name="title"
-                  maxLength={120}
-                  defaultValue={editor.campaign?.title || ''}
-                  placeholder="اختياري: مثال سنجوب ماركت وكل طلبات البيت لحد بابك"
-                  className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:bg-white focus:border-orange-500"
-                />
-              </div>
+          <form className="p-5 space-y-4" onSubmit={handleSaveSlide}>
+            
+            {/* 1. Slide Banner Image Picker & Live Preview */}
+            <div className="space-y-2">
+              <label className="block text-xs font-black text-slate-800">
+                صورة شريحة السلايدر (تصميم البانر النظيف)
+              </label>
 
-              {/* Campaign Subtitle */}
-              <div>
-                <label className="block text-xs font-black text-slate-800 mb-1">وصف مختصر / السلوجان:</label>
-                <input
-                  name="subtitle"
-                  maxLength={250}
-                  defaultValue={editor.campaign?.subtitle || ''}
-                  placeholder="مثال: ألبان ومياه ومستلزماتك اليومية بأعلى سرعة وجودة."
-                  className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:bg-white focus:border-orange-500"
-                />
-              </div>
-
-              {/* Image Picker & Upload Section */}
-              <div>
-                <label className="block text-xs font-black text-slate-800 mb-1">صورة شريحة السلايدر:</label>
-                
-                {/* Live Image Preview */}
-                {currentImageUrl && (
-                  <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 mb-2">
-                    <img src={currentImageUrl} alt="معاينة" className="w-full h-full object-cover" />
-                    <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">معاينة الصورة الحالية</span>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsGalleryModalOpen(true)}
-                    className="flex-1 py-2 px-3 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-                  >
-                    <ImageIcon size={15} />
-                    <span>اختر صورة من الجاليري 🖼️</span>
-                  </button>
-
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) void handleFileUpload(file, true);
-                      e.target.value = '';
-                    }}
-                  />
-
-                  <button
-                    type="button"
-                    disabled={uploadingImage}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
-                  >
-                    <Upload size={14} />
-                    <span>{uploadingImage ? 'جارٍ الرفع…' : 'رفع صورة من جهازك 📤'}</span>
-                  </button>
+              {currentImageUrl ? (
+                <div className="relative aspect-[16/7] w-full rounded-2xl overflow-hidden border-2 border-orange-500 bg-slate-900 shadow-sm">
+                  <img src={currentImageUrl} alt="معاينة الشريحة" className="w-full h-full object-cover object-center" />
+                  <span className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-md text-white text-[10px] px-2.5 py-1 rounded-full font-bold">
+                    معاينة صورة البانر الحالية
+                  </span>
                 </div>
-
-                <input type="hidden" name="imageUrl" value={currentImageUrl} />
-              </div>
-
-              {/* Target Type & Priority */}
-              <div className="grid grid-cols-2 gap-2">
-                <label className="block text-xs font-bold text-slate-700">
-                  نوع الهدف والوجهة
-                  <select
-                    className="w-full mt-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
-                    value={targetType}
-                    onChange={event => setTargetType(event.target.value)}
-                  >
-                    <option value="offers">صفحة العروض والتخفيضات</option>
-                    <option value="store">متجر / مطعم محدد</option>
-                    <option value="product">منتج محدد</option>
-                  </select>
-                </label>
-
-                <label className="block text-xs font-bold text-slate-700">
-                  أولوية الترتيب
-                  <input
-                    className="w-full mt-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
-                    name="priority"
-                    type="number"
-                    min="0"
-                    max="1000"
-                    required
-                    defaultValue={editor.campaign?.priority ?? 10}
-                  />
-                </label>
-              </div>
-
-              {/* Target Selector */}
-              {targetType !== 'offers' && (
-                <label className="block text-xs font-bold text-slate-700">
-                  اختر {targetType === 'product' ? 'المنتج' : 'المتجر'}
-                  <select
-                    className="w-full mt-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
-                    name="targetId"
-                    required
-                    key={targetType}
-                    defaultValue={editor.campaign?.targetType === targetType ? editor.campaign.targetId : ''}
-                  >
-                    <option value="" disabled>اختر الهدف</option>
-                    {(targetType === 'product' ? products.filter(product => !product.archived) : stores).map(item => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                  </select>
-                </label>
+              ) : (
+                <div className="aspect-[16/7] w-full rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center text-slate-400 p-4">
+                  <ImageIcon size={32} className="mb-2 text-slate-300" />
+                  <p className="text-xs font-bold text-slate-600">اختر صورة أو ارفعها من جهازك لعرضها كبانر في السلايدر</p>
+                  <p className="text-[10px] text-slate-400 mt-1">يُفضل المقاس العريض (مثل 800 × 350 بكسل)</p>
+                </div>
               )}
 
-              {/* Date Ranges */}
-              <div className="grid grid-cols-2 gap-2">
-                <label className="block text-xs font-bold text-slate-700">
-                  بداية الحملة
-                  <input
-                    className="w-full mt-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
-                    type="datetime-local"
-                    name="startsAt"
-                    required
-                    defaultValue={cairoDateInput(editor.campaign?.startsAt || Date.now())}
-                  />
-                </label>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleFileUpload(file, true);
+                    e.target.value = '';
+                  }}
+                />
 
-                <label className="block text-xs font-bold text-slate-700">
-                  نهاية الحملة
-                  <input
-                    className="w-full mt-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
-                    type="datetime-local"
-                    name="endsAt"
-                    required
-                    defaultValue={cairoDateInput(editor.campaign?.endsAt || Date.now() + 365 * 86400000)}
-                  />
-                </label>
+                <button
+                  type="button"
+                  disabled={uploadingImage}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-1 py-2.5 px-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
+                >
+                  <Upload size={14} />
+                  <span>{uploadingImage ? 'جارٍ رفع الصورة…' : 'رفع صورة من جهازك 📤'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsGalleryModalOpen(true)}
+                  className="py-2.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <ImageIcon size={14} className="text-orange-600" />
+                  <span>اختيار من المعرض 🖼️</span>
+                </button>
               </div>
 
-              {/* Clean Image / Hide Overlay Toggle */}
-              <label className="flex items-start gap-2.5 text-xs font-bold text-slate-800 bg-orange-50/70 p-3 rounded-xl border border-orange-200 cursor-pointer">
+              {/* Direct Image URL input (optional fallback) */}
+              <div className="pt-1">
                 <input
-                  type="checkbox"
-                  name="hideOverlay"
-                  defaultChecked={editor.campaign?.hideOverlay ?? (!editor.campaign?.title && !editor.campaign?.subtitle)}
-                  className="rounded text-orange-600 mt-0.5"
+                  type="url"
+                  value={currentImageUrl}
+                  onChange={(e) => setCurrentImageUrl(e.target.value)}
+                  placeholder="أو الصق رابط صورة مباشر هنا (URL)..."
+                  className="w-full p-2 text-[11px] bg-slate-50 border border-slate-200 rounded-xl font-medium outline-hidden focus:bg-white focus:border-orange-500"
                 />
-                <div>
-                  <span className="text-orange-950 font-black">إخفاء الأزرار والشارات والنصوص فوق الصورة</span>
-                  <p className="text-[11px] text-orange-800/80 font-normal mt-0.5 leading-relaxed">
-                    فعّل هذا الخيار إذا كانت الصورة عبارة عن تصميم إعلاني كامل ومصمم جاهزاً (يحتوي بداخله على النصوص وزر الطلب الخاص به)، ليتم عرض التصميم نظيفاً بدون أي نصوص أو أزرار إضافية فوقه.
-                  </p>
-                </div>
-              </label>
+              </div>
+            </div>
 
-              {/* Custom Button Text */}
+            {/* 2. CLICK DESTINATION MAP (خريطة توجيه النقرة) */}
+            <div className="space-y-2.5 pt-2 border-t border-slate-100">
+              <div>
+                <label className="block text-xs font-black text-slate-900 mb-0.5">
+                  🎯 خريطة توجيه النقرة (أين يتوجه العميل عند لمس الشريحة؟)
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  حدد الهدف بدقة. عند نقر العميل على الشريحة، سيتم توجيهه فوراً إلى وجهتك المختارة بدون أزرار وسيطة.
+                </p>
+              </div>
+
+              {/* 4 Primary Target Type Buttons */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetType('product');
+                    if (!targetId && products.length > 0) setTargetId(products[0].id);
+                  }}
+                  className={`p-2.5 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center justify-center ${
+                    targetType === 'product'
+                      ? 'bg-orange-50 border-orange-500 text-orange-950 font-black ring-2 ring-orange-500/20 shadow-xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 font-bold hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="text-lg mb-0.5">🍔</span>
+                  <span className="text-xs">منتج محدد</span>
+                  <span className="text-[9px] text-orange-700 font-bold mt-0.5">للطلب الفوري</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetType('store');
+                    if (stores.length > 0) setTargetId(stores[0].id);
+                  }}
+                  className={`p-2.5 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center justify-center ${
+                    targetType === 'store'
+                      ? 'bg-orange-50 border-orange-500 text-orange-950 font-black ring-2 ring-orange-500/20 shadow-xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 font-bold hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="text-lg mb-0.5">🏪</span>
+                  <span className="text-xs">متجر محدد</span>
+                  <span className="text-[9px] text-slate-500 font-medium mt-0.5">صفحة المتجر</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetType('category');
+                    if (availableCategories.length > 0) setTargetId(availableCategories[0]);
+                  }}
+                  className={`p-2.5 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center justify-center ${
+                    targetType === 'category'
+                      ? 'bg-orange-50 border-orange-500 text-orange-950 font-black ring-2 ring-orange-500/20 shadow-xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 font-bold hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="text-lg mb-0.5">📁</span>
+                  <span className="text-xs">قسم / تصنيف</span>
+                  <span className="text-[9px] text-slate-500 font-medium mt-0.5">تصفية المنتجات</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetType('offers');
+                    setTargetId('');
+                  }}
+                  className={`p-2.5 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center justify-center ${
+                    targetType === 'offers'
+                      ? 'bg-orange-50 border-orange-500 text-orange-950 font-black ring-2 ring-orange-500/20 shadow-xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 font-bold hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="text-lg mb-0.5">🏷️</span>
+                  <span className="text-xs">صفحة العروض</span>
+                  <span className="text-[9px] text-slate-500 font-medium mt-0.5">كل التخفيضات</span>
+                </button>
+              </div>
+
+              {/* Sub-selector for Product: Instant Search & Filter */}
+              {targetType === 'product' && (
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-xs font-black text-slate-800">
+                      اختر المنتج المستهدف للطلب المباشر:
+                    </label>
+                    {selectedProductObj && (
+                      <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        تم اختيار: {selectedProductObj.name}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Search Input for Products */}
+                  <div className="relative">
+                    <Search size={14} className="absolute right-3 top-3 text-slate-400" />
+                    <input
+                      type="text"
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      placeholder="ابحث عن المنتج بالاسم أو الباركود..."
+                      className="w-full pr-9 pl-3 py-2 text-xs bg-white border border-slate-300 rounded-xl font-bold focus:border-orange-500 focus:outline-hidden"
+                    />
+                  </div>
+
+                  {/* Fast Products Grid Selection */}
+                  <div className="max-h-48 overflow-y-auto space-y-1 divide-y divide-slate-100 bg-white rounded-xl border border-slate-200 p-1">
+                    {filteredProducts.map(p => {
+                      const isSelected = targetId === p.id;
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => setTargetId(p.id)}
+                          className={`p-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer transition ${
+                            isSelected ? 'bg-orange-50 text-orange-950 font-black' : 'hover:bg-slate-50 text-slate-700 font-bold'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0">
+                              <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                            </div>
+                            <div className="leading-tight">
+                              <p className="text-xs truncate">{p.name}</p>
+                              <p className="text-[10px] text-slate-400 font-normal">{p.storeName || 'متجر سنجوب'}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs font-black text-orange-600">{formatEGP(p.price)}</span>
+                            {isSelected && (
+                              <span className="w-5 h-5 rounded-full bg-orange-600 text-white flex items-center justify-center">
+                                <Check size={12} strokeWidth={3} />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-selector for Store */}
+              {targetType === 'store' && (
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                  <label className="block text-xs font-black text-slate-800">
+                    اختر المتجر أو المطعم:
+                  </label>
+                  <select
+                    value={targetId}
+                    onChange={(e) => setTargetId(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold focus:border-orange-500 focus:outline-hidden"
+                  >
+                    {stores.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.category || 'متجر'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Sub-selector for Category */}
+              {targetType === 'category' && (
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                  <label className="block text-xs font-black text-slate-800">
+                    اختر القسم أو التصنيف:
+                  </label>
+                  <select
+                    value={targetId}
+                    onChange={(e) => setTargetId(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold focus:border-orange-500 focus:outline-hidden"
+                  >
+                    {availableCategories.map(cat => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Priority & Status */}
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
               <div>
                 <label className="block text-xs font-black text-slate-800 mb-1">
-                  نص الزر التلقائي <span className="text-slate-400 font-normal">(اختياري - اتركه فارغاً لإخفاء الزر تماماً):</span>
+                  أولوية الترتيب في السلايدر
                 </label>
                 <input
-                  name="btnText"
-                  maxLength={40}
-                  defaultValue={editor.campaign?.btnText || ''}
-                  placeholder="مثال: تصفح العروض، أو اتركه فارغاً بدون زر"
-                  className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:bg-white focus:border-orange-500"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={slidePriority}
+                  onChange={(e) => setSlidePriority(Number(e.target.value))}
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black focus:border-orange-500 focus:outline-hidden"
                 />
               </div>
 
-              {/* Active Toggle */}
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-800 bg-slate-50 p-2.5 rounded-xl border border-slate-200 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="enabled"
-                  defaultChecked={editor.campaign?.enabled ?? true}
-                  className="rounded text-orange-600"
-                />
-                <span>تفعيل الشريحة وعرضها في السلايدر فوراً</span>
-              </label>
+              <div className="flex items-end">
+                <label className="w-full flex items-center gap-2 text-xs font-black text-slate-800 bg-slate-50 p-2.5 rounded-xl border border-slate-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={slideEnabled}
+                    onChange={(e) => setSlideEnabled(e.target.checked)}
+                    className="rounded text-orange-600"
+                  />
+                  <span>تفعيل الشريحة في المتجر</span>
+                </label>
+              </div>
+            </div>
 
-            </fieldset>
-
-            {error && <p role="alert" className="p-2 bg-red-50 text-red-600 rounded text-xs font-bold">{error}</p>}
-
-            <button
-              className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-              disabled={busy}
-            >
-              <Check size={16} strokeWidth={2.5} />
-              <span>{busy ? 'جارٍ الحفظ…' : 'حفظ الشريحة وعرضها في المتجر'}</span>
-            </button>
+            {/* 4. Action Buttons */}
+            <div className="pt-3">
+              <button
+                type="submit"
+                disabled={busy}
+                className="w-full py-3 bg-orange-600 hover:bg-orange-700 active:scale-98 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Check size={16} strokeWidth={3} />
+                <span>{busy ? 'جارٍ الحفظ وتحديث السلايدر…' : 'حفظ الشريحة وعرضها في السلايدر فوراً 🚀'}</span>
+              </button>
+            </div>
           </form>
         )}
       </dialog>
 
-      {/* ── Modal: Gallery Picker (Select previous images or upload) ── */}
+      {/* ── Modal: Gallery Picker (Direct Selection for Slide) ── */}
       <dialog
         ref={galleryDialog}
-        className="fixed inset-0 m-auto z-50 rounded-3xl p-0 border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[88vh] backdrop:bg-black/60 overflow-hidden font-cairo"
+        className="fixed inset-0 m-auto z-50 rounded-3xl p-0 border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[88vh] backdrop:bg-black/60 overflow-hidden font-['Cairo',sans-serif]"
         dir="rtl"
         aria-label="معرض صور السلايدر"
         onCancel={() => setIsGalleryModalOpen(false)}
@@ -939,7 +1352,11 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
         <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ImageIcon size={18} className="text-orange-500" />
-            <h2 className="font-black text-base">معرض صور السلايدر (اختر صورة للشريحة)</h2>
+            <h2 className="font-black text-base">
+              {targetCampaignForReplacement
+                ? `استبدال صورة الشريحة "${targetCampaignForReplacement.title || 'المحددة'}"`
+                : 'معرض صور السلايدر (اضغط على الصورة لاختيارها)'}
+            </h2>
           </div>
           <button onClick={() => setIsGalleryModalOpen(false)} className="p-1 hover:bg-white/20 rounded-full transition cursor-pointer">
             <X size={18} />
@@ -948,12 +1365,16 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
 
         <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
           <div className="flex items-center justify-between gap-2 bg-orange-50 p-3 rounded-2xl border border-orange-200">
-            <p className="text-xs text-orange-900 font-bold">اضغط على أي صورة لاختيارها فوراً لشريحة السلايدر الحالية.</p>
+            <p className="text-xs text-orange-900 font-bold">
+              {targetCampaignForReplacement
+                ? 'اضغط على أي صورة لاستبدال صورة هذه الشريحة بها فوراً وتحديث المتجر.'
+                : 'اضغط على أي صورة لاختيارها فوراً لشريحة السلايدر.'}
+            </p>
             <button
               type="button"
               disabled={uploadingImage}
               onClick={() => galleryUploadRef.current?.click()}
-              className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shrink-0 transition cursor-pointer disabled:opacity-50"
+              className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black flex items-center gap-1 shrink-0 transition cursor-pointer disabled:opacity-50"
             >
               <Upload size={13} />
               <span>{uploadingImage ? 'جارٍ الرفع…' : 'رفع صورة جديدة 📤'}</span>
@@ -964,9 +1385,13 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
             {gallery.map((item) => (
               <div
                 key={item.id}
-                onClick={() => {
-                  setCurrentImageUrl(item.url);
-                  setIsGalleryModalOpen(false);
+                onClick={async () => {
+                  if (targetCampaignForReplacement) {
+                    await applyImageToCampaign(targetCampaignForReplacement, item.url);
+                  } else {
+                    setCurrentImageUrl(item.url);
+                    setIsGalleryModalOpen(false);
+                  }
                 }}
                 className={`group relative rounded-2xl overflow-hidden border-2 cursor-pointer transition flex flex-col justify-between ${
                   currentImageUrl === item.url ? 'border-orange-600 ring-2 ring-orange-600/30 shadow-md' : 'border-slate-200 hover:border-orange-400'

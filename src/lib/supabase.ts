@@ -561,16 +561,26 @@ export function subscribeToAdminOrders(
     if (loading) { queued = true; return; }
     loading = true;
     try {
-      let { data, error } = await supabase.from('orders')
-        .select('*,order_items(*)')
-        .order('created_at', { ascending: false }).limit(500);
+      let data: any = null;
+      let error: any = null;
+      try {
+        const res = await supabase.from('orders')
+          .select('*,order_items(*)')
+          .order('created_at', { ascending: false }).limit(150);
+        data = res.data;
+        error = res.error;
+      } catch (networkErr) {
+        console.warn('Orders joined query connection retry:', networkErr);
+      }
 
-      if (error) {
-        const simple = await supabase.from('orders')
-          .select('*')
-          .order('created_at', { ascending: false }).limit(500);
-        data = simple.data;
-        error = simple.error;
+      if (error || !data) {
+        try {
+          const simple = await supabase.from('orders')
+            .select('*')
+            .order('created_at', { ascending: false }).limit(100);
+          data = simple.data;
+          error = simple.error;
+        } catch {}
       }
 
       // If database returned 0 rows, check local saved orders so test orders appear in Admin immediately
