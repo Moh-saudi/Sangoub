@@ -10,10 +10,19 @@ function cairoVisitorDay(now = new Date()) {
 async function fetchFromSupabaseDirect(): Promise<VisitorStatsData> {
   const day = cairoVisitorDay();
   const keys = Array.from({ length: 7 }, (_, index) => cairoVisitorDay(new Date(Date.parse(day + 'T12:00:00Z') - (6 - index) * 86400000)));
-  const [{ data: totals }, { data: records }] = await Promise.all([
+  const [{ data: totals, error: totalsErr }, { data: records, error: recordsErr }] = await Promise.all([
     supabase.from('site_visitor_totals').select('visitors,started_at,analytics_started_at').eq('id', true).maybeSingle(),
     supabase.from('site_visitor_days').select('day,visitors,sources,events').in('day', keys),
   ]);
+
+  if (totalsErr || recordsErr) {
+    const err = totalsErr || recordsErr;
+    if (err?.code === '42501' || (err as any)?.status === 403 || err?.message?.includes('permission')) {
+      throw new Error('PERMISSION_DENIED_ANALYTICS');
+    }
+    console.warn('Visitor stats direct query notice:', err);
+  }
+
   const byDay = new Map((records || []).map((record: any) => [String(record.day).slice(0, 10), record]));
   const days = keys.map(key => {
     const record: any = byDay.get(key);
@@ -29,8 +38,22 @@ async function fetchFromSupabaseDirect(): Promise<VisitorStatsData> {
   };
 }
 
+const FIX_SQL = `-- تفعيل صلاحية قراءة إحصائيات الزوار في Supabase SQL Editor
+GRANT SELECT ON public.site_visitor_totals TO anon, authenticated;
+GRANT SELECT ON public.site_visitor_days TO anon, authenticated;
+
+DROP POLICY IF EXISTS "Allow select visitor totals" ON public.site_visitor_totals;
+DROP POLICY IF EXISTS "Allow select visitor days" ON public.site_visitor_days;
+
+CREATE POLICY "Allow select visitor totals" ON public.site_visitor_totals FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Allow select visitor days" ON public.site_visitor_days FOR SELECT TO anon, authenticated USING (true);
+
+INSERT INTO public.site_visitor_totals (id, visitors, started_at, analytics_started_at)
+VALUES (true, 0, now(), now()) ON CONFLICT (id) DO NOTHING;
+GRANT EXECUTE ON FUNCTION public.record_sangoub_site_visit(text, date, text, text) TO anon, authenticated;`;
+
 export function VisitorStats() {
- const [stats, setStats] = useState<VisitorStatsData | null>(null), [error, setError] = useState(''), [loading, setLoading] = useState(false), [revision, setRevision] = useState(0), [copied, setCopied] = useState('');
+ const [stats, setStats] = useState<VisitorStatsData | null>(null), [error, setError] = useState(''), [loading, setLoading] = useState(false), [revision, setRevision] = useState(0), [copied, setCopied] = useState(''), [sqlCopied, setSqlCopied] = useState(false);
  useEffect(() => {
   const controller = new AbortController();setLoading(true);setError('');
   (async () => {
@@ -52,13 +75,21 @@ export function VisitorStats() {
     }
 
     if (!controller.signal.aborted && data) setStats(data);
-   } catch (e) {
+   } catch (e: any) {
      if (!controller.signal.aborted) {
-       try {
-         const direct = await fetchFromSupabaseDirect();
-         setStats(direct);
-       } catch {
-         setError('تعذر قراءة إحصائيات الزوار حالياً.');
+       if (e?.message === 'PERMISSION_DENIED_ANALYTICS') {
+         setError('PERMISSION_DENIED_ANALYTICS');
+       } else {
+         try {
+           const direct = await fetchFromSupabaseDirect();
+           setStats(direct);
+         } catch (directErr: any) {
+           if (directErr?.message === 'PERMISSION_DENIED_ANALYTICS') {
+             setError('PERMISSION_DENIED_ANALYTICS');
+           } else {
+             setError('تعذر قراءة إحصائيات الزوار حالياً.');
+           }
+         }
        }
      }
    }
@@ -77,7 +108,35 @@ export function VisitorStats() {
  async function copy(source: string) { try { await navigator.clipboard.writeText(link(source));setCopied(source); } catch { setCopied('error'); } }
  return <section className="admin-panel visitor-stats" aria-labelledby="visitor-stats-title">
   <div className="admin-panel-heading"><div><h1 id="visitor-stats-title">عدد زوار الموقع</h1><p>الزيارات والتفاعل مع سنجوب، دون أسماء أو أرقام هواتف.</p></div><button className="btn btn-outline-secondary" disabled={loading} onClick={() => setRevision(value => value + 1)}>تحديث العدد</button></div>
-  {error && <p role="alert" className="ops-warning">{error}</p>}
+  {error === 'PERMISSION_DENIED_ANALYTICS' ? (
+    <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs space-y-3 font-bold text-amber-950 mb-4" dir="rtl">
+      <div className="flex items-center gap-2 text-amber-800">
+        <span className="text-base">🔒</span>
+        <span className="font-black text-sm">يتطلب عرض إحصائيات الزوار تفعيل صلاحية القراءة في Supabase</span>
+      </div>
+      <p className="font-normal text-amber-900 leading-relaxed">
+        جداول إحصائيات الزوار (<code>site_visitor_totals</code> و <code>site_visitor_days</code>) مفعل عليها نظام الأمان، ولتمكين لوحة التحكم من قراءتها يرجى تشغيل سكريبت الصلاحيات لمرة واحدة في محرر SQL بـ Supabase.
+      </p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(FIX_SQL);
+              setSqlCopied(true);
+              setTimeout(() => setSqlCopied(false), 3000);
+            } catch {}
+          }}
+          className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
+        >
+          <span>{sqlCopied ? 'تم نسخ كود SQL بنجاح ✓' : 'نسخ كود تفعيل الصلاحيات (SQL) 📋'}</span>
+        </button>
+        <span className="text-[11px] text-amber-700 font-normal">الملف متوفر أيضاً في: <code>scripts/supabase_fix_analytics_permissions.sql</code></span>
+      </div>
+    </div>
+  ) : error ? (
+    <p role="alert" className="ops-warning">{error}</p>
+  ) : null}
   {loading && <p role="status">جارٍ تحميل العدد…</p>}
   {stats && !loading && !error && <>
    <div className="management-summary" aria-live="polite"><span>إجمالي الزوار <strong>{number(stats.total)}</strong></span><span>زوار اليوم <strong>{number(stats.today)}</strong></span></div>
