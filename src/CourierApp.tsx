@@ -294,11 +294,14 @@ export default function CourierApp() {
     } catch {}
   }
 
+  const verifiedCourierId = useRef('');
+
   useEffect(() => {
     let active = true;
 
     async function checkCourier(user: any) {
       if (!user) {
+        verifiedCourierId.current = '';
         if (active) {
           setUid(undefined);
           setCurrentEmail('');
@@ -308,16 +311,25 @@ export default function CourierApp() {
       }
 
       const userId = user.id || user.uid;
+      if (verifiedCourierId.current === userId && access === 'courier') {
+        setUid(userId);
+        setCurrentEmail(user.email || '');
+        return;
+      }
+
       if (active) {
         setUid(userId);
         setCurrentEmail(user.email || '');
-        setAccess('checking');
+        if (access !== 'courier') {
+          setAccess('checking');
+        }
       }
 
       try {
         const authority = await operationsApi('operations', { action: 'profile' });
         if (authority.role === 'courier') {
           if (active) {
+            verifiedCourierId.current = userId;
             const displayName = authority.displayName || authority.fullName || user.user_metadata?.full_name || 'كابتن التوصيل';
             setName(displayName);
             setProfileData({
@@ -345,11 +357,15 @@ export default function CourierApp() {
         }
 
         if (active) {
+          verifiedCourierId.current = '';
           setAccessMessage('هذا الحساب ليس مسجلاً كمندوب توصيل. اطلب من الإدارة تفعيل رتبة المندوب لحسابك.');
           setAccess('denied');
         }
       } catch (e) {
         if (active) {
+          if (verifiedCourierId.current === userId && access === 'courier') {
+            return;
+          }
           setAccess('denied');
           setAccessMessage(customerMessage(e, 'تعذر التحقق من صلاحية المندوب.'));
         }
@@ -365,10 +381,30 @@ export default function CourierApp() {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
-      if (session?.user) checkCourier(session.user);
-      else setAccess('login');
+      if (event === 'SIGNED_OUT') {
+        verifiedCourierId.current = '';
+        setUid(undefined);
+        setCurrentEmail('');
+        setAccess('login');
+        return;
+      }
+      if ((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && verifiedCourierId.current && session?.user?.id === verifiedCourierId.current) {
+        setUid(session.user.id);
+        setCurrentEmail(session.user.email || '');
+        return;
+      }
+      if (session?.user) {
+        if (verifiedCourierId.current === session.user.id && access === 'courier') {
+          setUid(session.user.id);
+          setCurrentEmail(session.user.email || '');
+          return;
+        }
+        checkCourier(session.user);
+      } else {
+        setAccess('login');
+      }
     });
 
     return () => {

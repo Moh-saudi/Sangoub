@@ -136,12 +136,16 @@ export default function AdminApp() {
         setAccess("login");
         return;
       }
-      if (event === 'TOKEN_REFRESHED' && verifiedAdminId.current && session?.user?.id === verifiedAdminId.current) {
+      if ((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && verifiedAdminId.current && session?.user?.id === verifiedAdminId.current) {
         // Token refreshed in background - keep current admin UI completely uninterrupted
         setIdentity(session.user);
         return;
       }
       if (session?.user) {
+        if (verifiedAdminId.current === session.user.id) {
+          setIdentity(session.user);
+          return;
+        }
         checkUser(session.user, event);
       } else if (!session) {
         setAccess("login");
@@ -152,7 +156,7 @@ export default function AdminApp() {
       active = false;
       subscription.unsubscribe();
     };
-  }, [revision, access]);
+  }, [revision]);
 
   // Direct Supabase catalog loading
   const loadAdminCatalog = useCallback(() => {

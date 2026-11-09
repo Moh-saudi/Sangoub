@@ -79,6 +79,7 @@ export default function MerchantApp() {
   const [historyBusy,setHistoryBusy]=useState(false);
   const [historyLoaded,setHistoryLoaded]=useState(false);
   const historyGeneration=useRef(0);
+  const verifiedMerchantId=useRef("");
   useEffect(()=>{historyGeneration.current++;setHistory([]);setHistoryCursor(null);setHistoryBusy(false);setHistoryLoaded(false)},[identity?.uid,profile?.storeId,access]);
   async function loadHistory(){if(historyBusy)return;const generation=historyGeneration.current;setHistoryBusy(true);try{const result=await operationsApi('operations',{action:'portal-history',...(historyCursor?{cursor:historyCursor}:{})});if(generation!==historyGeneration.current)return;setHistory(prev=>[...new Map([...prev,...result.items.map(normalizeOrder)].map(o=>[o.id,o])).values()]);setHistoryCursor(result.nextCursor);setHistoryLoaded(true)}catch{if(generation===historyGeneration.current)setError('تعذر تحميل السجل؛ أعد المحاولة.')}finally{if(generation===historyGeneration.current)setHistoryBusy(false)}}
   useEffect(()=>{if(access==='merchant'&&profile?.storeId&&!historyLoaded&&!historyBusy){void loadHistory();}},[access,profile?.storeId]);
@@ -88,6 +89,7 @@ export default function MerchantApp() {
 
     async function checkMerchant(user: any) {
       if (!user) {
+        verifiedMerchantId.current = "";
         if (active) {
           setIdentity(null);
           setProfile(null);
@@ -100,9 +102,16 @@ export default function MerchantApp() {
       }
 
       const uid = user.id || user.uid;
+      if (verifiedMerchantId.current === uid && access === "merchant") {
+        setIdentity({ uid, email: user.email } as any);
+        return;
+      }
+
       if (active) {
         setIdentity({ uid, email: user.email } as any);
-        setAccess("checking");
+        if (access !== "merchant") {
+          setAccess("checking");
+        }
       }
 
       try {
@@ -114,6 +123,7 @@ export default function MerchantApp() {
 
           if (authority.role === 'restaurant' && !storeId) {
             if (active) {
+              verifiedMerchantId.current = "";
               setAccess("denied");
               setError("حساب الشريك التجاري قيد الاعتماد وتعيين المتجر من قِبل الإدارة المركزية. يرجى مراجعة إدارة المنظومة لربط متجرك.");
             }
@@ -122,6 +132,7 @@ export default function MerchantApp() {
 
           const { data: prof } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
           if (active) {
+            verifiedMerchantId.current = uid;
             setProfile({
               id: uid,
               fullName: prof?.full_name || authority.displayName || (authority.role === 'admin' ? 'مدير المنظومة (معاينة المتجر)' : 'مدير المتجر'),
@@ -139,11 +150,16 @@ export default function MerchantApp() {
         }
 
         if (active) {
+          verifiedMerchantId.current = "";
           setAccess("denied");
           setError("هذا الحساب غير مسجل كشريك تجاري معتمد في المنظومة. تواصل مع الإدارة لاعتماده.");
         }
       } catch (e: any) {
         if (active) {
+          if (verifiedMerchantId.current === uid && access === "merchant") {
+            // Retain active dashboard if temporary network blip
+            return;
+          }
           const isNetworkError = !navigator.onLine || 
             e?.message?.includes('Failed to fetch') || 
             e?.message?.includes('NetworkError') ||
@@ -177,13 +193,31 @@ export default function MerchantApp() {
         setAccess("login");
       }
     }).catch(() => {
-      if (active) setError("انقطع الاتصال بالإنترنت. يرجى التحقق من اتصال الشبكة.");
+      if (active && access !== "merchant") setError("انقطع الاتصال بالإنترنت. يرجى التحقق من اتصال الشبكة.");
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
-      if (session?.user) checkMerchant(session.user);
-      else setAccess("login");
+      if (event === 'SIGNED_OUT') {
+        verifiedMerchantId.current = "";
+        setIdentity(null);
+        setProfile(null);
+        setAccess("login");
+        return;
+      }
+      if ((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && verifiedMerchantId.current && session?.user?.id === verifiedMerchantId.current) {
+        setIdentity({ uid: session.user.id, email: session.user.email });
+        return;
+      }
+      if (session?.user) {
+        if (verifiedMerchantId.current === session.user.id && access === "merchant") {
+          setIdentity({ uid: session.user.id, email: session.user.email });
+          return;
+        }
+        checkMerchant(session.user);
+      } else {
+        setAccess("login");
+      }
     });
 
     return () => {

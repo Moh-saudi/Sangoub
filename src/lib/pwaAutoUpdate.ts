@@ -1,15 +1,27 @@
 // ==============================================================================
-// 🚀 SANGOUB - PWA AUTO UPDATE & CACHE INVALDATION CONTROLLER
-// Ensures users always run the newest deployed release without stale caches
+// 🚀 SANGOUB - PWA AUTO UPDATE & CACHE INVALIDATION CONTROLLER
+// Ensures users run new releases safely without disrupting active dashboards
 // ==============================================================================
 
 let isRefreshing = false;
 
+function isDashboardRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname;
+  return path.startsWith('/admin') || path.startsWith('/merchant') || path.startsWith('/courier');
+}
+
 export function initPwaAutoUpdate() {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
-  // 1. Immediately reload when a new service worker takes over control
+  // 1. Service Worker update event (never reload active dashboards automatically)
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // If the user is on an active dashboard, do NOT interrupt their work with sudden reloads
+    if (isDashboardRoute()) {
+      console.log('[PWA] Service worker updated in background. Retaining current dashboard view.');
+      return;
+    }
+
     if (!isRefreshing) {
       isRefreshing = true;
       console.log('[PWA] New service worker activated. Reloading to apply update…');
@@ -17,35 +29,21 @@ export function initPwaAutoUpdate() {
     }
   });
 
-  // 2. Helper to check for SW updates
+  // 2. Helper to check for SW updates safely
   const checkForSwUpdate = async () => {
-    if (document.hidden || !navigator.onLine) return;
+    if (document.hidden || !navigator.onLine || isDashboardRoute()) return;
     try {
       const reg = await navigator.serviceWorker.getRegistration();
       if (reg) {
-        // If there is already a worker waiting, tell it to skip waiting immediately
         if (reg.waiting) {
           reg.waiting.postMessage({ type: 'SKIP_WAITING' });
           return;
         }
-
-        // Trigger network check for /sw.js
         await reg.update();
-
-        // Listen if an installing worker appears
-        if (reg.installing) {
-          reg.installing.addEventListener('statechange', () => {
-            if (reg.installing?.state === 'installed') {
-              reg.installing.postMessage({ type: 'SKIP_WAITING' });
-            }
-          });
-        }
       }
-    } catch (e) {
-      // silent
-    }
+    } catch {}
 
-    // 3. Compare with /build-info.json
+    // Check build-info safely without infinite loops
     try {
       const res = await fetch(`/build-info.json?t=${Date.now()}`, {
         cache: 'no-store',
@@ -54,47 +52,33 @@ export function initPwaAutoUpdate() {
       if (res.ok) {
         const info = await res.json();
         const currentBuild = import.meta.env.VITE_BUILD_ID;
-        if (info?.id && currentBuild && info.id !== currentBuild) {
-          console.log(`[PWA] Detected new build ${info.id} (current: ${currentBuild}). Updating…`);
-          const reg = await navigator.serviceWorker.getRegistration();
-          if (reg) {
-            await reg.update();
-            if (reg.waiting) {
-              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-              return;
-            }
+        const lastReloadKey = 'sangoub_pwa_reloaded_build';
+        const alreadyReloadedFor = sessionStorage.getItem(lastReloadKey);
+
+        if (info?.id && currentBuild && info.id !== currentBuild && info.id !== alreadyReloadedFor) {
+          console.log(`[PWA] Detected new build ${info.id} (current: ${currentBuild}).`);
+          sessionStorage.setItem(lastReloadKey, info.id);
+
+          // Only reload if not currently on dashboard
+          if (!isDashboardRoute()) {
+            setTimeout(() => {
+              if (!isRefreshing) {
+                isRefreshing = true;
+                window.location.reload();
+              }
+            }, 2000);
           }
-          // If no SW or already handled, reload after short delay
-          setTimeout(() => {
-            if (!isRefreshing) {
-              isRefreshing = true;
-              window.location.reload();
-            }
-          }, 1500);
         }
       }
     } catch {}
   };
 
-  // Run on startup after page settles
-  setTimeout(() => void checkForSwUpdate(), 2000);
-
-  // Check whenever user returns to the tab or app
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) void checkForSwUpdate();
-  });
-  window.addEventListener('focus', () => void checkForSwUpdate());
-
-  // Periodically check every 45 seconds when online
-  setInterval(() => {
-    if (navigator.onLine && !document.hidden) {
-      void checkForSwUpdate();
-    }
-  }, 45000);
+  // Check once on startup after page settles
+  setTimeout(() => void checkForSwUpdate(), 5000);
 }
 
 /**
- * Manual Force Update Trigger (Can be invoked from any 1-click update button)
+ * Manual Force Update Trigger (Invoked when user explicitly clicks the update button)
  */
 export async function triggerPwaUpdate(): Promise<void> {
   if (typeof window === 'undefined') return;
@@ -108,7 +92,6 @@ export async function triggerPwaUpdate(): Promise<void> {
         }
       }
     }
-    // Clear storage caches
     if ('caches' in window) {
       const keys = await caches.keys();
       await Promise.all(
@@ -116,7 +99,6 @@ export async function triggerPwaUpdate(): Promise<void> {
       );
     }
   } catch {}
-  // Hard reload
   window.location.reload();
 }
 
