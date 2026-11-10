@@ -100,14 +100,23 @@ function estimateDistance(
   return { distanceKm: Math.max(0.4, roadKm), durationMin };
 }
 
-function getItemImg(item: any): string {
-  return (
-    item?.product?.imageUrl ||
-    item?.imageUrl ||
-    item?.image_url ||
-    item?.image ||
-    getCuratedProductImageSync(item?.product?.name || item?.name || item?.product_name || '')
-  );
+export function toArabicDigits(val: number | string | undefined | null): string {
+  if (val === undefined || val === null || val === '') return '٠';
+  const str = String(val);
+  return str.replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
+}
+
+function getItemImg(item: any, cache?: Record<string, string>): string {
+  const pId = item?.product?.id || item?.product_id;
+  if (pId && cache && cache[pId]) {
+    return cache[pId];
+  }
+  const directImg = item?.product?.imageUrl || item?.imageUrl || item?.image_url || item?.image;
+  // If the direct image is the generic supermarket aisle unsplash image, prefer curated image
+  if (directImg && !directImg.includes('photo-1542838132-92c53300491e') && !directImg.includes('photo-1578916171728')) {
+    return directImg;
+  }
+  return getCuratedProductImageSync(item?.product?.name || item?.name || item?.product_name || '');
 }
 
 function ReceiptCameraModal({
@@ -516,6 +525,46 @@ export default function CourierApp() {
   const generation = useRef(0);
   const feed = useActivePortalOrders(access === 'courier' ? uid : undefined);
 
+  // Dynamic product image cache directly resolved from Supabase products table
+  const [productImagesCache, setProductImagesCache] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!feed.items || feed.items.length === 0) return;
+    const missingProductIds = new Set<string>();
+    for (const order of feed.items) {
+      for (const item of order.items || []) {
+        const pId = item?.product?.id || item?.product_id;
+        if (pId && !productImagesCache[pId]) {
+          missingProductIds.add(pId);
+        }
+      }
+    }
+    if (missingProductIds.size === 0) return;
+
+    let active = true;
+    supabase
+      .from('products')
+      .select('id, image_url')
+      .in('id', Array.from(missingProductIds))
+      .then(({ data }) => {
+        if (!active || !data || data.length === 0) return;
+        const updates: Record<string, string> = {};
+        for (const row of data) {
+          if (row.id && row.image_url) {
+            updates[row.id] = row.image_url;
+          }
+        }
+        if (Object.keys(updates).length > 0) {
+          setProductImagesCache(prev => ({ ...prev, ...updates }));
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [feed.items, productImagesCache]);
+
   // Load and listen to notifications for courier
   useEffect(() => {
     if (!uid) return;
@@ -627,18 +676,20 @@ export default function CourierApp() {
       }
 
       const userId = user.id || user.uid;
-      if (verifiedCourierId.current === userId && access === 'courier') {
-        setUid(userId);
-        setCurrentEmail(user.email || '');
+      // If courier was already verified for this user id, DO NOT flicker or set access to 'checking'
+      if (verifiedCourierId.current && verifiedCourierId.current === userId) {
+        if (active) {
+          setUid(userId);
+          setCurrentEmail(user.email || '');
+          setAccess(prev => (prev === 'courier' ? prev : 'courier'));
+        }
         return;
       }
 
       if (active) {
         setUid(userId);
         setCurrentEmail(user.email || '');
-        if (access !== 'courier') {
-          setAccess('checking');
-        }
+        setAccess('checking');
       }
 
       try {
@@ -679,7 +730,8 @@ export default function CourierApp() {
         }
       } catch (e) {
         if (active) {
-          if (verifiedCourierId.current === userId && access === 'courier') {
+          if (verifiedCourierId.current && verifiedCourierId.current === userId) {
+            // Already verified; maintain session despite transient network hiccup
             return;
           }
           setAccess('denied');
@@ -706,13 +758,9 @@ export default function CourierApp() {
         setAccess('login');
         return;
       }
-      if ((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && verifiedCourierId.current && session?.user?.id === verifiedCourierId.current) {
-        setUid(session.user.id);
-        setCurrentEmail(session.user.email || '');
-        return;
-      }
       if (session?.user) {
-        if (verifiedCourierId.current === session.user.id && access === 'courier') {
+        // Fast-path: if already verified for this user, do nothing and stay in courier view
+        if (verifiedCourierId.current && verifiedCourierId.current === session.user.id) {
           setUid(session.user.id);
           setCurrentEmail(session.user.email || '');
           return;
@@ -839,11 +887,11 @@ export default function CourierApp() {
     }
   }
 
-  const money = (n: number) =>
-    new Intl.NumberFormat('ar-EG', {
-      style: 'currency',
-      currency: 'EGP'
-    }).format(n || 0);
+  const money = (n: number | string | undefined | null) => {
+    const num = Number(n) || 0;
+    const formatted = num % 1 === 0 ? num.toString() : num.toFixed(2);
+    return `${toArabicDigits(formatted)} ج.م`;
+  };
 
   function copyOrderNumber(orderNumber: string, orderId: string) {
     if (navigator?.clipboard?.writeText) {
@@ -1217,8 +1265,8 @@ export default function CourierApp() {
     if (!ts) return '';
     const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
     if (diff < 1) return 'الآن';
-    if (diff < 60) return `منذ ${diff} دقيقة`;
-    return `منذ ${Math.floor(diff / 60)} ساعة`;
+    if (diff < 60) return `منذ ${toArabicDigits(diff)} دقيقة`;
+    return `منذ ${toArabicDigits(Math.floor(diff / 60))} ساعة`;
   }
 
   return (
@@ -1229,17 +1277,34 @@ export default function CourierApp() {
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
           {/* Logo + Title */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
-              <img src={BRAND.logo} alt="سنجوب" width={28} height={28} className="w-7 h-7 object-contain" />
+            <div className="relative shrink-0">
+              <img
+                src="/assets/sangoub/mascot-delivery.png"
+                alt="سنجوب كابتن"
+                className="w-11 h-11 object-contain drop-shadow-md transition-transform active:scale-95"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/brand/capital-talabat-mascot-logo-128x128.png';
+                }}
+              />
+              <span
+                className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#101A31] ${
+                  !feed.online ? 'bg-rose-500' : feed.live ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                }`}
+                title={!feed.online ? 'غير متصل' : feed.live ? 'متصل لحظياً' : 'جارٍ الاتصال'}
+              />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-white font-black text-base leading-tight" style={{ fontFamily: "'Cairo', sans-serif" }}>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-white font-black text-lg tracking-tight leading-none" style={{ fontFamily: "'Cairo', sans-serif" }}>
                   سنجوب
                 </h1>
-                <div className={`w-2 h-2 rounded-full ${!feed.online ? 'bg-rose-400' : feed.live ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span className="bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs leading-none">
+                  كابتن
+                </span>
               </div>
-              <p className="text-white/60 text-[11px]">لوحة المندوب</p>
+              <p className="text-white/60 text-[11px] font-medium mt-1 leading-none">
+                لوحة المندوب
+              </p>
             </div>
           </div>
 
@@ -1264,7 +1329,7 @@ export default function CourierApp() {
               <Bell className="w-5 h-5" />
               {unreadNotificationsCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-orange-500 text-white font-black text-[10px] flex items-center justify-center px-1 shadow-xs">
-                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                  {unreadNotificationsCount > 9 ? '+٩' : toArabicDigits(unreadNotificationsCount)}
                 </span>
               )}
             </button>
@@ -1285,21 +1350,21 @@ export default function CourierApp() {
         <div className="max-w-md mx-auto px-4 pb-3 grid grid-cols-3 gap-2">
           <div className="bg-white/10 rounded-2xl p-2.5 text-center border border-white/10">
             <div className="text-white font-black text-lg leading-none" style={{ fontFamily: "'Cairo', sans-serif" }}>
-              {todayCompleted}
+              {toArabicDigits(todayCompleted)}
             </div>
             <div className="text-white/60 text-[10px] mt-0.5">اليوم</div>
             <div className="text-white/50 text-[9px]">طلبات مكتملة</div>
           </div>
           <div className="bg-white/10 rounded-2xl p-2.5 text-center border border-white/10">
             <div className="text-emerald-400 font-black text-lg leading-none" style={{ fontFamily: "'Cairo', sans-serif" }}>
-              {activeOrders}
+              {toArabicDigits(activeOrders)}
             </div>
             <div className="text-white/60 text-[10px] mt-0.5">جارٍ</div>
             <div className="text-white/50 text-[9px]">طلبات جارية</div>
           </div>
           <div className="bg-white/10 rounded-2xl p-2.5 text-center border border-white/10">
             <div className="text-blue-400 font-black text-lg leading-none" style={{ fontFamily: "'Cairo', sans-serif" }}>
-              {readyOrders}
+              {toArabicDigits(readyOrders)}
             </div>
             <div className="text-white/60 text-[10px] mt-0.5">قادم</div>
             <div className="text-white/50 text-[9px]">طلب قادم</div>
@@ -1667,7 +1732,7 @@ export default function CourierApp() {
                     <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                       <div className="flex items-center gap-2 text-xs font-black text-slate-900" style={{ fontFamily: "'Cairo', sans-serif" }}>
                         <ShoppingBag className="w-4 h-4 text-orange-500" />
-                        <span>المنتجات ({order.items?.length || 0} قطع)</span>
+                        <span>المنتجات ({toArabicDigits(order.items?.length || 0)} قطع)</span>
                       </div>
                     </div>
 
@@ -1675,9 +1740,9 @@ export default function CourierApp() {
                       {(order.items || []).map((item: any, i: number) => (
                         <li key={item.id || i} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            {getItemImg(item) ? (
+                            {getItemImg(item, productImagesCache) ? (
                               <img
-                                src={getItemImg(item)}
+                                src={getItemImg(item, productImagesCache)}
                                 alt={item.product?.name || item.name}
                                 className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0 shadow-2xs"
                                 onError={(e) => {
@@ -1695,7 +1760,7 @@ export default function CourierApp() {
                                 {item.product?.name}
                               </h5>
                               <p className="text-[11px] text-slate-500 mt-0.5">
-                                {item.quantity} × {item.product?.price} ج.م
+                                {toArabicDigits(item.quantity)} × {money(item.product?.price || 0)}
                               </p>
                               {item.selectedOptions && Object.values(item.selectedOptions).length > 0 && (
                                 <p className="text-[10px] text-slate-400 mt-0.5">
@@ -1705,7 +1770,7 @@ export default function CourierApp() {
                             </div>
                           </div>
 
-                          <div className="text-xs font-black text-slate-900 font-mono shrink-0">
+                          <div className="text-xs font-black text-slate-900 shrink-0" style={{ fontFamily: "'Cairo', sans-serif" }}>
                             {money((item.product?.price || 0) * (item.quantity || 1))}
                           </div>
                         </li>
@@ -1717,16 +1782,16 @@ export default function CourierApp() {
                   <div className="bg-white rounded-3xl border border-slate-200 p-4 space-y-2 shadow-2xs text-xs">
                     <div className="flex justify-between text-slate-600">
                       <span>إجمالي المنتجات</span>
-                      <span className="font-mono font-medium">{money(order.subtotal || Math.max(0, order.total - (order.deliveryFee || 0)))}</span>
+                      <span className="font-bold text-slate-900" style={{ fontFamily: "'Cairo', sans-serif" }}>{money(order.subtotal || Math.max(0, order.total - (order.deliveryFee || 0)))}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
                       <span>رسوم التوصيل</span>
-                      <span className="font-mono font-medium">{money(order.deliveryFee || 0)}</span>
+                      <span className="font-bold text-slate-900" style={{ fontFamily: "'Cairo', sans-serif" }}>{money(order.deliveryFee || 0)}</span>
                     </div>
                     {order.discount > 0 && (
                       <div className="flex justify-between text-emerald-700">
                         <span>الخصم</span>
-                        <span className="font-mono font-bold">- {money(order.discount)}</span>
+                        <span className="font-bold text-emerald-700" style={{ fontFamily: "'Cairo', sans-serif" }}>- {money(order.discount)}</span>
                       </div>
                     )}
 
@@ -1734,7 +1799,7 @@ export default function CourierApp() {
                       <span className="font-black text-slate-900 text-sm" style={{ fontFamily: "'Cairo', sans-serif" }}>
                         الإجمالي النهائي
                       </span>
-                      <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-black font-mono">
+                      <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-black" style={{ fontFamily: "'Cairo', sans-serif" }}>
                         {money(order.total)}
                       </span>
                     </div>
@@ -1885,7 +1950,7 @@ export default function CourierApp() {
                     </span>
                     {feed.items.length > 0 && (
                       <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] rounded-full bg-orange-500 text-white text-xs font-black px-1.5">
-                        {feed.items.length}
+                        {toArabicDigits(feed.items.length)}
                       </span>
                     )}
                   </div>
@@ -1985,7 +2050,7 @@ export default function CourierApp() {
                             </div>
 
                             <div className="text-left shrink-0">
-                              <span className="text-base sm:text-lg font-black text-emerald-700 font-mono" style={{ fontFamily: "'Cairo', sans-serif" }}>
+                              <span className="text-base sm:text-lg font-black text-emerald-700" style={{ fontFamily: "'Cairo', sans-serif" }}>
                                 {money(order.total)}
                               </span>
                             </div>
@@ -2003,7 +2068,7 @@ export default function CourierApp() {
                           {/* Product Thumbnails Row */}
                           <div className="flex items-center gap-1.5 pt-1 overflow-x-auto pb-1">
                             {thumbItems.map((item: any, i: number) => {
-                              const img = getItemImg(item);
+                              const img = getItemImg(item, productImagesCache);
                               return img ? (
                                 <img
                                   key={i}
@@ -2022,8 +2087,8 @@ export default function CourierApp() {
                             })}
 
                             {thumbOverflow > 0 && (
-                              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-black text-slate-600 shrink-0 font-mono">
-                                +{thumbOverflow}
+                              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-black text-slate-600 shrink-0" style={{ fontFamily: "'Cairo', sans-serif" }}>
+                                +{toArabicDigits(thumbOverflow)}
                               </div>
                             )}
                           </div>

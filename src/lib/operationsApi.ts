@@ -6,7 +6,7 @@ import { DEFAULT_SANGOUB_BANNERS } from '../storefront/types/banner';
 import { cleanCourierName, cleanCustomerName } from '../utils/sanitizeName';
 import { getCuratedProductImageSync } from '../utils/productImageFinder';
 
-function mapOrderRow(row: any) {
+function mapOrderRow(row: any, productImgMap?: Map<string, string>) {
   const appStatus = row.status === 'assigned' || row.status === 'picked_up' || row.status === 'with_courier' ? 'with_courier' : (row.status || 'received');
   const isCash = (row.payment_method || 'cash') === 'cash';
   const totalAmount = Number(row.total_amount) || Number(row.total) || 0;
@@ -49,19 +49,21 @@ function mapOrderRow(row: any) {
     updatedAt: row.updated_at,
     deliveredAt: row.delivered_at,
     items: (row.order_items || []).map((item: any) => {
-      const img = item.image_url || item.image || item.product_image || item.imageUrl || item.products?.image_url || getCuratedProductImageSync(item.product_name);
+      const pId = item.product_id || item.product?.id;
+      const dbImg = pId && productImgMap?.get(pId);
+      const img = dbImg || item.image_url || item.image || item.product_image || item.imageUrl || item.products?.image_url || item.product?.imageUrl || getCuratedProductImageSync(item.product_name || item.name || item.product?.name);
       return {
         id: item.id,
         product: {
-          id: item.product_id,
+          id: pId,
           storeId: item.store_id || row.store_id,
-          name: item.product_name,
-          price: Number(item.price) || 0,
+          name: item.product_name || item.name || item.product?.name,
+          price: Number(item.price) || Number(item.product?.price) || 0,
           imageUrl: img,
         },
         quantity: Number(item.quantity) || 1,
-        selectedOptions: item.selected_options || {},
-        extraPrice: Number(item.extra_price) || 0,
+        selectedOptions: item.selected_options || item.selectedOptions || {},
+        extraPrice: Number(item.extra_price) || Number(item.extraPrice) || 0,
         notes: item.notes || '',
       };
     }),
@@ -285,7 +287,29 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
           orders = simpleRes.data;
         }
         if (error) console.warn('[operationsApi] portal-active query warning:', error);
-        return { items: (orders || []).map(mapOrderRow), truncated: false };
+
+        // Fetch real product images from products table for all items
+        const productIds = Array.from(new Set(
+          (orders || []).flatMap((o: any) => o.order_items || []).map((i: any) => i.product_id).filter(Boolean)
+        ));
+        const productImgMap = new Map<string, string>();
+        if (productIds.length > 0) {
+          try {
+            const { data: prods } = await supabase
+              .from('products')
+              .select('id, image_url')
+              .in('id', productIds);
+            if (prods) {
+              for (const p of prods) {
+                if (p.id && p.image_url) {
+                  productImgMap.set(p.id, p.image_url);
+                }
+              }
+            }
+          } catch {}
+        }
+
+        return { items: (orders || []).map((row: any) => mapOrderRow(row, productImgMap)), truncated: false };
       } catch (err) {
         console.warn('[operationsApi] portal-active fetch error:', err);
         return { items: [], truncated: false };
@@ -722,7 +746,26 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
         }
 
         const { data: orders } = await query;
-        return { items: (orders || []).map(mapOrderRow), nextCursor: null };
+        const productIds = Array.from(new Set(
+          (orders || []).flatMap((o: any) => o.order_items || []).map((i: any) => i.product_id).filter(Boolean)
+        ));
+        const productImgMap = new Map<string, string>();
+        if (productIds.length > 0) {
+          try {
+            const { data: prods } = await supabase
+              .from('products')
+              .select('id, image_url')
+              .in('id', productIds);
+            if (prods) {
+              for (const p of prods) {
+                if (p.id && p.image_url) {
+                  productImgMap.set(p.id, p.image_url);
+                }
+              }
+            }
+          } catch {}
+        }
+        return { items: (orders || []).map((row: any) => mapOrderRow(row, productImgMap)), nextCursor: null };
       } catch {
         return { items: [], nextCursor: null };
       }

@@ -9,11 +9,14 @@ const appStatus = (status: string) => status === 'assigned' || status === 'picke
   : status === 'pending' || status === 'accepted' ? 'received' : status;
 const paymentReady = (order: any) => order.payment_method === 'cash' || (order.payment_status === 'paid' && Boolean(order.payment_confirmed_at));
 
-function itemView(item: any) {
+function itemView(item: any, productImgMap?: Map<string, string>) {
+  const pId = item?.product?.id || item?.product_id;
+  const img = (pId && productImgMap?.get(pId)) || item?.product?.imageUrl || item?.imageUrl || item?.image_url;
   if (item?.product) return {
     id: item.id, quantity: Number(item.quantity) || 1, selectedOptions: item.selectedOptions || {},
     extraPrice: Number(item.extraPrice) || 0, notes: item.notes || '', product: {
       id: item.product.id, storeId: item.product.storeId, name: item.product.name, price: Number(item.product.price) || 0,
+      imageUrl: img,
     },
   };
   return {
@@ -22,7 +25,7 @@ function itemView(item: any) {
     selectedOptions: item.selected_options || {},
     extraPrice: Number(item.extra_price) || 0,
     notes: item.notes || '',
-    product: { id: item.product_id, storeId: item.store_id, name: item.product_name, price: Number(item.price) || 0 },
+    product: { id: item.product_id, storeId: item.store_id, name: item.product_name, price: Number(item.price) || 0, imageUrl: img },
   };
 }
 
@@ -83,6 +86,15 @@ export async function portalOrders(input: any, context: OperationIdentity) {
       for (const ticket of tickets || []) fulfillmentsByOrder.set(ticket.order_id, [...(fulfillmentsByOrder.get(ticket.order_id) || []), ticket]);
     }
 
+    const allProductIds = [...new Set<string>(orders.flatMap((order: any) => (order.order_items || []).map((i: any) => i.product_id)).filter(Boolean))];
+    const productImgMap = new Map<string, string>();
+    if (allProductIds.length) {
+      const { data: prods } = await client.from('products').select('id,image_url').in('id', allProductIds);
+      for (const p of prods || []) {
+        if (p.id && p.image_url) productImgMap.set(p.id, p.image_url);
+      }
+    }
+
     const items = orders.flatMap((order: any) => {
       const status = appStatus(order.status);
       const common = { id: order.id, orderNumber: order.order_number || order.id, orderStatus: status, createdAt: order.created_at, updatedAt: order.updated_at, paymentMethod: order.payment_method, paymentStatus: order.payment_status };
@@ -102,13 +114,13 @@ export async function portalOrders(input: any, context: OperationIdentity) {
       const storeIds: string[] = order.store_ids || [order.store_id];
       const stops = (fulfillmentsByOrder.get(order.id) || []).map(ticket => ({
         storeId: ticket.store_id, storeName: storeById.get(ticket.store_id)?.name || 'المتجر', status: ticket.status, issueOpen: ticket.issue_open,
-        items: (ticket.items || []).map(itemView),
+        items: (ticket.items || []).map(i => itemView(i, productImgMap)),
       }));
       return [{
         ...common, courierId: order.courier_id, fulfillmentVersion: 2, profileId: order.customer_id, profileName: order.customer_name || '',
         phone: order.customer_phone || '', ministry: order.delivery_ministry || '', floorNumber: order.delivery_floor || '', roomNumber: order.delivery_room || '',
         coordinates: order.coordinates || (order.delivery_lat && order.delivery_lng ? { latitude: order.delivery_lat, longitude: order.delivery_lng } : undefined),
-        items: (order.order_items || []).map(itemView), storeIds, total: Number(order.total_amount) || 0,
+        items: (order.order_items || []).map(i => itemView(i, productImgMap)), storeIds, total: Number(order.total_amount) || 0,
         amountToCollect: order.payment_method === 'cash' ? Number(order.total_amount) || 0 : 0,
         pickupPoints: storeIds.map(id => ({ storeId: id, name: storeById.get(id)?.name || 'المتجر', address: storeById.get(id)?.location_in_district || 'راجع عنوان الاستلام مع الإدارة' })),
         stops, received: Array.isArray(order.picked_up_store_ids) && storeIds.every(id => order.picked_up_store_ids.includes(id)),

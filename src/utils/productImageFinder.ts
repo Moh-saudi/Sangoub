@@ -168,6 +168,11 @@ const CURATED_IMAGE_PATTERNS: Array<{
     url: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=600&q=80',
     label: 'حلويات وبسكويت وشوكولاتة',
   },
+  {
+    keywords: ['كورن فليكس', 'كلوقز', 'فليكس', 'شوفان', 'حبوب', 'cereal', 'corn flakes', 'oats', 'granola', 'كلوقز الأصلي'],
+    url: 'https://images.unsplash.com/photo-1521483451569-e33803c0330c?auto=format&fit=crop&w=600&q=80',
+    label: 'كورن فليكس وحبوب إفطار مقرمشة',
+  },
 ];
 
 /**
