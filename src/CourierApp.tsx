@@ -10,6 +10,7 @@ import { LoadingState, ErrorState } from './components/ui/DataStates';
 import { BRAND } from './brand';
 import { customerMessage } from './utils/customerMessage';
 import { triggerPwaUpdate } from './lib/pwaAutoUpdate';
+import { getCuratedProductImageSync } from './utils/productImageFinder';
 import './courier.css';
 import {
   PackageCheck,
@@ -97,6 +98,16 @@ function estimateDistance(
   const roadKm = Math.round(straightKm * 1.35 * 10) / 10;
   const durationMin = Math.max(3, Math.round(roadKm * 2.5 + 3));
   return { distanceKm: Math.max(0.4, roadKm), durationMin };
+}
+
+function getItemImg(item: any): string {
+  return (
+    item?.product?.imageUrl ||
+    item?.imageUrl ||
+    item?.image_url ||
+    item?.image ||
+    getCuratedProductImageSync(item?.product?.name || item?.name || item?.product_name || '')
+  );
 }
 
 function ReceiptCameraModal({
@@ -1664,11 +1675,15 @@ export default function CourierApp() {
                       {(order.items || []).map((item: any, i: number) => (
                         <li key={item.id || i} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            {item.product?.imageUrl ? (
+                            {getItemImg(item) ? (
                               <img
-                                src={item.product.imageUrl}
-                                alt={item.product?.name}
-                                className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
+                                src={getItemImg(item)}
+                                alt={item.product?.name || item.name}
+                                className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0 shadow-2xs"
+                                onError={(e) => {
+                                  // Fallback to curated image if URL fails to load
+                                  (e.target as HTMLImageElement).src = getCuratedProductImageSync(item.product?.name || item.name);
+                                }}
                               />
                             ) : (
                               <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
@@ -1987,20 +2002,24 @@ export default function CourierApp() {
 
                           {/* Product Thumbnails Row */}
                           <div className="flex items-center gap-1.5 pt-1 overflow-x-auto pb-1">
-                            {thumbItems.map((item: any, i: number) => (
-                              item.product?.imageUrl ? (
+                            {thumbItems.map((item: any, i: number) => {
+                              const img = getItemImg(item);
+                              return img ? (
                                 <img
                                   key={i}
-                                  src={item.product.imageUrl}
-                                  alt={item.product?.name}
+                                  src={img}
+                                  alt={item.product?.name || item.name}
                                   className="w-10 h-10 rounded-xl object-cover border border-slate-100 shadow-2xs shrink-0"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = getCuratedProductImageSync(item.product?.name || item.name);
+                                  }}
                                 />
                               ) : (
                                 <div key={i} className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
                                   <ShoppingBag className="w-4 h-4" />
                                 </div>
-                              )
-                            ))}
+                              );
+                            })}
 
                             {thumbOverflow > 0 && (
                               <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-black text-slate-600 shrink-0 font-mono">

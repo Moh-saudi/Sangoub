@@ -127,6 +127,47 @@ const CURATED_IMAGE_PATTERNS: Array<{
     url: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=600&q=80',
     label: 'مقرمشات وشيبس مقرمش',
   },
+  // بقالة وسلع تموينية أساسية
+  {
+    keywords: ['زيت', 'عباد', 'ذرة', 'سمن', 'سمنة', 'oil', 'عافية', 'كريستال', 'سلايت'],
+    url: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80',
+    label: 'زيت عباد الشمس وزيت طعام',
+  },
+  {
+    keywords: ['أرز', 'رز', 'rice', 'بسمتي', 'أرز مصري', 'أرز بسمتي', 'الساعة'],
+    url: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
+    label: 'أرز مصري أبيض فاخر',
+  },
+  {
+    keywords: ['مكرونة', 'مكرونه', 'سباغيتي', 'pasta', 'spaghetti', 'الملكة', 'ريجينا', 'إيطاليانو'],
+    url: 'https://images.unsplash.com/photo-1621996346565-e3d5d6281292?auto=format&fit=crop&w=600&q=80',
+    label: 'مكرونة إيطالية فاخرة',
+  },
+  {
+    keywords: ['صلصة', 'طماطم', 'صلصة طماطم', 'معجون طماطم', 'tomato paste', 'هاينز', 'قها'],
+    url: 'https://images.unsplash.com/photo-1546470427-e26264be0b11?auto=format&fit=crop&w=600&q=80',
+    label: 'صلصة طماطم وبيوريه',
+  },
+  {
+    keywords: ['سكر', 'sugar', 'عسل', 'honey', 'مربى', 'jam'],
+    url: 'https://images.unsplash.com/photo-1581441363689-1f3c3c414635?auto=format&fit=crop&w=600&q=80',
+    label: 'سكر ومحليات غذائية',
+  },
+  {
+    keywords: ['تونة', 'تونه', 'tuna', 'سردين', 'ماكريل'],
+    url: 'https://images.unsplash.com/photo-1544943910-4c1dc44a055f?auto=format&fit=crop&w=600&q=80',
+    label: 'تونة معلبة فاخرة',
+  },
+  {
+    keywords: ['بيض', 'eggs', 'كرتونة بيض', 'بيض أحمر', 'بيض أبيض'],
+    url: 'https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=600&q=80',
+    label: 'بيض مائدة طازج',
+  },
+  {
+    keywords: ['بسكويت', 'كيك', 'شوكولاتة', 'شوكولاته', 'chocolate', 'biscuit', 'cookies', 'كوكيز', 'أوريو'],
+    url: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=600&q=80',
+    label: 'حلويات وبسكويت وشوكولاتة',
+  },
 ];
 
 /**
@@ -200,5 +241,22 @@ export async function searchImagesForProduct(productName: string): Promise<Image
 export async function getBestAutoImageUrl(productName: string): Promise<string> {
   const candidates = await searchImagesForProduct(productName);
   return candidates[0]?.url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80';
+}
+
+/**
+ * مطابقة فورية وسريعة بدون انترنت أو استعلام لقاعدة البيانات
+ * تعرض صورة مطابقة فورية لأي صنف بحسب اسمه
+ */
+export function getCuratedProductImageSync(productName?: string): string {
+  if (!productName || !productName.trim()) {
+    return 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80';
+  }
+  const clean = productName.trim().toLowerCase();
+  for (const item of CURATED_IMAGE_PATTERNS) {
+    if (item.keywords.some(kw => clean.includes(kw.toLowerCase()))) {
+      return item.url;
+    }
+  }
+  return 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80';
 }
 

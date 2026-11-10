@@ -4,6 +4,7 @@ import systemAccounts from '../data/systemAccounts.json';
 import { defaultCustomerHome } from '../types/appContent';
 import { DEFAULT_SANGOUB_BANNERS } from '../storefront/types/banner';
 import { cleanCourierName, cleanCustomerName } from '../utils/sanitizeName';
+import { getCuratedProductImageSync } from '../utils/productImageFinder';
 
 function mapOrderRow(row: any) {
   const appStatus = row.status === 'assigned' || row.status === 'picked_up' || row.status === 'with_courier' ? 'with_courier' : (row.status || 'received');
@@ -47,19 +48,23 @@ function mapOrderRow(row: any) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deliveredAt: row.delivered_at,
-    items: (row.order_items || []).map((item: any) => ({
-      id: item.id,
-      product: {
-        id: item.product_id,
-        storeId: item.store_id || row.store_id,
-        name: item.product_name,
-        price: Number(item.price) || 0
-      },
-      quantity: Number(item.quantity) || 1,
-      selectedOptions: item.selected_options || {},
-      extraPrice: Number(item.extra_price) || 0,
-      notes: item.notes || '',
-    })),
+    items: (row.order_items || []).map((item: any) => {
+      const img = item.image_url || item.image || item.product_image || item.imageUrl || item.products?.image_url || getCuratedProductImageSync(item.product_name);
+      return {
+        id: item.id,
+        product: {
+          id: item.product_id,
+          storeId: item.store_id || row.store_id,
+          name: item.product_name,
+          price: Number(item.price) || 0,
+          imageUrl: img,
+        },
+        quantity: Number(item.quantity) || 1,
+        selectedOptions: item.selected_options || {},
+        extraPrice: Number(item.extra_price) || 0,
+        notes: item.notes || '',
+      };
+    }),
   };
 }
 
@@ -255,7 +260,7 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
         let query = supabase
           .from('orders')
           .select('*, order_items(*)')
-          .not('status', 'in', '("delivered","cancelled")')
+          .not('status', 'in', '(delivered,cancelled)')
           .order('created_at', { ascending: false })
           .limit(100);
 
@@ -265,7 +270,20 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
           query = query.eq('store_id', body.storeId);
         }
 
-        const { data: orders, error } = await query;
+        let { data: orders, error } = await query;
+        if (error) {
+          console.warn('[operationsApi] portal-active query warning, retrying with simple select:', error);
+          let simpleQuery = supabase
+            .from('orders')
+            .select('*')
+            .not('status', 'in', '(delivered,cancelled)')
+            .order('created_at', { ascending: false })
+            .limit(50);
+          if (isCourier) simpleQuery = simpleQuery.eq('courier_id', user.id);
+          else if (body.storeId) simpleQuery = simpleQuery.eq('store_id', body.storeId);
+          const simpleRes = await simpleQuery;
+          orders = simpleRes.data;
+        }
         if (error) console.warn('[operationsApi] portal-active query warning:', error);
         return { items: (orders || []).map(mapOrderRow), truncated: false };
       } catch (err) {

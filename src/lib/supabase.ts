@@ -672,8 +672,18 @@ export function subscribeToAdminOrders(
         paymentMethod: row.payment_method || 'cash', paymentStatus: row.payment_status || 'pending', notes: row.notes || '',
         createdAt: row.created_at, updatedAt: row.updated_at, deliveredAt: row.delivered_at,
         items: (row.order_items || []).map((item: any) => ({
-          id: item.id, product: { id: item.product_id, storeId: item.store_id || row.store_id, name: item.product_name, price: Number(item.price) || 0 },
-          quantity: Number(item.quantity) || 1, selectedOptions: item.selected_options || {}, extraPrice: Number(item.extra_price) || 0, notes: item.notes || '',
+          id: item.id,
+          product: {
+            id: item.product_id,
+            storeId: item.store_id || row.store_id,
+            name: item.product_name,
+            price: Number(item.price) || 0,
+            imageUrl: item.image_url || item.image || item.product_image || item.imageUrl || item.products?.image_url || ''
+          },
+          quantity: Number(item.quantity) || 1,
+          selectedOptions: item.selected_options || {},
+          extraPrice: Number(item.extra_price) || 0,
+          notes: item.notes || '',
         })),
       })) as Order[];
       if (active) onData(orders);
