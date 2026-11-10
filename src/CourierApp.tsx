@@ -100,11 +100,13 @@ function estimateDistance(
   return { distanceKm: Math.max(0.4, roadKm), durationMin };
 }
 
-export function toArabicDigits(val: number | string | undefined | null): string {
-  if (val === undefined || val === null || val === '') return '٠';
+export function toEnglishDigits(val: number | string | undefined | null): string {
+  if (val === undefined || val === null || val === '') return '0';
   const str = String(val);
-  return str.replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
+  return str.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
 }
+
+export const toArabicDigits = toEnglishDigits;
 
 function getItemImg(item: any, cache?: Record<string, string>): string {
   const pId = item?.product?.id || item?.product_id;
@@ -888,9 +890,19 @@ export default function CourierApp() {
   }
 
   const money = (n: number | string | undefined | null) => {
-    const num = Number(n) || 0;
-    const formatted = num % 1 === 0 ? num.toString() : num.toFixed(2);
-    return `${toArabicDigits(formatted)} ج.م`;
+    if (n === undefined || n === null || n === '') return '0.00 ج.م';
+    const num = Number(n);
+    if (!Number.isFinite(num)) return '0.00 ج.م';
+    const str = String(n);
+    let formatted: string;
+    if (str.includes('.')) {
+      const parts = str.split('.');
+      const decimals = parts[1] || '';
+      formatted = decimals.length < 2 ? num.toFixed(2) : `${parts[0]}.${decimals}`;
+    } else {
+      formatted = num.toFixed(2);
+    }
+    return `${toEnglishDigits(formatted)} ج.م`;
   };
 
   function copyOrderNumber(orderNumber: string, orderId: string) {
@@ -1329,7 +1341,7 @@ export default function CourierApp() {
               <Bell className="w-5 h-5" />
               {unreadNotificationsCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-orange-500 text-white font-black text-[10px] flex items-center justify-center px-1 shadow-xs">
-                  {unreadNotificationsCount > 9 ? '+٩' : toArabicDigits(unreadNotificationsCount)}
+                  {unreadNotificationsCount > 9 ? '9+' : toEnglishDigits(unreadNotificationsCount)}
                 </span>
               )}
             </button>
