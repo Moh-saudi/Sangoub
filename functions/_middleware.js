@@ -175,3 +175,4 @@ export async function onRequest(context) {
   // 5. Fallback to static asset or downstream function
   return await context.next();
 }
+
