@@ -33,10 +33,10 @@ export const ASIMA_CONFIG = {
     },
     callbackUrl:
       process.env.GEIDEA_CALLBACK_URL ||
-      "https://www.el7lm.com/api/geidea/callback",
+      `${APP_URL}/api/geidea/callback`,
     returnUrl:
       process.env.GEIDEA_RETURN_URL ||
-      "https://www.el7lm.com/checkout/success",
+      `${APP_URL}/checkout/success`,
     environment: (process.env.GEIDEA_ENVIRONMENT || "production") as
       | "production"
       | "test",

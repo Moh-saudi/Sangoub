@@ -245,3 +245,4 @@ export async function setDefaultCard(userId: string, cardId: string): Promise<vo
 
   window.dispatchEvent(new CustomEvent('sangoub_cards_updated', { detail: { userId } }));
 }
+

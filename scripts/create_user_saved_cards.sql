@@ -47,3 +47,4 @@ CREATE POLICY "Users can delete their own saved cards"
 -- الصلاحيات
 GRANT ALL ON public.user_saved_cards TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_saved_cards TO authenticated;
+
