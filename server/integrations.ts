@@ -136,6 +136,8 @@ export class GeideaGateway {
         timestamp,
         signature,
         callbackUrl: options.callbackUrl || ASIMA_CONFIG.geidea.callbackUrl,
+        callback: options.callbackUrl || ASIMA_CONFIG.geidea.callbackUrl,
+        callBackUrl: options.callbackUrl || ASIMA_CONFIG.geidea.callbackUrl,
         returnUrl: options.returnUrl || ASIMA_CONFIG.geidea.returnUrl,
         language: "ar",
         customer: {

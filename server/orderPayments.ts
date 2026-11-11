@@ -18,13 +18,15 @@ export async function ensureOrderPayment(orderId: string, email: string, uid: st
   if (claim?.state === 'ready') return { sessionId: claim.sessionId || null, redirectUrl: claim.redirectUrl || null };
   if (claim?.state !== 'new') return { error: 'تعذر تهيئة جلسة الدفع. احتفظ برقم الطلب وتواصل مع الدعم قبل إنشاء طلب جديد.' };
 
+  const appBaseUrl = (process.env.APP_URL || 'https://sangoub.el7lm.com').replace(/\/$/, '');
   const result = await GeideaGateway.createOrderPayment({
     orderId,
     amount: Number(claim.amount),
     currency: 'EGP',
     customerEmail: email,
     customerName: String(claim.customerName || 'عميل سنجوب'),
-    returnUrl: `${(process.env.APP_URL || 'https://capital-talabat.vercel.app').replace(/\/$/, '')}/checkout/success?orderId=${encodeURIComponent(orderId)}`,
+    returnUrl: `${appBaseUrl}/checkout/success?orderId=${encodeURIComponent(orderId)}`,
+    callbackUrl: `${appBaseUrl}/api/geidea/callback`,
   });
   const providerId = typeof result.orderId === 'string' && /^[a-zA-Z0-9-]{1,100}$/.test(result.orderId) ? result.orderId : null;
   const redirectUrl = trustedRedirect(result.redirectUrl);
