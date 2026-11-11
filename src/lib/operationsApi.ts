@@ -1028,6 +1028,31 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       return { ok: true, productGallery: content.productGallery };
     }
 
+    if (body.action === 'update-product-gallery') {
+      const content = await getStoredContent();
+      if (!Array.isArray(content.productGallery)) content.productGallery = [];
+      const existingIdx = content.productGallery.findIndex((g: any) => g.id === body.id || (body.url && g.url === body.url));
+      if (existingIdx !== -1) {
+        content.productGallery[existingIdx] = {
+          ...content.productGallery[existingIdx],
+          title: body.title !== undefined ? body.title : content.productGallery[existingIdx].title,
+          category: body.category !== undefined ? body.category : content.productGallery[existingIdx].category
+        };
+      } else if (body.id || body.url) {
+        // If it was a catalog item being customized in the shared gallery
+        content.productGallery.unshift({
+          id: body.id || ('gal-prod-' + Date.now()),
+          title: body.title || 'صنف في المعرض',
+          url: body.url,
+          category: body.category || 'grocery',
+          isCustom: true,
+          addedAt: new Date().toISOString()
+        });
+      }
+      await persistContent(content);
+      return { ok: true, productGallery: content.productGallery };
+    }
+
     if (body.action === 'delete-product-gallery') {
       const content = await getStoredContent();
       if (Array.isArray(content.productGallery)) {

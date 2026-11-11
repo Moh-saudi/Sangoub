@@ -9,7 +9,8 @@ import {
   Sparkles,
   Layers,
   Image as ImageIcon,
-  Plus
+  Plus,
+  Pencil
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { operationsApi } from '../lib/operationsApi';
@@ -32,7 +33,7 @@ interface ProductGalleryModalProps {
   title?: string;
 }
 
-const GALLERY_CATEGORIES = [
+export const GALLERY_CATEGORIES = [
   { id: 'all', label: 'جميع الأصناف' },
   { id: 'dairy', label: 'ألبان وأجبان' },
   { id: 'grocery', label: 'بقالة ومعلبات' },
@@ -42,6 +43,7 @@ const GALLERY_CATEGORIES = [
   { id: 'meat', label: 'لحوم ودواجن' },
   { id: 'snacks', label: 'شيبس وتسالي' },
   { id: 'cleaning', label: 'منظفات وعناية' },
+  { id: 'other', label: 'أصناف متنوعة' },
 ] as const;
 
 // Curated high quality product photography for quick selection
@@ -122,6 +124,20 @@ export function ProductGalleryModal({
   const [uploadNotice, setUploadNotice] = useState('');
   const [errorNotice, setErrorNotice] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Pre-upload confirmation dialog
+  const [pendingUpload, setPendingUpload] = useState<{
+    file: File;
+    previewUrl: string;
+    title: string;
+    category: string;
+  } | null>(null);
+
+  // Edit custom item modal
+  const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editCategory, setEditCategory] = useState('grocery');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Load custom gallery items from Supabase app_content & catalog products
   useEffect(() => {
@@ -237,8 +253,7 @@ export function ProductGalleryModal({
     return result;
   }, [allItems, selectedCategory, searchQuery]);
 
-  // Handle uploading a brand new product image into the shared gallery
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -252,43 +267,109 @@ export function ProductGalleryModal({
       return;
     }
 
+    const previewUrl = URL.createObjectURL(file);
+    const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    const defaultCategory = selectedCategory !== 'all' ? selectedCategory : 'grocery';
+
+    setPendingUpload({
+      file,
+      previewUrl,
+      title: fileNameWithoutExt || 'صنف جديد في المعرض',
+      category: defaultCategory
+    });
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  async function confirmUpload() {
+    if (!pendingUpload) return;
+    if (!pendingUpload.title.trim()) {
+      setErrorNotice('يرجى إدخال اسم للصنف قبل الرفع');
+      return;
+    }
+
     setIsUploading(true);
     setUploadNotice('');
     setErrorNotice('');
 
     try {
       const itemId = 'gal-prod-' + Date.now();
-      const uploadRes = await uploadCatalogImage('products', itemId, file);
-      
-      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+      const uploadRes = await uploadCatalogImage('products', itemId, pendingUpload.file);
+
       const newItem: GalleryItem = {
         id: itemId,
-        title: fileNameWithoutExt || 'صنف جديد في المعرض',
+        title: pendingUpload.title.trim(),
         url: uploadRes.url,
-        category: selectedCategory === 'all' ? 'grocery' : selectedCategory,
+        category: pendingUpload.category || 'grocery',
         addedAt: new Date().toISOString(),
         isCustom: true,
       };
 
-      // Persist to shared app_content
       try {
         await operationsApi('app-content', {
           action: 'add-product-gallery',
           item: newItem
         });
       } catch (saveErr) {
-        console.warn('operationsApi add-product-gallery notice, attempting direct save:', saveErr);
+        console.warn('operationsApi add-product-gallery notice:', saveErr);
       }
 
       setCustomItems((prev) => [newItem, ...prev.filter((i) => i.url !== newItem.url)]);
       setSelectedItem(newItem);
-      setUploadNotice('✅ تم رفع الصورة وإضافتها إلى معرض الأصناف بنجاح!');
+      const catLabel = GALLERY_CATEGORIES.find(c => c.id === newItem.category)?.label || newItem.category;
+      setUploadNotice(`✅ تم رفع صنف "${newItem.title}" وتصنيفه في (${catLabel}) بنجاح!`);
+      setPendingUpload(null);
     } catch (err: any) {
       console.error('Gallery upload error:', err);
       setErrorNotice(err.message || 'تعذر رفع الصورة إلى المعرض.');
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+  function openEditModal(e: React.MouseEvent, item: GalleryItem) {
+    e.stopPropagation();
+    setEditingItem(item);
+    setEditTitle(item.title);
+    setEditCategory(item.category || 'grocery');
+    setErrorNotice('');
+  }
+
+  async function saveEdit() {
+    if (!editingItem) return;
+    if (!editTitle.trim()) {
+      setErrorNotice('يرجى إدخال اسم صالح للصنف');
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      await operationsApi('app-content', {
+        action: 'update-product-gallery',
+        id: editingItem.id,
+        url: editingItem.url,
+        title: editTitle.trim(),
+        category: editCategory
+      });
+
+      const updated: GalleryItem = {
+        ...editingItem,
+        title: editTitle.trim(),
+        category: editCategory,
+        isCustom: true
+      };
+
+      setCustomItems(prev => prev.map(it => (it.id === editingItem.id || it.url === editingItem.url ? updated : it)));
+      if (selectedItem?.id === editingItem.id || selectedItem?.url === editingItem.url) {
+        setSelectedItem(updated);
+      }
+      const catLabel = GALLERY_CATEGORIES.find(c => c.id === editCategory)?.label || editCategory;
+      setUploadNotice(`✅ تم تعديل اسم وقسم صنف "${updated.title}" إلى (${catLabel}) بنجاح!`);
+      setEditingItem(null);
+    } catch (err: any) {
+      setErrorNotice(err.message || 'تعذر حفظ تعديلات الصنف.');
+    } finally {
+      setIsSavingEdit(false);
     }
   }
 
@@ -304,6 +385,7 @@ export function ProductGalleryModal({
       });
       setCustomItems((prev) => prev.filter((i) => i.id !== item.id));
       if (selectedItem?.id === item.id) setSelectedItem(null);
+      setUploadNotice('تم حذف الصورة من المعرض بنجاح.');
     } catch (err: any) {
       setErrorNotice(err.message || 'تعذر حذف الصورة من المعرض.');
     }
@@ -319,102 +401,92 @@ export function ProductGalleryModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/75 backdrop-blur-sm animate-fade-in font-['Cairo',sans-serif]"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-fade-in font-['Cairo',sans-serif]"
       dir="rtl"
     >
-      <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+      <div className="bg-white rounded-3xl max-w-4xl w-full h-[90vh] max-h-[820px] shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-scale-up">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/70">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-white">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center font-bold">
+            <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
               <ImageIcon size={20} />
             </div>
             <div>
-              <h3 className="font-black text-slate-900 text-base sm:text-lg flex items-center gap-1.5">
-                <span>{title}</span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
-                  {filteredItems.length} صورة
-                </span>
+              <h3 className="font-bold text-slate-900 text-sm sm:text-base leading-tight">
+                {title}
               </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                اختر صورة جاهزة عالية الجودة للأصناف أو ارفع صورة جديدة لتظهر لجميع المتاجر
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                اختر صورة جاهزة عالية الجودة لصنفك أو ارفع صورة جديدة مع تسميتها وتصنيفها
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Upload Button */}
             <input
               type="file"
               ref={fileInputRef}
               accept="image/jpeg,image/png,image/webp"
-              onChange={handleFileUpload}
+              onChange={handleFileSelected}
               className="hidden"
-              id="gallery-modal-upload-input"
+              id="gallery-file-upload-input"
             />
             <label
-              htmlFor="gallery-modal-upload-input"
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white shadow-sm transition-all cursor-pointer ${
-                isUploading ? 'bg-orange-400 cursor-not-allowed' : 'bg-[#FF5900] hover:bg-[#E04E00] active:scale-95'
-              }`}
+              htmlFor="gallery-file-upload-input"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs text-white shadow-xs transition-all cursor-pointer bg-[#FF5900] hover:bg-[#E04E00] active:scale-95"
             >
-              {isUploading ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />}
-              <span>{isUploading ? 'جارٍ الرفع…' : 'رفع صورة للمعرض'}</span>
+              <UploadCloud size={14} />
+              <span>رفع وتسمية صورة</span>
             </label>
 
             <button
               type="button"
               onClick={onClose}
-              className="w-9 h-9 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 flex items-center justify-center transition-colors cursor-pointer"
-              aria-label="إغلاق"
+              className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
         </div>
 
         {/* Notices */}
         {uploadNotice && (
-          <div className="mx-5 mt-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-between animate-fade-in">
+          <div className="px-5 py-2.5 bg-emerald-50 border-b border-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-between">
             <span>{uploadNotice}</span>
-            <button type="button" onClick={() => setUploadNotice('')} className="text-emerald-600 hover:text-emerald-900">
-              <X size={14} />
-            </button>
+            <button type="button" onClick={() => setUploadNotice('')} className="text-emerald-600 hover:text-emerald-900 cursor-pointer">✕</button>
           </div>
         )}
         {errorNotice && (
-          <div className="mx-5 mt-3 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center justify-between animate-fade-in">
+          <div className="px-5 py-2.5 bg-rose-50 border-b border-rose-100 text-rose-800 text-xs font-bold flex items-center justify-between">
             <span>{errorNotice}</span>
-            <button type="button" onClick={() => setErrorNotice('')} className="text-rose-600 hover:text-rose-900">
-              <X size={14} />
-            </button>
+            <button type="button" onClick={() => setErrorNotice('')} className="text-rose-600 hover:text-rose-900 cursor-pointer">✕</button>
           </div>
         )}
 
-        {/* Search & Category Filter Toolbar */}
-        <div className="p-4 border-b border-slate-100 space-y-3 bg-white">
-          <div className="relative w-full">
+        {/* Search & Category Tabs */}
+        <div className="p-4 sm:p-5 border-b border-slate-100 bg-white space-y-3">
+          {/* Search Input */}
+          <div className="relative">
             <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ابحث بالاسم عن صنف (جبنة، حليب، زيت، أرز، طماطم، شيبس، عصير…)"
-              className="w-full pr-10 pl-9 py-2 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs sm:text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 font-medium"
+              placeholder="ابحث عن صنف (حليب، جبنة، زيت، أرز، طماطم، عصير، شيبسي…)"
+              className="w-full pr-10 pl-9 py-2 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs text-slate-800 outline-none transition-all placeholder:text-slate-400 font-medium"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
               >
                 ✕
               </button>
             )}
           </div>
 
-          {/* Categories Pill Rail */}
+          {/* Categories Horizontal Scroll */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
             {GALLERY_CATEGORIES.map((cat) => {
               const active = selectedCategory === cat.id;
@@ -423,7 +495,7 @@ export function ProductGalleryModal({
                   key={cat.id}
                   type="button"
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  className={`px-3 py-1 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
                     active
                       ? 'bg-slate-900 text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -450,7 +522,7 @@ export function ProductGalleryModal({
               </div>
               <h4 className="font-bold text-slate-800 text-sm">لا توجد صور مطابقة لبحثك</h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                يمكنك رفع صورة صنفك الخاصة مباشرة إلى المعرض المشترك بالضغط على زر "رفع صورة للمعرض" بالأعلى.
+                يمكنك رفع صورة صنفك الخاصة مباشرة إلى المعرض بالضغط على زر "رفع وتسمية صورة" بالأعلى.
               </p>
             </div>
           ) : (
@@ -464,7 +536,7 @@ export function ProductGalleryModal({
                     className={`group relative flex flex-col rounded-2xl overflow-hidden bg-white border transition-all duration-200 cursor-pointer ${
                       isSelected
                         ? 'border-orange-500 ring-2 ring-orange-500/20 shadow-md scale-[1.02]'
-                        : 'border-slate-200 hover:border-slate-300 hover:shadow-xs'
+                        : 'border-slate-200 hover:border-orange-300 hover:shadow-xs'
                     }`}
                   >
                     {/* Thumbnail Image */}
@@ -482,23 +554,33 @@ export function ProductGalleryModal({
 
                       {/* Selected Overlay Checkmark */}
                       {isSelected && (
-                        <div className="absolute inset-0 bg-orange-600/20 backdrop-blur-[1px] flex items-center justify-center">
+                        <div className="absolute inset-0 bg-orange-600/20 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
                           <div className="w-8 h-8 rounded-full bg-[#FF5900] text-white flex items-center justify-center shadow-lg">
                             <Check size={18} strokeWidth={3} />
                           </div>
                         </div>
                       )}
 
-                      {/* Custom uploaded badge or delete */}
+                      {/* Custom uploaded actions */}
                       {item.isCustom && (
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteCustomItem(e, item)}
-                          className="absolute top-1.5 left-1.5 w-6 h-6 rounded-lg bg-black/60 text-white hover:bg-rose-600 flex items-center justify-center transition-colors cursor-pointer shadow-sm"
-                          title="حذف من المعرض"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => openEditModal(e, item)}
+                            className="w-6 h-6 rounded-lg bg-black/60 text-white hover:bg-orange-600 flex items-center justify-center transition-colors cursor-pointer shadow-sm"
+                            title="تعديل الاسم أو القسم"
+                          >
+                            <Pencil size={11} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteCustomItem(e, item)}
+                            className="w-6 h-6 rounded-lg bg-black/60 text-white hover:bg-rose-600 flex items-center justify-center transition-colors cursor-pointer shadow-sm"
+                            title="حذف من المعرض"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -507,7 +589,7 @@ export function ProductGalleryModal({
                       <h5 className="font-bold text-slate-800 text-xs line-clamp-1 leading-snug">
                         {item.title}
                       </h5>
-                      <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+                      <span className="text-[10px] text-orange-600 font-bold block mt-0.5">
                         {GALLERY_CATEGORIES.find((c) => c.id === item.category)?.label || 'صنف عام'}
                       </span>
                     </div>
@@ -564,7 +646,189 @@ export function ProductGalleryModal({
         </div>
 
       </div>
+
+      {/* ── Sub-Modal 1: Pre-Upload Name & Category Setup ── */}
+      {pendingUpload && (
+        <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in font-['Cairo',sans-serif]">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 text-right animate-scale-up" dir="rtl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
+                  <UploadCloud size={18} />
+                </div>
+                <h4 className="font-bold text-slate-900 text-sm">تحديد اسم وقسم الصورة قبل الرفع</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPendingUpload(null)}
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Preview & Details */}
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+              <img
+                src={pendingUpload.previewUrl}
+                alt="معاينة"
+                className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
+              />
+              <div className="text-xs text-slate-500 overflow-hidden">
+                <p className="font-bold text-slate-800 truncate">{pendingUpload.file.name}</p>
+                <p className="mt-0.5">الحجم: {(pendingUpload.file.size / (1024 * 1024)).toFixed(2)} ميجابايت</p>
+              </div>
+            </div>
+
+            {/* Input Name */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                اسم الصنف بالكامل <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={pendingUpload.title}
+                onChange={(e) => setPendingUpload({ ...pendingUpload, title: e.target.value })}
+                placeholder="مثال: جبنة دومتي فيتا 500 جم"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs sm:text-sm font-medium outline-none transition-all"
+                autoFocus
+              />
+            </div>
+
+            {/* Category Select */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                القسم / التصنيف <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={pendingUpload.category}
+                onChange={(e) => setPendingUpload({ ...pendingUpload, category: e.target.value })}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs sm:text-sm font-bold outline-none transition-all cursor-pointer"
+              >
+                {GALLERY_CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setPendingUpload(null)}
+                disabled={isUploading}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={confirmUpload}
+                disabled={isUploading || !pendingUpload.title.trim()}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#FF5900] hover:bg-[#E04E00] active:scale-95 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isUploading ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+                <span>{isUploading ? 'جارٍ الرفع…' : 'حفظ ورفع للمعرض'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sub-Modal 2: Edit Existing Item ── */}
+      {editingItem && (
+        <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in font-['Cairo',sans-serif]">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 text-right animate-scale-up" dir="rtl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
+                  <Pencil size={16} />
+                </div>
+                <h4 className="font-bold text-slate-900 text-sm">تعديل اسم وقسم صورة الصنف</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Preview */}
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+              <img
+                src={editingItem.url}
+                alt={editingItem.title}
+                className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
+              />
+              <div className="text-xs text-slate-500 overflow-hidden">
+                <p className="font-bold text-slate-800 line-clamp-1">{editingItem.title}</p>
+                <p className="mt-0.5 text-orange-600 font-bold">
+                  القسم الحالي: {GALLERY_CATEGORIES.find(c => c.id === editingItem.category)?.label || 'صنف عام'}
+                </p>
+              </div>
+            </div>
+
+            {/* Input Name */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                اسم الصنف <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="أدخل اسم الصنف الجديد…"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs sm:text-sm font-medium outline-none transition-all"
+                autoFocus
+              />
+            </div>
+
+            {/* Category Select */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                تغيير القسم / التصنيف <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs sm:text-sm font-bold outline-none transition-all cursor-pointer"
+              >
+                {GALLERY_CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                disabled={isSavingEdit}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={saveEdit}
+                disabled={isSavingEdit || !editTitle.trim()}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#FF5900] hover:bg-[#E04E00] active:scale-95 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isSavingEdit ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                <span>{isSavingEdit ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
-
