@@ -15,6 +15,16 @@ export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
+export async function onRequest(context: any) {
+  if (context.request.method === 'OPTIONS') {
+    return onRequestOptions();
+  }
+  if (context.request.method === 'POST') {
+    return onRequestPost(context);
+  }
+  return onRequestGet();
+}
+
 export async function onRequestPost(context: any) {
   try {
     const body = await context.request.json().catch(() => ({}));

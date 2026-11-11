@@ -47,6 +47,19 @@ export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
+export async function onRequest(context: any) {
+  if (context.request.method === 'OPTIONS') {
+    return onRequestOptions();
+  }
+  if (context.request.method === 'POST') {
+    return onRequestPost(context);
+  }
+  return new Response(JSON.stringify({ ok: false, error: 'Method Not Allowed' }), {
+    status: 405,
+    headers: CORS_HEADERS,
+  });
+}
+
 export async function onRequestPost(context: any) {
   try {
     const body = await context.request.json().catch(() => ({}));
