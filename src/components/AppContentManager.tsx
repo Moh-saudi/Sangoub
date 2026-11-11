@@ -222,6 +222,10 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
     try {
       await operationsApi('app-content', body);
       if ((body as { action?: string }).action === 'save-home') dirty.current = false;
+      try {
+        localStorage.removeItem('sangoub_cached_banners_v2');
+        window.dispatchEvent(new CustomEvent('sangoub_banners_updated'));
+      } catch {}
       setNotice(success);
       if (close) setEditor(null);
       setRevision(value => value + 1);
@@ -275,6 +279,10 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
       };
       await operationsApi('app-content', { action: 'save-campaign', id: campaign.id, campaign: updated });
       setCampaigns(prev => prev.map(c => c.id === campaign.id ? updated : c));
+      try {
+        localStorage.removeItem('sangoub_cached_banners_v2');
+        window.dispatchEvent(new CustomEvent('sangoub_banners_updated'));
+      } catch {}
       setNotice('تم استبدال صورة الشريحة بنجاح وتحديث سلايدر المتجر فوراً! 🚀');
       setTargetCampaignForReplacement(null);
       setIsGalleryModalOpen(false);

@@ -13,11 +13,12 @@ export type Promotion = {
   imageUrl: string;
   enabled: boolean;
   priority: number;
-  targetType: 'product' | 'store' | 'offers';
+  targetType: 'product' | 'store' | 'offers' | 'category' | 'none' | 'url';
   targetId: string;
   startsAt: string;
   endsAt: string;
   hideOverlay?: boolean;
+  hideButton?: boolean;
   btnText?: string;
 };
 export const defaultCustomerHome: CustomerHome = {

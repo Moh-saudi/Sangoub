@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { Product } from '../types';
 import { searchImagesForProduct, type ImageCandidate } from '../utils/productImageFinder';
+import { ProductGalleryModal } from './ProductGalleryModal';
 
 interface SmartProductImageModalProps {
   product: Product | null;
@@ -28,6 +29,7 @@ export function SmartProductImageModal({
 }: SmartProductImageModalProps) {
   const [candidates, setCandidates] = useState<ImageCandidate[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [savingUrl, setSavingUrl] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [uploadError, setUploadError] = useState('');
@@ -161,22 +163,36 @@ export function SmartProductImageModal({
             </button>
           </form>
 
-          {/* Quick Action: Search Google Images Button */}
-          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-sky-50/70 border border-sky-100 rounded-2xl">
-            <div className="flex items-center gap-2 text-[11px] text-sky-900 font-bold">
-              <Globe size={14} className="text-sky-600 shrink-0" />
-              <span>لم تجد في الكتالوج؟ ابحث في Google واحفظ الصورة:</span>
-            </div>
-            <a
-              href={googleImagesUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-3 py-1 bg-white hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-[11px] font-bold shadow-2xs transition"
-              title="فتح بحث صور جوجل في صفحة جديدة"
+          {/* Quick Actions: Shared Product Gallery & Google Images */}
+          <div className="grid sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsGalleryOpen(true)}
+              className="flex items-center justify-between p-2.5 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-2xl text-[11px] text-orange-950 font-bold transition cursor-pointer"
             >
-              <ExternalLink size={12} />
-              <span>بحث على صور Google ↗</span>
-            </a>
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-[#FF5900] shrink-0" />
+                <span>معرض الأصناف المشترك (رفع واختيار)</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-lg bg-orange-200/80 text-orange-900 text-[10px]">تصفح ↗</span>
+            </button>
+
+            <div className="flex items-center justify-between p-2.5 bg-sky-50/70 border border-sky-100 rounded-2xl">
+              <div className="flex items-center gap-2 text-[11px] text-sky-900 font-bold">
+                <Globe size={14} className="text-sky-600 shrink-0" />
+                <span>بحث على صور Google:</span>
+              </div>
+              <a
+                href={googleImagesUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-[10px] font-bold shadow-2xs transition"
+                title="فتح بحث صور جوجل في صفحة جديدة"
+              >
+                <ExternalLink size={11} />
+                <span>بحث Google ↗</span>
+              </a>
+            </div>
           </div>
 
           {/* Candidates Grid */}
@@ -303,6 +319,18 @@ export function SmartProductImageModal({
           </button>
         </footer>
       </div>
+
+      {isGalleryOpen && (
+        <ProductGalleryModal
+          isOpen={isGalleryOpen}
+          onClose={() => setIsGalleryOpen(false)}
+          onSelectImage={async (url) => {
+            await handleApply(url);
+          }}
+          currentImageUrl={product.imageUrl}
+          title={`معرض صور الأصناف - اختيار صورة لـ "${product.name}"`}
+        />
+      )}
     </div>
   );
 }

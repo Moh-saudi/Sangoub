@@ -20,7 +20,8 @@ import { FinancialReports } from "./FinancialReports";
 import { FleetIntelligence } from "./FleetIntelligence";
 import { CustomerAndPriceIntelligence } from "./CustomerAndPriceIntelligence";
 import { NotificationCenter } from "./NotificationCenter";
-import { LayoutDashboard, ChefHat, ClipboardList, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog, PanelRightClose, PanelRightOpen, Store as StoreIcon, Package, Tag, TicketPercent, Handshake, Briefcase, PanelsTopLeft, Bike, Banknote, Bell, FolderTree, Gauge, Users } from "lucide-react";
+import { AdminProductGalleryManager } from "./AdminProductGalleryManager";
+import { LayoutDashboard, ChefHat, ClipboardList, ChevronLeft, Menu, X, ArrowUpRight, Radio, MapPin, ScrollText, UserRoundCog, PanelRightClose, PanelRightOpen, Store as StoreIcon, Package, Tag, TicketPercent, Handshake, Briefcase, PanelsTopLeft, Bike, Banknote, Bell, FolderTree, Gauge, Users, Image as ImageIcon } from "lucide-react";
 
 const sections = [
   { id: "operations", group: "التشغيل اليومي", label: "مركز العمليات", hint: "ملخص اليوم ومؤشرات التشغيل", icon: LayoutDashboard },
@@ -33,6 +34,7 @@ const sections = [
   { id: "stores", group: "المتاجر والمنتجات", label: "المتاجر", hint: "البيانات والتوافر والتوصيل", icon: StoreIcon },
   { id: "categories", label: "شجرة الأقسام والتصنيفات", hint: "الهيكل الهرمي للأقسام ومطابقة الـ POS", icon: FolderTree },
   { id: "products", label: "المنتجات", hint: "المنيو والأسعار والصور", icon: Package },
+  { id: "product-gallery", label: "معرض صور الأصناف", hint: "مكتبة صور المنتجات المشتركة لجميع التجار", icon: ImageIcon },
   { id: "notifications", group: "التسويق", label: "مركز الإشعارات الموحد", hint: "إرسال وتتبع إشعارات الموبايل والويب", icon: Bell },
   { id: "offers", label: "عروض المنتجات", hint: "المنتجات المخفّضة على الموقع", icon: Tag },
   { id: "visitors", label: "عدد الزوار", hint: "إجمالي زوار الموقع وزوار اليوم", icon: LayoutDashboard },
@@ -265,6 +267,7 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
             orders={orders}
           />
         )}
+        {tab === "product-gallery" && <AdminProductGalleryManager />}
         {tab === "sangoub" && <SangoubRequests />}
         {tab === "visitors" && <VisitorStats />}
         {tab === "notifications" && <NotificationCenter stores={stores} />}

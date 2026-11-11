@@ -441,8 +441,9 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
             products={products}
             busy={busy}
             onEdit={id => open("stores", id)}
-            onStatus={store => perform(async () => {
+            onStatus={store => {
               const nextStatus = store.status === "open" ? "closed" : "open";
+              return perform(async () => {
               const now = Date.now();
 
               // 1. Optimistic UI update immediately
@@ -499,7 +500,8 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
               if (onProductsRefresh) {
                 onProductsRefresh();
               }
-            }, nextStatus === "closed" ? "تم إيقاف المتجر مؤقتاً بنجاح." : "تم فتح المتجر واستئناف استقبال الطلبات بنجاح.")}
+            }, nextStatus === "closed" ? "تم إيقاف المتجر مؤقتاً بنجاح." : "تم فتح المتجر واستئناف استقبال الطلبات بنجاح.");
+            }}
             onDelete={store => { if (window.confirm(`هل أنت متأكد من حذف متجر "${store.name}" نهائياً من النظام؟`)) { perform(() => deleteRecord("stores", store.id), "تم حذف المتجر نهائياً من النظام."); } }}
           />
         </>

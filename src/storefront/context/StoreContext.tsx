@@ -261,7 +261,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     'علاج'
   ]);
   const [categoryOverrides, setCategoryOverrides] = useState<Record<string, { name_ar?: string; name_en?: string; image?: string; sort_order?: number }>>({});
-  const [banners, setBanners] = useState<StoreBanner[]>(DEFAULT_SANGOUB_BANNERS);
+  const [banners, setBanners] = useState<StoreBanner[]>(() => {
+    try {
+      const cached = typeof window !== 'undefined' ? localStorage.getItem('sangoub_cached_banners_v2') : null;
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_SANGOUB_BANNERS;
+  });
   const [martBanner, setMartBanner] = useState<MartBannerConfig>(DEFAULT_MART_BANNER);
   const [sliderShowArrows, setSliderShowArrows] = useState(true);
   const [isLoadingBanners, setIsLoadingBanners] = useState(false);
@@ -435,7 +444,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               }
             }
             if (!resolvedLogo) {
-              resolvedLogo = isSangoub ? sangoubDefault.logoUrl : (known?.logoUrl || '/brand/sangoub-mark-white-128.png');
+              resolvedLogo = (isSangoub ? sangoubDefault.logoUrl : known?.logoUrl) || '/brand/sangoub-mark-white-128.png';
             }
 
             // 2. Choose best banner URL (prioritize http/https uploaded URLs)
@@ -456,7 +465,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               }
             }
             if (!resolvedBanner) {
-              resolvedBanner = isSangoub ? sangoubDefault.bannerUrl : (known?.bannerUrl || resolvedLogo);
+              resolvedBanner = (isSangoub ? sangoubDefault.bannerUrl : known?.bannerUrl) || resolvedLogo || '/brand/sangoub-mark-white-128.png';
             }
 
             return {
@@ -539,20 +548,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsLoadingBanners(true);
     try {
       let data: any = null;
-      // 1. Try public server endpoint /api/app-content if available
+      // 1. Direct Supabase app_content fetch (primary & fastest)
       try {
-        const res = await fetch('/api/app-content', { cache: 'no-store' });
-        if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
-          data = await res.json();
+        const { data: row } = await supabase.from('app_content').select('content').eq('id', true).maybeSingle();
+        if (row?.content) {
+          data = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
         }
       } catch {}
 
-      // 2. Direct Supabase app_content fallback (for Cloudflare Pages)
+      // 2. Public server endpoint /api/app-content fallback
       if (!data) {
         try {
-          const { data: row } = await supabase.from('app_content').select('content').eq('id', true).maybeSingle();
-          if (row?.content) {
-            data = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+          const res = await fetch('/api/app-content', { cache: 'no-store' });
+          if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+            data = await res.json();
           }
         } catch {}
       }
@@ -623,12 +632,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             };
           });
           setBanners(mapped);
+          try {
+            localStorage.setItem('sangoub_cached_banners_v2', JSON.stringify(mapped));
+            localStorage.setItem('sangoub_cached_app_content', JSON.stringify(data));
+          } catch {}
+          if (typeof window !== 'undefined' && 'Image' in window) {
+            mapped.forEach((b) => {
+              const url = b.imageUrl || b.image;
+              if (url) {
+                const img = new Image();
+                img.src = url;
+              }
+            });
+          }
           setIsLoadingBanners(false);
           return;
         }
       }
       // Fallback to default Sangoub banners if no custom slides
       setBanners(DEFAULT_SANGOUB_BANNERS);
+      try {
+        localStorage.removeItem('sangoub_cached_banners_v2');
+      } catch {}
     } catch {
       setBanners(DEFAULT_SANGOUB_BANNERS);
     } finally {
@@ -638,12 +663,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     refreshBanners();
-    // Refresh when user returns to tab
-    const onFocus = () => {
-      refreshBanners();
-    };
+    const onFocus = () => refreshBanners();
+    const onBannerUpdate = () => refreshBanners();
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    window.addEventListener('sangoub_banners_updated', onBannerUpdate);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('sangoub_banners_updated', onBannerUpdate);
+    };
   }, []);
 
   const handleBannerClick = (

@@ -716,7 +716,7 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
         .select('*, order_items(*)')
         .in('status', ['ready', 'assigned', 'picked_up'])
         .order('created_at', { ascending: false });
-      return { tasks: (orders || []).map(mapOrderRow), items: (orders || []).map(mapOrderRow) };
+      return { tasks: (orders || []).map((row: any) => mapOrderRow(row)), items: (orders || []).map((row: any) => mapOrderRow(row)) };
     }
 
     if (body.action === 'set-store-status' && body.storeId && body.status) {
@@ -936,6 +936,7 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
         campaigns: content.campaigns,
         slides: content.campaigns,
         gallery: content.gallery || [],
+        productGallery: content.productGallery || [],
         martBanner: content.martBanner,
         disabledStoreTypes: content.disabledStoreTypes || [],
         disabledCategories: content.disabledCategories || [],
@@ -1004,6 +1005,28 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       }
       await persistContent(content);
       return { ok: true, gallery: content.gallery };
+    }
+
+    if (body.action === 'get-product-gallery') {
+      const content = await getStoredContent();
+      return { ok: true, productGallery: content.productGallery || [] };
+    }
+
+    if (body.action === 'add-product-gallery') {
+      const content = await getStoredContent();
+      if (!Array.isArray(content.productGallery)) content.productGallery = [];
+      content.productGallery = [body.item, ...content.productGallery.filter((g: any) => g.url !== body.item.url)];
+      await persistContent(content);
+      return { ok: true, productGallery: content.productGallery };
+    }
+
+    if (body.action === 'delete-product-gallery') {
+      const content = await getStoredContent();
+      if (Array.isArray(content.productGallery)) {
+        content.productGallery = content.productGallery.filter((g: any) => g.id !== body.id);
+      }
+      await persistContent(content);
+      return { ok: true, productGallery: content.productGallery };
     }
 
     if (body.action === 'save-mart-banner') {

@@ -710,6 +710,9 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                         <img
                           src={bannerImgUrl}
                           alt={slide.title || 'عرض سنجوب'}
+                          loading={index === 0 ? "eager" : "lazy"}
+                          fetchPriority={index === 0 ? "high" : "auto"}
+                          decoding="async"
                           className="absolute inset-0 w-full h-full object-cover object-center"
                           onError={(e) => {
                             (e.currentTarget as HTMLElement).style.display = 'none';

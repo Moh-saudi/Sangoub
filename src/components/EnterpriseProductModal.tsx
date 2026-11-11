@@ -11,6 +11,7 @@ import {
   type DetectedCategoryResult,
 } from '../utils/aiProductGenerator';
 import { uploadCatalogImage } from '../lib/catalogImages';
+import { ProductGalleryModal } from './ProductGalleryModal';
 import {
   X,
   Package,
@@ -107,6 +108,7 @@ export function EnterpriseProductModal({
 
   // Form Media & Image Upload
   const [imageUrl, setImageUrl] = useState<string>(product?.imageUrl || '');
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadNotice, setUploadNotice] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -1058,7 +1060,15 @@ export function EnterpriseProductModal({
                     </p>
                   )}
 
-                  <div className="flex items-center justify-center gap-3 pt-2">
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsGalleryOpen(true)}
+                      className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Sparkles size={15} className="text-orange-400" />
+                      <span>اختيار من معرض صور الأصناف (الجاليري)</span>
+                    </button>
                     <input
                       type="file"
                       ref={fileInputRef}
@@ -1069,13 +1079,13 @@ export function EnterpriseProductModal({
                     />
                     <label
                       htmlFor="product-image-upload-input"
-                      className={`px-5 py-2.5 rounded-xl font-bold text-xs cursor-pointer shadow-xs transition-all ${
+                      className={`px-4 py-2.5 rounded-xl font-bold text-xs cursor-pointer shadow-xs transition-all ${
                         uploadingImage
                           ? 'bg-slate-200 text-slate-500 pointer-events-none'
                           : 'bg-orange-600 hover:bg-orange-700 text-white'
                       }`}
                     >
-                      {uploadingImage ? 'جارٍ رفع الصورة…' : 'تغيير الصورة'}
+                      {uploadingImage ? 'جارٍ رفع الصورة…' : 'رفع من جهازك'}
                     </label>
                     <button
                       type="button"
@@ -1090,37 +1100,48 @@ export function EnterpriseProductModal({
                   </div>
                 </div>
               ) : (
-                <div className="p-8 bg-slate-50 border-2 border-dashed border-slate-300 rounded-3xl text-center space-y-3 hover:border-orange-500 transition-colors">
+                <div className="p-8 bg-slate-50 border-2 border-dashed border-slate-300 rounded-3xl text-center space-y-4 hover:border-orange-500 transition-colors">
                   <div className="w-14 h-14 rounded-2xl bg-orange-100 text-orange-600 mx-auto flex items-center justify-center">
                     <ImageIcon size={26} />
                   </div>
                   <div>
                     <h4 className="font-bold text-sm text-slate-900">صورة الصنف الرئيسية</h4>
                     <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                      تدعم المنصة صور JPG و PNG و WebP بحجم يصل إلى 5 ميجابايت.
+                      اختر صورة جاهزة من معرض أصناف المنصة أو ارفع صورة جديدة من جهازك (JPG, PNG, WebP).
                     </p>
                   </div>
 
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    id="product-image-upload-input"
-                  />
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsGalleryOpen(true)}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition-all cursor-pointer active:scale-95"
+                    >
+                      <Sparkles size={16} className="text-orange-400" />
+                      <span>اختيار من معرض الأصناف (الجاليري)</span>
+                    </button>
 
-                  <label
-                    htmlFor="product-image-upload-input"
-                    className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs cursor-pointer shadow-sm transition-all ${
-                      uploadingImage
-                        ? 'bg-slate-200 text-slate-500 pointer-events-none'
-                        : 'bg-orange-600 hover:bg-orange-700 text-white active:scale-95'
-                    }`}
-                  >
-                    {uploadingImage ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
-                    {uploadingImage ? 'جارٍ رفع الصورة…' : 'اختيار صورة من جهازك'}
-                  </label>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="product-image-upload-input"
+                    />
+
+                    <label
+                      htmlFor="product-image-upload-input"
+                      className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs cursor-pointer shadow-sm transition-all ${
+                        uploadingImage
+                          ? 'bg-slate-200 text-slate-500 pointer-events-none'
+                          : 'bg-orange-600 hover:bg-orange-700 text-white active:scale-95'
+                      }`}
+                    >
+                      {uploadingImage ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
+                      {uploadingImage ? 'جارٍ رفع الصورة…' : 'رفع من جهازك'}
+                    </label>
+                  </div>
 
                   {uploadNotice && (
                     <p className="text-xs text-emerald-800 font-bold bg-emerald-50 border border-emerald-200 p-2 rounded-xl max-w-md mx-auto mt-2">
@@ -1128,6 +1149,19 @@ export function EnterpriseProductModal({
                     </p>
                   )}
                 </div>
+              )}
+
+              {isGalleryOpen && (
+                <ProductGalleryModal
+                  isOpen={isGalleryOpen}
+                  onClose={() => setIsGalleryOpen(false)}
+                  onSelectImage={(url) => {
+                    setImageUrl(url);
+                    setUploadNotice('✅ تم اختيار صورة الصنف من المعرض بنجاح!');
+                  }}
+                  currentImageUrl={imageUrl}
+                  title="معرض صور الأصناف (سنجوب)"
+                />
               )}
             </div>
           )}

@@ -113,6 +113,9 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
                   <img
                     src={bannerImgUrl}
                     alt={slide.title || 'عرض سنجوب'}
+                    loading={index === 0 ? "eager" : "lazy"}
+                    fetchPriority={index === 0 ? "high" : "auto"}
+                    decoding="async"
                     className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-102"
                     onError={(e) => {
                       // Fallback to hide broken image so background gradient shows cleanly

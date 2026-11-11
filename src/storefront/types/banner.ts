@@ -11,7 +11,7 @@ export interface StoreBanner {
   btnText?: string;
   hideOverlay?: boolean;
   hideButton?: boolean;
-  targetType?: 'product' | 'store' | 'offers' | 'url' | 'category';
+  targetType?: 'product' | 'store' | 'offers' | 'url' | 'category' | 'none';
   targetId?: string;
   targetPath?: string;
   badgeColor?: string;

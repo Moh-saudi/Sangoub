@@ -578,7 +578,7 @@ export function UserManagement({ stores, fixedStoreId, mode = "admin", orders = 
           role: payload.role,
           fullName: payload.fullName || payload.name,
           phone: payload.phone,
-          password: formPassword || 'San@123456!',
+          password: (payload as any).password || 'San@123456!',
           storeName: targetStore?.name || ''
         });
       }
