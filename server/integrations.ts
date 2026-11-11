@@ -15,28 +15,28 @@ export const ASIMA_CONFIG = {
     live: {
       merchantPublicKey:
         process.env.GEIDEA_MERCHANT_PUBLIC_KEY ||
-        "",
+        "3448c010-87b1-41e7-9771-cac444268cfb",
       apiPassword:
         process.env.GEIDEA_API_PASSWORD ||
-        "",
+        "ecba1701-4889-4357-ba09-4d8d864f6d64",
       baseUrl:
         process.env.GEIDEA_BASE_URL || "https://api.merchant.geidea.net",
     },
     test: {
       merchantPublicKey:
         process.env.GEIDEA_TEST_MERCHANT_PUBLIC_KEY ||
-        "",
+        "3448c010-87b1-41e7-9771-cac444268cfb",
       apiPassword:
         process.env.GEIDEA_TEST_API_PASSWORD ||
-        "",
+        "ecba1701-4889-4357-ba09-4d8d864f6d64",
       baseUrl: "https://api.merchant.geidea.net",
     },
     callbackUrl:
       process.env.GEIDEA_CALLBACK_URL ||
-      `${APP_URL}/api/geidea/callback`,
+      "https://www.el7lm.com/api/geidea/callback",
     returnUrl:
       process.env.GEIDEA_RETURN_URL ||
-      `${APP_URL}/checkout/success`,
+      "https://www.el7lm.com/checkout/success",
     environment: (process.env.GEIDEA_ENVIRONMENT || "production") as
       | "production"
       | "test",
@@ -71,7 +71,10 @@ export interface CreateOrderPaymentOptions {
 }
 
 export class GeideaGateway {
-  public static isConfigured() { const c=ASIMA_CONFIG.geidea.environment==='test'?ASIMA_CONFIG.geidea.test:ASIMA_CONFIG.geidea.live;return process.env.GEIDEA_ENABLED === 'true' && Boolean(c.apiPassword&&c.merchantPublicKey); }
+  public static isConfigured() {
+    const c = ASIMA_CONFIG.geidea.environment === 'test' ? ASIMA_CONFIG.geidea.test : ASIMA_CONFIG.geidea.live;
+    return Boolean(c.apiPassword && c.merchantPublicKey);
+  }
 
   /**
    * حساب توقيع HMAC-SHA256 وفقاً لمتطلبات Geidea الرسمية

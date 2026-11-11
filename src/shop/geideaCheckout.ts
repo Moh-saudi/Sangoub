@@ -1,4 +1,5 @@
 let loading: Promise<void> | null = null;
+
 declare global {
   interface Window {
     GeideaCheckout?: new (
@@ -8,38 +9,52 @@ declare global {
     ) => { startPayment: (id: string) => void };
   }
 }
+
 export async function openGeideaPayment(
-  sessionId: string,
-  onReturn: () => void,
-) {
+  sessionIdOrUrl: string,
+  onReturn?: () => void,
+): Promise<void> {
+  if (!sessionIdOrUrl) {
+    throw new Error('معرف جلسة الدفع غير متوفر.');
+  }
+
+  // If a direct hosted payment redirect URL is provided, redirect directly
+  if (sessionIdOrUrl.startsWith('http://') || sessionIdOrUrl.startsWith('https://')) {
+    window.location.assign(sessionIdOrUrl);
+    return;
+  }
+
   if (!window.GeideaCheckout) {
-    if (!loading)
+    if (!loading) {
       loading = new Promise<void>((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src =
-          "https://www.merchant.geidea.net/hpp/geideaCheckout.min.js";
+        const script = document.createElement('script');
+        script.src = 'https://www.merchant.geidea.net/hpp/geideaCheckout.min.js';
         script.async = true;
         const timer = window.setTimeout(() => {
           script.remove();
-          reject(new Error("انتهت مهلة فتح بوابة الدفع. تابع من صفحة طلبك."));
+          reject(new Error('انتهت مهلة تحميل بوابة الدفع. يرجى المحاولة ثانية.'));
         }, 15000);
         script.onload = () => {
           window.clearTimeout(timer);
-          window.GeideaCheckout
-            ? resolve()
-            : reject(new Error("بوابة الدفع لم تكتمل تهيئتها."));
+          window.GeideaCheckout ? resolve() : reject(new Error('تعذر تهيئة بوابة جيديا.'));
         };
         script.onerror = () => {
           window.clearTimeout(timer);
-          reject(new Error("تعذر فتح بوابة الدفع. حاول من صفحة طلبك."));
+          reject(new Error('تعذر الاتصال ببوابة الدفع جيديا.'));
         };
         document.head.appendChild(script);
       }).catch((e) => {
         loading = null;
         throw e;
       });
+    }
     await loading;
   }
-  const checkout = new window.GeideaCheckout!(onReturn, onReturn, onReturn);
-  checkout.startPayment(sessionId);
+
+  const handleReturn = () => {
+    if (onReturn) onReturn();
+  };
+
+  const checkout = new window.GeideaCheckout!(handleReturn, handleReturn, handleReturn);
+  checkout.startPayment(sessionIdOrUrl);
 }

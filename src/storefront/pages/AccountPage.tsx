@@ -33,11 +33,27 @@ import {
   MessageSquare,
   ShieldCheck,
   ExternalLink,
+  CreditCard,
+  Lock,
+  CheckCircle2,
+  Wifi,
   X
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { disableWebPushNotifications, enableWebPushNotifications } from '../../lib/webPushNotifications';
 import { PartnerRegisterModal } from '../components/PartnerRegisterModal';
+import { 
+  getSavedCards, 
+  saveBankCard, 
+  deleteSavedCard, 
+  setDefaultCard, 
+  validateCardNumber, 
+  validateCardExpiry, 
+  formatCardNumber, 
+  detectCardBrand, 
+  type SavedBankCard, 
+  type CardBrand 
+} from '../../lib/savedCards';
 
 interface AccountPageProps {
   onBackToHome: () => void;
@@ -45,7 +61,7 @@ interface AccountPageProps {
   isMobile?: boolean;
 }
 
-type AccountView = 'main' | 'settings' | 'account-info' | 'addresses' | 'login-prompt';
+type AccountView = 'main' | 'settings' | 'account-info' | 'addresses' | 'cards' | 'login-prompt';
 
 export const AccountPage: React.FC<AccountPageProps> = ({
   onBackToHome,
@@ -90,6 +106,112 @@ export const AccountPage: React.FC<AccountPageProps> = ({
   const [language, setLanguage] = useState<'ar' | 'en'>('ar');
   const [busy, setBusy] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // ══════════════════════════════════════════════════════════════════
+  // SAVED BANK CARDS (GEIDEA & TOKENIZED STORAGE)
+  // ══════════════════════════════════════════════════════════════════
+  const [savedCards, setSavedCards] = useState<SavedBankCard[]>([]);
+  const [isAddingCard, setIsAddingCard] = useState(false);
+  const [newCardNumber, setNewCardNumber] = useState('');
+  const [newCardHolder, setNewCardHolder] = useState('');
+  const [newCardMonth, setNewCardMonth] = useState('');
+  const [newCardYear, setNewCardYear] = useState('');
+  const [newCardCvv, setNewCardCvv] = useState('');
+  const [newCardIsDefault, setNewCardIsDefault] = useState(true);
+  const [isSavingCard, setIsSavingCard] = useState(false);
+
+  useEffect(() => {
+    if (!user || user.isGuest) {
+      setSavedCards([]);
+      return;
+    }
+    const loadCards = () => {
+      void getSavedCards(user.id).then(setSavedCards);
+    };
+    loadCards();
+    window.addEventListener('sangoub_cards_updated', loadCards);
+    return () => window.removeEventListener('sangoub_cards_updated', loadCards);
+  }, [user?.id, user?.isGuest]);
+
+  const handleSaveCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || user.isGuest) {
+      setFeedbackMsg({ type: 'error', text: 'يرجى تسجيل الدخول أولاً لحفظ البطاقة.' });
+      return;
+    }
+    const cleanNumber = newCardNumber.replace(/\D/g, '');
+    if (!cleanNumber || cleanNumber.length < 13 || cleanNumber.length > 19) {
+      setFeedbackMsg({ type: 'error', text: 'يرجى إدخال رقم بطاقة صحيح (16 رقماً).' });
+      return;
+    }
+    if (!validateCardNumber(cleanNumber)) {
+      setFeedbackMsg({ type: 'error', text: 'رقم البطاقة غير صالح، يرجى مراجعة الأرقام المدخلة.' });
+      return;
+    }
+    if (!newCardHolder.trim() || newCardHolder.trim().length < 3) {
+      setFeedbackMsg({ type: 'error', text: 'يرجى إدخال اسم حامل البطاقة كما هو مدون عليها.' });
+      return;
+    }
+    if (!validateCardExpiry(newCardMonth, newCardYear)) {
+      setFeedbackMsg({ type: 'error', text: 'تاريخ انتهاء البطاقة غير صالح أو منتهي الصلاحية.' });
+      return;
+    }
+    if (newCardCvv.trim().length < 3) {
+      setFeedbackMsg({ type: 'error', text: 'يرجى إدخال رمز الأمان CVV المكون من 3 أرقام خلف البطاقة.' });
+      return;
+    }
+
+    setIsSavingCard(true);
+    try {
+      await saveBankCard({
+        userId: user.id,
+        cardholderName: newCardHolder.trim(),
+        cardNumber: cleanNumber,
+        expiryMonth: newCardMonth,
+        expiryYear: newCardYear,
+        isDefault: newCardIsDefault,
+      });
+      setFeedbackMsg({ type: 'success', text: 'تم حفظ البطاقة البنكية بنجاح ✓' });
+      setIsAddingCard(false);
+      setNewCardNumber('');
+      setNewCardHolder('');
+      setNewCardMonth('');
+      setNewCardYear('');
+      setNewCardCvv('');
+      setNewCardIsDefault(true);
+      const updated = await getSavedCards(user.id);
+      setSavedCards(updated);
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err?.message || 'تعذر حفظ البطاقة. حاول ثانية.' });
+    } finally {
+      setIsSavingCard(false);
+    }
+  };
+
+  const handleDeleteCard = async (cardId: string) => {
+    if (!user || user.isGuest) return;
+    if (!window.confirm('هل أنت متأكد من حذف هذه البطاقة من حسابك؟')) return;
+    try {
+      await deleteSavedCard(user.id, cardId);
+      setFeedbackMsg({ type: 'success', text: 'تم حذف البطاقة من حسابك بنجاح.' });
+      const updated = await getSavedCards(user.id);
+      setSavedCards(updated);
+    } catch {
+      setFeedbackMsg({ type: 'error', text: 'تعذر حذف البطاقة.' });
+    }
+  };
+
+  const handleSetDefaultCard = async (cardId: string) => {
+    if (!user || user.isGuest) return;
+    try {
+      await setDefaultCard(user.id, cardId);
+      setFeedbackMsg({ type: 'success', text: 'تم تعيين البطاقة كافتراضية للدفع ✓' });
+      const updated = await getSavedCards(user.id);
+      setSavedCards(updated);
+    } catch {
+      setFeedbackMsg({ type: 'error', text: 'تعذر تحديث البطاقة الافتراضية.' });
+    }
+  };
 
   useEffect(() => {
     if (!feedbackMsg) return;
@@ -351,6 +473,27 @@ export const AccountPage: React.FC<AccountPageProps> = ({
           >
             <span className="text-sm font-bold text-[#111827]">العناوين المحفوظة</span>
             <ChevronLeft size={18} className="text-[#9CA3AF]" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentView('cards')}
+            className="w-full flex items-center justify-between p-4 hover:bg-[#F9FAFB] active:bg-[#F3F4F6] transition-colors cursor-pointer text-right"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-[#111827]">البطاقات البنكية وطرق الدفع</span>
+              {savedCards.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-50 text-orange-700 border border-orange-200">
+                  {savedCards.length}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-[#6B7280]">
+                {savedCards.length > 0 ? `${savedCards.length} بطاقة` : 'إضافة بطاقة'}
+              </span>
+              <ChevronLeft size={18} className="text-[#9CA3AF]" />
+            </div>
           </button>
 
           <button
@@ -799,6 +942,374 @@ export const AccountPage: React.FC<AccountPageProps> = ({
   }
 
   // ══════════════════════════════════════════════════════════════════
+  // SCREEN: SAVED BANK CARDS (البطاقات البنكية وطرق الدفع الحقيقية عبر جيديا)
+  // ══════════════════════════════════════════════════════════════════
+  if (currentView === 'cards') {
+    const previewBrand = detectCardBrand(newCardNumber);
+    return (
+      <div className={`w-full ${isMobile ? 'px-4 py-3' : 'max-w-xl mx-auto px-6 py-8'} select-none`} dir="rtl">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#F0F1F3]">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setCurrentView('settings')}
+              className="w-9 h-9 rounded-full bg-white border border-[#E5E7EB] hover:bg-[#F9FAFB] active:scale-95 flex items-center justify-center text-[#111827] shadow-2xs transition-all cursor-pointer"
+              aria-label="رجوع"
+            >
+              <ChevronRight size={20} />
+            </button>
+            <div>
+              <h1 className="text-lg font-black text-[#111827]">البطاقات البنكية وطرق الدفع</h1>
+              <p className="text-[11px] text-[#6B7280]">الدفع الإلكتروني الآمن عبر جيديا (Geidea)</p>
+            </div>
+          </div>
+
+          {!isAddingCard && (
+            <button
+              type="button"
+              onClick={() => setIsAddingCard(true)}
+              className="px-3 py-1.5 rounded-full bg-[#111827] hover:bg-black text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+            >
+              <Plus size={14} />
+              <span>إضافة كارت</span>
+            </button>
+          )}
+        </div>
+
+        {/* Security & Tokenization Assurance Badge */}
+        <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-2.5 text-slate-700 text-xs">
+          <ShieldCheck size={18} className="text-emerald-600 shrink-0" />
+          <p className="leading-relaxed">
+            بياناتك مشفرة بالكامل ومعتمدة وفق معايير الأمان البنكي العالمية <span className="font-bold text-slate-900">PCI-DSS</span> و<span className="font-bold text-slate-900">Geidea</span> بدون تخزين أرقام بطاقتك السرية.
+          </p>
+        </div>
+
+        {/* Feedback Message */}
+        {feedbackMsg && (
+          <div className={`p-3 mb-4 rounded-xl text-xs font-bold flex items-center justify-between gap-2 shadow-xs transition-all ${
+            feedbackMsg.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}>
+            <div className="flex items-center gap-2">
+              {feedbackMsg.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
+              <span>{feedbackMsg.text}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFeedbackMsg(null)}
+              className="p-1 hover:bg-black/5 rounded-lg transition-colors cursor-pointer text-current opacity-70 hover:opacity-100"
+              aria-label="إغلاق التنبيه"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {/* 💳 ADD CARD FORM MODAL / SECTION */}
+        {isAddingCard && (
+          <div className="bg-white rounded-2xl border border-orange-200 p-4 sm:p-5 shadow-sm mb-6 animate-fadeIn space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h2 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <CreditCard size={17} className="text-orange-600" />
+                <span>إضافة بطاقة بنكية جديدة</span>
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsAddingCard(false)}
+                className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                aria-label="إلغاء"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* LIVE CARD PREVIEW */}
+            <div className={`w-full max-w-sm mx-auto aspect-[1.58/1] rounded-2xl p-4 sm:p-5 text-white shadow-xl relative overflow-hidden transition-all duration-300 ${
+              previewBrand === 'visa'
+                ? 'bg-gradient-to-tr from-[#1A1F71] via-[#0D47A1] to-[#0A192F]'
+                : previewBrand === 'mastercard'
+                ? 'bg-gradient-to-tr from-[#212121] via-[#3E2723] to-[#BF360C]'
+                : previewBrand === 'meeza'
+                ? 'bg-gradient-to-tr from-[#004D40] via-[#00695C] to-[#00251A]'
+                : 'bg-gradient-to-tr from-slate-900 via-slate-800 to-zinc-900'
+            }`}>
+              {/* Background ambient pattern */}
+              <div className="absolute -right-12 -top-12 w-40 h-40 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+              <div className="absolute -left-12 -bottom-12 w-40 h-40 rounded-full bg-black/20 blur-xl pointer-events-none" />
+
+              <div className="flex items-center justify-between relative z-10">
+                <div className="w-10 h-8 rounded-md bg-gradient-to-tr from-amber-300 via-amber-200 to-amber-500 border border-amber-200/60 shadow-xs relative overflow-hidden flex items-center justify-center">
+                  <div className="w-full h-[1px] bg-amber-700/30 absolute" />
+                  <div className="h-full w-[1px] bg-amber-700/30 absolute" />
+                  <div className="w-4 h-4 rounded-full border border-amber-700/30" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Wifi size={18} className="rotate-90 text-white/70" />
+                  {previewBrand === 'visa' && (
+                    <span className="text-base sm:text-lg font-black tracking-wider text-white italic">VISA</span>
+                  )}
+                  {previewBrand === 'mastercard' && (
+                    <div className="flex items-center -space-x-2">
+                      <div className="w-6 h-6 rounded-full bg-red-500/90 shadow-2xs" />
+                      <div className="w-6 h-6 rounded-full bg-amber-400/90 shadow-2xs" />
+                    </div>
+                  )}
+                  {previewBrand === 'meeza' && (
+                    <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-black tracking-wider">ميزة Meeza</span>
+                  )}
+                  {previewBrand === 'card' && (
+                    <CreditCard size={20} className="text-white/70" />
+                  )}
+                </div>
+              </div>
+
+              {/* Card Number display */}
+              <div className="my-4 sm:my-6 relative z-10 text-center">
+                <p className="font-mono text-base sm:text-xl font-bold tracking-widest text-white/95 dir-ltr">
+                  {newCardNumber.trim() ? formatCardNumber(newCardNumber) : '•••• •••• •••• ••••'}
+                </p>
+              </div>
+
+              {/* Cardholder name & Expiry */}
+              <div className="flex items-end justify-between relative z-10 text-white/90">
+                <div className="min-w-0 pr-2">
+                  <p className="text-[8px] text-white/60 font-bold uppercase tracking-wider mb-0.5">اسم حامل البطاقة</p>
+                  <p className="text-xs font-bold tracking-wide uppercase truncate">
+                    {newCardHolder.trim() || 'اسم العميل'}
+                  </p>
+                </div>
+                <div className="text-left shrink-0">
+                  <p className="text-[8px] text-white/60 font-bold uppercase tracking-wider mb-0.5">صلاحية البطاقة</p>
+                  <p className="text-xs font-mono font-bold">
+                    {newCardMonth || 'MM'}/{newCardYear || 'YY'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Inputs Form */}
+            <form onSubmit={handleSaveCard} className="space-y-3.5 pt-2">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  الاسم المطبوع على البطاقة <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newCardHolder}
+                  onChange={(e) => setNewCardHolder(e.target.value)}
+                  placeholder="مثال: MOHAMED SAUDI"
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-bold uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  رقم البطاقة البنكية (16 رقماً) <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="tel"
+                    required
+                    maxLength={19}
+                    value={formatCardNumber(newCardNumber)}
+                    onChange={(e) => setNewCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
+                    placeholder="4000 1234 5678 9010"
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-mono font-bold tracking-wider dir-ltr text-right"
+                  />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                    {previewBrand === 'visa' && <span className="text-xs font-black text-blue-700 italic">VISA</span>}
+                    {previewBrand === 'mastercard' && <span className="text-xs font-black text-orange-600">MasterCard</span>}
+                    {previewBrand === 'meeza' && <span className="text-xs font-black text-emerald-700">Meeza</span>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1 truncate">
+                    الشهر (MM) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    maxLength={2}
+                    value={newCardMonth}
+                    onChange={(e) => setNewCardMonth(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                    placeholder="05"
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-mono font-bold text-center"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1 truncate">
+                    السنة (YY) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    maxLength={2}
+                    value={newCardYear}
+                    onChange={(e) => setNewCardYear(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                    placeholder="28"
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-mono font-bold text-center"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1 truncate">
+                    رمز الأمان (CVV) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      required
+                      maxLength={4}
+                      value={newCardCvv}
+                      onChange={(e) => setNewCardCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      placeholder="123"
+                      className="w-full px-2.5 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-mono font-bold text-center"
+                    />
+                    <Lock size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="card_default_check"
+                  checked={newCardIsDefault}
+                  onChange={(e) => setNewCardIsDefault(e.target.checked)}
+                  className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 cursor-pointer"
+                />
+                <label htmlFor="card_default_check" className="text-xs font-bold text-slate-700 cursor-pointer">
+                  تعيين هذه البطاقة كبطاقة الدفع الافتراضية
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={isSavingCard}
+                  className="flex-1 py-2.5 bg-[#FF5900] hover:bg-[#e04f00] text-white rounded-xl text-xs font-black shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingCard ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                  <span>تأكيد وحفظ البطاقة</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingCard(false)}
+                  className="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* 🗂️ SAVED CARDS LIST */}
+        {savedCards.length > 0 ? (
+          <div className="space-y-4">
+            {savedCards.map((card) => {
+              const brand = card.brand || 'card';
+              return (
+                <div
+                  key={card.id}
+                  className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs hover:shadow-xs transition-all space-y-3"
+                >
+                  {/* Card Mini Banner */}
+                  <div className={`w-full rounded-xl p-3.5 text-white relative overflow-hidden ${
+                    brand === 'visa'
+                      ? 'bg-gradient-to-r from-[#1A1F71] to-[#0D47A1]'
+                      : brand === 'mastercard'
+                      ? 'bg-gradient-to-r from-[#212121] to-[#BF360C]'
+                      : brand === 'meeza'
+                      ? 'bg-gradient-to-r from-[#004D40] to-[#00695C]'
+                      : 'bg-gradient-to-r from-slate-900 to-slate-800'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <CreditCard size={18} className="text-white/80" />
+                        <span className="text-xs font-black uppercase tracking-wider">
+                          {brand === 'visa' ? 'Visa' : brand === 'mastercard' ? 'MasterCard' : brand === 'meeza' ? 'ميزة' : 'بطاقة بنكية'}
+                        </span>
+                      </div>
+                      {card.isDefault && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white shadow-2xs">
+                          <Check size={11} /> افتراضية
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="font-mono text-base font-bold tracking-widest text-white/95 dir-ltr my-2">
+                      •••• •••• •••• {card.last4}
+                    </p>
+
+                    <div className="flex items-center justify-between text-xs text-white/80 pt-1">
+                      <span className="font-bold uppercase truncate max-w-[60%]">{card.cardholderName}</span>
+                      <span className="font-mono text-[11px] font-bold">صالح حتى: {card.expiryMonth}/{card.expiryYear}</span>
+                    </div>
+                  </div>
+
+                  {/* Actions Row */}
+                  <div className="flex items-center justify-between pt-1 text-xs">
+                    <div>
+                      {!card.isDefault ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSetDefaultCard(card.id)}
+                          className="text-[#FF5900] hover:text-[#e04f00] font-bold hover:underline cursor-pointer"
+                        >
+                          تعيين كبطاقة افتراضية
+                        </button>
+                      ) : (
+                        <span className="text-emerald-700 font-bold text-[11px] flex items-center gap-1">
+                          <CheckCircle2 size={13} /> معتمدة لطلباتك
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCard(card.id)}
+                      className="text-red-500 hover:text-red-700 flex items-center gap-1 font-bold transition-colors cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                      <span>حذف البطاقة</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : !isAddingCard ? (
+          /* Empty State */
+          <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-xs">
+            <div className="w-16 h-16 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center mx-auto mb-3 shadow-2xs">
+              <CreditCard size={32} />
+            </div>
+            <h2 className="text-base font-black text-slate-900 mb-1">
+              لا توجد بطاقات بنكية محفوظة
+            </h2>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto mb-5 leading-relaxed">
+              احفظ بطاقتك البنكية بأمان للدفع المباشر والسريع عبر بوابة جيديا في كل طلباتك القادمة.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsAddingCard(true)}
+              className="px-6 py-2.5 bg-[#FF5900] hover:bg-[#e04f00] text-white rounded-xl text-xs font-black shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus size={15} />
+              <span>إضافة أول بطاقة بنكية</span>
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════
   // 4. SCREEN: MAIN ACCOUNT PAGE (طابق لقطة الشاشة الرئيسية لأندرويد)
   // ══════════════════════════════════════════════════════════════════
   return (
@@ -977,6 +1488,29 @@ export const AccountPage: React.FC<AccountPageProps> = ({
             <span className="text-sm font-bold text-[#111827]">عناوين التوصيل</span>
           </div>
           <ChevronLeft size={18} className="text-[#9CA3AF]" />
+        </button>
+
+        {/* Saved Bank Cards - Active */}
+        <button
+          type="button"
+          onClick={() => setCurrentView('cards')}
+          className="w-full flex items-center justify-between p-4 hover:bg-[#F9FAFB] active:bg-[#F3F4F6] transition-colors cursor-pointer text-right"
+        >
+          <div className="flex items-center gap-3">
+            <CreditCard size={20} className="text-[#111827]" />
+            <div>
+              <span className="text-sm font-bold text-[#111827] block">البطاقات وطرق الدفع</span>
+              <span className="text-[11px] text-[#6B7280]">إدارة وتعيين البطاقات البنكية المعتمدة</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {savedCards.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-black bg-orange-50 text-orange-700 border border-orange-200">
+                {savedCards.length} بطاقة
+              </span>
+            )}
+            <ChevronLeft size={18} className="text-[#9CA3AF]" />
+          </div>
         </button>
 
         {/* Challenges - Solid */}

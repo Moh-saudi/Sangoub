@@ -27,6 +27,8 @@ import { isCashPaymentAllowed, CASH_PAYMENT_LIMIT_MESSAGE } from '../../utils/pa
 import { matchStoreId, getStoreLogo } from '../../utils/storeAssets';
 import { authenticatedApi } from '../../lib/authenticatedApi';
 import { supabase, resolveSupabaseStoreUuid } from '../../lib/supabase';
+import { getSavedCards, saveBankCard, type SavedBankCard } from '../../lib/savedCards';
+import { openGeideaPayment } from '../../shop/geideaCheckout';
 import type { TrackableOrder } from './OrderTrackingModal';
 
 interface Props {
@@ -95,6 +97,23 @@ export function CartCheckoutModal({
   );
   const effectivePhone = user?.phone || (phone && /^01[0125][0-9]{8}$/.test(phone) ? phone : '');
   const isUserAuthenticated = Boolean(isLoggedIn && effectivePhone);
+
+  // Saved Bank Cards State (Geidea & Tokenization)
+  const [savedCards, setSavedCards] = useState<SavedBankCard[]>([]);
+  const [selectedCardId, setSelectedCardId] = useState<string>('new');
+  const [saveCardForFuture, setSaveCardForFuture] = useState(true);
+
+  useEffect(() => {
+    if (isOpen && user?.id && !user.isGuest) {
+      void getSavedCards(user.id).then((cards) => {
+        setSavedCards(cards);
+        const def = cards.find((c) => c.isDefault);
+        if (def) setSelectedCardId(def.id);
+        else if (cards.length > 0 && cards[0]) setSelectedCardId(cards[0].id);
+        else setSelectedCardId('new');
+      });
+    }
+  }, [isOpen, user?.id, user?.isGuest]);
 
   // Sync state whenever authenticated user profile changes
   useEffect(() => {
@@ -373,7 +392,7 @@ export function CartCheckoutModal({
             floorNumber: [buildingNumber.trim(), floorNumber.trim()].filter(Boolean).join(' / ') || 'غير محدد',
             roomNumber: unitNumber.trim() || 'غير محدد',
             coordinates: serviceArea?.latitude ? { latitude: serviceArea.latitude, longitude: serviceArea.longitude } : null,
-            paymentMethod: selectedPaymentMethod,
+            paymentMethod: selectedPaymentMethod === 'card' ? 'geidea' : selectedPaymentMethod,
             notes: fullNotes,
             couponCode: appliedCoupon?.code || null,
           };
@@ -440,7 +459,7 @@ export function CartCheckoutModal({
               delivery_ministry: cleanAddress,
               delivery_floor: [buildingNumber.trim(), floorNumber.trim()].filter(Boolean).join(' / ') || 'غير محدد',
               delivery_room: unitNumber.trim() || 'غير محدد',
-              payment_method: selectedPaymentMethod,
+              payment_method: selectedPaymentMethod === 'card' ? 'geidea' : selectedPaymentMethod,
               payment_status: selectedPaymentMethod === 'cash' ? 'cash_on_delivery' : 'pending',
               notes: fullNotes,
               coupon_code: appliedCoupon?.code || null,
@@ -608,6 +627,23 @@ export function CartCheckoutModal({
           } catch {}
         }
       } catch {}
+
+      // Launch live Geidea payment gateway if bank card is selected
+      if (selectedPaymentMethod === 'card') {
+        try {
+          const sessionRes = await authenticatedApi('/api/orders', {
+            action: 'payment-session',
+            orderId: saved.id,
+          }) as any;
+          if (sessionRes?.sessionId || sessionRes?.redirectUrl) {
+            void openGeideaPayment(sessionRes.sessionId || sessionRes.redirectUrl, () => {
+              if (onOrderPlaced) onOrderPlaced(trackable);
+            });
+          }
+        } catch (payErr) {
+          console.warn('Geidea session initialization handled with trackable fallback:', payErr);
+        }
+      }
 
       // Clear cart
       clearCart();
@@ -1192,6 +1228,98 @@ export function CartCheckoutModal({
                     </div>
                   </div>
                 </div>
+
+                {/* Subpanel for Bank Card details & saved cards selection */}
+                {selectedPaymentMethod === 'card' && (
+                  <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <CreditCard size={15} className="text-orange-600" />
+                        <span>البطاقة البنكية المستخدمة للسداد</span>
+                      </span>
+                      <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        Geidea Live Secure
+                      </span>
+                    </div>
+
+                    {/* Saved Cards List if user has any */}
+                    {savedCards.length > 0 && (
+                      <div className="space-y-1.5">
+                        {savedCards.map((card) => (
+                          <label
+                            key={card.id}
+                            className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition-all ${
+                              selectedCardId === card.id
+                                ? 'bg-white border-orange-500 shadow-2xs'
+                                : 'bg-white/60 border-slate-200 hover:bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="checkout_selected_card"
+                                checked={selectedCardId === card.id}
+                                onChange={() => setSelectedCardId(card.id)}
+                                className="w-3.5 h-3.5 text-orange-600 focus:ring-orange-500"
+                              />
+                              <span className="text-xs font-bold text-slate-900 font-mono dir-ltr">
+                                •••• {card.last4}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-500 uppercase">
+                                ({card.brand})
+                              </span>
+                              {card.isDefault && (
+                                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                  افتراضية
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] font-mono text-slate-500">
+                              {card.expiryMonth}/{card.expiryYear}
+                            </span>
+                          </label>
+                        ))}
+
+                        <label
+                          className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                            selectedCardId === 'new'
+                              ? 'bg-white border-orange-500 shadow-2xs'
+                              : 'bg-white/60 border-slate-200 hover:bg-white'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="checkout_selected_card"
+                            checked={selectedCardId === 'new'}
+                            onChange={() => setSelectedCardId('new')}
+                            className="w-3.5 h-3.5 text-orange-600 focus:ring-orange-500"
+                          />
+                          <span className="text-xs font-bold text-slate-800">
+                            استخدام بطاقة بنكية أخرى
+                          </span>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Notice & Option to save card */}
+                    <div className="pt-1">
+                      <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
+                        سيتم فتح نافذة الدفع المعتمدة لدى جيديا (Geidea) لإتمام السداد بالبطاقة وتأكيد رمز الأمان البنكي OTP بأعلى درجات التشفير.
+                      </p>
+                      {user && !user.isGuest && selectedCardId === 'new' && (
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={saveCardForFuture}
+                            onChange={(e) => setSaveCardForFuture(e.target.checked)}
+                            className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 cursor-pointer"
+                          />
+                          <span>حفظ هذه البطاقة في حسابي لتسريع الطلبات القادمة</span>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* COUPON INPUT */}
