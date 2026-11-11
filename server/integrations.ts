@@ -8,7 +8,7 @@
  */
 
 import crypto from "node:crypto";
-const APP_URL = (process.env.APP_URL || "https://capital-talabat.vercel.app").replace(/\/$/, "");
+const APP_URL = (process.env.APP_URL || "https://sangoub.el7lm.com").replace(/\/$/, "");
 
 export const ASIMA_CONFIG = {
   geidea: {

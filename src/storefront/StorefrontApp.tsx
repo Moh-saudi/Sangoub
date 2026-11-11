@@ -148,7 +148,7 @@ const StorefrontRouter: React.FC = () => {
   useEffect(() => {
     if (!user || user.isGuest || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
     void enableWebPushNotifications().catch((error) => {
-      console.warn('Web push token sync failed:', error);
+      console.debug('Web push token sync skipped:', error);
     });
   }, [user?.id, user?.isGuest]);
 

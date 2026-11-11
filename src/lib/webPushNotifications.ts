@@ -71,7 +71,7 @@ export async function enableWebPushNotifications(): Promise<string> {
       vapidKey,
       serviceWorkerRegistration: registration,
     }).catch((err) => {
-      console.warn('FCM getToken error:', err);
+      console.debug('FCM token registration skipped on current host:', err?.message || err);
       return null;
     });
 

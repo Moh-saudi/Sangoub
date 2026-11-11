@@ -16,6 +16,7 @@ export interface SavedBankCard {
 }
 
 const STORAGE_KEY_PREFIX = 'sangoub_saved_cards_';
+let isCloudCardsTableAvailable: boolean | null = null;
 
 /**
  * كشف شبكة البطاقة (فيزا، ماستركارد، ميزة) بناءً على رقم البطاقة
@@ -87,15 +88,28 @@ export async function getSavedCards(userId: string): Promise<SavedBankCard[]> {
     if (raw) localCards = JSON.parse(raw);
   } catch {}
 
+  // If cloud table was previously checked and not found, don't spam 404 network requests
+  if (isCloudCardsTableAvailable === false) {
+    return localCards;
+  }
+
   try {
-    const { data, error } = await supabase
+    const { data, error, status } = await supabase
       .from('user_saved_cards')
       .select('*')
       .eq('user_id', userId)
       .order('is_default', { ascending: false })
       .order('created_at', { ascending: false });
 
-    if (!error && Array.isArray(data) && data.length > 0) {
+    if (error) {
+      if (status === 404 || error.code === '42P01' || error.message?.includes('not found') || error.message?.includes('does not exist')) {
+        isCloudCardsTableAvailable = false;
+      }
+      return localCards;
+    }
+
+    isCloudCardsTableAvailable = true;
+    if (Array.isArray(data) && data.length > 0) {
       const dbCards: SavedBankCard[] = data.map((row: any) => ({
         id: row.id,
         userId: row.user_id,
@@ -114,6 +128,7 @@ export async function getSavedCards(userId: string): Promise<SavedBankCard[]> {
       return dbCards;
     }
   } catch (err) {
+    isCloudCardsTableAvailable = false;
     console.debug('Cloud cards sync fallback to local:', err);
   }
 
@@ -170,29 +185,36 @@ export async function saveBankCard(
     localStorage.setItem(localKey, JSON.stringify(updatedList));
   } catch {}
 
-  // Attempt database persistence in Supabase
-  try {
-    if (newCard.isDefault) {
-      await supabase
-        .from('user_saved_cards')
-        .update({ is_default: false })
-        .eq('user_id', cardInput.userId);
-    }
+  // Attempt database persistence in Supabase if table is available
+  if (isCloudCardsTableAvailable !== false) {
+    try {
+      if (newCard.isDefault) {
+        await supabase
+          .from('user_saved_cards')
+          .update({ is_default: false })
+          .eq('user_id', cardInput.userId);
+      }
 
-    await supabase.from('user_saved_cards').insert({
-      id: cardId,
-      user_id: cardInput.userId,
-      cardholder_name: newCard.cardholderName,
-      brand: newCard.brand,
-      last4: newCard.last4,
-      expiry_month: newCard.expiryMonth,
-      expiry_year: newCard.expiryYear,
-      is_default: newCard.isDefault,
-      card_token: newCard.cardToken || null,
-      created_at: now,
-    });
-  } catch (dbErr) {
-    console.debug('Saved card Supabase sync skipped:', dbErr);
+      const { error, status } = await supabase.from('user_saved_cards').insert({
+        id: cardId,
+        user_id: cardInput.userId,
+        cardholder_name: newCard.cardholderName,
+        brand: newCard.brand,
+        last4: newCard.last4,
+        expiry_month: newCard.expiryMonth,
+        expiry_year: newCard.expiryYear,
+        is_default: newCard.isDefault,
+        card_token: newCard.cardToken || null,
+        created_at: now,
+      });
+
+      if (error && (status === 404 || error.code === '42P01' || error.message?.includes('not found') || error.message?.includes('does not exist'))) {
+        isCloudCardsTableAvailable = false;
+      }
+    } catch (dbErr) {
+      isCloudCardsTableAvailable = false;
+      console.debug('Saved card Supabase sync skipped:', dbErr);
+    }
   }
 
   window.dispatchEvent(new CustomEvent('sangoub_cards_updated', { detail: { userId: cardInput.userId } }));
@@ -213,10 +235,12 @@ export async function deleteSavedCard(userId: string, cardId: string): Promise<v
     }
   } catch {}
 
-  try {
-    await supabase.from('user_saved_cards').delete().eq('id', cardId).eq('user_id', userId);
-  } catch (dbErr) {
-    console.debug('Delete card Supabase sync skipped:', dbErr);
+  if (isCloudCardsTableAvailable !== false) {
+    try {
+      await supabase.from('user_saved_cards').delete().eq('id', cardId).eq('user_id', userId);
+    } catch (dbErr) {
+      console.debug('Delete card Supabase sync skipped:', dbErr);
+    }
   }
 
   window.dispatchEvent(new CustomEvent('sangoub_cards_updated', { detail: { userId } }));
@@ -236,11 +260,13 @@ export async function setDefaultCard(userId: string, cardId: string): Promise<vo
     }
   } catch {}
 
-  try {
-    await supabase.from('user_saved_cards').update({ is_default: false }).eq('user_id', userId);
-    await supabase.from('user_saved_cards').update({ is_default: true }).eq('id', cardId).eq('user_id', userId);
-  } catch (dbErr) {
-    console.debug('Set default card Supabase sync skipped:', dbErr);
+  if (isCloudCardsTableAvailable !== false) {
+    try {
+      await supabase.from('user_saved_cards').update({ is_default: false }).eq('user_id', userId);
+      await supabase.from('user_saved_cards').update({ is_default: true }).eq('id', cardId).eq('user_id', userId);
+    } catch (dbErr) {
+      console.debug('Set default card Supabase sync skipped:', dbErr);
+    }
   }
 
   window.dispatchEvent(new CustomEvent('sangoub_cards_updated', { detail: { userId } }));
