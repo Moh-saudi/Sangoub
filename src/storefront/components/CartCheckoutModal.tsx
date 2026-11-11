@@ -720,16 +720,22 @@ export function CartCheckoutModal({
               }
 
               // Update status in Supabase
-              void supabase
-                .from('orders')
-                .update({
-                  payment_status: 'paid',
-                  payment_method: 'card',
-                  status: 'received',
-                })
-                .eq('id', saved.id)
-                .catch(() => {});
+              try {
+                await supabase
+                  .from('orders')
+                  .update({
+                    payment_status: 'paid',
+                    payment_method: 'card',
+                    status: 'received',
+                    payment_confirmed_at: new Date().toISOString(),
+                  })
+                  .eq('id', saved.id);
+              } catch (e) {
+                console.warn('Could not update order status in Supabase:', e);
+              }
 
+              trackable.paymentStatus = 'paid';
+              trackable.paymentMethod = 'card';
               finalizeAndConfirmOrder(trackable, true);
             },
             onError: () => {

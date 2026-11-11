@@ -1457,6 +1457,32 @@ function OrderDetailsDrawer({
                 </span>
               </div>
             )}
+
+            {/* Payment Method & Status Badge */}
+            <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-bold">
+                السداد: {
+                  order.paymentMethod === 'cash'
+                    ? 'نقدًا كاش عند الاستلام'
+                    : (order.paymentMethod === 'card' || (order.paymentMethod as string) === 'geidea')
+                    ? 'بطاقة بنكية (فيزا / ماستركارد / ميزة) - جيديا'
+                    : order.paymentMethod === 'instapay'
+                    ? 'تحويل إنستاباي'
+                    : order.paymentMethod === 'vodafone_cash'
+                    ? 'محفظة فودافون كاش'
+                    : 'دفع إلكتروني'
+                }
+              </span>
+              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                order.paymentStatus === 'paid'
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  : order.paymentMethod === 'cash'
+                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                  : 'bg-blue-100 text-blue-800 border border-blue-200'
+              }`}>
+                {order.paymentStatus === 'paid' ? 'تم استلام المبلغ بنكياً ✓' : order.paymentMethod === 'cash' ? 'تحصيل كاش عند التسليم' : 'بانتظار التحصيل'}
+              </span>
+            </div>
           </div>
 
           {/* Products List Section */}

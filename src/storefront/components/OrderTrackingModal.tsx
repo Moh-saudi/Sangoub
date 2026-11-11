@@ -68,6 +68,9 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
 
   const [currentStatus, setCurrentStatus] = useState<OrderStatus>(order?.orderStatus || 'received');
   const [paymentStatus, setPaymentStatus] = useState<string>(order?.paymentStatus || 'pending');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'vodafone_cash' | 'instapay' | 'card'>(
+    (order?.paymentMethod as any) === 'geidea' ? 'card' : (order?.paymentMethod || 'cash')
+  );
   const [courierCollected, setCourierCollected] = useState<boolean>(Boolean(order?.courierCollected));
   const [receiptUrl, setReceiptUrl] = useState<string | undefined>(order?.receiptUrl);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
@@ -99,10 +102,11 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
     if (order) {
       setCurrentStatus(order.orderStatus || 'received');
       setPaymentStatus(order.paymentStatus || 'pending');
+      setPaymentMethod((order.paymentMethod as any) === 'geidea' ? 'card' : (order.paymentMethod || 'cash'));
       setCourierCollected(Boolean(order.courierCollected));
       setReceiptUrl(order.receiptUrl);
     }
-  }, [order?.orderId, order?.orderStatus, order?.paymentStatus, order?.receiptUrl, order?.courierCollected]);
+  }, [order?.orderId, order?.orderStatus, order?.paymentStatus, order?.paymentMethod, order?.receiptUrl, order?.courierCollected]);
 
   // Modal show/close handler
   useEffect(() => {
@@ -126,7 +130,7 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
       try {
         let query = supabase
           .from('orders')
-          .select('id, status, payment_status');
+          .select('id, status, payment_status, payment_method, receipt_url');
 
         if (isUuid) {
           query = query.eq('id', cleanUuid);
@@ -144,6 +148,13 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
           if (data.payment_status) {
             setPaymentStatus(data.payment_status);
           }
+          if (data.payment_method) {
+            const mapped = (data.payment_method === 'geidea' || data.payment_method === 'card') ? 'card' : data.payment_method;
+            setPaymentMethod(mapped);
+          }
+          if (data.receipt_url !== undefined) {
+            setReceiptUrl(data.receipt_url);
+          }
           if (data.status === 'delivered' || data.payment_status === 'paid') {
             setCourierCollected(true);
             try {
@@ -151,6 +162,8 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
               if (last) {
                 const parsed = JSON.parse(last);
                 parsed.orderStatus = data.status || 'delivered';
+                parsed.paymentStatus = data.payment_status || 'paid';
+                parsed.paymentMethod = data.payment_method || 'card';
                 localStorage.setItem('sangoub_last_order', JSON.stringify(parsed));
               }
               window.dispatchEvent(new CustomEvent('sangoub:order_updated', { detail: { orderId: cleanUuid || rawId, status: data.status || 'delivered' } }));
@@ -185,6 +198,13 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
             if (payload.new.payment_status) {
               setPaymentStatus(payload.new.payment_status);
             }
+            if (payload.new.payment_method) {
+              const mapped = (payload.new.payment_method === 'geidea' || payload.new.payment_method === 'card') ? 'card' : payload.new.payment_method;
+              setPaymentMethod(mapped);
+            }
+            if (payload.new.receipt_url !== undefined) {
+              setReceiptUrl(payload.new.receipt_url);
+            }
             if (payload.new.status === 'delivered' || payload.new.payment_status === 'paid' || payload.new.courier_checklist?.collectedPayment) {
               setCourierCollected(true);
               try {
@@ -192,6 +212,8 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
                 if (last) {
                   const parsed = JSON.parse(last);
                   parsed.orderStatus = payload.new.status || 'delivered';
+                  parsed.paymentStatus = payload.new.payment_status || 'paid';
+                  parsed.paymentMethod = payload.new.payment_method || 'card';
                   localStorage.setItem('sangoub_last_order', JSON.stringify(parsed));
                 }
                 window.dispatchEvent(new CustomEvent('sangoub:order_updated', { detail: { orderId: cleanUuid || rawId, status: payload.new.status || 'delivered' } }));
@@ -545,7 +567,7 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
                 </span>
               </div>
             )
-          ) : (order.paymentMethod === 'card' || (order.paymentMethod as string) === 'geidea' || Boolean((order as any)?.geideaTransaction) || (order.paymentMethod !== 'instapay' && order.paymentMethod !== 'vodafone_cash')) ? (
+          ) : (paymentMethod === 'card' || (paymentMethod as string) === 'geidea' || paymentStatus === 'paid' || Boolean((order as any)?.geideaTransaction) || (paymentMethod !== 'instapay' && paymentMethod !== 'vodafone_cash')) ? (
             <div className="p-2.5 rounded-xl bg-blue-50/90 border border-blue-200 flex items-center justify-between text-blue-900">
               <div className="flex items-center gap-2">
                 <CreditCard size={16} className="text-blue-600 shrink-0" />
@@ -554,12 +576,14 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
                     بطاقة بنكية (فيزا / ماستركارد / ميزة)
                   </strong>
                   <span className="text-[10px] text-blue-700">
-                    دفع إلكتروني آمن معتمد عبر جيديا Geidea
+                    {paymentStatus === 'paid'
+                      ? 'تم استلام المبلغ إلكترونياً بنجاح عبر جيديا Geidea ✓'
+                      : 'دفع إلكتروني آمن معتمد عبر جيديا Geidea'}
                   </span>
                 </div>
               </div>
               <span className="text-[10px] font-bold bg-white px-2 py-0.5 rounded-md text-emerald-700 border border-emerald-200 shadow-2xs">
-                خالص السداد ✓
+                {paymentStatus === 'paid' ? 'تم استلام المبلغ ✓' : 'خالص السداد ✓'}
               </span>
             </div>
           ) : (
@@ -568,22 +592,22 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
                 <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
                 <div>
                   <strong className="text-xs font-black block">
-                    {order.paymentMethod === 'instapay' ? 'الدفع عبر إنستاباي' : 'المحفظة الإلكترونية (فودافون كاش)'}
+                    {paymentMethod === 'instapay' ? 'الدفع عبر إنستاباي' : 'المحفظة الإلكترونية (فودافون كاش)'}
                   </strong>
                   <span className="text-[10px] text-purple-700">
-                    {receiptUrl ? 'تم رفع إيصال التحويل للمراجعة' : 'يرجى التأكد من إتمام التحويل'}
+                    {paymentStatus === 'paid' ? 'تم تأكيد استلام التحويل بنجاح ✓' : (receiptUrl ? 'تم رفع إيصال التحويل للمراجعة' : 'يرجى التأكد من إتمام التحويل')}
                   </span>
                 </div>
               </div>
               <span className="text-[10px] font-bold bg-white px-2 py-0.5 rounded-md text-purple-800 border border-purple-100">
-                إلكتروني
+                {paymentStatus === 'paid' ? 'تم استلام المبلغ ✓' : 'إلكتروني'}
               </span>
             </div>
           )}
         </section>
 
-        {/* 2.3 Upload InstaPay / Wallet Receipt (ONLY for instapay and vodafone_cash, NEVER for bank cards) */}
-        {(order.paymentMethod === 'instapay' || order.paymentMethod === 'vodafone_cash') && (
+        {/* 2.3 Upload InstaPay / Wallet Receipt (ONLY for pending non-card orders) */}
+        {(paymentStatus !== 'paid' && !isPaymentCollected && (paymentMethod === 'instapay' || paymentMethod === 'vodafone_cash')) && (
           <section className="bg-purple-50/70 border border-purple-200 rounded-2xl p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black text-purple-900 flex items-center gap-1.5">

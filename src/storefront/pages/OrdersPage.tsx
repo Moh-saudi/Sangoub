@@ -173,7 +173,15 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
             statusText: st.label,
             statusColor: st.color,
             total: Number(ord.total_amount) || 0,
-            paymentMethod: ord.payment_method === 'cash' ? 'نقدًا عند الاستلام' : 'دفع إلكتروني',
+            paymentMethod: (ord.payment_method === 'card' || ord.payment_method === 'geidea')
+              ? 'بطاقة بنكية 💳'
+              : ord.payment_method === 'vodafone_cash'
+              ? 'فودافون كاش'
+              : ord.payment_method === 'instapay'
+              ? 'إنستاباي'
+              : ord.payment_method === 'cash'
+              ? 'نقدًا عند الاستلام'
+              : 'دفع إلكتروني',
             destination: ord.delivery_address || ord.delivery_ministry || 'العاصمة الإدارية',
             storeId: ord.store_id,
             storeName: ord.restaurant_name,
@@ -270,7 +278,15 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
             statusText: st.label,
             statusColor: st.color,
             total: Number(ord.total_amount) || 0,
-            paymentMethod: ord.payment_method === 'cash' ? 'نقدًا عند الاستلام' : 'إلكتروني',
+            paymentMethod: (ord.payment_method === 'card' || ord.payment_method === 'geidea')
+              ? 'بطاقة بنكية 💳'
+              : ord.payment_method === 'vodafone_cash'
+              ? 'فودافون كاش'
+              : ord.payment_method === 'instapay'
+              ? 'إنستاباي'
+              : ord.payment_method === 'cash'
+              ? 'نقدًا عند الاستلام'
+              : 'دفع إلكتروني',
             destination: ord.delivery_address || ord.delivery_ministry || 'العاصمة الإدارية',
             items: Array.isArray(ord.order_items) ? ord.order_items.map((i: any) => ({
               name: i.product_name || 'صنف',
@@ -563,14 +579,33 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         {formatEGP(order.total)}
                       </strong>
                     </div>
-                    <span className="text-[9px] font-medium text-[#6B7280] bg-[#F9FAFB] px-1.5 py-0.5 rounded-md border border-[#E5E7EB]">
-                      {order.paymentMethod}
+                    <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md border ${
+                      order.rawOrder?.payment_status === 'paid'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'text-[#6B7280] bg-[#F9FAFB] border-[#E5E7EB]'
+                    }`}>
+                      {order.rawOrder?.payment_status === 'paid'
+                        ? `${order.paymentMethod} (خالص السداد ✓)`
+                        : order.paymentMethod}
                     </span>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => {
+                      const rawMethod = order.rawOrder?.payment_method || '';
+                      const resolvedMethod = (
+                        rawMethod === 'card' || rawMethod === 'geidea' || order.paymentMethod.includes('بطاقة')
+                          ? 'card'
+                          : rawMethod === 'vodafone_cash' || order.paymentMethod.includes('فودافون')
+                          ? 'vodafone_cash'
+                          : rawMethod === 'instapay' || order.paymentMethod.includes('إنستا')
+                          ? 'instapay'
+                          : rawMethod === 'cash' || order.paymentMethod.includes('كاش')
+                          ? 'cash'
+                          : 'card'
+                      ) as any;
+
                       const trackObj: TrackableOrder = {
                         orderId: order.id || order.orderNumber,
                         orderNumber: order.orderNumber,
@@ -582,7 +617,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                           hour: '2-digit',
                           minute: '2-digit',
                         }),
-                        paymentMethod: (order.paymentMethod.includes('كاش') ? 'cash' : 'instapay') as any,
+                        paymentMethod: resolvedMethod,
+                        paymentStatus: order.rawOrder?.payment_status || 'pending',
                         items: order.items,
                         createdAt: order.createdAt,
                       };

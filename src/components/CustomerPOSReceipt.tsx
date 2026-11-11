@@ -311,9 +311,13 @@ export function CustomerPOSReceipt({
             <strong className="font-bold text-slate-900">
               {order.paymentMethod === 'cash'
                 ? 'نقدًا عند الاستلام (كاش)'
+                : (order.paymentMethod === 'card' || order.paymentMethod === 'geidea')
+                ? 'بطاقة بنكية (فيزا / ماستركارد / ميزة) - جيديا'
+                : order.paymentMethod === 'vodafone_cash'
+                ? 'محفظة إلكترونية (فودافون كاش)'
                 : order.paymentMethod === 'instapay'
-                ? 'تحويل إنستاباي / محفظة'
-                : 'بطاقة إلكترونية (جيديا)'}
+                ? 'تحويل إنستاباي'
+                : 'دفع إلكتروني معتمد'}
             </strong>
           </div>
           <div className="flex justify-between items-center">
@@ -328,7 +332,7 @@ export function CustomerPOSReceipt({
                 : 'bg-rose-100 text-rose-900'
             }`}>
               {order.paymentStatus === 'paid'
-                ? 'مدفوع ومعتمد بنكياً ✓'
+                ? 'تم استلام المبلغ ومعتمد بنكياً (خالص السداد ✓)'
                 : order.paymentMethod === 'cash'
                 ? 'معلق للتسديد كاش عند الاستلام'
                 : (order as any).receiptUrl

@@ -300,9 +300,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <strong className="text-slate-800">
                               {order.paymentMethod === "instapay"
                                 ? "إنستا باي (InstaPay)"
-                                : order.paymentMethod === "geidea"
-                                  ? "بطاقة بنكية (جيديا)"
-                                  : "كاش عند الاستلام"}
+                                : order.paymentMethod === "vodafone_cash"
+                                  ? "محفظة فودافون كاش"
+                                  : (order.paymentMethod === "geidea" || order.paymentMethod === "card")
+                                    ? "بطاقة بنكية (جيديا)"
+                                    : "كاش عند الاستلام"}
                             </strong>
                           </span>
 

@@ -50,6 +50,7 @@ export async function createGeideaPaymentSession(params: CreateSessionParams): P
 
   // 1. Primary: Secure Parent Session Proxy (handles HMAC signing, Basic Auth, CORS & per-request dynamic callback)
   try {
+    const cleanRef = `EL7LM${orderId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 18).toUpperCase()}`;
     const proxyRes = await fetch(GEIDEA_CONFIG.sessionProxyUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -57,10 +58,11 @@ export async function createGeideaPaymentSession(params: CreateSessionParams): P
         amount,
         currency: 'EGP',
         orderId,
+        merchantReferenceId: cleanRef,
         customerEmail,
         customerName,
         customerPhone: params.customerPhone || '01000000000',
-        callbackUrl: GEIDEA_CONFIG.callbackUrl,
+        callbackUrl: 'https://www.el7lm.com/api/geidea/callback',
         returnUrl: `${GEIDEA_CONFIG.returnUrl}?orderId=${encodeURIComponent(orderId)}`,
       }),
     });
@@ -188,16 +190,59 @@ export async function openGeideaPayment(
     await loading;
   }
 
-  const successCb = typeof callbacksOrSuccess === 'function' 
+  let resolved = false;
+
+  const rawSuccess = typeof callbacksOrSuccess === 'function' 
     ? callbacksOrSuccess 
     : callbacksOrSuccess?.onSuccess || (() => {});
-  const errorCb = typeof callbacksOrSuccess === 'function'
+  const rawError = typeof callbacksOrSuccess === 'function'
     ? callbacksOrSuccess
     : callbacksOrSuccess?.onError || (() => {});
-  const cancelCb = typeof callbacksOrSuccess === 'function'
+  const rawCancel = typeof callbacksOrSuccess === 'function'
     ? callbacksOrSuccess
     : callbacksOrSuccess?.onCancel || (() => {});
 
-  const checkout = new window.GeideaCheckout!(successCb, errorCb, cancelCb);
+  const handleSuccess = (res: any) => {
+    if (resolved) return;
+    resolved = true;
+    window.removeEventListener('message', messageHandler);
+    rawSuccess(res);
+  };
+
+  const handleError = (err: any) => {
+    if (resolved) return;
+    resolved = true;
+    window.removeEventListener('message', messageHandler);
+    rawError(err);
+  };
+
+  const handleCancel = () => {
+    if (resolved) return;
+    resolved = true;
+    window.removeEventListener('message', messageHandler);
+    rawCancel();
+  };
+
+  // Direct window postMessage listener that bypasses any internal iframe exceptions in GeideaCheckout script
+  const messageHandler = (event: MessageEvent) => {
+    try {
+      const data = event.data;
+      if (!data) return;
+      const isGeideaOrigin = event.origin?.includes('geidea.net') || event.origin?.includes('el7lm.com');
+      if (!isGeideaOrigin && typeof data !== 'object') return;
+
+      if (data.callback === 'onSuccess' || data.status === 'Success' || data.detailedStatus === 'Paid') {
+        handleSuccess(data);
+      } else if (data.callback === 'onError' || data.status === 'Failed') {
+        handleError(data);
+      } else if (data.callback === 'onCancel') {
+        handleCancel();
+      }
+    } catch {}
+  };
+
+  window.addEventListener('message', messageHandler);
+
+  const checkout = new window.GeideaCheckout!(handleSuccess, handleError, handleCancel);
   checkout.startPayment(sessionIdOrUrl);
 }

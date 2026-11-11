@@ -879,14 +879,14 @@ export default function CourierApp() {
     setError('');
     const current = generation.current;
     try {
-      const isInstapay = order.paymentMethod === 'instapay' || order.paymentMethod === 'vodafone_cash' || order.paymentMethod === 'wallet';
-      const finalAmount = order.amountToCollect ?? (order.paymentMethod === 'cash' ? order.total : 0);
+      const isOnline = order.paymentMethod !== 'cash' || order.paymentStatus === 'paid';
+      const finalAmount = order.amountToCollect ?? (isOnline ? 0 : order.total);
       if (action === 'deliver') {
         await orderDelivery({
           action: 'deliver',
           orderId: order.id,
           otpCode: codes[order.id] || '',
-          collectedAmount: isInstapay ? 0 : finalAmount
+          collectedAmount: isOnline ? 0 : finalAmount
         });
       } else {
         await operationsApi('operations', {
@@ -1835,8 +1835,30 @@ export default function CourierApp() {
                     </div>
                   </div>
 
-                  {/* InstaPay Proof of Payment Entry (if electronic) */}
-                  {isInstapay && (
+                  {/* Online Card / Paid Status Banner for Courier */}
+                  {(isOnlineCard || order.paymentStatus === 'paid') && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-3xl p-4 flex items-center justify-between gap-3 shadow-2xs">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+                          <CreditCard className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-blue-950" style={{ fontFamily: "'Cairo', sans-serif" }}>
+                            مدفوع إلكترونياً بالبطاقة (خالص السداد ✓)
+                          </h4>
+                          <p className="text-[11px] text-blue-700">
+                            تم استلام المبلغ بنكياً عبر جيديا — لا يُحصّل أي مبلغ نقدي من العميل!
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black shrink-0">
+                        خالص السداد ✓
+                      </span>
+                    </div>
+                  )}
+
+                  {/* InstaPay Proof of Payment Entry (if electronic and NOT paid by card) */}
+                  {isInstapay && order.paymentStatus !== 'paid' && !isOnlineCard && (
                     <div className="bg-purple-50 border border-purple-200 rounded-3xl p-4 flex items-center justify-between gap-3 shadow-2xs">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center shrink-0">

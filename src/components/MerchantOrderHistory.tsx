@@ -437,11 +437,19 @@ export function MerchantOrderHistory({
 
                       {/* Payment */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700">
+                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                          order.paymentStatus === 'paid'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : (order.paymentMethod === 'card' || (order.paymentMethod as string) === 'geidea')
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}>
                           {order.paymentMethod === 'cash'
                             ? 'كاش عند الاستلام'
+                            : (order.paymentMethod === 'card' || (order.paymentMethod as string) === 'geidea')
+                            ? (order.paymentStatus === 'paid' ? 'بطاقة بنكية (تم السداد ✓)' : 'بطاقة بنكية (جيديا)')
                             : order.paymentMethod === 'instapay'
-                            ? 'إنستاباي'
+                            ? (order.paymentStatus === 'paid' ? 'إنستاباي (تم السداد ✓)' : 'إنستاباي')
                             : order.paymentMethod === 'vodafone_cash'
                             ? 'فودافون كاش'
                             : 'دفع إلكتروني'}
