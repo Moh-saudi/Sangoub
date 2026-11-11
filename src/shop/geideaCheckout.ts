@@ -42,15 +42,40 @@ export interface CreateSessionParams {
 }
 
 export async function createGeideaPaymentSession(params: CreateSessionParams): Promise<{ sessionId: string }> {
-  const orderId = String(params.orderId || `ord-${Date.now()}`);
-  const amount = Number(params.amount) || 20.0;
-  const formattedAmount = amount.toFixed(2);
-  const currency = 'EGP';
-  const referenceId = `SNG_${orderId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}_${Date.now().toString().slice(-6)}`;
-  const timestamp = formatTimestamp();
-
-  // 1. Direct Geidea Gateway API call (works reliably in browser with CORS & Web Crypto)
+  // 1. Primary: Cloudflare Pages Function proxy (bypasses browser CORS & secures secrets)
   try {
+    const workerRes = await fetch('/api/geidea/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (workerRes.ok) {
+      const data = await workerRes.json();
+      if (data?.sessionId) {
+        return { sessionId: data.sessionId };
+      }
+    } else {
+      const errData = await workerRes.json().catch(() => null);
+      if (errData?.error) {
+        throw new Error(errData.error);
+      }
+    }
+  } catch (workerErr: any) {
+    if (workerErr?.message && !workerErr.message.includes('Failed to fetch')) {
+      throw workerErr;
+    }
+    console.warn('Pages function /api/geidea/session fallback:', workerErr);
+  }
+
+  // 2. Direct Geidea Gateway API call fallback
+  try {
+    const orderId = String(params.orderId || `ord-${Date.now()}`);
+    const amount = Number(params.amount) || 20.0;
+    const formattedAmount = amount.toFixed(2);
+    const currency = 'EGP';
+    const referenceId = `SNG_${orderId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}_${Date.now().toString().slice(-6)}`;
+    const timestamp = formatTimestamp();
+
     const dataToSign = `${GEIDEA_CONFIG.merchantPublicKey}${formattedAmount}${currency}${referenceId}${timestamp}`;
     const signature = await computeHmacSha256(GEIDEA_CONFIG.apiPassword, dataToSign);
     const authHeader = btoa(`${GEIDEA_CONFIG.merchantPublicKey}:${GEIDEA_CONFIG.apiPassword}`);
@@ -100,21 +125,6 @@ export async function createGeideaPaymentSession(params: CreateSessionParams): P
   } catch (directErr) {
     console.warn('Direct Geidea session initialization fallback:', directErr);
   }
-
-  // 2. Fallback to Cloudflare Worker endpoint if direct call was blocked
-  try {
-    const workerRes = await fetch('/api/geidea/session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-    });
-    if (workerRes.ok) {
-      const data = await workerRes.json();
-      if (data?.sessionId) {
-        return { sessionId: data.sessionId };
-      }
-    }
-  } catch {}
 
   throw new Error('تعذر بدء جلسة الدفع بالبطاقة البنكية حالياً. يرجى المحاولة ثانية.');
 }
