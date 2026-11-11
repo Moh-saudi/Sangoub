@@ -17,6 +17,34 @@ const fallbackVapidKey =
 const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || fallbackVapidKey;
 let foregroundListenerInstalled = false;
 
+function isFcmSupportedForHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (
+      localStorage.getItem('sangoub_fcm_unauthorized') === 'true' ||
+      sessionStorage.getItem('sangoub_fcm_unauthorized') === 'true'
+    ) {
+      return false;
+    }
+  } catch {}
+
+  // A custom VAPID key configured specifically for this domain
+  if (Boolean(import.meta.env.VITE_FIREBASE_VAPID_KEY)) {
+    return true;
+  }
+
+  const host = window.location.hostname;
+  // Fallback VAPID credentials are only authorized for localhost or original capital-talabat domains
+  return host === 'localhost' || host === '127.0.0.1' || host.includes('capital-talabat');
+}
+
+function markFcmUnauthorized() {
+  try {
+    localStorage.setItem('sangoub_fcm_unauthorized', 'true');
+    sessionStorage.setItem('sangoub_fcm_unauthorized', 'true');
+  } catch {}
+}
+
 function firebaseMessaging() {
   const config = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY || DEFAULT_FIREBASE_CONFIG.apiKey,
@@ -60,6 +88,10 @@ export async function enableWebPushNotifications(): Promise<string> {
   }
 
   try {
+    if (!isFcmSupportedForHost()) {
+      return 'browser-permission-only';
+    }
+
     const supported = await isSupported().catch(() => false);
     if (!supported) {
       return 'browser-permission-only';
@@ -71,6 +103,13 @@ export async function enableWebPushNotifications(): Promise<string> {
       vapidKey,
       serviceWorkerRegistration: registration,
     }).catch((err) => {
+      if (
+        err?.code === 'messaging/token-subscribe-failed' ||
+        String(err?.message || err).includes('401') ||
+        String(err?.message || err).includes('authentication credential')
+      ) {
+        markFcmUnauthorized();
+      }
       console.debug('FCM token registration skipped on current host:', err?.message || err);
       return null;
     });
@@ -123,6 +162,7 @@ export async function enableWebPushNotifications(): Promise<string> {
 export async function disableWebPushNotifications(): Promise<void> {
   try {
     if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
+    if (!isFcmSupportedForHost()) return;
     const supported = await isSupported().catch(() => false);
     if (!supported) return;
 
