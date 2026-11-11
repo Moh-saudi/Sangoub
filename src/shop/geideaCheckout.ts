@@ -1,5 +1,124 @@
 let loading: Promise<void> | null = null;
 
+const GEIDEA_CONFIG = {
+  merchantPublicKey: '3448c010-87b1-41e7-9771-cac444268cfb',
+  apiPassword: 'ecba1701-4889-4357-ba09-4d8d864f6d64',
+  baseUrl: 'https://api.merchant.geidea.net',
+  callbackUrl: 'https://sangoub.el7lm.com/api/geidea/callback',
+  returnUrl: 'https://sangoub.el7lm.com/checkout/success',
+};
+
+function formatTimestamp(date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(
+    date.getDate()
+  )} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+async function computeHmacSha256(secret: string, message: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+  const bytes = new Uint8Array(signature);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+export interface CreateSessionParams {
+  orderId: string;
+  amount: number;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+}
+
+export async function createGeideaPaymentSession(params: CreateSessionParams): Promise<{ sessionId: string }> {
+  const orderId = String(params.orderId || `ord-${Date.now()}`);
+  const amount = Number(params.amount) || 20.0;
+  const formattedAmount = amount.toFixed(2);
+  const currency = 'EGP';
+  const referenceId = `SNG_${orderId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}_${Date.now().toString().slice(-6)}`;
+  const timestamp = formatTimestamp();
+
+  // 1. Direct Geidea Gateway API call (works reliably in browser with CORS & Web Crypto)
+  try {
+    const dataToSign = `${GEIDEA_CONFIG.merchantPublicKey}${formattedAmount}${currency}${referenceId}${timestamp}`;
+    const signature = await computeHmacSha256(GEIDEA_CONFIG.apiPassword, dataToSign);
+    const authHeader = btoa(`${GEIDEA_CONFIG.merchantPublicKey}:${GEIDEA_CONFIG.apiPassword}`);
+
+    const nameParts = String(params.customerName || 'عميل سنجوب').trim().split(/\s+/);
+    const firstName = nameParts[0] || 'عميل';
+    const lastName = nameParts.slice(1).join(' ') || 'سنجوب';
+
+    const payload = {
+      amount,
+      currency,
+      merchantReferenceId: referenceId,
+      timestamp,
+      signature,
+      callbackUrl: GEIDEA_CONFIG.callbackUrl,
+      callback: GEIDEA_CONFIG.callbackUrl,
+      callBackUrl: GEIDEA_CONFIG.callbackUrl,
+      returnUrl: `${GEIDEA_CONFIG.returnUrl}?orderId=${encodeURIComponent(orderId)}`,
+      language: 'ar',
+      customer: {
+        email: params.customerEmail || 'customer@sangoub.el7lm.com',
+        firstName,
+        lastName,
+        phone: params.customerPhone || '01000000000',
+      },
+      metadata: {
+        system: 'Sangoub',
+        orderId,
+      },
+    };
+
+    const directRes = await fetch(`${GEIDEA_CONFIG.baseUrl}/payment-intent/api/v2/direct/session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${authHeader}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (directRes.ok) {
+      const data = await directRes.json().catch(() => null);
+      if (data?.session?.id) {
+        return { sessionId: data.session.id };
+      }
+    }
+  } catch (directErr) {
+    console.warn('Direct Geidea session initialization fallback:', directErr);
+  }
+
+  // 2. Fallback to Cloudflare Worker endpoint if direct call was blocked
+  try {
+    const workerRes = await fetch('/api/geidea/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (workerRes.ok) {
+      const data = await workerRes.json();
+      if (data?.sessionId) {
+        return { sessionId: data.sessionId };
+      }
+    }
+  } catch {}
+
+  throw new Error('تعذر بدء جلسة الدفع بالبطاقة البنكية حالياً. يرجى المحاولة ثانية.');
+}
+
 declare global {
   interface Window {
     GeideaCheckout?: new (

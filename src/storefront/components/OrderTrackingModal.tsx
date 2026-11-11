@@ -545,7 +545,7 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
                 </span>
               </div>
             )
-          ) : (order.paymentMethod === 'card' || (order.paymentMethod as string) === 'geidea') ? (
+          ) : (order.paymentMethod === 'card' || (order.paymentMethod as string) === 'geidea' || (paymentStatus === 'paid' && order.paymentMethod !== 'instapay' && order.paymentMethod !== 'vodafone_cash')) ? (
             <div className="p-2.5 rounded-xl bg-blue-50/90 border border-blue-200 flex items-center justify-between text-blue-900">
               <div className="flex items-center gap-2">
                 <CreditCard size={16} className="text-blue-600 shrink-0" />

@@ -28,7 +28,7 @@ import { matchStoreId, getStoreLogo } from '../../utils/storeAssets';
 import { authenticatedApi } from '../../lib/authenticatedApi';
 import { supabase, resolveSupabaseStoreUuid } from '../../lib/supabase';
 import { getSavedCards, saveBankCard, type SavedBankCard } from '../../lib/savedCards';
-import { openGeideaPayment } from '../../shop/geideaCheckout';
+import { openGeideaPayment, createGeideaPaymentSession } from '../../shop/geideaCheckout';
 import type { TrackableOrder } from './OrderTrackingModal';
 
 interface Props {
@@ -582,129 +582,164 @@ export function CartCheckoutModal({
         }
       }
 
-      try {
-        localStorage.setItem('sangoub_guest_profile', JSON.stringify({ fullName: cleanName, phone: cleanPhone, streetAddress: cleanAddress, buildingNumber: buildingNumber.trim(), floorNumber: floorNumber.trim(), unitNumber: unitNumber.trim(), placeType, hasWhatsApp, customWhatsApp }));
-        localStorage.setItem('sangoub_last_order', JSON.stringify(trackable));
-        sessionStorage.removeItem(attemptKey);
+      const finalizeAndConfirmOrder = (orderToFinalize: TrackableOrder, isCardPaid = false) => {
+        try {
+          if (isCardPaid) {
+            orderToFinalize.paymentStatus = 'paid';
+            orderToFinalize.paymentMethod = 'card';
+          }
 
-        // 🔔 Register order confirmed notification for customer
-        const notifOrderNum = trackable.orderNumber || (trackable.orderId.includes('-') ? `SG-${trackable.orderId.replace(/^(ord-|order-)/i, '').slice(0, 6).toUpperCase()}` : `${trackable.orderId.slice(0, 8).toUpperCase()}`);
-        const newNotification = {
-          id: `notif-${Date.now()}`,
-          title: 'تم استلام وتأكيد طلبك بنجاح! 🎉',
-          body: `طلبك رقم (${notifOrderNum}) قيد التجهيز الآن لدى ${currentStore.name}. سنوافيك بكل خطوة فوراً.`,
-          type: 'order',
-          targetScreen: 'orders',
-          targetId: trackable.orderId,
-          is_read: false,
-          created_at: new Date().toISOString(),
-        };
+          localStorage.setItem(
+            'sangoub_guest_profile',
+            JSON.stringify({
+              fullName: cleanName,
+              phone: cleanPhone,
+              streetAddress: cleanAddress,
+              buildingNumber: buildingNumber.trim(),
+              floorNumber: floorNumber.trim(),
+              unitNumber: unitNumber.trim(),
+              placeType,
+              hasWhatsApp,
+              customWhatsApp,
+            })
+          );
+          localStorage.setItem('sangoub_last_order', JSON.stringify(orderToFinalize));
+          sessionStorage.removeItem(attemptKey);
 
-        const existingNotifs = JSON.parse(localStorage.getItem('sangoub_guest_notifications') || '[]');
-        existingNotifs.unshift(newNotification);
-        localStorage.setItem('sangoub_guest_notifications', JSON.stringify(existingNotifs.slice(0, 30)));
-
-        if (user?.id) {
-          void supabase.from('notifications').insert({
-            user_id: user.id,
-            title: newNotification.title,
-            body: newNotification.body,
+          // 🔔 Register order confirmed notification for customer
+          const notifOrderNum =
+            orderToFinalize.orderNumber ||
+            (orderToFinalize.orderId.includes('-')
+              ? `SG-${orderToFinalize.orderId.replace(/^(ord-|order-)/i, '').slice(0, 6).toUpperCase()}`
+              : `${orderToFinalize.orderId.slice(0, 8).toUpperCase()}`);
+          const newNotification = {
+            id: `notif-${Date.now()}`,
+            title: isCardPaid
+              ? 'تم سداد وتأكيد طلبك بنجاح! 💳'
+              : 'تم استلام وتأكيد طلبك بنجاح! 🎉',
+            body: `طلبك رقم (${notifOrderNum}) قيد التجهيز الآن لدى ${currentStore.name}. سنوافيك بكل خطوة فوراً.`,
             type: 'order',
-            data: { orderId: trackable.orderId, orderNumber: notifOrderNum, screen: 'orders' },
+            targetScreen: 'orders',
+            targetId: orderToFinalize.orderId,
             is_read: false,
-          }).catch(() => {});
-        }
+            created_at: new Date().toISOString(),
+          };
 
-        void refreshNotifications();
-        showToast(`تم استلام طلبك بنجاح! (${notifOrderNum})`, 'info');
+          const existingNotifs = JSON.parse(
+            localStorage.getItem('sangoub_guest_notifications') || '[]'
+          );
+          existingNotifs.unshift(newNotification);
+          localStorage.setItem(
+            'sangoub_guest_notifications',
+            JSON.stringify(existingNotifs.slice(0, 30))
+          );
 
-        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-          try {
-            new Notification('سنجوب - تأكيد الطلب! 🎉', {
-              body: `طلبك رقم ${notifOrderNum} قيد التجهيز لدى ${currentStore.name}.`,
-              icon: '/favicon.ico',
-            });
-          } catch {}
+          if (user?.id) {
+            void supabase
+              .from('notifications')
+              .insert({
+                user_id: user.id,
+                title: newNotification.title,
+                body: newNotification.body,
+                type: 'order',
+                data: {
+                  orderId: orderToFinalize.orderId,
+                  orderNumber: notifOrderNum,
+                  screen: 'orders',
+                },
+                is_read: false,
+              })
+              .catch(() => {});
+          }
+
+          void refreshNotifications();
+          showToast(
+            isCardPaid
+              ? `تم الدفع وتأكيد طلبك بنجاح! (${notifOrderNum})`
+              : `تم استلام طلبك بنجاح! (${notifOrderNum})`,
+            'info'
+          );
+
+          if (
+            typeof window !== 'undefined' &&
+            'Notification' in window &&
+            Notification.permission === 'granted'
+          ) {
+            try {
+              new Notification('سنجوب - تأكيد الطلب! 🎉', {
+                body: `طلبك رقم ${notifOrderNum} قيد التجهيز لدى ${currentStore.name}.`,
+                icon: '/favicon.ico',
+              });
+            } catch {}
+          }
+        } catch {}
+
+        // Clear cart and navigate to tracking
+        clearCart();
+        if (onOrderPlaced) {
+          onOrderPlaced(orderToFinalize);
         }
-      } catch {}
+        onClose();
+      };
 
       // Launch live Geidea payment gateway if bank card is selected
       if (selectedPaymentMethod === 'card') {
         try {
           setIsSubmitting(true);
-          let sessionRes: any = null;
+          trackable.paymentMethod = 'card';
 
-          try {
-            sessionRes = await authenticatedApi('/api/orders', {
-              action: 'payment-session',
-              orderId: saved.id,
-              amount: saved.total,
-              customerName: cleanName,
-              customerPhone: cleanPhone,
-            });
-          } catch {
-            // Fallback: direct Cloudflare Pages Function endpoint
-            const res = await fetch('/api/geidea/session', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                orderId: saved.id,
-                amount: saved.total,
-                customerName: cleanName,
-                customerPhone: cleanPhone,
-              }),
-            });
-            sessionRes = await res.json();
-          }
+          const session = await createGeideaPaymentSession({
+            orderId: saved.id,
+            amount: saved.total,
+            customerName: cleanName,
+            customerPhone: cleanPhone,
+            customerEmail: user?.email,
+          });
 
-          if (!sessionRes?.sessionId && !sessionRes?.redirectUrl) {
-            throw new Error(sessionRes?.error || 'تعذر بدء جلسة الدفع بالبطاقة البنكية. يرجى المحاولة ثانية.');
+          if (!session?.sessionId) {
+            throw new Error('تعذر بدء جلسة الدفع بالبطاقة البنكية. يرجى المحاولة ثانية.');
           }
 
           // Open Geidea Checkout with strict callback handlers
-          await openGeideaPayment(sessionRes.sessionId || sessionRes.redirectUrl, {
+          await openGeideaPayment(session.sessionId, {
             onSuccess: () => {
-              // Mark order as paid
-              trackable.paymentStatus = 'paid';
-              try {
-                localStorage.setItem('sangoub_last_order', JSON.stringify(trackable));
-              } catch {}
+              // Update status in Supabase
+              void supabase
+                .from('orders')
+                .update({
+                  payment_status: 'paid',
+                  payment_method: 'card',
+                  status: 'received',
+                })
+                .eq('id', saved.id)
+                .catch(() => {});
 
-              // Clear cart and finalize
-              clearCart();
-              showToast('تم الدفع بالبطاقة البنكية بنجاح! 🎉', 'success');
-              if (onOrderPlaced) {
-                onOrderPlaced(trackable);
-              }
-              onClose();
+              finalizeAndConfirmOrder(trackable, true);
             },
             onError: () => {
               setError('لم تكتمل عملية الدفع بالبطاقة. يرجى مراجعة بيانات البطاقة أو المحاولة ثانية.');
               setIsSubmitting(false);
             },
             onCancel: () => {
-              setError('تم إلغاء عملية الدفع بالبطاقة. يمكنك إعادة المحاولة متى شئت.');
+              setError('تم إلغاء عملية الدفع بالبطاقة. سلتك محفوظة ويمكنك إعادة المحاولة متى شئت.');
               setIsSubmitting(false);
             },
           });
 
-          // Halt further execution so onOrderPlaced does NOT trigger prematurely
+          // STRICT GATING: Halt execution here so onOrderPlaced NEVER triggers prematurely
           return;
         } catch (payErr: any) {
-          setError(payErr?.message || 'تعذر تشغيل بوابة الدفع بالبطاقات حالياً. يمكنك اختيار الدفع نقداً عند الاستلام.');
+          setError(
+            payErr?.message ||
+              'تعذر تشغيل بوابة الدفع بالبطاقات حالياً. يمكنك اختيار الدفع نقداً عند الاستلام.'
+          );
           setIsSubmitting(false);
           return;
         }
       }
 
-      // Clear cart
-      clearCart();
-
-      if (onOrderPlaced) {
-        onOrderPlaced(trackable);
-      }
-
-      onClose();
+      // For cash, instapay, and wallets: finalize directly
+      finalizeAndConfirmOrder(trackable, false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر إرسال الطلب. يرجى المحاولة ثانية.');
     } finally {
