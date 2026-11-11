@@ -119,6 +119,36 @@ export async function createGeideaPaymentSession(params: CreateSessionParams): P
   throw new Error('تعذر بدء جلسة الدفع بالبطاقة البنكية حالياً. يرجى المحاولة ثانية.');
 }
 
+/**
+ * 🔍 جلب وتأكيد تفاصيل وحالة العملية رسمياً من خوادم جيديا عبر Geidea Fetch API
+ * المرجع: https://docs.geidea.net/docs/fetch-1
+ */
+export async function fetchGeideaOrderDetails(orderIdOrReference: string): Promise<any> {
+  try {
+    const authHeader = btoa(`${GEIDEA_CONFIG.merchantPublicKey}:${GEIDEA_CONFIG.apiPassword}`);
+    const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderIdOrReference);
+    const endpoint = isGuid
+      ? `${GEIDEA_CONFIG.baseUrl}/pgw/api/v1/direct/order/${orderIdOrReference}`
+      : `${GEIDEA_CONFIG.baseUrl}/pgw/api/v1/direct/order?MerchantReferenceId=${encodeURIComponent(orderIdOrReference)}`;
+
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Basic ${authHeader}`,
+      },
+    });
+
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      return data?.order || data?.orders?.[0] || data;
+    }
+  } catch (err) {
+    console.warn('Geidea fetch order details error:', err);
+  }
+  return null;
+}
+
 declare global {
   interface Window {
     GeideaCheckout?: new (

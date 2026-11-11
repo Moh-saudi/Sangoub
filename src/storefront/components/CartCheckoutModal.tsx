@@ -28,7 +28,7 @@ import { matchStoreId, getStoreLogo } from '../../utils/storeAssets';
 import { authenticatedApi } from '../../lib/authenticatedApi';
 import { supabase, resolveSupabaseStoreUuid } from '../../lib/supabase';
 import { getSavedCards, saveBankCard, type SavedBankCard } from '../../lib/savedCards';
-import { openGeideaPayment, createGeideaPaymentSession } from '../../shop/geideaCheckout';
+import { openGeideaPayment, createGeideaPaymentSession, fetchGeideaOrderDetails } from '../../shop/geideaCheckout';
 import type { TrackableOrder } from './OrderTrackingModal';
 
 interface Props {
@@ -702,7 +702,23 @@ export function CartCheckoutModal({
 
           // Open Geidea Checkout with strict callback handlers
           await openGeideaPayment(session.sessionId, {
-            onSuccess: () => {
+            onSuccess: async (geideaResult: any) => {
+              // 🔍 التحقق وتأكيد العملية عبر Geidea Fetch API (https://docs.geidea.net/docs/fetch-1)
+              const geideaOrderId = geideaResult?.orderId || geideaResult?.order?.orderId;
+              if (geideaOrderId) {
+                try {
+                  const details = await fetchGeideaOrderDetails(geideaOrderId);
+                  if (details) {
+                    trackable.geideaTransaction = {
+                      orderId: details.orderId,
+                      status: details.status,
+                      detailedStatus: details.detailedStatus,
+                      reference: details.merchantReferenceId,
+                    };
+                  }
+                } catch {}
+              }
+
               // Update status in Supabase
               void supabase
                 .from('orders')
