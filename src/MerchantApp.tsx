@@ -875,9 +875,15 @@ export default function MerchantApp() {
 
         {/* Main Portal Body */}
         <main className="max-w-[1600px] mx-auto p-3 sm:p-5 lg:p-6">
-          {(error||feed.error)&&<ErrorState message={error||feed.error} retry={()=>{void refreshMerchant.current();void feed.refresh()}}/>}
-          {(catalogLoading||feed.loading)&&<LoadingState message="جارٍ تحميل المتجر والطلبات…"/>}
-          {!catalogLoading&&!userStore&&!error&&<EmptyState message="لم يُربط حسابك بمتجر تشغيل متاح؛ تواصل مع الإدارة."/>}
+          {(error || feed.error) && !userStore && (
+            <ErrorState message={error || feed.error} retry={() => { void refreshMerchant.current(); void feed.refresh(); }} />
+          )}
+          {!userStore && (catalogLoading || feed.loading) && (
+            <LoadingState message="جارٍ تحميل المتجر والطلبات…" />
+          )}
+          {!catalogLoading && !userStore && !error && (
+            <EmptyState message="لم يُربط حسابك بمتجر تشغيل متاح؛ تواصل مع الإدارة." />
+          )}
           {userStore && (
             <RestaurantPortal
               preparationContent={activeItems.some(o => o.fulfillmentVersion === 2) ? <PreparationTasks orders={activeItems.filter(o => o.fulfillmentVersion === 2)} storeId={profile.storeId!} online={feed.online && !feed.error} refresh={feed.refresh} /> : undefined}
