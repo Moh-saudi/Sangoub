@@ -57,11 +57,11 @@ export function validateCardExpiry(month: string, year: string): boolean {
   const rawY = year.trim();
   const y = parseInt(rawY.length === 2 ? `20${rawY}` : rawY, 10);
   if (isNaN(m) || isNaN(y) || m < 1 || m > 12) return false;
-  
+
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
-  
+
   if (y < currentYear) return false;
   if (y === currentYear && m < currentMonth) return false;
   if (y > currentYear + 20) return false;
@@ -86,7 +86,7 @@ export async function getSavedCards(userId: string): Promise<SavedBankCard[]> {
   try {
     const raw = localStorage.getItem(localKey);
     if (raw) localCards = JSON.parse(raw);
-  } catch {}
+  } catch { }
 
   // If cloud table was previously checked and not found, don't spam 404 network requests
   if (isCloudCardsTableAvailable === false) {
@@ -124,7 +124,7 @@ export async function getSavedCards(userId: string): Promise<SavedBankCard[]> {
       }));
       try {
         localStorage.setItem(localKey, JSON.stringify(dbCards));
-      } catch {}
+      } catch { }
       return dbCards;
     }
   } catch (err) {
@@ -173,7 +173,7 @@ export async function saveBankCard(
   try {
     const raw = localStorage.getItem(localKey);
     if (raw) currentList = JSON.parse(raw);
-  } catch {}
+  } catch { }
 
   // If this card is default, make others non-default
   if (newCard.isDefault) {
@@ -183,7 +183,7 @@ export async function saveBankCard(
   const updatedList = [newCard, ...currentList];
   try {
     localStorage.setItem(localKey, JSON.stringify(updatedList));
-  } catch {}
+  } catch { }
 
   // Attempt database persistence in Supabase if table is available
   if (isCloudCardsTableAvailable !== false) {
@@ -233,7 +233,7 @@ export async function deleteSavedCard(userId: string, cardId: string): Promise<v
       list = list.filter((c) => c.id !== cardId);
       localStorage.setItem(localKey, JSON.stringify(list));
     }
-  } catch {}
+  } catch { }
 
   if (isCloudCardsTableAvailable !== false) {
     try {
@@ -258,7 +258,7 @@ export async function setDefaultCard(userId: string, cardId: string): Promise<vo
       list = list.map((c) => ({ ...c, isDefault: c.id === cardId }));
       localStorage.setItem(localKey, JSON.stringify(list));
     }
-  } catch {}
+  } catch { }
 
   if (isCloudCardsTableAvailable !== false) {
     try {

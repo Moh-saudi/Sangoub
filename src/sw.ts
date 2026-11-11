@@ -36,10 +36,10 @@ registerRoute(
   ({ request, url }) => request.mode === 'navigate' && url.origin === self.location.origin,
   new NetworkFirst({
     cacheName: 'capital-page-navigation',
-    networkTimeoutSeconds: 4,
+    networkTimeoutSeconds: 1.5,
     plugins: [
       new CacheableResponsePlugin({ statuses: [200] }),
-      new ExpirationPlugin({ maxEntries: 12, maxAgeSeconds: 24 * 60 * 60 }),
+      new ExpirationPlugin({ maxEntries: 5, maxAgeSeconds: 3600 }),
     ],
   }),
 );

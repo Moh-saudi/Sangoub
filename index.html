@@ -27,6 +27,42 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        var recoveryKey = 'sangoub:module_recovery';
+        function recover() {
+          try {
+            var last = parseInt(sessionStorage.getItem(recoveryKey) || '0', 10);
+            var now = Date.now();
+            if (now - last < 15000) return;
+            sessionStorage.setItem(recoveryKey, String(now));
+            if ('caches' in window) {
+              caches.keys().then(function(keys) {
+                keys.forEach(function(k) { caches.delete(k); });
+              });
+            }
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function(regs) {
+                regs.forEach(function(r) { r.unregister(); });
+              });
+            }
+            window.location.reload(true);
+          } catch (e) {
+            window.location.reload(true);
+          }
+        }
+        window.addEventListener('error', function(e) {
+          var msg = (e && (e.message || (e.target && e.target.src))) || '';
+          if (typeof msg === 'string' && (msg.indexOf('Failed to load module script') !== -1 || msg.indexOf('MIME type of "text/html"') !== -1 || msg.indexOf('dynamically imported module') !== -1)) {
+            recover();
+          }
+        }, true);
+        window.addEventListener('vite:preloadError', function(e) {
+          e.preventDefault();
+          recover();
+        });
+      })();
+    </script>
   </head>
   <body class="bg-slate-50 text-slate-900 font-sans antialiased selection:bg-orange-600 selection:text-white min-h-screen">
     <div id="root"></div>
