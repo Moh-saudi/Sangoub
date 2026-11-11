@@ -10,9 +10,15 @@ declare global {
   }
 }
 
+export interface GeideaCheckoutCallbacks {
+  onSuccess: (result: unknown) => void;
+  onError?: (err: unknown) => void;
+  onCancel?: () => void;
+}
+
 export async function openGeideaPayment(
   sessionIdOrUrl: string,
-  onReturn?: () => void,
+  callbacksOrSuccess?: (() => void) | GeideaCheckoutCallbacks,
 ): Promise<void> {
   if (!sessionIdOrUrl) {
     throw new Error('معرف جلسة الدفع غير متوفر.');
@@ -51,10 +57,16 @@ export async function openGeideaPayment(
     await loading;
   }
 
-  const handleReturn = () => {
-    if (onReturn) onReturn();
-  };
+  const successCb = typeof callbacksOrSuccess === 'function' 
+    ? callbacksOrSuccess 
+    : callbacksOrSuccess?.onSuccess || (() => {});
+  const errorCb = typeof callbacksOrSuccess === 'function'
+    ? callbacksOrSuccess
+    : callbacksOrSuccess?.onError || (() => {});
+  const cancelCb = typeof callbacksOrSuccess === 'function'
+    ? callbacksOrSuccess
+    : callbacksOrSuccess?.onCancel || (() => {});
 
-  const checkout = new window.GeideaCheckout!(handleReturn, handleReturn, handleReturn);
+  const checkout = new window.GeideaCheckout!(successCb, errorCb, cancelCb);
   checkout.startPayment(sessionIdOrUrl);
 }

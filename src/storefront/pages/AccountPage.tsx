@@ -1026,63 +1026,80 @@ export const AccountPage: React.FC<AccountPageProps> = ({
             </div>
 
             {/* LIVE CARD PREVIEW */}
-            <div className={`w-full max-w-sm mx-auto aspect-[1.58/1] rounded-2xl p-4 sm:p-5 text-white shadow-xl relative overflow-hidden transition-all duration-300 ${
+            <div className={`w-full max-w-sm mx-auto aspect-[1.65/1] rounded-2xl p-4 sm:p-5 text-white shadow-lg relative overflow-hidden transition-all duration-300 border border-white/10 ${
               previewBrand === 'visa'
-                ? 'bg-gradient-to-tr from-[#1A1F71] via-[#0D47A1] to-[#0A192F]'
+                ? 'bg-gradient-to-tr from-[#0F2027] via-[#1A2A6C] to-[#0D47A1]'
                 : previewBrand === 'mastercard'
                 ? 'bg-gradient-to-tr from-[#212121] via-[#3E2723] to-[#BF360C]'
                 : previewBrand === 'meeza'
-                ? 'bg-gradient-to-tr from-[#004D40] via-[#00695C] to-[#00251A]'
-                : 'bg-gradient-to-tr from-slate-900 via-slate-800 to-zinc-900'
+                ? 'bg-gradient-to-tr from-[#00363A] via-[#004D40] to-[#00695C]'
+                : 'bg-gradient-to-tr from-slate-950 via-slate-900 to-slate-800'
             }`}>
-              {/* Background ambient pattern */}
-              <div className="absolute -right-12 -top-12 w-40 h-40 rounded-full bg-white/5 blur-2xl pointer-events-none" />
-              <div className="absolute -left-12 -bottom-12 w-40 h-40 rounded-full bg-black/20 blur-xl pointer-events-none" />
+              {/* Sangoub Mascot Ambient Watermark */}
+              <img
+                src="/brand/sangoub-mark-white-256.png"
+                alt=""
+                className="absolute -left-6 -bottom-6 w-36 h-36 object-contain opacity-15 pointer-events-none select-none"
+              />
+              <div className="absolute -right-12 -top-12 w-32 h-32 rounded-full bg-white/5 blur-2xl pointer-events-none" />
 
-              <div className="flex items-center justify-between relative z-10">
-                <div className="w-10 h-8 rounded-md bg-gradient-to-tr from-amber-300 via-amber-200 to-amber-500 border border-amber-200/60 shadow-xs relative overflow-hidden flex items-center justify-center">
-                  <div className="w-full h-[1px] bg-amber-700/30 absolute" />
-                  <div className="h-full w-[1px] bg-amber-700/30 absolute" />
-                  <div className="w-4 h-4 rounded-full border border-amber-700/30" />
-                </div>
+              {/* Top Row: Sangoub Brand & Chip + Brand Logo */}
+              <div className="flex items-center justify-between relative z-10 mb-3">
                 <div className="flex items-center gap-2">
-                  <Wifi size={18} className="rotate-90 text-white/70" />
+                  <div className="w-8 h-6 rounded bg-gradient-to-tr from-amber-300 via-amber-200 to-amber-400 border border-amber-200/60 shadow-xs relative overflow-hidden flex items-center justify-center shrink-0">
+                    <div className="w-full h-[1px] bg-amber-700/30 absolute" />
+                    <div className="h-full w-[1px] bg-amber-700/30 absolute" />
+                    <div className="w-3 h-3 rounded-full border border-amber-700/30" />
+                  </div>
+                  <Wifi size={14} className="rotate-90 text-white/60" />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <img
+                    src="/brand/sangoub-mark-white-64.png"
+                    alt="سنجوب"
+                    className="w-5 h-5 object-contain"
+                  />
+                  <span className="text-[10px] font-black tracking-wider text-white/90">
+                    كارت سنجوب
+                  </span>
+                  <div className="h-3 w-[1px] bg-white/20 mx-0.5" />
                   {previewBrand === 'visa' && (
-                    <span className="text-base sm:text-lg font-black tracking-wider text-white italic">VISA</span>
+                    <span className="text-sm font-black tracking-wider text-white italic">VISA</span>
                   )}
                   {previewBrand === 'mastercard' && (
-                    <div className="flex items-center -space-x-2">
-                      <div className="w-6 h-6 rounded-full bg-red-500/90 shadow-2xs" />
-                      <div className="w-6 h-6 rounded-full bg-amber-400/90 shadow-2xs" />
+                    <div className="flex items-center -space-x-1.5">
+                      <div className="w-4 h-4 rounded-full bg-red-500 shadow-2xs" />
+                      <div className="w-4 h-4 rounded-full bg-amber-400 shadow-2xs" />
                     </div>
                   )}
                   {previewBrand === 'meeza' && (
-                    <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-black tracking-wider">ميزة Meeza</span>
+                    <span className="bg-white/20 px-1.5 py-0.5 rounded text-[9px] font-black">ميزة</span>
                   )}
                   {previewBrand === 'card' && (
-                    <CreditCard size={20} className="text-white/70" />
+                    <CreditCard size={16} className="text-white/70" />
                   )}
                 </div>
               </div>
 
               {/* Card Number display */}
-              <div className="my-4 sm:my-6 relative z-10 text-center">
-                <p className="font-mono text-base sm:text-xl font-bold tracking-widest text-white/95 dir-ltr">
+              <div className="my-2.5 sm:my-3.5 relative z-10 text-center">
+                <p className="font-mono text-sm sm:text-base font-bold tracking-[0.2em] text-white/95 dir-ltr drop-shadow-xs">
                   {newCardNumber.trim() ? formatCardNumber(newCardNumber) : '•••• •••• •••• ••••'}
                 </p>
               </div>
 
               {/* Cardholder name & Expiry */}
-              <div className="flex items-end justify-between relative z-10 text-white/90">
+              <div className="flex items-end justify-between relative z-10 text-white/90 pt-1">
                 <div className="min-w-0 pr-2">
-                  <p className="text-[8px] text-white/60 font-bold uppercase tracking-wider mb-0.5">اسم حامل البطاقة</p>
-                  <p className="text-xs font-bold tracking-wide uppercase truncate">
+                  <p className="text-[7.5px] text-white/60 font-bold uppercase tracking-wider mb-0.5">اسم حامل البطاقة</p>
+                  <p className="text-[11px] font-bold tracking-wide uppercase truncate max-w-[170px]">
                     {newCardHolder.trim() || 'اسم العميل'}
                   </p>
                 </div>
                 <div className="text-left shrink-0">
-                  <p className="text-[8px] text-white/60 font-bold uppercase tracking-wider mb-0.5">صلاحية البطاقة</p>
-                  <p className="text-xs font-mono font-bold">
+                  <p className="text-[7.5px] text-white/60 font-bold uppercase tracking-wider mb-0.5">صالح حتى</p>
+                  <p className="text-[11px] font-mono font-bold tracking-wider">
                     {newCardMonth || 'MM'}/{newCardYear || 'YY'}
                   </p>
                 </div>
@@ -1219,37 +1236,75 @@ export const AccountPage: React.FC<AccountPageProps> = ({
                   key={card.id}
                   className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs hover:shadow-xs transition-all space-y-3"
                 >
-                  {/* Card Mini Banner */}
-                  <div className={`w-full rounded-xl p-3.5 text-white relative overflow-hidden ${
+                  {/* Card Mini Banner - Co-branded Sangoub Card */}
+                  <div className={`w-full max-w-sm mx-auto aspect-[1.65/1] rounded-2xl p-4 sm:p-5 text-white relative overflow-hidden shadow-md border border-white/10 ${
                     brand === 'visa'
-                      ? 'bg-gradient-to-r from-[#1A1F71] to-[#0D47A1]'
+                      ? 'bg-gradient-to-tr from-[#0F2027] via-[#1A2A6C] to-[#0D47A1]'
                       : brand === 'mastercard'
-                      ? 'bg-gradient-to-r from-[#212121] to-[#BF360C]'
+                      ? 'bg-gradient-to-tr from-[#212121] via-[#3E2723] to-[#BF360C]'
                       : brand === 'meeza'
-                      ? 'bg-gradient-to-r from-[#004D40] to-[#00695C]'
-                      : 'bg-gradient-to-r from-slate-900 to-slate-800'
+                      ? 'bg-gradient-to-tr from-[#00363A] via-[#004D40] to-[#00695C]'
+                      : 'bg-gradient-to-tr from-slate-950 via-slate-900 to-slate-800'
                   }`}>
-                    <div className="flex items-center justify-between mb-2">
+                    {/* Sangoub Mascot Ambient Watermark */}
+                    <img
+                      src="/brand/sangoub-mark-white-256.png"
+                      alt=""
+                      className="absolute -left-6 -bottom-6 w-36 h-36 object-contain opacity-15 pointer-events-none select-none"
+                    />
+
+                    {/* Top Row: Sangoub Brand & Chip + Brand Logo */}
+                    <div className="flex items-center justify-between relative z-10 mb-3">
                       <div className="flex items-center gap-2">
-                        <CreditCard size={18} className="text-white/80" />
+                        <div className="w-8 h-6 rounded bg-gradient-to-tr from-amber-300 via-amber-200 to-amber-400 border border-amber-200/60 shadow-xs relative overflow-hidden flex items-center justify-center shrink-0">
+                          <div className="w-full h-[1px] bg-amber-700/30 absolute" />
+                          <div className="h-full w-[1px] bg-amber-700/30 absolute" />
+                          <div className="w-3 h-3 rounded-full border border-amber-700/30" />
+                        </div>
+                        {card.isDefault && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/90 text-white shadow-2xs">
+                            <Check size={10} /> افتراضية
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <img
+                          src="/brand/sangoub-mark-white-64.png"
+                          alt="سنجوب"
+                          className="w-5 h-5 object-contain"
+                        />
+                        <span className="text-[10px] font-black tracking-wider text-white/90">
+                          كارت سنجوب
+                        </span>
+                        <div className="h-3 w-[1px] bg-white/20 mx-0.5" />
                         <span className="text-xs font-black uppercase tracking-wider">
-                          {brand === 'visa' ? 'Visa' : brand === 'mastercard' ? 'MasterCard' : brand === 'meeza' ? 'ميزة' : 'بطاقة بنكية'}
+                          {brand === 'visa' ? 'VISA' : brand === 'mastercard' ? 'MasterCard' : brand === 'meeza' ? 'ميزة' : 'بطاقة بنكية'}
                         </span>
                       </div>
-                      {card.isDefault && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white shadow-2xs">
-                          <Check size={11} /> افتراضية
-                        </span>
-                      )}
                     </div>
 
-                    <p className="font-mono text-base font-bold tracking-widest text-white/95 dir-ltr my-2">
-                      •••• •••• •••• {card.last4}
-                    </p>
+                    {/* Card Number */}
+                    <div className="my-2.5 sm:my-3.5 relative z-10 text-center">
+                      <p className="font-mono text-sm sm:text-base font-bold tracking-[0.2em] text-white/95 dir-ltr drop-shadow-xs">
+                        •••• •••• •••• {card.last4}
+                      </p>
+                    </div>
 
-                    <div className="flex items-center justify-between text-xs text-white/80 pt-1">
-                      <span className="font-bold uppercase truncate max-w-[60%]">{card.cardholderName}</span>
-                      <span className="font-mono text-[11px] font-bold">صالح حتى: {card.expiryMonth}/{card.expiryYear}</span>
+                    {/* Cardholder name & Expiry */}
+                    <div className="flex items-end justify-between relative z-10 text-white/90 pt-1">
+                      <div className="min-w-0 pr-2">
+                        <p className="text-[7.5px] text-white/60 font-bold uppercase tracking-wider mb-0.5">حامل البطاقة</p>
+                        <span className="text-[11px] font-bold uppercase tracking-wide truncate block max-w-[170px]">
+                          {card.cardholderName}
+                        </span>
+                      </div>
+                      <div className="text-left shrink-0">
+                        <p className="text-[7.5px] text-white/60 font-bold uppercase tracking-wider mb-0.5">صالح حتى</p>
+                        <span className="font-mono text-[11px] font-bold tracking-wider">
+                          {card.expiryMonth}/{card.expiryYear}
+                        </span>
+                      </div>
                     </div>
                   </div>
 

@@ -17,7 +17,8 @@ import {
   Upload, 
   AlertCircle,
   KeyRound,
-  Mail
+  Mail,
+  CreditCard
 } from 'lucide-react';
 import type { OrderStatus } from '../../types';
 import { playAirportChime } from '../../utils/audioAlerts';
@@ -544,13 +545,30 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
                 </span>
               </div>
             )
+          ) : (order.paymentMethod === 'card' || (order.paymentMethod as string) === 'geidea') ? (
+            <div className="p-2.5 rounded-xl bg-blue-50/90 border border-blue-200 flex items-center justify-between text-blue-900">
+              <div className="flex items-center gap-2">
+                <CreditCard size={16} className="text-blue-600 shrink-0" />
+                <div>
+                  <strong className="text-xs font-black block">
+                    بطاقة بنكية (فيزا / ماستركارد / ميزة)
+                  </strong>
+                  <span className="text-[10px] text-blue-700">
+                    دفع إلكتروني آمن معتمد عبر جيديا Geidea
+                  </span>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold bg-white px-2 py-0.5 rounded-md text-emerald-700 border border-emerald-200 shadow-2xs">
+                خالص السداد ✓
+              </span>
+            </div>
           ) : (
             <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-between text-purple-900">
               <div className="flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
                 <div>
                   <strong className="text-xs font-black block">
-                    {order.paymentMethod === 'instapay' ? 'الدفع عبر إنستاباي' : 'المحفظة الإلكترونية'}
+                    {order.paymentMethod === 'instapay' ? 'الدفع عبر إنستاباي' : 'المحفظة الإلكترونية (فودافون كاش)'}
                   </strong>
                   <span className="text-[10px] text-purple-700">
                     {receiptUrl ? 'تم رفع إيصال التحويل للمراجعة' : 'يرجى التأكد من إتمام التحويل'}
@@ -564,7 +582,7 @@ export function OrderTrackingModal({ isOpen, onClose, order }: OrderTrackingModa
           )}
         </section>
 
-        {/* 2.3 Upload InstaPay Receipt (If applicable and not uploaded yet) */}
+        {/* 2.3 Upload InstaPay / Wallet Receipt (ONLY for instapay and vodafone_cash, NEVER for bank cards) */}
         {(order.paymentMethod === 'instapay' || order.paymentMethod === 'vodafone_cash') && (
           <section className="bg-purple-50/70 border border-purple-200 rounded-2xl p-3 space-y-2">
             <div className="flex items-center justify-between">

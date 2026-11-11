@@ -631,17 +631,69 @@ export function CartCheckoutModal({
       // Launch live Geidea payment gateway if bank card is selected
       if (selectedPaymentMethod === 'card') {
         try {
-          const sessionRes = await authenticatedApi('/api/orders', {
-            action: 'payment-session',
-            orderId: saved.id,
-          }) as any;
-          if (sessionRes?.sessionId || sessionRes?.redirectUrl) {
-            void openGeideaPayment(sessionRes.sessionId || sessionRes.redirectUrl, () => {
-              if (onOrderPlaced) onOrderPlaced(trackable);
+          setIsSubmitting(true);
+          let sessionRes: any = null;
+
+          try {
+            sessionRes = await authenticatedApi('/api/orders', {
+              action: 'payment-session',
+              orderId: saved.id,
+              amount: saved.total,
+              customerName: cleanName,
+              customerPhone: cleanPhone,
             });
+          } catch {
+            // Fallback: direct Cloudflare Pages Function endpoint
+            const res = await fetch('/api/geidea/session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                orderId: saved.id,
+                amount: saved.total,
+                customerName: cleanName,
+                customerPhone: cleanPhone,
+              }),
+            });
+            sessionRes = await res.json();
           }
-        } catch (payErr) {
-          console.warn('Geidea session initialization handled with trackable fallback:', payErr);
+
+          if (!sessionRes?.sessionId && !sessionRes?.redirectUrl) {
+            throw new Error(sessionRes?.error || 'تعذر بدء جلسة الدفع بالبطاقة البنكية. يرجى المحاولة ثانية.');
+          }
+
+          // Open Geidea Checkout with strict callback handlers
+          await openGeideaPayment(sessionRes.sessionId || sessionRes.redirectUrl, {
+            onSuccess: () => {
+              // Mark order as paid
+              trackable.paymentStatus = 'paid';
+              try {
+                localStorage.setItem('sangoub_last_order', JSON.stringify(trackable));
+              } catch {}
+
+              // Clear cart and finalize
+              clearCart();
+              showToast('تم الدفع بالبطاقة البنكية بنجاح! 🎉', 'success');
+              if (onOrderPlaced) {
+                onOrderPlaced(trackable);
+              }
+              onClose();
+            },
+            onError: () => {
+              setError('لم تكتمل عملية الدفع بالبطاقة. يرجى مراجعة بيانات البطاقة أو المحاولة ثانية.');
+              setIsSubmitting(false);
+            },
+            onCancel: () => {
+              setError('تم إلغاء عملية الدفع بالبطاقة. يمكنك إعادة المحاولة متى شئت.');
+              setIsSubmitting(false);
+            },
+          });
+
+          // Halt further execution so onOrderPlaced does NOT trigger prematurely
+          return;
+        } catch (payErr: any) {
+          setError(payErr?.message || 'تعذر تشغيل بوابة الدفع بالبطاقات حالياً. يمكنك اختيار الدفع نقداً عند الاستلام.');
+          setIsSubmitting(false);
+          return;
         }
       }
 
@@ -1301,11 +1353,12 @@ export function CartCheckoutModal({
                       </div>
                     )}
 
-                    {/* Notice & Option to save card */}
-                    <div className="pt-1">
-                      <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
-                        سيتم فتح نافذة الدفع المعتمدة لدى جيديا (Geidea) لإتمام السداد بالبطاقة وتأكيد رمز الأمان البنكي OTP بأعلى درجات التشفير.
-                      </p>
+                    {/* Security Badge Only - No unnecessary hints */}
+                    <div className="pt-1 space-y-2">
+                      <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-emerald-900 text-xs font-bold">
+                        <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
+                        <span>طريقة دفع مؤمنة بالكامل ومرخصة بشهادات الأمان البنكي العالمية PCI-DSS.</span>
+                      </div>
                       {user && !user.isGuest && selectedCardId === 'new' && (
                         <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer select-none">
                           <input
