@@ -367,7 +367,7 @@ export function MerchantOrderHistory({
                           <Clock size={10} />
                           <span>
                             {order.createdAt
-                              ? new Date(order.createdAt).toLocaleDateString('ar-EG', {
+                              ? new Date(order.createdAt).toLocaleDateString('ar-EG-u-nu-latn', {
                                   month: 'short',
                                   day: 'numeric',
                                   hour: '2-digit',
@@ -648,3 +648,4 @@ export function MerchantOrderHistory({
     </div>
   );
 }
+

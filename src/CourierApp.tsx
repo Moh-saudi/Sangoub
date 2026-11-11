@@ -101,12 +101,30 @@ function estimateDistance(
 }
 
 export function toEnglishDigits(val: number | string | undefined | null): string {
-  if (val === undefined || val === null || val === '') return '0';
+  if (val === undefined || val === null || val === '') return '';
   const str = String(val);
-  return str.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  return str
+    .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[\u200e\u200f]/g, '');
 }
 
 export const toArabicDigits = toEnglishDigits;
+
+export function formatDateTimeEnglish(dateVal?: string | number | Date | null): string {
+  if (!dateVal) return '';
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return '';
+  const datePart = toEnglishDigits(d.toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo', year: 'numeric', month: 'numeric', day: 'numeric' }));
+  const timePart = toEnglishDigits(d.toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }));
+  return `${datePart} · ${timePart}`;
+}
+
+export function formatTimeEnglish(dateVal?: string | number | Date | null): string {
+  if (!dateVal) return '';
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return '';
+  return toEnglishDigits(d.toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }));
+}
 
 function getItemImg(item: any, cache?: Record<string, string>): string {
   const pId = item?.product?.id || item?.product_id;
@@ -2195,10 +2213,10 @@ export default function CourierApp() {
                       <Store className="w-3.5 h-3.5 text-orange-600 shrink-0" />
                       <span>{o.storeName || o.pickupPoints?.[0]?.name || 'متجر سنجوب'}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 font-mono text-slate-500 text-[11px]">
+                    <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
                       <span>
-                        {new Date(deliveredTime).toLocaleDateString('ar-EG')} · {new Date(deliveredTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                        {formatDateTimeEnglish(deliveredTime)}
                       </span>
                     </div>
                   </div>
@@ -2638,12 +2656,12 @@ export default function CourierApp() {
                               const isOngoing = !log.endTime;
                               return (
                                 <tr key={log.id} className="hover:bg-slate-50/80">
-                                  <td className="p-2.5 font-mono text-[11px]">
-                                    {new Date(log.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                                  <td className="p-2.5 text-[11px]">
+                                    {formatTimeEnglish(log.startTime)}
                                   </td>
-                                  <td className="p-2.5 font-mono text-[11px]">
+                                  <td className="p-2.5 text-[11px]">
                                     {log.endTime
-                                      ? new Date(log.endTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+                                      ? formatTimeEnglish(log.endTime)
                                       : 'مستمر الآن…'}
                                   </td>
                                   <td className="p-2.5 font-bold font-mono text-amber-800">
@@ -2697,8 +2715,8 @@ export default function CourierApp() {
                                   {order.storeName || 'متجر سنجوب'}
                                 </span>
                               </div>
-                              <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
-                                {new Date(order.deliveredAt || order.updatedAt || order.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })} · {order.paymentMethod === 'cash' ? 'نقداً كاش' : 'دفع إلكتروني'}
+                              <span className="text-[10px] text-slate-400 block mt-0.5">
+                                {formatTimeEnglish(order.deliveredAt || order.updatedAt || order.createdAt)} · {order.paymentMethod === 'cash' ? 'نقداً كاش' : 'دفع إلكتروني'}
                               </span>
                             </div>
                             <div className="text-left font-mono font-bold text-slate-900">
@@ -3106,7 +3124,7 @@ export default function CourierApp() {
                             {notif.title}
                           </h4>
                           <span className="text-[10px] text-slate-400 shrink-0">
-                            {notif.createdAt ? new Date(notif.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : ''}
+                            {notif.createdAt ? formatTimeEnglish(notif.createdAt) : ''}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-2">
