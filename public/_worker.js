@@ -176,9 +176,37 @@ export default {
 
     // 5. Fallback to Cloudflare Pages Static Assets
     if (env && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-      return env.ASSETS.fetch(request);
+      // Prevent returning index.html for non-existent assets (which causes MIME type errors)
+      if (url.pathname.startsWith('/assets/')) {
+        const assetRes = await env.ASSETS.fetch(request);
+        const ct = assetRes.headers.get('content-type') || '';
+        if (ct.includes('text/html')) {
+          return new Response('Asset not found in current deployment', {
+            status: 404,
+            headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' },
+          });
+        }
+        return assetRes;
+      }
+
+      const res = await env.ASSETS.fetch(request);
+      // Ensure HTML entry points are never cached indefinitely to prevent outdated chunk references
+      if (url.pathname.endsWith('.html') || url.pathname === '/' || !url.pathname.includes('.')) {
+        const newHeaders = new Headers(res.headers);
+        newHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        newHeaders.set('Pragma', 'no-cache');
+        newHeaders.set('Expires', '0');
+        return new Response(res.body, {
+          status: res.status,
+          statusText: res.statusText,
+          headers: newHeaders,
+        });
+      }
+
+      return res;
     }
 
     return new Response('Not found', { status: 404 });
   },
 };
+

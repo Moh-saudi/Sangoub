@@ -34,7 +34,7 @@
           try {
             var last = parseInt(sessionStorage.getItem(recoveryKey) || '0', 10);
             var now = Date.now();
-            if (now - last < 15000) return;
+            if (now - last < 5000) return;
             sessionStorage.setItem(recoveryKey, String(now));
             if ('caches' in window) {
               caches.keys().then(function(keys) {
@@ -46,14 +46,20 @@
                 regs.forEach(function(r) { r.unregister(); });
               });
             }
-            window.location.reload(true);
+            var cleanUrl = window.location.href.split('?')[0];
+            window.location.replace(cleanUrl + '?t=' + now);
           } catch (e) {
-            window.location.reload(true);
+            window.location.reload();
           }
         }
         window.addEventListener('error', function(e) {
           var msg = (e && (e.message || (e.target && e.target.src))) || '';
-          if (typeof msg === 'string' && (msg.indexOf('Failed to load module script') !== -1 || msg.indexOf('MIME type of "text/html"') !== -1 || msg.indexOf('dynamically imported module') !== -1)) {
+          if (typeof msg === 'string' && (
+            msg.indexOf('Failed to load module script') !== -1 ||
+            msg.indexOf('text/html') !== -1 ||
+            msg.indexOf('dynamically imported module') !== -1 ||
+            msg.indexOf('Loading chunk') !== -1
+          )) {
             recover();
           }
         }, true);
