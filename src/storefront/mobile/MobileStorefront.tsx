@@ -93,7 +93,8 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     martBanner,
     handleBannerClick,
     unreadNotificationsCount,
-    setIsNotificationsModalOpen
+    setIsNotificationsModalOpen,
+    homeSections
   } = useStore();
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -184,6 +185,18 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
       (p) => p.isPopular || p.badge?.includes('طلب') || p.badge?.includes('الأكثر')
     ).slice(0, 8);
   }, [products]);
+
+  // Dynamic Ordered Home Page Sections (Synced with Admin AppContentManager)
+  const activeSections = useMemo(() => {
+    return Array.isArray(homeSections) && homeSections.length > 0
+      ? homeSections
+      : [
+          { type: 'slider' as const, enabled: true },
+          { type: 'stores' as const, enabled: true },
+          { type: 'offers' as const, enabled: true },
+          { type: 'products' as const, enabled: true }
+        ];
+  }, [homeSections]);
 
   // Comprehensive Search across products, categories, offers, and stores
   const isSearchActive = Boolean(searchQuery.trim());
@@ -431,6 +444,470 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     );
   };
 
+  // ── Modular Homepage Sections Driven by Admin Config ──────────
+  const renderSliderSection = () => {
+    if (activeSlides.length === 0) return null;
+    return (
+      <div
+        key="mobile-hero-slider"
+        className="relative rounded-2xl overflow-hidden shadow-xs bg-[#131921] w-full"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        aria-label="سلايدر العروض الترويجية"
+      >
+        <div className="relative w-full h-[120px]">
+          {activeSlides.map((slide, index) => {
+            const isActive = currentSlide === index;
+            const hasImage = Boolean(slide.imageUrl || (slide.image && (slide.image.startsWith('http') || slide.image.startsWith('/'))));
+            const hasTextOverlay = !slide.hideOverlay && Boolean(slide.title || slide.subtitle || (slide.btnText && slide.btnText.trim()) || (slide.tag && slide.tag.trim()));
+            const bannerImgUrl = slide.imageUrl || slide.image;
+
+            return (
+              <div
+                key={slide.id || index}
+                onClick={() => {
+                  handleBannerClick(slide, {
+                    onSelectProduct: (p) => setSelectedProductForModal(p),
+                    onSelectOffers: () => {
+                      setActiveFilter('offers');
+                      const grid = document.getElementById('mobile-products-grid');
+                      if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+                    },
+                    onSelectCategory: (cat) => {
+                      setSelectedCategory(cat);
+                      const grid = document.getElementById('mobile-products-grid');
+                      if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+                    },
+                  });
+                }}
+                className={`absolute inset-0 transition-opacity duration-300 ease-in-out cursor-pointer ${
+                  isActive ? 'opacity-100 pointer-events-auto z-10' : 'opacity-0 pointer-events-none z-0'
+                }`}
+                style={{ background: slide.bgGradient || 'linear-gradient(135deg, #131921 0%, #1F2937 100%)' }}
+              >
+                {hasImage ? (
+                  <div className="relative w-full h-full overflow-hidden">
+                    <img
+                      src={bannerImgUrl}
+                      alt={slide.title || 'عرض سنجوب'}
+                      loading={index === 0 ? "eager" : "lazy"}
+                      fetchPriority={index === 0 ? "high" : "auto"}
+                      decoding="async"
+                      className="absolute inset-0 w-full h-full object-cover object-center"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                    {hasTextOverlay && (
+                      <div className="absolute inset-0 bg-gradient-to-l from-[#0F172A]/90 via-[#0F172A]/55 to-transparent/10 z-10 py-2.5 px-3.5 pr-7 flex flex-col justify-center max-w-[78%]">
+                        {slide.tag && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.2 rounded-full text-white w-fit mb-1 shadow-2xs"
+                            style={{ backgroundColor: slide.badgeColor || '#FF5900' }}
+                          >
+                            <Sparkles size={8} />
+                            <span>{slide.tag}</span>
+                          </span>
+                        )}
+
+                        {slide.title && (
+                          <h2 className="text-[11.5px] font-black text-white leading-tight line-clamp-2 drop-shadow-sm">
+                            {slide.title}
+                          </h2>
+                        )}
+
+                        {(slide.subtitle || slide.desc) && (
+                          <p className="text-[9px] text-gray-200 line-clamp-1 mt-0.5 font-medium">
+                            {slide.subtitle || slide.desc}
+                          </p>
+                        )}
+
+                        {slide.btnText && (
+                          <div className="pt-1">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#FF5900] text-white text-[9px] font-black shadow-xs">
+                              <span>{slide.btnText}</span>
+                              <ArrowLeft size={9} />
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="relative z-10 w-full h-full px-3 py-2 flex items-center justify-between gap-2">
+                    <div className="flex-1 max-w-[65%] flex flex-col justify-center space-y-1">
+                      {slide.tag && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[8.5px] font-black px-2 py-0.2 rounded-full text-white w-fit shadow-2xs"
+                          style={{ backgroundColor: slide.badgeColor || '#FF5900' }}
+                        >
+                          <Sparkles size={8} />
+                          <span>{slide.tag}</span>
+                        </span>
+                      )}
+
+                      <h2 className="text-[11.5px] font-black text-white leading-tight line-clamp-2">
+                        {slide.title}
+                      </h2>
+
+                      {(slide.subtitle || slide.desc) && (
+                        <p className="text-[9px] text-gray-300 line-clamp-1">
+                          {slide.subtitle || slide.desc}
+                        </p>
+                      )}
+
+                      <div className="pt-0.5">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#FF5900] text-white text-[9.5px] font-black shadow-xs">
+                          <span>{slide.btnText || 'اطلب الآن'}</span>
+                          <ArrowLeft size={9} />
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="w-[32%] h-full flex items-center justify-center shrink-0">
+                      <img
+                        src={slide.mascotImg || '/brand/sangoub-logo-256x256.png'}
+                        alt="سنجوب Sangoub"
+                        className="max-h-[102px] w-auto object-contain drop-shadow-md"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {activeSlides.length > 1 && (
+          <div className="absolute bottom-1.5 inset-x-0 flex items-center justify-center gap-1 z-20 pointer-events-none">
+            {activeSlides.map((_, i) => (
+              <span
+                key={i}
+                className={`h-1 rounded-full transition-all duration-300 ${
+                  currentSlide === i ? 'w-3.5 bg-[#FF5900]' : 'w-1 bg-white/40'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderStoresSection = () => {
+    if (stores.length === 0) return null;
+    return (
+      <section key="mobile-stores" aria-labelledby="mobile-stores-heading" className="mb-2">
+        <div className="flex items-center justify-between px-1 mb-2">
+          <div className="flex items-center gap-1.5">
+            <h2 id="mobile-stores-heading" className="text-xs sm:text-sm font-bold text-[#111827]">
+              المتاجر
+            </h2>
+            <span className="text-[10px] text-[#6B7280] font-medium">({stores.length})</span>
+          </div>
+          <a
+            href="/stores"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate('/stores');
+            }}
+            className="text-[10px] font-bold text-[#FF5900] hover:underline flex items-center gap-0.5 text-decoration-none"
+          >
+            <span>عرض الكل</span>
+            <ChevronLeft size={11} />
+          </a>
+        </div>
+
+        <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-2 pt-0.5 w-full overscroll-x-contain touch-pan-x snap-x snap-mandatory">
+          {stores.map((store) => (
+            <MerchantLogoCard key={store.id} store={store} className="w-[75vw] max-w-[260px] shrink-0 snap-start" />
+          ))}
+        </div>
+      </section>
+    );
+  };
+
+  const renderOffersSection = () => {
+    if (popularProducts.length === 0) return null;
+    return (
+      <section key="mobile-popular-offers" aria-labelledby="mobile-popular-products" className="mb-2">
+        <div className="flex items-center justify-between px-1 mb-2">
+          <h2 id="mobile-popular-products" className="text-xs font-black text-[#111827] flex items-center gap-1">
+            <Flame size={15} className="text-[#FF5900]" />
+            <span>الأكثر طلباً وتوفيراً</span>
+          </h2>
+          <button
+            type="button"
+            onClick={() => { setActiveFilter('popular'); setSelectedCategory(null); }}
+            className="text-[10px] font-bold text-[#FF5900] flex items-center gap-0.5"
+          >
+            <span>الكل</span>
+            <ChevronLeft size={11} />
+          </button>
+        </div>
+
+        <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-1 w-full overscroll-x-contain touch-pan-x">
+          {popularProducts.map((product) => {
+            const cartItem = cartItems.find((item) => item.product.id === product.id);
+            const qty = cartItem ? cartItem.quantity : 0;
+
+            return (
+              <div
+                key={product.id}
+                onClick={() => setSelectedProductForModal(product)}
+                className="w-[135px] shrink-0 bg-white border border-[#E5E7EB] rounded-2xl p-2 flex flex-col justify-between shadow-2xs active:scale-98 transition-transform cursor-pointer"
+              >
+                <div>
+                  <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#F9FAFB] mb-1.5">
+                    <img
+                      src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
+                      }}
+                    />
+                    {product.originalPrice && product.originalPrice > product.price && (
+                      <span className="absolute top-1 right-1 bg-[#EF4444] text-white text-[8px] font-black px-1.5 py-0.2 rounded-md">
+                        خصم
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-[11px] font-black text-[#111827] line-clamp-1 mb-0.5">
+                    {product.name}
+                  </h3>
+                  {!LAUNCH_CONFIG.hideMerchantNames && (
+                    <p className="text-[9px] text-[#6B7280] truncate mb-1">
+                      {product.storeName}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-[#F3F4F6]">
+                  <div className="leading-tight">
+                    <span className="text-xs font-black text-[#FF5900] block">
+                      {formatEGP(product.price)}
+                    </span>
+                    {product.originalPrice && (
+                      <span className="text-[9px] text-[#9CA3AF] line-through">
+                        {formatEGP(product.originalPrice)}
+                      </span>
+                    )}
+                  </div>
+
+                  {qty > 0 ? (
+                    <div
+                      className="flex items-center gap-1 bg-[#FFF2EC] rounded-lg px-1 py-0.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(cartItem!.id, -1)}
+                        className="w-4 h-4 bg-white text-[#FF5900] rounded flex items-center justify-center font-black text-xs"
+                      >
+                        <Minus size={9} strokeWidth={3} />
+                      </button>
+                      <span className="text-[11px] font-black text-[#FF5900]">{qty}</span>
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(cartItem!.id, 1)}
+                        className="w-4 h-4 bg-[#FF5900] text-white rounded flex items-center justify-center font-black text-xs"
+                      >
+                        <Plus size={9} strokeWidth={3} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (product.optionGroups && product.optionGroups.length > 0) {
+                          setSelectedProductForModal(product);
+                        } else {
+                          addToCart(product, 1);
+                        }
+                      }}
+                      className="w-6 h-6 rounded-lg bg-[#FFF2EC] text-[#FF5900] active:bg-[#FF5900] active:text-white flex items-center justify-center font-black"
+                    >
+                      <Plus size={14} strokeWidth={2.5} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  };
+
+  const renderProductsSection = () => {
+    return (
+      <div key="mobile-products-section" className="space-y-3">
+        {/* Category rail */}
+        <section>
+          <CategoryRail
+            categories={supermarketCategories}
+            selectedCategory={selectedCategory}
+            compact
+            onSelect={(category) => {
+              setSelectedCategory(category);
+              const grid = document.getElementById('mobile-products-grid');
+              if (category && grid) grid.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
+
+          {selectedCategory && categoryMerchants.length > 0 && (
+            <div className="mt-2 p-2 bg-white rounded-xl border border-[#E5E7EB] shadow-2xs">
+              <p className="text-[9.5px] font-black text-[#111827] mb-1.5 flex items-center gap-1">
+                <span>المتاجر التي توفر منتجات في ({selectedCategory}):</span>
+                <span className="text-[#FF5900]">({categoryMerchants.length})</span>
+              </p>
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                {categoryMerchants.map((merchant) => (
+                  <div
+                    key={merchant.id}
+                    onClick={() => navigate(`/stores/${merchant.id}`)}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] shrink-0 cursor-pointer active:scale-95"
+                  >
+                    <img
+                      src={getStoreLogo(merchant)}
+                      alt={merchant.name}
+                      className="w-5 h-5 rounded-full object-cover border border-[#E5E7EB]"
+                    />
+                    <span className="text-[9px] font-black text-[#1F2937]">{merchant.name}</span>
+                    {merchant.status === 'closed' ? (
+                      <span className="text-[8px] text-gray-500 bg-gray-200/80 px-1 py-0.2 rounded-md font-bold">مغلق</span>
+                    ) : merchant.status === 'busy' ? (
+                      <span className="text-[8px] text-amber-700 bg-amber-100 px-1 py-0.2 rounded-md font-bold">مشغول</span>
+                    ) : (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Mart Quick Bar */}
+        {martBanner?.enabled !== false && (
+          <div
+            onClick={() => setSelectedCategory(martBanner?.targetCategory || 'سوبرماركت')}
+            className="bg-gradient-to-r from-[#FF5900] via-[#FF6A1A] to-[#FF4500] rounded-2xl p-2.5 sm:p-3 text-white shadow-xs flex items-center justify-between gap-2 cursor-pointer active:scale-98 transition-transform"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-white text-[#FF5900] flex items-center justify-center shrink-0 font-black shadow-xs">
+                <Zap size={18} className="fill-[#FF5900]" />
+              </div>
+              <div className="leading-tight">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <span className="text-[8.5px] bg-white/25 px-1.5 py-0.2 rounded-full font-bold">
+                    {martBanner?.badge || 'سنجوب بقالة ⚡'}
+                  </span>
+                  {martBanner?.areaText && (
+                    <span className="text-[8px] bg-white text-[#FF5900] px-1.5 py-0.2 rounded-full font-black">
+                      {martBanner.areaText}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] font-black text-white">{martBanner?.title || 'سنجوب ماركت وكل طلبات البيت لحد بابك'}</p>
+              </div>
+            </div>
+
+            <span className="px-2.5 py-1 rounded-xl bg-white text-[#FF5900] text-[9.5px] font-black shrink-0 shadow-xs">
+              {martBanner?.btnText || 'تسوق الآن'}
+            </span>
+          </div>
+        )}
+
+        {/* Quick Filter Chips & Products Grid */}
+        <section id="mobile-products-grid" className="pt-1">
+          <div className="flex items-center justify-between px-1 mb-2">
+            <h2 className="text-xs font-black text-[#111827]">
+              {selectedCategory ? `قسم: ${selectedCategory}` : 'قائمة الوجبات والأصناف'}
+            </h2>
+            <span className="text-[10px] text-[#6B7280]">
+              {filteredProducts.length} صنف متاح
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2">
+            <button
+              type="button"
+              onClick={() => { setActiveFilter('all'); setSelectedCategory(null); }}
+              className={`px-3 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
+                activeFilter === 'all' && !selectedCategory
+                  ? 'bg-[#111827] text-white shadow-xs'
+                  : 'bg-white border border-[#E5E7EB] text-[#6B7280]'
+              }`}
+            >
+              الكل
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter(activeFilter === 'popular' ? 'all' : 'popular')}
+              className={`px-3 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap flex items-center gap-1 transition-all ${
+                activeFilter === 'popular'
+                  ? 'bg-[#FF5900] text-white shadow-xs'
+                  : 'bg-white border border-[#E5E7EB] text-[#6B7280]'
+              }`}
+            >
+              <Flame size={11} />
+              <span>الأكثر طلباً</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter(activeFilter === 'offers' ? 'all' : 'offers')}
+              className={`px-3 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap flex items-center gap-1 transition-all ${
+                activeFilter === 'offers'
+                  ? 'bg-[#FF5900] text-white shadow-xs'
+                  : 'bg-white border border-[#E5E7EB] text-[#6B7280]'
+              }`}
+            >
+              <Tag size={11} />
+              <span>عروض التوفير</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter(activeFilter === 'fast_delivery' ? 'all' : 'fast_delivery')}
+              className={`px-3 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap flex items-center gap-1 transition-all ${
+                activeFilter === 'fast_delivery'
+                  ? 'bg-[#059669] text-white shadow-xs'
+                  : 'bg-white border border-[#E5E7EB] text-[#6B7280]'
+              }`}
+            >
+              <Clock size={11} />
+              <span>سريع التوصيل</span>
+            </button>
+          </div>
+
+          {filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2">
+              {filteredProducts.map((product) => renderProductArticle(product))}
+            </div>
+          ) : (
+            <div className="text-center py-8 bg-white rounded-2xl border border-[#E5E7EB] p-4">
+              <ShoppingBag size={24} className="text-[#9CA3AF] mx-auto mb-1.5" />
+              <p className="text-xs font-bold text-[#6B7280]">لا توجد نتائج في هذا القسم</p>
+              <button
+                type="button"
+                onClick={() => { setSelectedCategory(null); setActiveFilter('all'); }}
+                className="mt-2 text-xs font-black text-[#FF5900]"
+              >
+                عرض كل الأصناف
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#F7F7F8] text-[#1F2937] pb-24 font-['Cairo',sans-serif] select-none" dir="rtl">
       
@@ -666,468 +1143,26 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           </div>
         ) : (
           <>
-        {/* 2. DEDICATED MOBILE HERO SLIDER (Compact 120px Height) */}
-        {activeSlides.length > 0 && (
-          <div
-            className="relative rounded-2xl overflow-hidden shadow-xs bg-[#131921] w-full"
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-            aria-label="سلايدر العروض الترويجية"
-          >
-            <div className="relative w-full h-[120px]">
-              {activeSlides.map((slide, index) => {
-                const isActive = currentSlide === index;
-                const hasImage = Boolean(slide.imageUrl || (slide.image && (slide.image.startsWith('http') || slide.image.startsWith('/'))));
-                const hasTextOverlay = !slide.hideOverlay && Boolean(slide.title || slide.subtitle || (slide.btnText && slide.btnText.trim()) || (slide.tag && slide.tag.trim()));
-                const bannerImgUrl = slide.imageUrl || slide.image;
+            {activeSections.map((sec) => {
+              if (sec.enabled === false) return null;
+              switch (sec.type) {
+                case 'slider':
+                  return renderSliderSection();
+                case 'stores':
+                  return renderStoresSection();
+                case 'offers':
+                  return renderOffersSection();
+                case 'products':
+                  return renderProductsSection();
+                default:
+                  return null;
+              }
+            })}
 
-                return (
-                  <div
-                    key={slide.id || index}
-                    onClick={() => {
-                      handleBannerClick(slide, {
-                        onSelectProduct: (p) => setSelectedProductForModal(p),
-                        onSelectOffers: () => {
-                          setActiveFilter('offers');
-                          const grid = document.getElementById('mobile-products-grid');
-                          if (grid) grid.scrollIntoView({ behavior: 'smooth' });
-                        },
-                        onSelectCategory: (cat) => {
-                          setSelectedCategory(cat);
-                          const grid = document.getElementById('mobile-products-grid');
-                          if (grid) grid.scrollIntoView({ behavior: 'smooth' });
-                        },
-                      });
-                    }}
-                    className={`absolute inset-0 transition-opacity duration-300 ease-in-out cursor-pointer ${
-                      isActive ? 'opacity-100 pointer-events-auto z-10' : 'opacity-0 pointer-events-none z-0'
-                    }`}
-                    style={{ background: slide.bgGradient || 'linear-gradient(135deg, #131921 0%, #1F2937 100%)' }}
-                  >
-                    {hasImage ? (
-                      /* Real Image Banner Layout with Scrim for Text Legibility */
-                      <div className="relative w-full h-full overflow-hidden">
-                        <img
-                          src={bannerImgUrl}
-                          alt={slide.title || 'عرض سنجوب'}
-                          loading={index === 0 ? "eager" : "lazy"}
-                          fetchPriority={index === 0 ? "high" : "auto"}
-                          decoding="async"
-                          className="absolute inset-0 w-full h-full object-cover object-center"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                        {/* Scrim & text/buttons only rendered when banner is not a clean graphic design */}
-                        {hasTextOverlay && (
-                          <div className="absolute inset-0 bg-gradient-to-l from-[#0F172A]/90 via-[#0F172A]/55 to-transparent/10 z-10 py-2.5 px-3.5 pr-7 flex flex-col justify-center max-w-[78%]">
-                            {slide.tag && (
-                              <span
-                                className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.2 rounded-full text-white w-fit mb-1 shadow-2xs"
-                                style={{ backgroundColor: slide.badgeColor || '#FF5900' }}
-                              >
-                                <Sparkles size={8} />
-                                <span>{slide.tag}</span>
-                              </span>
-                            )}
-
-                            {slide.title && (
-                              <h2 className="text-[11.5px] font-black text-white leading-tight line-clamp-2 drop-shadow-sm">
-                                {slide.title}
-                              </h2>
-                            )}
-
-                            {(slide.subtitle || slide.desc) && (
-                              <p className="text-[9px] text-gray-200 line-clamp-1 mt-0.5 font-medium">
-                                {slide.subtitle || slide.desc}
-                              </p>
-                            )}
-
-                            {slide.btnText && (
-                              <div className="pt-1">
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#FF5900] text-white text-[9px] font-black shadow-xs">
-                                  <span>{slide.btnText}</span>
-                                  <ArrowLeft size={9} />
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      /* Mascot + Gradient Layout */
-                      <div className="relative z-10 w-full h-full px-3 py-2 flex items-center justify-between gap-2">
-                        {/* Text */}
-                        <div className="flex-1 max-w-[65%] flex flex-col justify-center space-y-1">
-                          {slide.tag && (
-                            <span
-                              className="inline-flex items-center gap-1 text-[8.5px] font-black px-2 py-0.2 rounded-full text-white w-fit shadow-2xs"
-                              style={{ backgroundColor: slide.badgeColor || '#FF5900' }}
-                            >
-                              <Sparkles size={8} />
-                              <span>{slide.tag}</span>
-                            </span>
-                          )}
-
-                          <h2 className="text-[11.5px] font-black text-white leading-tight line-clamp-2">
-                            {slide.title}
-                          </h2>
-
-                          {(slide.subtitle || slide.desc) && (
-                            <p className="text-[9px] text-gray-300 line-clamp-1">
-                              {slide.subtitle || slide.desc}
-                            </p>
-                          )}
-
-                          <div className="pt-0.5">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#FF5900] text-white text-[9.5px] font-black shadow-xs">
-                              <span>{slide.btnText || 'اطلب الآن'}</span>
-                              <ArrowLeft size={9} />
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Mascot Illustration */}
-                        <div className="w-[32%] h-full flex items-center justify-center shrink-0">
-                          <img
-                            src={slide.mascotImg || '/brand/sangoub-logo-256x256.png'}
-                            alt="سنجوب Sangoub"
-                            className="max-h-[102px] w-auto object-contain drop-shadow-md"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-mark-white-128.png';
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            {/* Soft Launch Entity Line */}
+            <div className="text-center py-4 text-[9.5px] text-[#9CA3AF] font-bold">
+              {LAUNCH_CONFIG.entityLine}
             </div>
-
-            {/* Dots */}
-            {activeSlides.length > 1 && (
-              <div className="absolute bottom-1.5 inset-x-0 flex items-center justify-center gap-1 z-20 pointer-events-none">
-                {activeSlides.map((_, i) => (
-                  <span
-                    key={i}
-                    className={`h-1 rounded-full transition-all duration-300 ${
-                      currentSlide === i ? 'w-3.5 bg-[#FF5900]' : 'w-1 bg-white/40'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 3. Two-row swipeable category rail */}
-        <section>
-          <CategoryRail
-            categories={supermarketCategories}
-            selectedCategory={selectedCategory}
-            compact
-            onSelect={(category) => {
-              setSelectedCategory(category);
-              const grid = document.getElementById('mobile-products-grid');
-              if (category && grid) grid.scrollIntoView({ behavior: 'smooth' });
-            }}
-          />
-
-          {/* If a category is selected: Show Merchants Strip */}
-          {selectedCategory && categoryMerchants.length > 0 && (
-            <div className="mt-2 p-2 bg-white rounded-xl border border-[#E5E7EB] shadow-2xs">
-              <p className="text-[9.5px] font-black text-[#111827] mb-1.5 flex items-center gap-1">
-                <span>المتاجر التي توفر منتجات في ({selectedCategory}):</span>
-                <span className="text-[#FF5900]">({categoryMerchants.length})</span>
-              </p>
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                {categoryMerchants.map((merchant) => (
-                  <div
-                    key={merchant.id}
-                    onClick={() => navigate(`/stores/${merchant.id}`)}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] shrink-0 cursor-pointer active:scale-95"
-                  >
-                    <img
-                      src={getStoreLogo(merchant)}
-                      alt={merchant.name}
-                      className="w-5 h-5 rounded-full object-cover border border-[#E5E7EB]"
-                    />
-                    <span className="text-[9px] font-black text-[#1F2937]">{merchant.name}</span>
-                    {merchant.status === 'closed' ? (
-                      <span className="text-[8px] text-gray-500 bg-gray-200/80 px-1 py-0.2 rounded-md font-bold">مغلق</span>
-                    ) : merchant.status === 'busy' ? (
-                      <span className="text-[8px] text-amber-700 bg-amber-100 px-1 py-0.2 rounded-md font-bold">مشغول</span>
-                    ) : (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* 5. SANGOUB GROCERY QUICK BAR (Dynamic & Configurable from Admin Dashboard) */}
-        {martBanner?.enabled !== false && (
-          <div
-            onClick={() => setSelectedCategory(martBanner?.targetCategory || 'سوبرماركت')}
-            className="bg-gradient-to-r from-[#FF5900] via-[#FF6A1A] to-[#FF4500] rounded-2xl p-2.5 sm:p-3 text-white shadow-xs flex items-center justify-between gap-2 cursor-pointer active:scale-98 transition-transform"
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-white text-[#FF5900] flex items-center justify-center shrink-0 font-black shadow-xs">
-                <Zap size={18} className="fill-[#FF5900]" />
-              </div>
-              <div className="leading-tight">
-                <div className="flex items-center gap-1 mb-0.5">
-                  <span className="text-[8.5px] bg-white/25 px-1.5 py-0.2 rounded-full font-bold">
-                    {martBanner?.badge || 'سنجوب بقالة ⚡'}
-                  </span>
-                  {martBanner?.areaText && (
-                    <span className="text-[8px] bg-white text-[#FF5900] px-1.5 py-0.2 rounded-full font-black">
-                      {martBanner.areaText}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[10px] font-black text-white">{martBanner?.title || 'سنجوب ماركت وكل طلبات البيت لحد بابك'}</p>
-              </div>
-            </div>
-
-            <span className="px-2.5 py-1 rounded-xl bg-white text-[#FF5900] text-[9.5px] font-black shrink-0 shadow-xs">
-              {martBanner?.btnText || 'تسوق الآن'}
-            </span>
-          </div>
-        )}
-
-        {/* 6. Popular products */}
-        {popularProducts.length > 0 && (
-          <section aria-labelledby="mobile-popular-products">
-            <div className="flex items-center justify-between px-1 mb-2">
-              <h2 id="mobile-popular-products" className="text-xs font-black text-[#111827] flex items-center gap-1">
-                <Flame size={15} className="text-[#FF5900]" />
-                <span>الأكثر طلباً الآن</span>
-              </h2>
-              <button
-                type="button"
-                onClick={() => { setActiveFilter('popular'); setSelectedCategory(null); }}
-                className="text-[10px] font-bold text-[#FF5900] flex items-center gap-0.5"
-              >
-                <span>الكل</span>
-                <ChevronLeft size={11} />
-              </button>
-            </div>
-
-            <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-1 w-full overscroll-x-contain touch-pan-x">
-              {popularProducts.map((product) => {
-                const cartItem = cartItems.find((item) => item.product.id === product.id);
-                const qty = cartItem ? cartItem.quantity : 0;
-
-                return (
-                  <div
-                    key={product.id}
-                    onClick={() => setSelectedProductForModal(product)}
-                    className="w-[135px] shrink-0 bg-white border border-[#E5E7EB] rounded-2xl p-2 flex flex-col justify-between shadow-2xs active:scale-98 transition-transform cursor-pointer"
-                  >
-                    <div>
-                      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#F9FAFB] mb-1.5">
-                        <img
-                          src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
-                          }}
-                        />
-                        {product.originalPrice && product.originalPrice > product.price && (
-                          <span className="absolute top-1 right-1 bg-[#EF4444] text-white text-[8px] font-black px-1.5 py-0.2 rounded-md">
-                            خصم
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-[11px] font-black text-[#111827] line-clamp-1 mb-0.5">
-                        {product.name}
-                      </h3>
-                      {!LAUNCH_CONFIG.hideMerchantNames && (
-                        <p className="text-[9px] text-[#6B7280] truncate mb-1">
-                          {product.storeName}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1 border-t border-[#F3F4F6]">
-                      <div className="leading-tight">
-                        <span className="text-xs font-black text-[#FF5900] block">
-                          {formatEGP(product.price)}
-                        </span>
-                        {product.originalPrice && (
-                          <span className="text-[9px] text-[#9CA3AF] line-through">
-                            {formatEGP(product.originalPrice)}
-                          </span>
-                        )}
-                      </div>
-
-                      {qty > 0 ? (
-                        <div
-                          className="flex items-center gap-1 bg-[#FFF2EC] rounded-lg px-1 py-0.5"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(cartItem!.id, -1)}
-                            className="w-4 h-4 bg-white text-[#FF5900] rounded flex items-center justify-center font-black text-xs"
-                          >
-                            <Minus size={9} strokeWidth={3} />
-                          </button>
-                          <span className="text-[11px] font-black text-[#FF5900]">{qty}</span>
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(cartItem!.id, 1)}
-                            className="w-4 h-4 bg-[#FF5900] text-white rounded flex items-center justify-center font-black text-xs"
-                          >
-                            <Plus size={9} strokeWidth={3} />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (product.optionGroups && product.optionGroups.length > 0) {
-                              setSelectedProductForModal(product);
-                            } else {
-                              addToCart(product, 1);
-                            }
-                          }}
-                          className="w-6 h-6 rounded-lg bg-[#FFF2EC] text-[#FF5900] active:bg-[#FF5900] active:text-white flex items-center justify-center font-black"
-                        >
-                          <Plus size={14} strokeWidth={2.5} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* 6.5 POPULAR STORES HORIZONTAL SCROLL (Mobile) */}
-        {stores.length > 0 && (
-          <section aria-labelledby="mobile-stores-heading" className="mb-4">
-            <div className="flex items-center justify-between px-1 mb-2">
-              <div className="flex items-center gap-1.5">
-                <h2 id="mobile-stores-heading" className="text-xs sm:text-sm font-bold text-[#111827]">
-                  المتاجر
-                </h2>
-                <span className="text-[10px] text-[#6B7280] font-medium">({stores.length})</span>
-              </div>
-              <a
-                href="/stores"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate('/stores');
-                }}
-                className="text-[10px] font-bold text-[#FF5900] hover:underline flex items-center gap-0.5 text-decoration-none"
-              >
-                <span>عرض الكل</span>
-                <ChevronLeft size={11} />
-              </a>
-            </div>
-
-            <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-2 pt-0.5 w-full overscroll-x-contain touch-pan-x snap-x snap-mandatory">
-              {stores.map((store) => (
-                <MerchantLogoCard key={store.id} store={store} className="w-[75vw] max-w-[260px] shrink-0 snap-start" />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* 7. QUICK FILTER CHIPS (Horizontal Scroll) */}
-        <section id="mobile-products-grid" className="pt-1">
-          <div className="flex items-center justify-between px-1 mb-2">
-            <h2 className="text-xs font-black text-[#111827]">
-              {selectedCategory ? `قسم: ${selectedCategory}` : 'قائمة الوجبات والأصناف'}
-            </h2>
-            <span className="text-[10px] text-[#6B7280]">
-              {filteredProducts.length} صنف متاح
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2">
-            <button
-              type="button"
-              onClick={() => { setActiveFilter('all'); setSelectedCategory(null); }}
-              className={`px-3 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
-                activeFilter === 'all' && !selectedCategory
-                  ? 'bg-[#111827] text-white shadow-xs'
-                  : 'bg-white border border-[#E5E7EB] text-[#6B7280]'
-              }`}
-            >
-              الكل
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveFilter(activeFilter === 'popular' ? 'all' : 'popular')}
-              className={`px-3 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap flex items-center gap-1 transition-all ${
-                activeFilter === 'popular'
-                  ? 'bg-[#FF5900] text-white shadow-xs'
-                  : 'bg-white border border-[#E5E7EB] text-[#6B7280]'
-              }`}
-            >
-              <Flame size={11} />
-              <span>الأكثر طلباً</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveFilter(activeFilter === 'offers' ? 'all' : 'offers')}
-              className={`px-3 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap flex items-center gap-1 transition-all ${
-                activeFilter === 'offers'
-                  ? 'bg-[#FF5900] text-white shadow-xs'
-                  : 'bg-white border border-[#E5E7EB] text-[#6B7280]'
-              }`}
-            >
-              <Tag size={11} />
-              <span>عروض التوفير</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveFilter(activeFilter === 'fast_delivery' ? 'all' : 'fast_delivery')}
-              className={`px-3 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap flex items-center gap-1 transition-all ${
-                activeFilter === 'fast_delivery'
-                  ? 'bg-[#059669] text-white shadow-xs'
-                  : 'bg-white border border-[#E5E7EB] text-[#6B7280]'
-              }`}
-            >
-              <Bike size={11} />
-              <span>أسرع توصيل</span>
-            </button>
-          </div>
-
-          {/* 8. PRODUCTS 2-COLUMN GRID (Compact, Sleek & Modern) */}
-          {filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2">
-              {filteredProducts.map((product) => renderProductArticle(product))}
-            </div>
-          ) : (
-            <div className="text-center py-8 bg-white rounded-2xl border border-[#E5E7EB] p-4">
-              <ShoppingBag size={24} className="text-[#9CA3AF] mx-auto mb-1.5" />
-              <p className="text-xs font-bold text-[#6B7280]">لا توجد نتائج في هذا القسم</p>
-              <button
-                type="button"
-                onClick={() => { setSelectedCategory(null); setActiveFilter('all'); }}
-                className="mt-2 text-xs font-black text-[#FF5900]"
-              >
-                عرض كل الأصناف
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* Soft Launch Entity Line */}
-        <div className="text-center py-4 text-[9.5px] text-[#9CA3AF] font-bold">
-          {LAUNCH_CONFIG.entityLine}
-        </div>
           </>
         )}
       </main>

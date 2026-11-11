@@ -62,8 +62,20 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     subtotal,
     addToCart,
     searchQuery,
-    setSearchQuery
+    setSearchQuery,
+    homeSections
   } = useStore();
+
+  const activeSections = useMemo(() => {
+    return Array.isArray(homeSections) && homeSections.length > 0
+      ? homeSections
+      : [
+          { type: 'slider' as const, enabled: true },
+          { type: 'stores' as const, enabled: true },
+          { type: 'offers' as const, enabled: true },
+          { type: 'products' as const, enabled: true }
+        ];
+  }, [homeSections]);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'offers' | 'popular' | 'fast_delivery'>('all');
@@ -195,419 +207,438 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     return getCategoryMerchants(products, selectedCategory, stores);
   }, [selectedCategory, products, stores]);
 
-  return (
-    <div className="min-h-screen bg-[#F7F7F8] pb-28 sm:pb-20 text-[#1F2937] overflow-x-hidden" dir="rtl">
-      
-      {/* ── Main Container ── */}
-      <div className="max-w-6xl mx-auto px-3.5 sm:px-6 pt-3 sm:pt-6">
 
-        {/* 1. HERO SLIDER */}
-        <section className="mb-6">
-          <HeroSlider
-            onOpenAreaModal={onOpenAreaModal}
-            onSelectProduct={(p) => setSelectedProductForModal(p)}
-            onSelectCategory={(cat) => {
-              setSelectedCategory(cat);
-              const grid = document.getElementById('products-grid');
-              if (grid) grid.scrollIntoView({ behavior: 'smooth' });
-            }}
-            onSelectOffers={() => {
-              setActiveFilter('offers');
-              const grid = document.getElementById('products-grid');
-              if (grid) grid.scrollIntoView({ behavior: 'smooth' });
-            }}
-          />
-        </section>
+  // ── Modular Homepage Sections (Driven by Admin Config) ──────────
+  const renderSliderSection = () => (
+    <section key="home-slider" className="mb-6">
+      <HeroSlider
+        onOpenAreaModal={onOpenAreaModal}
+        onSelectProduct={(p) => setSelectedProductForModal(p)}
+        onSelectCategory={(cat) => {
+          setSelectedCategory(cat);
+          const grid = document.getElementById('products-grid');
+          if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onSelectOffers={() => {
+          setActiveFilter('offers');
+          const grid = document.getElementById('products-grid');
+          if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
+    </section>
+  );
 
-        {/* 3. Two-row category rail */}
-        <section className="mb-6">
-          <CategoryRail
-            categories={supermarketCategories}
-            selectedCategory={selectedCategory}
-            onSelect={(category) => {
-              setSelectedCategory(category);
-              const grid = document.getElementById('products-grid');
-              if (category && grid) grid.scrollIntoView({ behavior: 'smooth' });
+  const renderStoresSection = () => {
+    if (LAUNCH_CONFIG.hideMerchantNames || stores.length === 0) return null;
+    return (
+      <section key="home-stores" aria-labelledby="stores-heading" className="mb-6">
+        <div className="flex items-center justify-between px-1 mb-2.5">
+          <div className="flex items-center gap-1.5">
+            <h2 id="stores-heading" className="text-xs sm:text-sm font-bold text-[#111827]">
+              المتاجر
+            </h2>
+            <span className="text-[10px] text-[#6B7280] font-medium">({stores.length})</span>
+          </div>
+          <a
+            href="/stores"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate('/stores');
             }}
-          />
+            className="text-[10.5px] font-bold text-[#FF5900] hover:text-[#E04E00] flex items-center gap-0.5 text-decoration-none transition-colors"
+          >
+            <span>عرض الكل</span>
+            <ChevronLeft size={11} />
+          </a>
+        </div>
 
-          {/* Merchants Offering Products in this Category */}
-          {selectedCategory && categoryMerchants.length > 0 && (
-            <div className="mt-3.5 p-3.5 bg-white rounded-2xl border border-[#E5E7EB] shadow-xs flex flex-wrap items-center gap-3">
-              <span className="text-xs font-black text-[#111827] shrink-0">المتاجر المتوفرة في ({selectedCategory}):</span>
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                {categoryMerchants.map((merchant) => (
-                  <div
-                    key={merchant.id}
-                    onClick={() => navigate(`/stores/${merchant.id}`)}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#F9FAFB] border border-[#E5E7EB] shrink-0 cursor-pointer hover:border-[#FF5900] transition-colors text-xs font-bold font-tajawal"
-                    style={{ fontFamily: "'Tajawal', sans-serif" }}
-                  >
+        <div className="flex items-stretch gap-2.5 overflow-x-auto overscroll-x-contain touch-pan-x snap-x snap-mandatory pb-2 w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {stores.map((store) => (
+            <MerchantLogoCard key={store.id} store={store} className="w-[75vw] max-w-[270px] shrink-0 snap-start sm:w-[250px]" />
+          ))}
+        </div>
+      </section>
+    );
+  };
+
+  const renderOffersSection = () => {
+    if (popularProducts.length === 0) return null;
+    return (
+      <section key="home-offers" aria-labelledby="popular-products-heading" className="mb-6">
+        <div className="flex items-center justify-between px-1 mb-2.5">
+          <div>
+            <h2 id="popular-products-heading" className="text-sm sm:text-base font-black text-[#111827] flex items-center gap-1.5">
+              <Flame size={18} className="text-[#FF5900]" />
+              <span>الأكثر طلباً الآن</span>
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveFilter('popular');
+              setSelectedCategory(null);
+            }}
+            className="text-xs font-bold text-[#FF5900] hover:underline cursor-pointer flex items-center gap-0.5"
+          >
+            <span>عرض الكل</span>
+            <ChevronLeft size={13} />
+          </button>
+        </div>
+
+        <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 pt-1 w-full overscroll-x-contain touch-pan-x">
+          {popularProducts.map((product) => {
+            const discountPct = product.originalPrice && product.originalPrice > product.price
+              ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+              : 0;
+
+            return (
+              <div
+                key={product.id}
+                onClick={() => setSelectedProductForModal(product)}
+                className="w-[145px] sm:w-[180px] shrink-0 bg-white border border-[#E5E7EB] hover:border-[#FF5900]/40 rounded-2xl p-2.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all cursor-pointer group select-none"
+              >
+                <div>
+                  <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#F9FAFB] mb-2">
                     <img
-                      src={getStoreLogo(merchant)}
-                      alt={merchant.name}
-                      className="w-5 h-5 rounded-full object-cover"
+                      src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
+                      }}
                     />
-                    <span>{merchant.name}</span>
-                    {merchant.status === 'closed' ? (
-                      <span className="text-[10px] text-gray-500 bg-gray-200/80 px-1.5 py-0.5 rounded-md font-bold">
-                        مغلق
+                    {discountPct > 0 && (
+                      <span className="absolute top-1.5 right-1.5 bg-[#EF4444] text-white text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs">
+                        خصم {discountPct}%
                       </span>
-                    ) : merchant.status === 'busy' ? (
-                      <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md font-bold">
-                        مشغول
-                      </span>
-                    ) : (
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="مفتوح الآن" />
                     )}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
 
-        {/* 4. COMPACT SANGOUB MART BANNER (Dynamic & Managed from Admin Dashboard) */}
-        {martBanner?.enabled !== false && (
-          <section className="mb-6">
-            <div className="bg-gradient-to-r from-[#FF5900] via-[#FF6A1A] to-[#FF4500] rounded-2xl p-3.5 sm:p-5 text-white shadow-xs flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white text-[#FF5900] flex items-center justify-center shrink-0 shadow-xs">
-                  <Zap size={22} className="fill-[#FF5900]" />
-                </div>
-                <div className="leading-tight">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-[9px] bg-white/20 text-white px-2 py-0.2 rounded-full font-black">
-                      {martBanner?.badge || 'سنجوب بقالة ⚡'}
-                    </span>
-                    {martBanner?.areaText && (
-                      <span className="text-[9px] bg-white text-[#FF5900] px-1.5 py-0.2 rounded-full font-black">
-                        {martBanner.areaText}
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-xs sm:text-sm font-black line-clamp-1">
-                    {martBanner?.title || 'سنجوب ماركت وكل طلبات البيت لحد بابك'}
+                  <h3 className="text-xs font-black text-[#111827] line-clamp-1 mb-0.5 group-hover:text-[#FF5900] transition-colors">
+                    {product.name}
                   </h3>
+                  {!LAUNCH_CONFIG.hideMerchantNames && (
+                    <p className="text-[10px] text-[#6B7280] line-clamp-1 mb-1.5">
+                      {product.storeName}
+                    </p>
+                  )}
                 </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedCategory(martBanner?.targetCategory || 'سوبرماركت');
-                  const grid = document.getElementById('products-grid');
-                  if (grid) grid.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="px-4 py-2 bg-white text-[#FF5900] rounded-xl text-xs sm:text-sm font-black shrink-0 shadow-xs active:scale-95 transition-transform hover:bg-[#FFF2EC] cursor-pointer"
-              >
-                {martBanner?.btnText || 'تسوق الآن'}
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* 5. Popular products */}
-        {popularProducts.length > 0 && (
-          <section aria-labelledby="popular-products-heading" className="mb-6">
-            <div className="flex items-center justify-between px-1 mb-2.5">
-              <div>
-                <h2 id="popular-products-heading" className="text-sm sm:text-base font-black text-[#111827] flex items-center gap-1.5">
-                  <Flame size={18} className="text-[#FF5900]" />
-                  <span>الأكثر طلباً الآن</span>
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveFilter('popular');
-                  setSelectedCategory(null);
-                }}
-                className="text-xs font-bold text-[#FF5900] hover:underline cursor-pointer flex items-center gap-0.5"
-              >
-                <span>عرض الكل</span>
-                <ChevronLeft size={13} />
-              </button>
-            </div>
-
-            {/* Horizontal Scroll Track */}
-            <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 pt-1 w-full overscroll-x-contain touch-pan-x">
-              {popularProducts.map((product) => {
-                const discountPct = product.originalPrice && product.originalPrice > product.price
-                  ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
-                  : 0;
-
-                return (
-                  <div
-                    key={product.id}
-                    onClick={() => setSelectedProductForModal(product)}
-                    className="w-[145px] sm:w-[180px] shrink-0 bg-white border border-[#E5E7EB] hover:border-[#FF5900]/40 rounded-2xl p-2.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all cursor-pointer group select-none"
+                <div className="flex items-center justify-between pt-1.5 border-t border-[#F3F4F6]">
+                  <div className="leading-tight">
+                    <span className="text-xs sm:text-sm font-black text-[#FF5900] block">
+                      {formatEGP(product.price)}
+                    </span>
+                    {product.originalPrice && (
+                      <span className="text-[9px] text-[#9CA3AF] line-through">
+                        {formatEGP(product.originalPrice)}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (product.optionGroups && product.optionGroups.length > 0) {
+                        setSelectedProductForModal(product);
+                      } else {
+                        addToCart(product, 1);
+                      }
+                    }}
+                    className="w-7 h-7 rounded-lg bg-[#FFF2EC] text-[#FF5900] hover:bg-[#FF5900] hover:text-white active:scale-95 transition-all flex items-center justify-center font-black cursor-pointer shadow-2xs"
+                    title="أضف للسلة"
                   >
-                    <div>
-                      {/* Product Image & Badge */}
-                      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#F9FAFB] mb-2">
-                        <img
-                          src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
-                          alt={product.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
-                          }}
-                        />
-                        {discountPct > 0 && (
-                          <span className="absolute top-1.5 right-1.5 bg-[#EF4444] text-white text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs">
-                            خصم {discountPct}%
-                          </span>
-                        )}
-                      </div>
-
-                      <h3 className="text-xs font-black text-[#111827] line-clamp-1 mb-0.5 group-hover:text-[#FF5900] transition-colors">
-                        {product.name}
-                      </h3>
-                      {!LAUNCH_CONFIG.hideMerchantNames && (
-                        <p className="text-[10px] text-[#6B7280] line-clamp-1 mb-1.5">
-                          {product.storeName}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1.5 border-t border-[#F3F4F6]">
-                      <div className="leading-tight">
-                        <span className="text-xs sm:text-sm font-black text-[#FF5900] block">
-                          {formatEGP(product.price)}
-                        </span>
-                        {product.originalPrice && (
-                          <span className="text-[9px] text-[#9CA3AF] line-through">
-                            {formatEGP(product.originalPrice)}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (product.optionGroups && product.optionGroups.length > 0) {
-                            setSelectedProductForModal(product);
-                          } else {
-                            addToCart(product, 1);
-                          }
-                        }}
-                        className="w-7 h-7 rounded-lg bg-[#FFF2EC] text-[#FF5900] hover:bg-[#FF5900] hover:text-white active:scale-95 transition-all flex items-center justify-center font-black cursor-pointer shadow-2xs"
-                        title="أضف للسلة"
-                      >
-                        <Plus size={15} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* 6. STORES SECTION — Talabat-style Squircle Logos */}
-        {!LAUNCH_CONFIG.hideMerchantNames && stores.length > 0 && (
-          <section aria-labelledby="stores-heading" className="mb-6">
-            <div className="flex items-center justify-between px-1 mb-2.5">
-              <div className="flex items-center gap-1.5">
-                <h2 id="stores-heading" className="text-xs sm:text-sm font-bold text-[#111827]">
-                  المتاجر
-                </h2>
-                <span className="text-[10px] text-[#6B7280] font-medium">({stores.length})</span>
-              </div>
-              <a
-                href="/stores"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate('/stores');
-                }}
-                className="text-[10.5px] font-bold text-[#FF5900] hover:text-[#E04E00] flex items-center gap-0.5 text-decoration-none transition-colors"
-              >
-                <span>عرض الكل</span>
-                <ChevronLeft size={11} />
-              </a>
-            </div>
-
-            {/* Flexible Row of Stores — Natural spacing, no empty grid gaps */}
-            <div className="flex items-stretch gap-2.5 overflow-x-auto overscroll-x-contain touch-pan-x snap-x snap-mandatory pb-2 w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {stores.map((store) => (
-                <MerchantLogoCard key={store.id} store={store} className="w-[75vw] max-w-[270px] shrink-0 snap-start sm:w-[250px]" />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* 7. VOUCHER & PROMO COUPON CARD (Dynamic from database) */}
-        {LAUNCH_CONFIG.showCouponField && featuredCoupon && (
-          <section className="mb-6">
-            <div className="bg-gradient-to-r from-[#FFF5F0] via-white to-[#FFF5F0] border border-[#FFD4C2] rounded-2xl p-3.5 sm:p-4 shadow-xs flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#FF5900] text-white flex items-center justify-center shadow-xs shrink-0">
-                  <Percent size={20} strokeWidth={2.5} />
-                </div>
-                <div className="leading-tight">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="bg-[#FF5900] text-white text-[9px] font-black px-2 py-0.2 rounded-full">
-                      خصم {featuredCoupon.discountType === 'percent' ? `${featuredCoupon.value}%` : `${featuredCoupon.value} ج.م`}
-                    </span>
-                    <span className="text-xs font-black text-[#111827] font-mono">
-                      {featuredCoupon.code}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-[#6B7280]">
-                    {featuredCoupon.description || (featuredCoupon.minOrder > 0 ? `الحد الأدنى للطلب: ${featuredCoupon.minOrder} ج.م` : 'متاح لجميع الطلبات')}
-                  </p>
+                    <Plus size={15} />
+                  </button>
                 </div>
               </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  };
 
-              <button
-                type="button"
-                onClick={handleCopyCoupon}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
-                  couponCopied || appliedCoupon?.code === featuredCoupon.code
-                    ? 'bg-[#10B981] text-white'
-                    : 'bg-[#FF5900] hover:bg-[#E04E00] text-white active:scale-95'
-                }`}
-              >
-                {couponCopied || appliedCoupon?.code === featuredCoupon.code ? (
-                  <>
-                    <Check size={14} strokeWidth={3} />
-                    <span>تم التطبيق!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={13} />
-                    <span>نسخ وتطبيق</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </section>
-        )}
+  const renderProductsSection = () => (
+    <div key="home-products" className="space-y-6">
+      {/* Category rail */}
+      <section className="mb-6">
+        <CategoryRail
+          categories={supermarketCategories}
+          selectedCategory={selectedCategory}
+          onSelect={(category) => {
+            setSelectedCategory(category);
+            const grid = document.getElementById('products-grid');
+            if (category && grid) grid.scrollIntoView({ behavior: 'smooth' });
+          }}
+        />
 
-        {/* 8. PRODUCTS CATALOG & FILTER TABS (2 Cols on Mobile!) */}
-        <section id="products-catalog" aria-labelledby="products-catalog-heading" className="mb-8">
-          {/* Section Header & Filter Tabs */}
-          <div className="flex items-center justify-between flex-wrap gap-2.5 px-1 border-b border-[#E5E7EB] pb-3 mb-4">
-            <div>
-              <h2 id="products-catalog-heading" className="text-sm sm:text-base font-black text-[#111827] flex items-center gap-1.5">
-                <Sparkles size={18} className="text-[#FF5900]" />
-                <span>
-                  {selectedCategory
-                    ? `قسم ${selectedCategory}`
-                    : activeFilter === 'offers'
-                    ? 'عروض وتخفيضات اليوم'
-                    : activeFilter === 'popular'
-                    ? 'الأكثر طلباً بالعاصمة'
-                    : activeFilter === 'fast_delivery'
-                    ? 'أسرع توصيل للمكاتب'
-                    : 'قائمة الأصناف المتاحة'}
-                </span>
-              </h2>
-            </div>
-
-            {/* Filter Tabs Pills (Horizontal Scrollable on Mobile) */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-full py-0.5">
-              <button
-                type="button"
-                onClick={() => { setActiveFilter('all'); setSelectedCategory(null); }}
-                className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  activeFilter === 'all' && !selectedCategory
-                    ? 'bg-[#111827] text-white shadow-xs'
-                    : 'bg-white border border-[#E5E7EB] text-[#6B7280] hover:text-[#111827]'
-                }`}
-              >
-                الكل
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveFilter(activeFilter === 'popular' ? 'all' : 'popular')}
-                className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
-                  activeFilter === 'popular'
-                    ? 'bg-[#FF5900] text-white shadow-xs'
-                    : 'bg-white border border-[#E5E7EB] text-[#6B7280] hover:border-[#FF5900]'
-                }`}
-              >
-                <Flame size={12} />
-                <span>الأكثر طلباً</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveFilter(activeFilter === 'offers' ? 'all' : 'offers')}
-                className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
-                  activeFilter === 'offers'
-                    ? 'bg-[#FF5900] text-white shadow-xs'
-                    : 'bg-white border border-[#E5E7EB] text-[#6B7280] hover:border-[#FF5900]'
-                }`}
-              >
-                <Tag size={12} />
-                <span>عروض التوفير</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveFilter(activeFilter === 'fast_delivery' ? 'all' : 'fast_delivery')}
-                className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
-                  activeFilter === 'fast_delivery'
-                    ? 'bg-[#059669] text-white shadow-xs'
-                    : 'bg-white border border-[#E5E7EB] text-[#6B7280] hover:border-[#059669]'
-                }`}
-              >
-                <Bike size={12} />
-                <span>أسرع توصيل</span>
-              </button>
-
-              {(selectedCategory || activeFilter !== 'all') && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedCategory(null);
-                    setActiveFilter('all');
-                  }}
-                  className="text-xs font-bold text-[#FF5900] px-2 py-0.5 rounded-lg hover:underline cursor-pointer whitespace-nowrap"
+        {selectedCategory && categoryMerchants.length > 0 && (
+          <div className="mt-3.5 p-3.5 bg-white rounded-2xl border border-[#E5E7EB] shadow-xs flex flex-wrap items-center gap-3">
+            <span className="text-xs font-black text-[#111827] shrink-0">المتاجر المتوفرة في ({selectedCategory}):</span>
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+              {categoryMerchants.map((merchant) => (
+                <div
+                  key={merchant.id}
+                  onClick={() => navigate(`/stores/${merchant.id}`)}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#F9FAFB] border border-[#E5E7EB] shrink-0 cursor-pointer hover:border-[#FF5900] transition-colors text-xs font-bold font-tajawal"
+                  style={{ fontFamily: "'Tajawal', sans-serif" }}
                 >
-                  إلغاء الفلترة ✕
-                </button>
-              )}
+                  <img
+                    src={getStoreLogo(merchant)}
+                    alt={merchant.name}
+                    className="w-5 h-5 rounded-full object-cover"
+                  />
+                  <span>{merchant.name}</span>
+                  {merchant.status === 'closed' ? (
+                    <span className="text-[10px] text-gray-500 bg-gray-200/80 px-1.5 py-0.5 rounded-md font-bold">
+                      مغلق
+                    </span>
+                  ) : merchant.status === 'busy' ? (
+                    <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md font-bold">
+                      مشغول
+                    </span>
+                  ) : (
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="مفتوح الآن" />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
+        )}
+      </section>
 
-          {/* Products Grid: 2 cols on mobile, 3 on tablet, 4 on desktop */}
-          {displayedProducts.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 w-full">
-              {displayedProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onOpenModal={(p) => setSelectedProductForModal(p)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-white rounded-2xl border border-[#E5E7EB] p-6 max-w-sm mx-auto shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-[#FFF2EC] text-[#FF5900] flex items-center justify-center mx-auto mb-2.5">
-                <ShoppingBag size={24} />
+      {/* SANGOUB MART BANNER */}
+      {martBanner?.enabled !== false && (
+        <section className="mb-6">
+          <div className="bg-gradient-to-r from-[#FF5900] via-[#FF6A1A] to-[#FF4500] rounded-2xl p-3.5 sm:p-5 text-white shadow-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white text-[#FF5900] flex items-center justify-center shrink-0 shadow-xs">
+                <Zap size={22} className="fill-[#FF5900]" />
               </div>
-              <h3 className="text-sm font-black text-[#111827] mb-1">لا توجد نتائج مطابقة</h3>
-              <p className="text-[11px] text-[#6B7280] mb-4">
-                جرّب إزالة خيارات الفلترة لمشاهدة جميع الأصناف.
-              </p>
+              <div className="leading-tight">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-[9px] bg-white/20 text-white px-2 py-0.2 rounded-full font-black">
+                    {martBanner?.badge || 'سنجوب بقالة ⚡'}
+                  </span>
+                  {martBanner?.areaText && (
+                    <span className="text-[9px] bg-white text-[#FF5900] px-1.5 py-0.2 rounded-full font-black">
+                      {martBanner.areaText}
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-xs sm:text-sm font-black line-clamp-1">
+                  {martBanner?.title || 'سنجوب ماركت وكل طلبات البيت لحد بابك'}
+                </h3>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory(martBanner?.targetCategory || 'سوبرماركت');
+                const grid = document.getElementById('products-grid');
+                if (grid) grid.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-4 py-2 bg-white text-[#FF5900] rounded-xl text-xs sm:text-sm font-black shrink-0 shadow-xs active:scale-95 transition-transform hover:bg-[#FFF2EC] cursor-pointer"
+            >
+              {martBanner?.btnText || 'تسوق الآن'}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* VOUCHER & PROMO COUPON CARD */}
+      {LAUNCH_CONFIG.showCouponField && featuredCoupon && (
+        <section className="mb-6">
+          <div className="bg-gradient-to-r from-[#FFF5F0] via-white to-[#FFF5F0] border border-[#FFD4C2] rounded-2xl p-3.5 sm:p-4 shadow-xs flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#FF5900] text-white flex items-center justify-center shadow-xs shrink-0">
+                <Percent size={20} strokeWidth={2.5} />
+              </div>
+              <div className="leading-tight">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="bg-[#FF5900] text-white text-[9px] font-black px-2 py-0.2 rounded-full">
+                    خصم {featuredCoupon.discountType === 'percent' ? `${featuredCoupon.value}%` : `${featuredCoupon.value} ج.م`}
+                  </span>
+                  <span className="text-xs font-black text-[#111827] font-mono">
+                    {featuredCoupon.code}
+                  </span>
+                </div>
+                <p className="text-[10px] text-[#6B7280]">
+                  {featuredCoupon.description || (featuredCoupon.minOrder > 0 ? `الحد الأدنى للطلب: ${featuredCoupon.minOrder} ج.م` : 'متاح لجميع الطلبات')}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopyCoupon}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                couponCopied || appliedCoupon?.code === featuredCoupon.code
+                  ? 'bg-[#10B981] text-white'
+                  : 'bg-[#FF5900] hover:bg-[#E04E00] text-white active:scale-95'
+              }`}
+            >
+              {couponCopied || appliedCoupon?.code === featuredCoupon.code ? (
+                <>
+                  <Check size={14} strokeWidth={3} />
+                  <span>تم التطبيق!</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={13} />
+                  <span>نسخ وتطبيق</span>
+                </>
+              )}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* PRODUCTS CATALOG & FILTER TABS */}
+      <section id="products-catalog" aria-labelledby="products-catalog-heading" className="mb-8">
+        <div className="flex items-center justify-between flex-wrap gap-2.5 px-1 border-b border-[#E5E7EB] pb-3 mb-4">
+          <div>
+            <h2 id="products-catalog-heading" className="text-sm sm:text-base font-black text-[#111827] flex items-center gap-1.5">
+              <Sparkles size={18} className="text-[#FF5900]" />
+              <span>
+                {selectedCategory
+                  ? `قسم ${selectedCategory}`
+                  : activeFilter === 'offers'
+                  ? 'عروض وتخفيضات اليوم'
+                  : activeFilter === 'popular'
+                  ? 'الأكثر طلباً بالعاصمة'
+                  : activeFilter === 'fast_delivery'
+                  ? 'أسرع توصيل للمكاتب'
+                  : 'قائمة الأصناف المتاحة'}
+              </span>
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-full py-0.5">
+            <button
+              type="button"
+              onClick={() => { setActiveFilter('all'); setSelectedCategory(null); }}
+              className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                activeFilter === 'all' && !selectedCategory
+                  ? 'bg-[#111827] text-white shadow-xs'
+                  : 'bg-white border border-[#E5E7EB] text-[#6B7280] hover:text-[#111827]'
+              }`}
+            >
+              الكل
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveFilter(activeFilter === 'popular' ? 'all' : 'popular')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
+                activeFilter === 'popular'
+                  ? 'bg-[#FF5900] text-white shadow-xs'
+                  : 'bg-white border border-[#E5E7EB] text-[#6B7280] hover:border-[#FF5900]'
+              }`}
+            >
+              <Flame size={12} />
+              <span>الأكثر طلباً</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveFilter(activeFilter === 'offers' ? 'all' : 'offers')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
+                activeFilter === 'offers'
+                  ? 'bg-[#FF5900] text-white shadow-xs'
+                  : 'bg-white border border-[#E5E7EB] text-[#6B7280] hover:border-[#FF5900]'
+              }`}
+            >
+              <Tag size={12} />
+              <span>عروض التوفير</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveFilter(activeFilter === 'fast_delivery' ? 'all' : 'fast_delivery')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
+                activeFilter === 'fast_delivery'
+                  ? 'bg-[#059669] text-white shadow-xs'
+                  : 'bg-white border border-[#E5E7EB] text-[#6B7280] hover:border-[#059669]'
+              }`}
+            >
+              <Bike size={12} />
+              <span>أسرع توصيل</span>
+            </button>
+
+            {(selectedCategory || activeFilter !== 'all') && (
               <button
                 type="button"
                 onClick={() => {
                   setSelectedCategory(null);
                   setActiveFilter('all');
                 }}
-                className="px-4 py-2 bg-[#FF5900] hover:bg-[#E04E00] text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
+                className="text-xs font-bold text-[#FF5900] px-2 py-0.5 rounded-lg hover:underline cursor-pointer whitespace-nowrap"
               >
-                <span>عرض كل المنتجات</span>
+                إلغاء الفلترة ✕
               </button>
+            )}
+          </div>
+        </div>
+
+        {displayedProducts.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 w-full">
+            {displayedProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onOpenModal={(p) => setSelectedProductForModal(p)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-white rounded-2xl border border-[#E5E7EB] p-6 max-w-sm mx-auto shadow-xs">
+            <div className="w-12 h-12 rounded-xl bg-[#FFF2EC] text-[#FF5900] flex items-center justify-center mx-auto mb-2.5">
+              <ShoppingBag size={24} />
             </div>
-          )}
-        </section>
+            <h3 className="text-sm font-black text-[#111827] mb-1">لا توجد نتائج مطابقة</h3>
+            <p className="text-[11px] text-[#6B7280] mb-4">
+              جرّب إزالة خيارات الفلترة لمشاهدة جميع الأصناف.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory(null);
+                setActiveFilter('all');
+              }}
+              className="px-4 py-2 bg-[#FF5900] hover:bg-[#E04E00] text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
+            >
+              <span>عرض كل المنتجات</span>
+            </button>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+  return (
+    <div className="min-h-screen bg-[#F7F7F8] pb-28 sm:pb-20 text-[#1F2937] overflow-x-hidden" dir="rtl">
+      
+      {/* ── Main Container ── */}
+      <div className="max-w-6xl mx-auto px-3.5 sm:px-6 pt-3 sm:pt-6">
+        {/* Dynamic Sections Ordered by Admin */}
+        {activeSections.map((sec) => {
+          if (sec.enabled === false) return null;
+          switch (sec.type) {
+            case 'slider':
+              return renderSliderSection();
+            case 'stores':
+              return renderStoresSection();
+            case 'offers':
+              return renderOffersSection();
+            case 'products':
+              return renderProductsSection();
+            default:
+              return null;
+          }
+        })}
 
         {/* 9. TALABAT VALUE PROPOSITIONS & GUARANTEES */}
         <section className="bg-white border border-[#E5E7EB] rounded-2xl p-4 sm:p-6 shadow-xs mb-8">

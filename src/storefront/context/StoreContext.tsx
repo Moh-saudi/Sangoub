@@ -15,6 +15,7 @@ import {
   STORE_TYPES, 
   type StoreTypeDefinition 
 } from '../../constants/taxonomy';
+import { defaultCustomerHome, type HomeSection } from '../../types/appContent';
 
 export interface ServiceArea {
   id: string;
@@ -87,6 +88,7 @@ export interface StoreContextType {
   }>;
   activeStoreTypes: StoreTypeDefinition[];
   sliderShowArrows: boolean;
+  homeSections: { type: HomeSection; enabled: boolean }[];
   isLoadingBanners: boolean;
   refreshBanners: () => Promise<void>;
   handleBannerClick: (
@@ -273,6 +275,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
   const [martBanner, setMartBanner] = useState<MartBannerConfig>(DEFAULT_MART_BANNER);
   const [sliderShowArrows, setSliderShowArrows] = useState(true);
+  const [homeSections, setHomeSections] = useState<{ type: HomeSection; enabled: boolean }[]>(() => {
+    try {
+      const cached = typeof window !== 'undefined' ? localStorage.getItem('sangoub_cached_app_content') : null;
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed?.config?.sections) && parsed.config.sections.length > 0) {
+          return parsed.config.sections;
+        }
+      }
+    } catch {}
+    return defaultCustomerHome.sections;
+  });
   const [isLoadingBanners, setIsLoadingBanners] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: 'info' | 'error' | 'warning' } | null>(null);
 
@@ -589,6 +603,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         if (data.config && typeof data.config.showArrows === 'boolean') {
           setSliderShowArrows(data.config.showArrows);
+        }
+        if (data.config && Array.isArray(data.config.sections) && data.config.sections.length > 0) {
+          setHomeSections(data.config.sections);
         }
         const rawSlides = Array.isArray(data.slides) && data.slides.length > 0
           ? data.slides
@@ -1242,6 +1259,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         supermarketCategories,
         activeStoreTypes,
         sliderShowArrows,
+        homeSections,
         isLoadingBanners,
         refreshBanners,
         handleBannerClick,

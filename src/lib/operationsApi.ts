@@ -848,7 +848,12 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       // 1. Try RPC first (SECURITY DEFINER, completely immune to RLS/permission issues)
       try {
         const { error: rpcErr } = await supabase.rpc('save_sangoub_app_content', { p_content: content });
-        if (!rpcErr) return;
+        if (!rpcErr) {
+          try {
+            localStorage.setItem('sangoub_cached_app_content', JSON.stringify(content));
+          } catch {}
+          return;
+        }
       } catch {}
 
       // 2. Direct upsert fallback
@@ -863,6 +868,9 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
         }
         throw upsertErr;
       }
+      try {
+        localStorage.setItem('sangoub_cached_app_content', JSON.stringify(content));
+      } catch {}
     };
 
     const getStoredContent = async () => {

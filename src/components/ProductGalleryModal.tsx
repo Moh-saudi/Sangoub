@@ -567,3 +567,4 @@ export function ProductGalleryModal({
     </div>
   );
 }
+

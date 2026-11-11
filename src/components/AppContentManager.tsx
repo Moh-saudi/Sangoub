@@ -221,7 +221,15 @@ export function AppContentManager({ stores, products }: { stores: Store[]; produ
     setNotice('');
     try {
       await operationsApi('app-content', body);
-      if ((body as { action?: string }).action === 'save-home') dirty.current = false;
+      if ((body as { action?: string }).action === 'save-home') {
+        dirty.current = false;
+        try {
+          const cached = localStorage.getItem('sangoub_cached_app_content');
+          const parsed = cached ? JSON.parse(cached) : {};
+          parsed.config = (body as any).config;
+          localStorage.setItem('sangoub_cached_app_content', JSON.stringify(parsed));
+        } catch {}
+      }
       try {
         localStorage.removeItem('sangoub_cached_banners_v2');
         window.dispatchEvent(new CustomEvent('sangoub_banners_updated'));
