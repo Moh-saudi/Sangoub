@@ -1023,7 +1023,9 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     if (body.action === 'add-product-gallery') {
       const content = await getStoredContent();
       if (!Array.isArray(content.productGallery)) content.productGallery = [];
-      content.productGallery = [body.item, ...content.productGallery.filter((g: any) => g.url !== body.item.url)];
+      const newItems = Array.isArray(body.items) ? body.items : (body.item ? [body.item] : []);
+      const newUrls = new Set(newItems.map((it: any) => it.url));
+      content.productGallery = [...newItems, ...content.productGallery.filter((g: any) => !newUrls.has(g.url))];
       await persistContent(content);
       return { ok: true, productGallery: content.productGallery };
     }

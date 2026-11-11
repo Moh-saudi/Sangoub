@@ -10,7 +10,8 @@ import {
   Layers,
   Image as ImageIcon,
   Plus,
-  Pencil
+  Pencil,
+  Tag
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { operationsApi } from '../lib/operationsApi';
@@ -45,6 +46,14 @@ export const GALLERY_CATEGORIES = [
   { id: 'cleaning', label: 'منظفات وعناية' },
   { id: 'other', label: 'أصناف متنوعة' },
 ] as const;
+
+interface PendingBatchItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+  title: string;
+  category: string;
+}
 
 // Curated high quality product photography for quick selection
 const DEFAULT_CURATED_PRODUCTS: GalleryItem[] = [
@@ -125,13 +134,10 @@ export function ProductGalleryModal({
   const [errorNotice, setErrorNotice] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Pre-upload confirmation dialog
-  const [pendingUpload, setPendingUpload] = useState<{
-    file: File;
-    previewUrl: string;
-    title: string;
-    category: string;
-  } | null>(null);
+  // Batch upload state
+  const [pendingBatch, setPendingBatch] = useState<PendingBatchItem[] | null>(null);
+  const [batchGlobalCategory, setBatchGlobalCategory] = useState<string>('grocery');
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Edit custom item modal
   const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
@@ -253,77 +259,110 @@ export function ProductGalleryModal({
     return result;
   }, [allItems, selectedCategory, searchQuery]);
 
-  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  function handleFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const rawFiles = Array.from(e.target.files || []);
+    if (rawFiles.length === 0) return;
 
-    if (!file.type.startsWith('image/')) {
-      setErrorNotice('يرجى اختيار ملف صورة صالح (JPG, PNG, WEBP)');
+    const validFiles = rawFiles.filter(f => f.type.startsWith('image/'));
+    if (validFiles.length === 0) {
+      setErrorNotice('يرجى اختيار ملفات صور صالحة (JPG, PNG, WEBP)');
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorNotice('حجم الصورة كبير جداً (الحد الأقصى 5 ميجابايت)');
-      return;
-    }
+    const defaultCat = selectedCategory !== 'all' ? selectedCategory : 'grocery';
+    setBatchGlobalCategory(defaultCat);
 
-    const previewUrl = URL.createObjectURL(file);
-    const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-    const defaultCategory = selectedCategory !== 'all' ? selectedCategory : 'grocery';
-
-    setPendingUpload({
-      file,
-      previewUrl,
-      title: fileNameWithoutExt || 'صنف جديد في المعرض',
-      category: defaultCategory
+    const batchItems: PendingBatchItem[] = validFiles.map((file, idx) => {
+      const previewUrl = URL.createObjectURL(file);
+      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+      return {
+        id: `batch-modal-${Date.now()}-${idx}`,
+        file,
+        previewUrl,
+        title: fileNameWithoutExt || `صنف ${idx + 1}`,
+        category: defaultCat
+      };
     });
 
+    setPendingBatch(batchItems);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
-  async function confirmUpload() {
-    if (!pendingUpload) return;
-    if (!pendingUpload.title.trim()) {
-      setErrorNotice('يرجى إدخال اسم للصنف قبل الرفع');
-      return;
+  function handleApplyGlobalCategory(catId: string) {
+    setBatchGlobalCategory(catId);
+    if (pendingBatch) {
+      setPendingBatch(pendingBatch.map(it => ({ ...it, category: catId })));
     }
+  }
 
+  function handleUpdatePendingTitle(id: string, newTitle: string) {
+    if (!pendingBatch) return;
+    setPendingBatch(pendingBatch.map(it => it.id === id ? { ...it, title: newTitle } : it));
+  }
+
+  function handleUpdatePendingCategory(id: string, newCat: string) {
+    if (!pendingBatch) return;
+    setPendingBatch(pendingBatch.map(it => it.id === id ? { ...it, category: newCat } : it));
+  }
+
+  function handleRemovePendingItem(id: string) {
+    if (!pendingBatch) return;
+    const next = pendingBatch.filter(it => it.id !== id);
+    if (next.length === 0) {
+      setPendingBatch(null);
+    } else {
+      setPendingBatch(next);
+    }
+  }
+
+  async function confirmBatchUpload() {
+    if (!pendingBatch || pendingBatch.length === 0) return;
     setIsUploading(true);
     setUploadNotice('');
     setErrorNotice('');
+    setUploadProgress({ current: 0, total: pendingBatch.length });
+
+    const uploadedItems: GalleryItem[] = [];
 
     try {
-      const itemId = 'gal-prod-' + Date.now();
-      const uploadRes = await uploadCatalogImage('products', itemId, pendingUpload.file);
+      for (let i = 0; i < pendingBatch.length; i++) {
+        const item = pendingBatch[i];
+        setUploadProgress({ current: i + 1, total: pendingBatch.length });
+        const itemId = `gal-prod-${Date.now()}-${i}`;
+        const uploadRes = await uploadCatalogImage('products', itemId, item.file);
 
-      const newItem: GalleryItem = {
-        id: itemId,
-        title: pendingUpload.title.trim(),
-        url: uploadRes.url,
-        category: pendingUpload.category || 'grocery',
-        addedAt: new Date().toISOString(),
-        isCustom: true,
-      };
-
-      try {
-        await operationsApi('app-content', {
-          action: 'add-product-gallery',
-          item: newItem
+        uploadedItems.push({
+          id: itemId,
+          title: item.title.trim() || 'صنف في المعرض',
+          url: uploadRes.url,
+          category: item.category || 'grocery',
+          addedAt: new Date().toISOString(),
+          isCustom: true
         });
-      } catch (saveErr) {
-        console.warn('operationsApi add-product-gallery notice:', saveErr);
       }
 
-      setCustomItems((prev) => [newItem, ...prev.filter((i) => i.url !== newItem.url)]);
-      setSelectedItem(newItem);
-      const catLabel = GALLERY_CATEGORIES.find(c => c.id === newItem.category)?.label || newItem.category;
-      setUploadNotice(`✅ تم رفع صنف "${newItem.title}" وتصنيفه في (${catLabel}) بنجاح!`);
-      setPendingUpload(null);
+      await operationsApi('app-content', {
+        action: 'add-product-gallery',
+        items: uploadedItems
+      });
+
+      setCustomItems((prev) => [...uploadedItems, ...prev.filter((i) => !uploadedItems.some(u => u.url === i.url))]);
+      if (uploadedItems[0]) setSelectedItem(uploadedItems[0]);
+
+      const catLabel = GALLERY_CATEGORIES.find(c => c.id === batchGlobalCategory)?.label || batchGlobalCategory;
+      setUploadNotice(`✅ تم رفع وحفظ ${uploadedItems.length} صورة في قسم (${catLabel}) بنجاح!`);
+
+      if (batchGlobalCategory && batchGlobalCategory !== 'all') {
+        setSelectedCategory(batchGlobalCategory);
+      }
+
+      setPendingBatch(null);
     } catch (err: any) {
       console.error('Gallery upload error:', err);
-      setErrorNotice(err.message || 'تعذر رفع الصورة إلى المعرض.');
+      setErrorNotice(err.message || 'تعذر رفع مجموعة الصور إلى المعرض.');
     } finally {
       setIsUploading(false);
+      setUploadProgress(null);
     }
   }
 
@@ -417,7 +456,7 @@ export function ProductGalleryModal({
                 {title}
               </h3>
               <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                اختر صورة جاهزة عالية الجودة لصنفك أو ارفع صورة جديدة مع تسميتها وتصنيفها
+                اختر صورة جاهزة عالية الجودة لصنفك أو ارفع مجموعة صور مباشرة إلى القسم
               </p>
             </div>
           </div>
@@ -427,7 +466,8 @@ export function ProductGalleryModal({
               type="file"
               ref={fileInputRef}
               accept="image/jpeg,image/png,image/webp"
-              onChange={handleFileSelected}
+              multiple
+              onChange={handleFilesSelected}
               className="hidden"
               id="gallery-file-upload-input"
             />
@@ -436,7 +476,7 @@ export function ProductGalleryModal({
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs text-white shadow-xs transition-all cursor-pointer bg-[#FF5900] hover:bg-[#E04E00] active:scale-95"
             >
               <UploadCloud size={14} />
-              <span>رفع وتسمية صورة</span>
+              <span>رفع مجموعة صور لقسم</span>
             </label>
 
             <button
@@ -522,7 +562,7 @@ export function ProductGalleryModal({
               </div>
               <h4 className="font-bold text-slate-800 text-sm">لا توجد صور مطابقة لبحثك</h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                يمكنك رفع صورة صنفك الخاصة مباشرة إلى المعرض بالضغط على زر "رفع وتسمية صورة" بالأعلى.
+                يمكنك رفع مجموعة صور خاصة بقسمك مباشرة إلى المعرض بالضغط على زر "رفع مجموعة صور لقسم" بالأعلى.
               </p>
             </div>
           ) : (
@@ -647,92 +687,177 @@ export function ProductGalleryModal({
 
       </div>
 
-      {/* ── Sub-Modal 1: Pre-Upload Name & Category Setup ── */}
-      {pendingUpload && (
-        <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in font-['Cairo',sans-serif]">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 text-right animate-scale-up" dir="rtl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
-                  <UploadCloud size={18} />
+      {/* ── Sub-Modal 1: Batch Upload Confirmation & Category Assignment ── */}
+      {pendingBatch && (
+        <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-fade-in font-['Cairo',sans-serif]">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] shadow-2xl border border-slate-200 flex flex-col overflow-hidden text-right animate-scale-up" dir="rtl">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
+                  <UploadCloud size={20} />
                 </div>
-                <h4 className="font-bold text-slate-900 text-sm">تحديد اسم وقسم الصورة قبل الرفع</h4>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm sm:text-base leading-tight">
+                    رفع مجموعة صور على قسم ({pendingBatch.length} صورة)
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                    اختر القسم الموحد للمجموعة مع إمكانية تعديل اسم كل صنف على حدة
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
-                onClick={() => setPendingUpload(null)}
-                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Preview & Details */}
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
-              <img
-                src={pendingUpload.previewUrl}
-                alt="معاينة"
-                className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
-              />
-              <div className="text-xs text-slate-500 overflow-hidden">
-                <p className="font-bold text-slate-800 truncate">{pendingUpload.file.name}</p>
-                <p className="mt-0.5">الحجم: {(pendingUpload.file.size / (1024 * 1024)).toFixed(2)} ميجابايت</p>
-              </div>
-            </div>
-
-            {/* Input Name */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                اسم الصنف بالكامل <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={pendingUpload.title}
-                onChange={(e) => setPendingUpload({ ...pendingUpload, title: e.target.value })}
-                placeholder="مثال: جبنة دومتي فيتا 500 جم"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs sm:text-sm font-medium outline-none transition-all"
-                autoFocus
-              />
-            </div>
-
-            {/* Category Select */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                القسم / التصنيف <span className="text-rose-500">*</span>
-              </label>
-              <select
-                value={pendingUpload.category}
-                onChange={(e) => setPendingUpload({ ...pendingUpload, category: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs sm:text-sm font-bold outline-none transition-all cursor-pointer"
-              >
-                {GALLERY_CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setPendingUpload(null)}
+                onClick={() => setPendingBatch(null)}
                 disabled={isUploading}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer transition-colors"
               >
-                إلغاء
-              </button>
-              <button
-                type="button"
-                onClick={confirmUpload}
-                disabled={isUploading || !pendingUpload.title.trim()}
-                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#FF5900] hover:bg-[#E04E00] active:scale-95 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                {isUploading ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
-                <span>{isUploading ? 'جارٍ الرفع…' : 'حفظ ورفع للمعرض'}</span>
+                <X size={18} />
               </button>
             </div>
+
+            {/* Batch Global Category Toolbar */}
+            <div className="px-6 py-4 bg-orange-50/70 border-b border-orange-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <Tag size={16} className="text-orange-600 shrink-0" />
+                <span className="text-xs font-bold text-slate-800">
+                  تحديد قسم موحد لجميع الصور المحددة:
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <select
+                  value={batchGlobalCategory}
+                  onChange={(e) => handleApplyGlobalCategory(e.target.value)}
+                  disabled={isUploading}
+                  className="px-3.5 py-1.5 rounded-xl bg-white border border-orange-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs font-bold text-slate-800 outline-none transition-all cursor-pointer shadow-2xs"
+                >
+                  {GALLERY_CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[11px] text-orange-700 bg-orange-100/80 px-2.5 py-1 rounded-lg font-bold shrink-0">
+                  يطبق على الـ {pendingBatch.length} صورة
+                </span>
+              </div>
+            </div>
+
+            {/* Upload Progress Bar if currently uploading */}
+            {uploadProgress && (
+              <div className="px-6 py-3 bg-slate-900 text-white shrink-0 space-y-1.5 animate-fade-in">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin text-orange-400" />
+                    <span>جارٍ رفع الصور إلى المعرض…</span>
+                  </span>
+                  <span>{uploadProgress.current} من {uploadProgress.total} ({Math.round((uploadProgress.current / uploadProgress.total) * 100)}%)</span>
+                </div>
+                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-[#FF5900] h-full transition-all duration-300 rounded-full"
+                    style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Scrollable List of Items */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
+              {pendingBatch.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-2xl hover:bg-white hover:border-orange-200 transition-all shadow-2xs"
+                >
+                  <div className="flex items-center gap-3 w-full sm:w-auto flex-1 min-w-0">
+                    <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-slate-200 border border-slate-300 shrink-0">
+                      <img
+                        src={item.previewUrl}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute bottom-0 right-0 bg-slate-900/80 text-white text-[9px] font-bold px-1 rounded-tl">
+                        #{idx + 1}
+                      </span>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
+                        اسم الصنف:
+                      </label>
+                      <input
+                        type="text"
+                        value={item.title}
+                        onChange={(e) => handleUpdatePendingTitle(item.id, e.target.value)}
+                        placeholder="اسم الصنف في المعرض…"
+                        disabled={isUploading}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 focus:border-orange-500 text-xs font-bold text-slate-800 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-between sm:justify-start pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-200">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
+                        القسم:
+                      </label>
+                      <select
+                        value={item.category}
+                        onChange={(e) => handleUpdatePendingCategory(item.id, e.target.value)}
+                        disabled={isUploading}
+                        className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 focus:border-orange-500 text-xs font-bold text-slate-800 outline-none transition-all cursor-pointer"
+                      >
+                        {GALLERY_CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePendingItem(item.id)}
+                      disabled={isUploading}
+                      className="mt-3.5 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                      title="استبعاد هذه الصورة"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-white shrink-0">
+              <span className="text-xs font-bold text-slate-500">
+                إجمالي الصور الجاهزة للرفع: <span className="text-orange-600 font-black">{pendingBatch.length}</span>
+              </span>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setPendingBatch(null)}
+                  disabled={isUploading}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmBatchUpload}
+                  disabled={isUploading || pendingBatch.length === 0}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#FF5900] hover:bg-[#E04E00] active:scale-95 transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isUploading ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />}
+                  <span>{isUploading ? `جارٍ الرفع (${uploadProgress?.current || 0}/${uploadProgress?.total || pendingBatch.length})…` : `تأكيد ورفع الـ (${pendingBatch.length}) صور`}</span>
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       )}
