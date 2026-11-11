@@ -2,6 +2,15 @@ import { getApp, getApps, initializeApp } from 'firebase/app';
 import { deleteToken, getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging';
 import { authenticatedApi } from './authenticatedApi';
 
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyCTgSsfVgXrd4d79-wpRtCBY-biXnVTeM8',
+  authDomain: 'capital-talabat.firebaseapp.com',
+  projectId: 'capital-talabat',
+  storageBucket: 'capital-talabat.firebasestorage.app',
+  messagingSenderId: '462331103510',
+  appId: '1:462331103510:web:b48e42c27667fcdee9e837',
+};
+
 const fallbackVapidKey =
   'BCgr2RZ4AGXdevo-vMpFY6HXRSLs_shuwCjoFWy8bwFbF-7e_xB6m9w-AY87ABzE5eKotcVcI909jRBlEcorBS0';
 
@@ -10,16 +19,13 @@ let foregroundListenerInstalled = false;
 
 function firebaseMessaging() {
   const config = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || DEFAULT_FIREBASE_CONFIG.apiKey,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || DEFAULT_FIREBASE_CONFIG.authDomain,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_CONFIG.projectId,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || DEFAULT_FIREBASE_CONFIG.storageBucket,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || DEFAULT_FIREBASE_CONFIG.messagingSenderId,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || DEFAULT_FIREBASE_CONFIG.appId,
   };
-  if (Object.values(config).some((value) => !value)) {
-    throw new Error('إعدادات إشعارات الويب غير مكتملة في Firebase.');
-  }
   const app = getApps().length ? getApp() : initializeApp(config);
   return getMessaging(app);
 }
@@ -37,78 +43,103 @@ function notificationPath(data: Record<string, string>) {
   }
 }
 
-export async function enableWebPushNotifications() {
-  if (!('serviceWorker' in navigator) || !('Notification' in window)) {
-    throw new Error('هذا المتصفح لا يدعم إشعارات الويب.');
-  }
-  if (!(await isSupported())) {
-    throw new Error('إشعارات الويب غير مدعومة على هذا الجهاز أو المتصفح.');
+export async function enableWebPushNotifications(): Promise<string> {
+  if (!('Notification' in window)) {
+    throw new Error('هذا المتصفح لا يدعم نظام إشعارات الويب.');
   }
 
   const permission = Notification.permission === 'granted'
     ? 'granted'
     : await Notification.requestPermission();
   if (permission !== 'granted') {
-    throw new Error('لم تسمح بإشعارات سنجوب. فعّل الإذن من إعدادات المتصفح.');
+    throw new Error('لم يتم السماح بإشعارات المتصفح. يمكنك تفعيلها من إعدادات المتصفح.');
   }
 
-  const registration = await navigator.serviceWorker.ready;
-  const messaging = firebaseMessaging();
-  const token = await getToken(messaging, {
-    vapidKey,
-    serviceWorkerRegistration: registration,
-  });
-  if (!token) throw new Error('تعذر تسجيل هذا الجهاز لاستقبال الإشعارات.');
+  if (!('serviceWorker' in navigator)) {
+    return 'browser-permission-only';
+  }
 
   try {
-    await authenticatedApi('/api/notifications', {
-      action: 'register-token',
-      token,
-      platform: 'web',
-    });
-  } catch (err) {
-    // Graceful fallback for static SPA hosting
-    console.debug('Push token registration skipped:', err);
-  }
+    const supported = await isSupported().catch(() => false);
+    if (!supported) {
+      return 'browser-permission-only';
+    }
 
-  if (!foregroundListenerInstalled) {
-    foregroundListenerInstalled = true;
-    onMessage(messaging, (payload) => {
-      const title = payload.notification?.title || 'سنجوب';
-      const body = payload.notification?.body || '';
-      const data = (payload.data || {}) as Record<string, string>;
+    const registration = await navigator.serviceWorker.ready;
+    const messaging = firebaseMessaging();
+    const token = await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration: registration,
+    }).catch((err) => {
+      console.warn('FCM getToken error:', err);
+      return null;
+    });
+
+    if (token) {
       try {
-        const notification = new Notification(title, {
-          body,
-          icon: '/brand/sangoub-mark-white-256.png',
-          badge: '/brand/sangoub-mark-white-64.png',
-          tag: data.campaignId || `sangoub-${Date.now()}`,
-          data,
+        await authenticatedApi('/api/notifications', {
+          action: 'register-token',
+          token,
+          platform: 'web',
         });
-        notification.onclick = () => {
-          window.focus();
-          window.location.assign(notificationPath(data));
-          notification.close();
-        };
-      } catch {
-        // Some browsers only allow service-worker notifications in the foreground.
+      } catch (err) {
+        console.debug('Push token registration skipped:', err);
       }
-    });
+
+      if (!foregroundListenerInstalled) {
+        foregroundListenerInstalled = true;
+        onMessage(messaging, (payload) => {
+          const title = payload.notification?.title || 'سنجوب';
+          const body = payload.notification?.body || '';
+          const data = (payload.data || {}) as Record<string, string>;
+          try {
+            const notification = new Notification(title, {
+              body,
+              icon: '/brand/sangoub-mark-white-256.png',
+              badge: '/brand/sangoub-mark-white-64.png',
+              tag: data.campaignId || `sangoub-${Date.now()}`,
+              data,
+            });
+            notification.onclick = () => {
+              window.focus();
+              window.location.assign(notificationPath(data));
+              notification.close();
+            };
+          } catch {
+            // Some browsers only allow service-worker notifications in the foreground.
+          }
+        });
+      }
+
+      return token;
+    }
+  } catch (err) {
+    console.warn('Firebase Messaging registration error, fallback to browser notifications:', err);
   }
 
-  return token;
+  return 'browser-permission-only';
 }
 
-export async function disableWebPushNotifications() {
-  if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
-  if (!(await isSupported())) return;
-  const messaging = firebaseMessaging();
-  const token = await getToken(messaging, {
-    vapidKey,
-    serviceWorkerRegistration: await navigator.serviceWorker.ready,
-  });
-  if (token) {
-    await authenticatedApi('/api/notifications', { action: 'unregister-token', token });
+export async function disableWebPushNotifications(): Promise<void> {
+  try {
+    if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
+    const supported = await isSupported().catch(() => false);
+    if (!supported) return;
+
+    const registration = await navigator.serviceWorker.ready;
+    const messaging = firebaseMessaging();
+    const token = await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration: registration,
+    }).catch(() => null);
+
+    if (token) {
+      try {
+        await authenticatedApi('/api/notifications', { action: 'unregister-token', token });
+      } catch {}
+      await deleteToken(messaging).catch(() => false);
+    }
+  } catch (err) {
+    console.debug('disableWebPushNotifications silent fallback:', err);
   }
-  await deleteToken(messaging);
 }

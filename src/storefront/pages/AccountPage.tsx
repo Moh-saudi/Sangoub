@@ -32,7 +32,8 @@ import {
   Camera,
   MessageSquare,
   ShieldCheck,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { disableWebPushNotifications, enableWebPushNotifications } from '../../lib/webPushNotifications';
@@ -78,13 +79,25 @@ export const AccountPage: React.FC<AccountPageProps> = ({
   const [gender, setGender] = useState<'male' | 'female' | ''>('');
   const [receiveOffers, setReceiveOffers] = useState(true);
   const [subscribeNewsletter, setSubscribeNewsletter] = useState(true);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(
-    () => typeof Notification !== 'undefined' && Notification.permission === 'granted',
-  );
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    try {
+      const stored = localStorage.getItem('sangoub_notifications_enabled');
+      if (stored !== null) return stored === 'true';
+    } catch {}
+    return typeof Notification !== 'undefined' && Notification.permission === 'granted';
+  });
   const [isNotificationBusy, setIsNotificationBusy] = useState(false);
   const [language, setLanguage] = useState<'ar' | 'en'>('ar');
   const [busy, setBusy] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!feedbackMsg) return;
+    const timer = setTimeout(() => {
+      setFeedbackMsg(null);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [feedbackMsg]);
 
   const isAdmin = user?.role === 'admin' || user?.email === 'meskllcqa@gmail.com' || user?.id === '07492416-8a8e-434b-9094-391abb21272e';
 
@@ -262,16 +275,18 @@ export const AccountPage: React.FC<AccountPageProps> = ({
       if (notificationsEnabled) {
         await disableWebPushNotifications();
         setNotificationsEnabled(false);
+        try { localStorage.setItem('sangoub_notifications_enabled', 'false'); } catch {}
         setFeedbackMsg({ type: 'success', text: 'تم إيقاف إشعارات هذا الجهاز.' });
       } else {
         await enableWebPushNotifications();
         setNotificationsEnabled(true);
-        setFeedbackMsg({ type: 'success', text: 'تم تفعيل إشعارات سنجوب على هذا الجهاز.' });
+        try { localStorage.setItem('sangoub_notifications_enabled', 'true'); } catch {}
+        setFeedbackMsg({ type: 'success', text: 'تم تفعيل إشعارات سنجوب بنجاح ✓' });
       }
     } catch (error) {
       setFeedbackMsg({
         type: 'error',
-        text: error instanceof Error ? error.message : 'تعذر تغيير إعداد الإشعارات.',
+        text: error instanceof Error ? error.message : 'تعذر تغيير إعداد الإشعارات. يرجى التحقق من إذن المتصفح.',
       });
     } finally {
       setIsNotificationBusy(false);
@@ -298,13 +313,23 @@ export const AccountPage: React.FC<AccountPageProps> = ({
         </div>
 
         {feedbackMsg && (
-          <div className={`p-3 my-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+          <div className={`p-3 my-3 rounded-xl text-xs font-bold flex items-center justify-between gap-2 shadow-xs transition-all ${
             feedbackMsg.type === 'success'
               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
               : 'bg-red-50 text-red-800 border border-red-200'
           }`}>
-            {feedbackMsg.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
-            <span>{feedbackMsg.text}</span>
+            <div className="flex items-center gap-2">
+              {feedbackMsg.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
+              <span>{feedbackMsg.text}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFeedbackMsg(null)}
+              className="p-1 hover:bg-black/5 rounded-lg transition-colors cursor-pointer text-current opacity-70 hover:opacity-100"
+              aria-label="إغلاق التنبيه"
+            >
+              <X size={14} />
+            </button>
           </div>
         )}
 
@@ -416,11 +441,21 @@ export const AccountPage: React.FC<AccountPageProps> = ({
         </div>
 
         {feedbackMsg && (
-          <div className={`p-3 mb-4 rounded-xl text-xs font-bold flex items-center gap-2 ${
+          <div className={`p-3 mb-4 rounded-xl text-xs font-bold flex items-center justify-between gap-2 shadow-xs transition-all ${
             feedbackMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
           }`}>
-            {feedbackMsg.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
-            <span>{feedbackMsg.text}</span>
+            <div className="flex items-center gap-2">
+              {feedbackMsg.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
+              <span>{feedbackMsg.text}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFeedbackMsg(null)}
+              className="p-1 hover:bg-black/5 rounded-lg transition-colors cursor-pointer text-current opacity-70 hover:opacity-100"
+              aria-label="إغلاق التنبيه"
+            >
+              <X size={14} />
+            </button>
           </div>
         )}
 
