@@ -913,15 +913,14 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
 
               <section className="space-y-2">
                 <h2 className="text-base font-extrabold text-slate-900">
-                  04. السياسة المالية وطرق الدفع المعتمدة
+                  04. السياسة المالية، الدفع الإلكتروني وحفظ البطاقات
                 </h2>
                 <p>
-                  تدعم المنصة ثلاث وسائل دفع رسمية: التحويل اللحظي عبر تطبيق{" "}
+                  تدعم المنصة وسائل دفع رسمية معتمدة: التحويل اللحظي عبر تطبيق{" "}
                   <strong>إنستا باي (InstaPay)</strong>، الدفع الإلكتروني
-                  بالبطاقات البنكية (Visa / Meeza) عبر بوابة{" "}
-                  <strong>Geidea</strong> الآمنة، أو الدفع النقدي (كاش) لمندوب
-                  الدور عند الاستلام. جميع الأسعار المعروضة بالجنيه المصري شاملة
-                  ضريبة القيمة المضافة المقررة.
+                  بالبطاقات البنكية (Visa / MasterCard / Meeza) عبر بوابة{" "}
+                  <strong>Geidea</strong> الآمنة والمرخصة من البنك المركزي، أو الدفع النقدي (كاش) لمندوب
+                  التوصيل عند الاستلام. عند رغبة العميل بحفظ البطاقة، يتم تخزين توكن مشفر (Tokenized) دون تخزين أرقام البطاقة الأصلية مع إمكانية حذفها في أي وقت. في حال إلغاء الطلب المؤهل يتم رد كامل المبلغ لنفس البطاقة أو المحفظة إلكترونياً.
                 </p>
               </section>
 
@@ -1005,7 +1004,16 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
 
               <section className="space-y-2">
                 <h2 className="text-base font-extrabold text-slate-900">
-                  03. الأذونات المطلوبة في تطبيق الموبايل
+                  03. أمان بيانات الدفع والبطاقات البنكية (معايير PCI-DSS)
+                </h2>
+                <p>
+                  منصة سنجوب <strong>لا تخزن مطلقاً</strong> أرقام البطاقات الائتمانية الكاملة أو رمز الأمان (CVV/CVC) على خوادمها. تتم جميع المعاملات البنكية وحفظ البطاقات عبر قنوات مشفرة وبوابة <strong>Geidea</strong> المعتمدة من البنك المركزي المصري والمطابقة لأعلى معايير أمان بطاقات الدفع العالمية (PCI-DSS).
+                </p>
+              </section>
+
+              <section className="space-y-2">
+                <h2 className="text-base font-extrabold text-slate-900">
+                  04. الأذونات المطلوبة في تطبيق الموبايل
                 </h2>
                 <ul className="list-disc pr-5 space-y-1">
                   <li>
@@ -1025,7 +1033,7 @@ export const CorporateWebsite: React.FC<CorporateWebsiteProps> = ({
 
               <section className="space-y-2">
                 <h2 className="text-base font-extrabold text-slate-900">
-                  04. حق المستخدم في تعديل أو حذف بياناته
+                  05. حق المستخدم في تعديل أو حذف بياناته
                 </h2>
                 <p>
                   يحق لكل مستخدم تعديل بياناته ومقر وزارته في أي وقت من خلال

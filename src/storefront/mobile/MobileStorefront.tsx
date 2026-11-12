@@ -6,6 +6,7 @@ import { StoreDetailsPage } from '../pages/StoreDetailsPage';
 import { ProductDetailsPage } from '../pages/ProductDetailsPage';
 import { OrdersPage } from '../pages/OrdersPage';
 import { AccountPage } from '../pages/AccountPage';
+import { LegalPolicyPage } from '../pages/LegalPolicyPage';
 import { CartCheckoutModal } from '../components/CartCheckoutModal';
 import { SangoubAuthModal } from '../components/SangoubAuthModal';
 import { MerchantLogoCard } from '../components/MerchantLogoCard';
@@ -105,6 +106,10 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
   const isSingleProduct = currentPath.startsWith('/products/') || currentPath.startsWith('/product/');
   const isOrdersPage = currentPath === '/my-orders' || currentPath === '/orders' || currentPath === '/track';
   const isAccountPage = currentPath === '/account' || currentPath === '/profile' || currentPath === '/settings' || currentPath === '/addresses';
+  const isTermsPage = currentPath === '/terms' || currentPath === '/policies/terms';
+  const isPrivacyPage = currentPath === '/privacy' || currentPath === '/policies/privacy';
+  const isCareersPage = currentPath === '/careers';
+  const isLegalPage = isTermsPage || isPrivacyPage || isCareersPage;
   const currentStoreId = isSingleStore ? decodeURIComponent(currentPath.replace(/^\/stores\//, '').replace(/\/$/, '')) : '';
   const currentProductId = isSingleProduct ? decodeURIComponent(currentPath.replace(/^\/(products|product)\//, '').replace(/\/$/, '')) : '';
   const [isCartModalOpen, setIsCartModalOpen] = useState(false);
@@ -1048,6 +1053,11 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             onBackToHome={() => navigate('/')}
             onOpenAreaModal={onOpenAreaModal}
             isMobile={true}
+          />
+        ) : isLegalPage ? (
+          <LegalPolicyPage
+            initialTab={isCareersPage ? 'careers' : isPrivacyPage ? 'privacy' : 'terms'}
+            onBackToHome={() => navigate('/')}
           />
         ) : isSearchActive ? (
           /* ══════════════════════════════════════════════════════════════

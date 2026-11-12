@@ -1,8 +1,6 @@
 import React from 'react';
-import { BRAND } from '../../brand';
 import { useStore } from '../context/StoreContext';
-import { LAUNCH_CONFIG } from '../../config/launchConfig';
-import { Truck, ShieldCheck, Clock, Phone } from 'lucide-react';
+import { BRAND } from '../../brand';
 
 export const StoreFooter: React.FC = () => {
   const { navigate } = useStore();
@@ -13,69 +11,52 @@ export const StoreFooter: React.FC = () => {
   };
 
   return (
-    <footer className="bg-[#131921] text-[#ccc] text-xs pt-4 pb-16 sm:pb-4 border-t border-white/10 hidden sm:block select-none" dir="rtl">
-      <div className="sg-container">
-
-        {/* 1. Ultra-Compact Trust Strip */}
-        <div className="flex items-center justify-around py-2.5 border-b border-white/10 text-[11px] text-[#aaa] flex-wrap gap-2">
-          <div className="flex items-center gap-1.5">
-            <Truck size={14} className="text-[#FF5900]" />
-            <span>توصيل سريع وموثوق داخل {LAUNCH_CONFIG.serviceAreaLabel}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Clock size={14} className="text-[#FF5900]" />
-            <span>توصيل مباشر لحد بابك</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck size={14} className="text-[#FF5900]" />
-            <span>منتجات وطلبات طازجة ومختارة بعناية</span>
-          </div>
-        </div>
-
-        {/* 2. Compact Links & Brand Row */}
-        <div className="flex items-center justify-between py-3 flex-wrap gap-3">
+    <footer className="bg-white border-t border-[#E5E7EB] text-[#6B7280] text-[11px] py-3.5 select-none" dir="rtl">
+      <div className="sg-container px-4 sm:px-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           
-          {/* Logo & Slogan */}
-          <div className="flex items-center gap-2">
-            <img
-              src="/brand/sangoub-mark-white-128.png"
-              alt="سنجوب"
-              className="w-6 h-6 object-contain rounded-md"
-            />
-            <span className="font-black text-[#FF5900] text-sm">سنجوب</span>
-            <span className="text-[10px] text-[#888]">تطبيق التوصيل الذكي</span>
+          {/* Copyright & Entity */}
+          <div className="text-[11px] text-[#9CA3AF] order-2 sm:order-1">
+            © 2026 سنجوب · شركة ميسك للتكنولوجيا
           </div>
 
-          {/* Quick Links */}
-          <div className="flex items-center gap-3 text-[11px] flex-wrap">
-            <a href="/" onClick={handleNav('/')} className="hover:text-white transition-colors">الرئيسية</a>
-            <span className="text-white/20">|</span>
-            <a href="/categories" onClick={handleNav('/categories')} className="hover:text-white transition-colors">الأقسام</a>
-            <span className="text-white/20">|</span>
-            <a href="/stores" onClick={handleNav('/stores')} className="hover:text-white transition-colors">المتاجر</a>
-            <span className="text-white/20">|</span>
-            <a href="/offers" onClick={handleNav('/offers')} className="hover:text-white transition-colors">العروض</a>
-            <span className="text-white/20">|</span>
-            <a href="/policies/terms" onClick={handleNav('/policies/terms')} className="hover:text-white transition-colors">الشروط</a>
-            <span className="text-white/20">|</span>
+          {/* Cloudflare-style Clean Links */}
+          <div className="flex items-center gap-2 sm:gap-3 text-[11px] flex-wrap justify-center order-1 sm:order-2">
             <a
               href={BRAND.supportUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#25D366] hover:underline flex items-center gap-1 font-bold"
+              className="text-[#6B7280] hover:text-[#FF5900] transition-colors"
             >
-              <Phone size={11} />
-              <span>واتساب الدعم</span>
+              الدعم
+            </a>
+            <span className="text-[#D1D5DB]">|</span>
+            <a
+              href="/careers"
+              onClick={handleNav('/careers')}
+              className="text-[#6B7280] hover:text-[#FF5900] transition-colors"
+            >
+              الوظائف
+            </a>
+            <span className="text-[#D1D5DB]">|</span>
+            <a
+              href="/terms"
+              onClick={handleNav('/terms')}
+              className="text-[#6B7280] hover:text-[#FF5900] transition-colors"
+            >
+              الشروط والأحكام
+            </a>
+            <span className="text-[#D1D5DB]">|</span>
+            <a
+              href="/privacy"
+              onClick={handleNav('/privacy')}
+              className="text-[#6B7280] hover:text-[#FF5900] transition-colors"
+            >
+              سياسة الخصوصية
             </a>
           </div>
 
-          {/* Copyright & Entity */}
-          <div className="text-[10px] text-[#777]">
-            © {new Date().getFullYear()} سنجوب (Sangoub) - {LAUNCH_CONFIG.entityLine}
-          </div>
-
         </div>
-
       </div>
     </footer>
   );

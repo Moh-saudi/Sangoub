@@ -38,7 +38,7 @@ interface AdminDashboardProps {
   partnerApplications: PartnerApplication[];
   jobApplications: JobApplication[];
   initialAdminTab?: AdminTabType;
-  orderSearchRequest?: {term:string;key:number};
+  orderSearchRequest?: { term: string; key: number };
   onUpdateOrderStatus: (orderId: string, newStatus: OrderStatus) => Promise<void>;
   onAssignCourier: (
     orderId: string,
@@ -68,10 +68,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onOpenWebsitePage,
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTabType>(initialAdminTab);
-  const [selectedOrderId,setSelectedOrderId]=useState('');
-  const orderDialog=useRef<HTMLDialogElement>(null);
-  useEffect(()=>{if(selectedOrderId)orderDialog.current?.showModal();else orderDialog.current?.close();},[selectedOrderId]);
-  useEffect(()=>{if(orderSearchRequest){setOrderSearch(orderSearchRequest.term);setStatusFilter('all');setAreaFilter('');setActiveTab('orders');}},[orderSearchRequest?.key]);
+  const [selectedOrderId, setSelectedOrderId] = useState('');
+  const orderDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => { if (selectedOrderId) orderDialog.current?.showModal(); else orderDialog.current?.close(); }, [selectedOrderId]);
+  useEffect(() => { if (orderSearchRequest) { setOrderSearch(orderSearchRequest.term); setStatusFilter('all'); setAreaFilter(''); setActiveTab('orders'); } }, [orderSearchRequest?.key]);
   const [orderSearch, setOrderSearch] = useState("");
   const [areaFilter, setAreaFilter] = useState("");
   const [pendingOrders, setPendingOrders] = useState<string[]>([]);
@@ -194,11 +194,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   key={filter.id}
                   aria-pressed={statusFilter === filter.id}
                   onClick={() => setStatusFilter(filter.id)}
-                  className={`px-3 py-1 text-xs font-bold rounded-xl transition-colors cursor-pointer ${
-                    statusFilter === filter.id
+                  className={`px-3 py-1 text-xs font-bold rounded-xl transition-colors cursor-pointer ${statusFilter === filter.id
                       ? "bg-emerald-700 text-white"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   {filter.label}
                 </button>
@@ -206,213 +205,213 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          <section className="admin-panel compact-orders"><div className="compact-table-caption"><strong>سجل الطلبات</strong><span>عرض {filteredOrders.length} طلب</span></div><div className="admin-table-scroll"><table className="table table-hover align-middle admin-data-table"><thead><tr><th>رقم الطلب / العميل</th><th>عنوان التوصيل</th><th>الأصناف</th><th>القيمة</th><th>الحالة</th><th>المندوب</th><th>التاريخ</th><th>الإجراءات</th></tr></thead><tbody>{filteredOrders.map(order=><tr key={order.id}><td><button className="admin-order-link" onClick={()=>setSelectedOrderId(order.id)}>{order.orderNumber}</button><small>{order.profileName || 'عميل سنجوب'}</small></td><td><span className="font-semibold block text-slate-800 truncate max-w-xs">{order.deliveryAddress || order.ministry || 'عنوان العميل'}</span>{order.floorNumber && order.floorNumber !== 'غير محدد' && <small className="text-slate-400 block">{[order.floorNumber, order.roomNumber].filter(x => x && x !== 'غير محدد').join(' · ')}</small>}</td><td><span className="compact-item-summary">{order.itemsSummary||order.items.map(item=>`${item.quantity}× ${item.product.name}`).join('، ')||order.legacySummary||'—'}</span></td><td className="whitespace-nowrap">{formatEGP(order.total)}</td><td><span className={`badge admin-status status-${order.orderStatus}`}>{adminOrderStatus[order.orderStatus]}</span></td><td>{order.courierName||'لم يُعيّن'}</td><td className="whitespace-nowrap">{order.createdAt?new Date(order.createdAt).toLocaleDateString('ar-EG',{timeZone:'Africa/Cairo'}):'—'}<small>{order.createdAt?new Date(order.createdAt).toLocaleTimeString('ar-EG',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit'}):''}</small></td><td><button className="compact-row-action btn btn-outline-secondary" aria-label={`تفاصيل الطلب ${order.orderNumber}`} onClick={()=>setSelectedOrderId(order.id)}>تفاصيل وإدارة</button></td></tr>)}</tbody></table></div>{!filteredOrders.length&&<p className="admin-empty">لا توجد طلبات مطابقة لهذا الفلتر</p>}</section>
-          <dialog ref={orderDialog} className="admin-detail-drawer" aria-label="تفاصيل وإدارة الطلب" onCancel={()=>setSelectedOrderId('')} onClose={()=>setSelectedOrderId('')} dir="rtl"><div className="admin-dialog-heading"><h2>تفاصيل وإدارة الطلب</h2><button aria-label="إغلاق تفاصيل الطلب" onClick={()=>setSelectedOrderId('')}>إغلاق ×</button></div><div className="compact-order-details">
-              {orders.filter(order=>order.id===selectedOrderId).map((order) => {
-                const statusInfo = getOrderStatusLabel(order.orderStatus);
+          <section className="admin-panel compact-orders"><div className="compact-table-caption"><strong>سجل الطلبات</strong><span>عرض {filteredOrders.length} طلب</span></div><div className="admin-table-scroll"><table className="table table-hover align-middle admin-data-table"><thead><tr><th>رقم الطلب / العميل</th><th>عنوان التوصيل</th><th>الأصناف</th><th>القيمة</th><th>الحالة</th><th>المندوب</th><th>التاريخ</th><th>الإجراءات</th></tr></thead><tbody>{filteredOrders.map(order => <tr key={order.id}><td><button className="admin-order-link" onClick={() => setSelectedOrderId(order.id)}>{order.orderNumber}</button><small>{order.profileName || 'عميل سنجوب'}</small></td><td><span className="font-semibold block text-slate-800 truncate max-w-xs">{order.deliveryAddress || order.ministry || 'عنوان العميل'}</span>{order.floorNumber && order.floorNumber !== 'غير محدد' && <small className="text-slate-400 block">{[order.floorNumber, order.roomNumber].filter(x => x && x !== 'غير محدد').join(' · ')}</small>}</td><td><span className="compact-item-summary">{order.itemsSummary || order.items.map(item => `${item.quantity}× ${item.product.name}`).join('، ') || order.legacySummary || '—'}</span></td><td className="whitespace-nowrap">{formatEGP(order.total)}</td><td><span className={`badge admin-status status-${order.orderStatus}`}>{adminOrderStatus[order.orderStatus]}</span></td><td>{order.courierName || 'لم يُعيّن'}</td><td className="whitespace-nowrap">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }) : '—'}<small>{order.createdAt ? new Date(order.createdAt).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : ''}</small></td><td><button className="compact-row-action btn btn-outline-secondary" aria-label={`تفاصيل الطلب ${order.orderNumber}`} onClick={() => setSelectedOrderId(order.id)}>تفاصيل وإدارة</button></td></tr>)}</tbody></table></div>{!filteredOrders.length && <p className="admin-empty">لا توجد طلبات مطابقة لهذا الفلتر</p>}</section>
+          <dialog ref={orderDialog} className="admin-detail-drawer" aria-label="تفاصيل وإدارة الطلب" onCancel={() => setSelectedOrderId('')} onClose={() => setSelectedOrderId('')} dir="rtl"><div className="admin-dialog-heading"><h2>تفاصيل وإدارة الطلب</h2><button aria-label="إغلاق تفاصيل الطلب" onClick={() => setSelectedOrderId('')}>إغلاق ×</button></div><div className="compact-order-details">
+            {orders.filter(order => order.id === selectedOrderId).map((order) => {
+              const statusInfo = getOrderStatusLabel(order.orderStatus);
 
-                return (
-                  <div
-                    key={order.id}
-                    className="bg-white rounded-2xl border border-slate-200 p-4 hover:border-slate-300 transition-all space-y-3"
-                  >
-                    {/* Header Row */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                      <div className="flex flex-wrap items-center gap-2.5 min-w-0">
-                        <span className="font-mono text-sm font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
-                          {order.orderNumber}
+              return (
+                <div
+                  key={order.id}
+                  className="bg-white rounded-2xl border border-slate-200 p-4 hover:border-slate-300 transition-all space-y-3"
+                >
+                  {/* Header Row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                    <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+                      <span className="font-mono text-sm font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
+                        {order.orderNumber}
+                      </span>
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-900">
+                          {order.profileName || 'عميل سنجوب'}
                         </span>
-                        <div className="text-xs">
-                          <span className="font-bold text-slate-900">
-                            {order.profileName || 'عميل سنجوب'}
-                          </span>
-                          <span className="text-slate-400 mx-1">·</span>
-                          <span className="text-slate-600 font-mono">
-                            {order.phone}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${statusInfo.colorClass}`}
-                        >
-                          {statusInfo.text}
-                        </span>
-                        <span className="text-sm font-extrabold text-emerald-800 tabular-nums">
-                          {formatEGP(order.total)}
+                        <span className="text-slate-400 mx-1">·</span>
+                        <span className="text-slate-600 font-mono">
+                          {order.phone}
                         </span>
                       </div>
                     </div>
 
-                    {/* Middle Info: Location & Items summary */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      <div className="bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100 space-y-1">
-                        <div className="font-bold text-emerald-950 flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-emerald-700" />
-                          <span>{order.deliveryAddress || order.ministry || 'عنوان التوصيل'}</span>
-                        </div>
-                        {order.floorNumber && order.floorNumber !== 'غير محدد' && (
-                          <div className="text-slate-600">
-                            {[order.floorNumber, order.roomNumber].filter(x => x && x !== 'غير محدد').join(' · ')}
-                          </div>
-                        )}
-                        {order.scheduledDeliveryTime && (
-                          <div className="text-[11px] font-bold text-orange-800 bg-orange-100/80 px-2 py-1 rounded-lg border border-orange-200 flex items-center gap-1 mt-1">
-                            <Clock className="w-3.5 h-3.5 text-orange-600 shrink-0" />
-                            <span>
-                              موعد التسليم المجدول:{" "}
-                              {order.scheduledDeliveryTime}
-                            </span>
-                          </div>
-                        )}
-                        {order.notes && (
-                          <div className="text-[11px] text-amber-800">
-                            ملاحظة العميل: {order.notes}
-                          </div>
-                        )}
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${statusInfo.colorClass}`}
+                      >
+                        {statusInfo.text}
+                      </span>
+                      <span className="text-sm font-extrabold text-emerald-800 tabular-nums">
+                        {formatEGP(order.total)}
+                      </span>
+                    </div>
+                  </div>
 
-                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 space-y-1">
-                        <div className="font-bold text-slate-800">
-                          الأصناف ({order.items.length}):
-                          {order.legacyRecord && (
-                            <p>
-                              سجل قديم: {order.legacySummary}. تفاصيل الأسعار
-                              الفرعية غير محفوظة.
-                            </p>
-                          )}
-                        </div>
+                  {/* Middle Info: Location & Items summary */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100 space-y-1">
+                      <div className="font-bold text-emerald-950 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>{order.deliveryAddress || order.ministry || 'عنوان التوصيل'}</span>
+                      </div>
+                      {order.floorNumber && order.floorNumber !== 'غير محدد' && (
                         <div className="text-slate-600">
-                          <details className="my-2">
-                            <summary className="cursor-pointer text-xs text-blue-700">
-                              خريطة الطلب
-                            </summary>
-                            <OrderMap order={order} />
-                          </details>
-                          {order.items
-                            .map((i) => `${i.quantity}× ${i.product.name}`)
-                            .join("، ")}
+                          {[order.floorNumber, order.roomNumber].filter(x => x && x !== 'غير محدد').join(' · ')}
                         </div>
-                        <div className="pt-2 flex flex-wrap items-center justify-between gap-1.5 border-t border-slate-100 text-[11px]">
-                          <span className="text-slate-500 font-medium">
-                            طريقة السداد:{" "}
-                            <strong className="text-slate-800">
-                              {order.paymentMethod === "instapay"
-                                ? "إنستا باي (InstaPay)"
-                                : order.paymentMethod === "vodafone_cash"
-                                  ? "محفظة فودافون كاش"
-                                  : (order.paymentMethod === "geidea" || order.paymentMethod === "card")
-                                    ? "بطاقة بنكية (جيديا)"
-                                    : "كاش عند الاستلام"}
-                            </strong>
+                      )}
+                      {order.scheduledDeliveryTime && (
+                        <div className="text-[11px] font-bold text-orange-800 bg-orange-100/80 px-2 py-1 rounded-lg border border-orange-200 flex items-center gap-1 mt-1">
+                          <Clock className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                          <span>
+                            موعد التسليم المجدول:{" "}
+                            {order.scheduledDeliveryTime}
                           </span>
-
-                          {order.paymentStatus === "paid" ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
-                              ✓ مدفوع إلكترونياً
-                            </span>
-                          ) : order.paymentMethod === "instapay" ? (
-                            <button
-                              disabled={pendingOrders.includes(order.id)}
-                              onClick={() => {
-                                const refNo = prompt("أدخل الرقم المرجعي لتحويل إنستاباي أو اضغط موافق لتأكيد الاستلام:");
-                                if (refNo !== null) {
-                                  void runOrderAction(order.id, async () => {
-                                    await updateOrderRecord(order.id, {
-                                      paymentStatus: "paid",
-                                      paymentConfirmedAt: new Date().toISOString(),
-                                      paymentReference: refNo || "تحويل إنستاباي معتمد",
-                                    });
-                                  });
-                                }
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs transition-colors"
-                            >
-                              ⚡ تأكيد تحويل InstaPay
-                            </button>
-                          ) : (
-                            <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full text-[10px] font-bold border border-amber-200">
-                              قيد التحصيل
-                            </span>
-                          )}
                         </div>
-                      </div>
+                      )}
+                      {order.notes && (
+                        <div className="text-[11px] text-amber-800">
+                          ملاحظة العميل: {order.notes}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Courier Assignment & Status Controls Bar */}
-                    <div className="pt-2 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                      {/* Courier Selector */}
-                      <div className="flex items-center gap-2 flex-1 max-w-md min-w-0">
-                        <Bike className="w-4 h-4 text-emerald-700 shrink-0" />
-                        <span className="text-xs font-bold text-slate-800 shrink-0">
-                          تعيين المندوب:
-                        </span>
-                        <select
-                          disabled={pendingOrders.includes(order.id) || ['delivered', 'cancelled'].includes(order.orderStatus)}
-                          value={
-                            order.courierId ||
-                            selectedCourierForOrder[order.id] ||
-                            ""
-                          }
-                          onChange={(e) =>
-                            handleCourierSelect(order.id, e.target.value)
-                          }
-                          className="min-w-0 flex-1 p-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500/20 text-slate-800 truncate"
-                        >
-                          <option value="">
-                            -- اضغط لتعيين مندوب التوصيل --
-                          </option>
-                          {couriers.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 space-y-1">
+                      <div className="font-bold text-slate-800">
+                        الأصناف ({order.items.length}):
+                        {order.legacyRecord && (
+                          <p>
+                            سجل قديم: {order.legacySummary}. تفاصيل الأسعار
+                            الفرعية غير محفوظة.
+                          </p>
+                        )}
                       </div>
+                      <div className="text-slate-600">
+                        <details className="my-2">
+                          <summary className="cursor-pointer text-xs text-blue-700">
+                            خريطة الطلب
+                          </summary>
+                          <OrderMap order={order} />
+                        </details>
+                        {order.items
+                          .map((i) => `${i.quantity}× ${i.product.name}`)
+                          .join("، ")}
+                      </div>
+                      <div className="pt-2 flex flex-wrap items-center justify-between gap-1.5 border-t border-slate-100 text-[11px]">
+                        <span className="text-slate-500 font-medium">
+                          طريقة السداد:{" "}
+                          <strong className="text-slate-800">
+                            {order.paymentMethod === "instapay"
+                              ? "إنستا باي (InstaPay)"
+                              : order.paymentMethod === "vodafone_cash"
+                                ? "محفظة فودافون كاش"
+                                : (order.paymentMethod === "geidea" || order.paymentMethod === "card")
+                                  ? "بطاقة بنكية (جيديا)"
+                                  : "كاش عند الاستلام"}
+                          </strong>
+                        </span>
 
-                      {/* Advance Status Buttons */}
-                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-                        {pendingOrders.includes(order.id) && <span role="status" className="text-xs">جارٍ الحفظ…</span>}
-                        {!["delivered", "cancelled"].includes(order.orderStatus) && <button disabled={pendingOrders.includes(order.id)} className="text-xs border border-red-200 text-red-700 rounded-xl px-3 py-2" onClick={() => { if (window.confirm(`إلغاء الطلب ${order.orderNumber}؟`)) void runOrderAction(order.id, () => onUpdateOrderStatus(order.id, "cancelled")); }}>إلغاء الطلب</button>}
-                        {order.fulfillmentVersion !== 2 && order.orderStatus === "received" && (
+                        {order.paymentStatus === "paid" ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                            ✓ مدفوع إلكترونياً
+                          </span>
+                        ) : order.paymentMethod === "instapay" ? (
                           <button
                             disabled={pendingOrders.includes(order.id)}
-                            onClick={() =>
-                              runOrderAction(order.id, () => onUpdateOrderStatus(order.id, "preparing"))
-                            }
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                            onClick={() => {
+                              const refNo = prompt("أدخل الرقم المرجعي لتحويل إنستاباي أو اضغط موافق لتأكيد الاستلام:");
+                              if (refNo !== null) {
+                                void runOrderAction(order.id, async () => {
+                                  await updateOrderRecord(order.id, {
+                                    paymentStatus: "paid",
+                                    paymentConfirmedAt: new Date().toISOString(),
+                                    paymentReference: refNo || "تحويل إنستاباي معتمد",
+                                  });
+                                });
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs transition-colors"
                           >
-                            بدء تجهيز الطلب
+                            ⚡ تأكيد تحويل InstaPay
                           </button>
-                        )}
-
-                        {order.fulfillmentVersion !== 2 && order.orderStatus === "preparing" && (
-                          <button
-                            disabled={pendingOrders.includes(order.id)}
-                            onClick={() =>
-                              runOrderAction(order.id, () => onUpdateOrderStatus(order.id, "ready"))
-                            }
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer"
-                          >
-                            جاهز لاستلام المندوب
-                          </button>
-                        )}
-
-                        {order.fulfillmentVersion === 2 && <p className="text-xs text-slate-500">التحضير والاستلام يتحدثان من حسابات المتاجر والمندوب في التطبيق.</p>}
-                        {order.orderStatus === "with_courier" && <span className="text-xs text-slate-500">يؤكد المندوب التسليم برمز العميل</span>}
-
-                        {order.orderStatus === "delivered" && (
-                          <span className="text-xs text-teal-700 font-bold flex items-center gap-1">
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            مكتمل بنجاح
+                        ) : (
+                          <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full text-[10px] font-bold border border-amber-200">
+                            قيد التحصيل
                           </span>
                         )}
                       </div>
                     </div>
                   </div>
-                );
-              })}
+
+                  {/* Courier Assignment & Status Controls Bar */}
+                  <div className="pt-2 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    {/* Courier Selector */}
+                    <div className="flex items-center gap-2 flex-1 max-w-md min-w-0">
+                      <Bike className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span className="text-xs font-bold text-slate-800 shrink-0">
+                        تعيين المندوب:
+                      </span>
+                      <select
+                        disabled={pendingOrders.includes(order.id) || ['delivered', 'cancelled'].includes(order.orderStatus)}
+                        value={
+                          order.courierId ||
+                          selectedCourierForOrder[order.id] ||
+                          ""
+                        }
+                        onChange={(e) =>
+                          handleCourierSelect(order.id, e.target.value)
+                        }
+                        className="min-w-0 flex-1 p-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500/20 text-slate-800 truncate"
+                      >
+                        <option value="">
+                          -- اضغط لتعيين مندوب التوصيل --
+                        </option>
+                        {couriers.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Advance Status Buttons */}
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                      {pendingOrders.includes(order.id) && <span role="status" className="text-xs">جارٍ الحفظ…</span>}
+                      {!["delivered", "cancelled"].includes(order.orderStatus) && <button disabled={pendingOrders.includes(order.id)} className="text-xs border border-red-200 text-red-700 rounded-xl px-3 py-2" onClick={() => { if (window.confirm(`إلغاء الطلب ${order.orderNumber}؟`)) void runOrderAction(order.id, () => onUpdateOrderStatus(order.id, "cancelled")); }}>إلغاء الطلب</button>}
+                      {order.fulfillmentVersion !== 2 && order.orderStatus === "received" && (
+                        <button
+                          disabled={pendingOrders.includes(order.id)}
+                          onClick={() =>
+                            runOrderAction(order.id, () => onUpdateOrderStatus(order.id, "preparing"))
+                          }
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                        >
+                          بدء تجهيز الطلب
+                        </button>
+                      )}
+
+                      {order.fulfillmentVersion !== 2 && order.orderStatus === "preparing" && (
+                        <button
+                          disabled={pendingOrders.includes(order.id)}
+                          onClick={() =>
+                            runOrderAction(order.id, () => onUpdateOrderStatus(order.id, "ready"))
+                          }
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                        >
+                          جاهز لاستلام المندوب
+                        </button>
+                      )}
+
+                      {order.fulfillmentVersion === 2 && <p className="text-xs text-slate-500">التحضير والاستلام يتحدثان من حسابات المتاجر والمندوب في التطبيق.</p>}
+                      {order.orderStatus === "with_courier" && <span className="text-xs text-slate-500">يؤكد المندوب التسليم برمز العميل</span>}
+
+                      {order.orderStatus === "delivered" && (
+                        <span className="text-xs text-teal-700 font-bold flex items-center gap-1">
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          مكتمل بنجاح
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div></dialog>
         </div>
       )}
@@ -451,11 +450,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {partnerApplications.map((partner) => {
               const statusBadge = getApplicationStatusLabel(partner.status);
               const cleanWhatsappPhone = partner.phone.replace(/[^0-9]/g, "");
-              const whatsappUrl = `https://wa.me/${
-                cleanWhatsappPhone.startsWith("0")
+              const whatsappUrl = `https://wa.me/${cleanWhatsappPhone.startsWith("0")
                   ? "2" + cleanWhatsappPhone
                   : cleanWhatsappPhone
-              }`;
+                }`;
 
               return (
                 <div
@@ -617,11 +615,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {jobApplications.map((job) => {
               const statusBadge = getApplicationStatusLabel(job.status);
               const cleanWhatsappPhone = job.phone.replace(/[^0-9]/g, "");
-              const whatsappUrl = `https://wa.me/${
-                cleanWhatsappPhone.startsWith("0")
+              const whatsappUrl = `https://wa.me/${cleanWhatsappPhone.startsWith("0")
                   ? "2" + cleanWhatsappPhone
                   : cleanWhatsappPhone
-              }`;
+                }`;
 
               return (
                 <div

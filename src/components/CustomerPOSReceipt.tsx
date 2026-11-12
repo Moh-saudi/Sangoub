@@ -67,8 +67,8 @@ export function CustomerPOSReceipt({
   const actualDeliveryFee = typeof order.deliveryFee === 'number'
     ? order.deliveryFee
     : hasExactOrderTotal
-    ? Math.max(0, order.total - itemsSubtotal)
-    : 15;
+      ? Math.max(0, order.total - itemsSubtotal)
+      : 15;
 
   const deliveryShare = isMultiStore && activeStoreId !== 'all'
     ? Math.round(actualDeliveryFee / storeCount)
@@ -194,11 +194,10 @@ export function CustomerPOSReceipt({
           <button
             type="button"
             onClick={() => setActiveStoreId('all')}
-            className={`px-3 py-1 rounded-full text-xs font-bold transition shrink-0 cursor-pointer ${
-              activeStoreId === 'all'
+            className={`px-3 py-1 rounded-full text-xs font-bold transition shrink-0 cursor-pointer ${activeStoreId === 'all'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
+              }`}
           >
             كل المتاجر (مجمع)
           </button>
@@ -210,11 +209,10 @@ export function CustomerPOSReceipt({
                 key={sid}
                 type="button"
                 onClick={() => setActiveStoreId(sid)}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
-                  isCurrent
+                className={`px-3 py-1 rounded-full text-xs font-bold transition shrink-0 flex items-center gap-1.5 cursor-pointer ${isCurrent
                     ? 'bg-orange-600 text-white shadow-xs'
                     : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
+                  }`}
               >
                 {st?.imageUrl && (
                   <img src={st.imageUrl} alt="" className="w-4 h-4 rounded-full object-cover" />
@@ -312,32 +310,31 @@ export function CustomerPOSReceipt({
               {order.paymentMethod === 'cash'
                 ? 'نقدًا عند الاستلام (كاش)'
                 : (order.paymentMethod === 'card' || order.paymentMethod === 'geidea')
-                ? 'بطاقة بنكية (فيزا / ماستركارد / ميزة) - جيديا'
-                : order.paymentMethod === 'vodafone_cash'
-                ? 'محفظة إلكترونية (فودافون كاش)'
-                : order.paymentMethod === 'instapay'
-                ? 'تحويل إنستاباي'
-                : 'دفع إلكتروني معتمد'}
+                  ? 'بطاقة بنكية (فيزا / ماستركارد / ميزة) - جيديا'
+                  : order.paymentMethod === 'vodafone_cash'
+                    ? 'محفظة إلكترونية (فودافون كاش)'
+                    : order.paymentMethod === 'instapay'
+                      ? 'تحويل إنستاباي'
+                      : 'دفع إلكتروني معتمد'}
             </strong>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-slate-600">حالة السداد:</span>
-            <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-              order.paymentStatus === 'paid'
+            <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${order.paymentStatus === 'paid'
                 ? 'bg-emerald-100 text-emerald-900'
                 : order.paymentMethod === 'cash'
-                ? 'bg-amber-100 text-amber-900'
-                : (order as any).receiptUrl
-                ? 'bg-blue-100 text-blue-900'
-                : 'bg-rose-100 text-rose-900'
-            }`}>
+                  ? 'bg-amber-100 text-amber-900'
+                  : (order as any).receiptUrl
+                    ? 'bg-blue-100 text-blue-900'
+                    : 'bg-rose-100 text-rose-900'
+              }`}>
               {order.paymentStatus === 'paid'
                 ? 'تم استلام المبلغ ومعتمد بنكياً (خالص السداد ✓)'
                 : order.paymentMethod === 'cash'
-                ? 'معلق للتسديد كاش عند الاستلام'
-                : (order as any).receiptUrl
-                ? 'إيصال التحويل مرفوع (قيد المراجعة ⏳)'
-                : 'بانتظار التحويل ورفع الإيصال ⚠️'}
+                  ? 'معلق للتسديد كاش عند الاستلام'
+                  : (order as any).receiptUrl
+                    ? 'إيصال التحويل مرفوع (قيد المراجعة ⏳)'
+                    : 'بانتظار التحويل ورفع الإيصال ⚠️'}
             </span>
           </div>
         </div>

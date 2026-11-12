@@ -1555,10 +1555,33 @@ export function CartCheckoutModal({
               )}
             </button>
 
-            <p className="text-[10px] sm:text-[11px] text-center text-slate-400 mt-2 flex items-center justify-center gap-1 font-medium">
-              <ShieldCheck size={12} className="text-emerald-600 shrink-0" />
-              <span>تسوق آمن وسريع ومضمون 100% مع منصة سنجوب</span>
-            </p>
+            {/* Minimalist Cloudflare-style Terms & Security Note */}
+            <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-col items-center gap-1 text-center select-none">
+              <p className="text-[10px] sm:text-[11px] text-[#6B7280]">
+                بتأكيد الطلب، أنت توافق على{' '}
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-[#FF5900] hover:underline"
+                >
+                  الشروط والأحكام
+                </a>
+                {' '}و{' '}
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-[#FF5900] hover:underline"
+                >
+                  سياسة الخصوصية
+                </a>
+              </p>
+              <p className="text-[9.5px] sm:text-[10px] text-[#9CA3AF] flex items-center justify-center gap-1 font-medium">
+                <ShieldCheck size={11} className="text-emerald-600 shrink-0" />
+                <span>دفع إلكتروني مشفر بمعايير PCI-DSS عبر Geidea والبنك المركزي</span>
+              </p>
+            </div>
           </footer>
         )}
       </div>

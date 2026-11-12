@@ -640,57 +640,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
           }
         })}
 
-        {/* 9. TALABAT VALUE PROPOSITIONS & GUARANTEES */}
-        <section className="bg-white border border-[#E5E7EB] rounded-2xl p-4 sm:p-6 shadow-xs mb-8">
-          <div className="text-center max-w-md mx-auto mb-4">
-            <span className="text-[10px] font-black text-[#FF5900] bg-[#FFF2EC] px-2.5 py-0.5 rounded-full uppercase">
-              لماذا سنجوب Sangoub؟
-            </span>
-            <h3 className="text-sm sm:text-base font-black text-[#111827] mt-1.5">
-              توصيل فوري لمكاتب ومنازل العاصمة الإدارية
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
-            <div className="flex flex-col items-center text-center p-3 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6]">
-              <div className="w-9 h-9 rounded-xl bg-[#FFF2EC] text-[#FF5900] flex items-center justify-center mb-1.5">
-                <Bike size={18} />
-              </div>
-              <h4 className="text-[11px] font-black text-[#111827]">توصيل مباشر</h4>
-              <p className="text-[9px] text-[#6B7280]">خدمة سريعة في {LAUNCH_CONFIG.serviceAreaLabel}</p>
-            </div>
-
-            <div className="flex flex-col items-center text-center p-3 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6]">
-              <div className="w-9 h-9 rounded-xl bg-[#ECFDF5] text-[#059669] flex items-center justify-center mb-1.5">
-                <Clock size={18} />
-              </div>
-              <h4 className="text-[11px] font-black text-[#111827]">تتبع مباشر</h4>
-              <p className="text-[9px] text-[#6B7280]">لحظة بلحظة على الخريطة</p>
-            </div>
-
-            <div className="flex flex-col items-center text-center p-3 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6]">
-              <div className="w-9 h-9 rounded-xl bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center mb-1.5">
-                <ShieldCheck size={18} />
-              </div>
-              <h4 className="text-[11px] font-black text-[#111827]">دفع آمن</h4>
-              <p className="text-[9px] text-[#6B7280]">كاش، إنستاباي، محافظ</p>
-            </div>
-
-            <div className="flex flex-col items-center text-center p-3 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6]">
-              <div className="w-9 h-9 rounded-xl bg-[#FAF5FF] text-[#9333EA] flex items-center justify-center mb-1.5">
-                <Sparkles size={18} />
-              </div>
-              <h4 className="text-[11px] font-black text-[#111827]">دعم متواصل</h4>
-              <p className="text-[9px] text-[#6B7280]">فريق خدمة مخصص</p>
-            </div>
-          </div>
-        </section>
-
-        {/* Soft Launch Entity Line */}
-        <div className="text-center pb-6 pt-2 text-[10.5px] text-[#9CA3AF] font-bold">
-          {LAUNCH_CONFIG.entityLine}
-        </div>
-
       </div>
 
       {/* 10. STICKY FLOATING CART BAR ON MOBILE */}

@@ -90,9 +90,9 @@ function estimateDistance(
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((p1.latitude * Math.PI) / 180) *
-      Math.cos((p2.latitude * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((p2.latitude * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const straightKm = R * c;
   const roadKm = Math.round(straightKm * 1.35 * 10) / 10;
@@ -476,7 +476,7 @@ export default function CourierApp() {
     try {
       const saved = localStorage.getItem(`sangoub_courier_pause_logs_${uid}`);
       if (saved) setPauseLogs(JSON.parse(saved));
-    } catch {}
+    } catch { }
   }, [uid]);
 
   const savePauseLogs = (logs: PauseLogEntry[]) => {
@@ -484,7 +484,7 @@ export default function CourierApp() {
     if (uid) {
       try {
         localStorage.setItem(`sangoub_courier_pause_logs_${uid}`, JSON.stringify(logs));
-      } catch {}
+      } catch { }
     }
   };
 
@@ -578,7 +578,7 @@ export default function CourierApp() {
           setProductImagesCache(prev => ({ ...prev, ...updates }));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       active = false;
@@ -676,7 +676,7 @@ export default function CourierApp() {
         .from('notifications')
         .update({ is_read: true })
         .eq('user_id', uid);
-    } catch {}
+    } catch { }
   }
 
   const verifiedCourierId = useRef('');
@@ -810,7 +810,7 @@ export default function CourierApp() {
   async function handleLogout() {
     try {
       await signOutFromSupabase();
-    } catch {}
+    } catch { }
     setAccess('login');
   }
 
@@ -1111,7 +1111,7 @@ export default function CourierApp() {
         action: 'update-profile',
         courierStatus: nextStatus
       });
-    } catch {}
+    } catch { }
   }
 
   // Checking state
@@ -1317,9 +1317,8 @@ export default function CourierApp() {
                 }}
               />
               <span
-                className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#101A31] ${
-                  !feed.online ? 'bg-rose-500' : feed.live ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-                }`}
+                className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#101A31] ${!feed.online ? 'bg-rose-500' : feed.live ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                  }`}
                 title={!feed.online ? 'غير متصل' : feed.live ? 'متصل لحظياً' : 'جارٍ الاتصال'}
               />
             </div>
@@ -1638,13 +1637,12 @@ export default function CourierApp() {
                   </div>
 
                   {/* Status Banner */}
-                  <div className={`p-4 rounded-3xl border flex items-center justify-between gap-3 shadow-2xs ${
-                    isWithCourier
+                  <div className={`p-4 rounded-3xl border flex items-center justify-between gap-3 shadow-2xs ${isWithCourier
                       ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
                       : isReady
-                      ? 'bg-orange-50 border-orange-200 text-orange-950'
-                      : 'bg-blue-50 border-blue-200 text-blue-950'
-                  }`}>
+                        ? 'bg-orange-50 border-orange-200 text-orange-950'
+                        : 'bg-blue-50 border-blue-200 text-blue-950'
+                    }`}>
                     <div>
                       <h3 className="text-sm font-black" style={{ fontFamily: "'Cairo', sans-serif" }}>
                         {isWithCourier ? 'في طريقه للتوصيل' : isReady ? 'جاهز للاستلام من المتجر' : 'قيد التجهيز'}
@@ -1965,8 +1963,8 @@ export default function CourierApp() {
                           {isCash
                             ? 'أؤكد استلام كامل المبلغ النقدي وتسليم الأوردر للعميل'
                             : isInstapay
-                            ? 'أؤكد مطابقة تحويل إنستاباي وتسليم الأوردر للعميل'
-                            : 'أؤكد تسليم الأوردر كاملاً للعميل'}
+                              ? 'أؤكد مطابقة تحويل إنستاباي وتسليم الأوردر للعميل'
+                              : 'أؤكد تسليم الأوردر كاملاً للعميل'}
                         </span>
                       </label>
 
@@ -2372,11 +2370,10 @@ export default function CourierApp() {
                       key={p.id}
                       type="button"
                       onClick={() => setReportPeriod(p.id as any)}
-                      className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
-                        reportPeriod === p.id
+                      className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${reportPeriod === p.id
                           ? 'bg-blue-600 text-white shadow-2xs'
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
+                        }`}
                     >
                       {p.label}
                     </button>
@@ -2625,11 +2622,10 @@ export default function CourierApp() {
                       <button
                         type="button"
                         onClick={toggleDutyStatus}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
-                          profileData.courierStatus === 'active'
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${profileData.courierStatus === 'active'
                             ? 'bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900'
                             : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                        }`}
+                          }`}
                       >
                         {profileData.courierStatus === 'active' ? (
                           <>
@@ -2802,11 +2798,10 @@ export default function CourierApp() {
                 <button
                   type="button"
                   onClick={toggleDutyStatus}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    profileData.courierStatus === 'active'
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${profileData.courierStatus === 'active'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'bg-white text-slate-600'
-                  }`}
+                    }`}
                 >
                   <span className={`w-2 h-2 rounded-full ${profileData.courierStatus === 'active' ? 'bg-white' : 'bg-slate-400'}`} />
                   <span>متاح للطلبات</span>
@@ -2814,11 +2809,10 @@ export default function CourierApp() {
                 <button
                   type="button"
                   onClick={toggleDutyStatus}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    profileData.courierStatus !== 'active'
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${profileData.courierStatus !== 'active'
                       ? 'bg-amber-600 text-white shadow-xs'
                       : 'bg-white text-slate-600'
-                  }`}
+                    }`}
                 >
                   <span className={`w-2 h-2 rounded-full ${profileData.courierStatus !== 'active' ? 'bg-white' : 'bg-slate-400'}`} />
                   <span>في استراحة</span>
@@ -3128,21 +3122,18 @@ export default function CourierApp() {
                           setIsNotificationsOpen(false);
                         }
                       }}
-                      className={`p-3 rounded-2xl transition-all cursor-pointer flex gap-3 ${
-                        !notif.read ? 'bg-orange-50/60 hover:bg-orange-50' : 'hover:bg-slate-50'
-                      }`}
+                      className={`p-3 rounded-2xl transition-all cursor-pointer flex gap-3 ${!notif.read ? 'bg-orange-50/60 hover:bg-orange-50' : 'hover:bg-slate-50'
+                        }`}
                     >
-                      <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center ${
-                        !notif.read ? 'bg-orange-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
-                      }`}>
+                      <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center ${!notif.read ? 'bg-orange-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
+                        }`}>
                         {notif.type === 'order' ? <Bike className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1 mb-0.5">
-                          <h4 className={`text-xs font-heading font-bold truncate ${
-                            !notif.read ? 'text-slate-900' : 'text-slate-700'
-                          }`}>
+                          <h4 className={`text-xs font-heading font-bold truncate ${!notif.read ? 'text-slate-900' : 'text-slate-700'
+                            }`}>
                             {notif.title}
                           </h4>
                           <span className="text-[10px] text-slate-400 shrink-0">
@@ -3256,11 +3247,10 @@ export default function CourierApp() {
               setShowPaymentProofOrderId(null);
               setTab('active');
             }}
-            className={`flex flex-col items-center justify-center gap-1 py-1 rounded-xl transition-all cursor-pointer ${
-              tab === 'active' && !selectedOrderId
+            className={`flex flex-col items-center justify-center gap-1 py-1 rounded-xl transition-all cursor-pointer ${tab === 'active' && !selectedOrderId
                 ? 'text-orange-500 font-black'
                 : 'text-slate-400 hover:text-slate-700 font-bold'
-            }`}
+              }`}
           >
             <Home className="w-5 h-5 shrink-0" />
             <span className="text-[11px]" style={{ fontFamily: "'Cairo', sans-serif" }}>
@@ -3277,11 +3267,10 @@ export default function CourierApp() {
               setTab('history');
               if (!historyLoaded) void historyPage(true);
             }}
-            className={`flex flex-col items-center justify-center gap-1 py-1 rounded-xl transition-all cursor-pointer relative ${
-              tab === 'history'
+            className={`flex flex-col items-center justify-center gap-1 py-1 rounded-xl transition-all cursor-pointer relative ${tab === 'history'
                 ? 'text-orange-500 font-black'
                 : 'text-slate-400 hover:text-slate-700 font-bold'
-            }`}
+              }`}
           >
             <FileText className="w-5 h-5 shrink-0" />
             <span className="text-[11px]" style={{ fontFamily: "'Cairo', sans-serif" }}>
@@ -3297,11 +3286,10 @@ export default function CourierApp() {
               setShowPaymentProofOrderId(null);
               setTab('profile');
             }}
-            className={`flex flex-col items-center justify-center gap-1 py-1 rounded-xl transition-all cursor-pointer ${
-              tab === 'profile'
+            className={`flex flex-col items-center justify-center gap-1 py-1 rounded-xl transition-all cursor-pointer ${tab === 'profile'
                 ? 'text-orange-500 font-black'
                 : 'text-slate-400 hover:text-slate-700 font-bold'
-            }`}
+              }`}
           >
             <User className="w-5 h-5 shrink-0" />
             <span className="text-[11px]" style={{ fontFamily: "'Cairo', sans-serif" }}>
@@ -3318,11 +3306,10 @@ export default function CourierApp() {
               setTab('reports');
               if (!historyLoaded) void historyPage(true);
             }}
-            className={`flex flex-col items-center justify-center gap-1 py-1 rounded-xl transition-all cursor-pointer ${
-              tab === 'reports'
+            className={`flex flex-col items-center justify-center gap-1 py-1 rounded-xl transition-all cursor-pointer ${tab === 'reports'
                 ? 'text-orange-500 font-black'
                 : 'text-slate-400 hover:text-slate-700 font-bold'
-            }`}
+              }`}
           >
             <MoreHorizontal className="w-5 h-5 shrink-0" />
             <span className="text-[11px]" style={{ fontFamily: "'Cairo', sans-serif" }}>
