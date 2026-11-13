@@ -967,21 +967,23 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             <ChevronDown size={11} className="text-[#FF5900] shrink-0 mr-1" />
           </button>
 
-          {/* 3. Notification Bell Button (Left side in RTL) */}
-          <button
-            type="button"
-            onClick={() => setIsNotificationsModalOpen(true)}
-            className="w-8 h-8 rounded-xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] text-[#111827] flex items-center justify-center relative cursor-pointer active:scale-95 transition-all shrink-0"
-            aria-label="الإشعارات والتنبيهات"
-            title="الإشعارات"
-          >
-            <Bell size={15} />
-            {unreadNotificationsCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#FF5900] text-white text-[9px] font-black flex items-center justify-center border border-white shadow-2xs">
-                {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
-              </span>
-            )}
-          </button>
+          {/* 3. Notification Bell Button (Left side in RTL - Authenticated Users Only) */}
+          {user && !user.isGuest && (
+            <button
+              type="button"
+              onClick={() => setIsNotificationsModalOpen(true)}
+              className="w-8 h-8 rounded-xl bg-[#F9FAFB] hover:bg-[#FFF5F0] border border-[#E5E7EB] text-[#111827] flex items-center justify-center relative cursor-pointer active:scale-95 transition-all shrink-0"
+              aria-label="الإشعارات والتنبيهات"
+              title="الإشعارات"
+            >
+              <Bell size={15} />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#FF5900] text-white text-[9px] font-black flex items-center justify-center border border-white shadow-2xs">
+                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                </span>
+              )}
+            </button>
+          )}
 
         </div>
 
@@ -1251,7 +1253,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
       )}
 
       {/* ══════════════════════════════════════════════════════════════
-          10. INSTAGRAM-STYLE FLOATING MOBILE BOTTOM NAVIGATION DOCK
+          10. INSTAGRAM / TALABAT-STYLE FLOATING MOBILE BOTTOM NAVIGATION DOCK (4 Tabs)
           ══════════════════════════════════════════════════════════════ */}
       <nav
         className="fixed bottom-3 inset-x-3 max-w-lg mx-auto z-50 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-3xl p-1.5 flex items-center justify-around shadow-[0_8px_32px_rgba(0,0,0,0.14)] transition-all"
@@ -1288,24 +1290,6 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
         >
           <Clock size={19} strokeWidth={isOrdersPage ? 2.5 : 1.8} />
           <span className="text-[10px] mt-0.5">طلباتي</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleOpenCart}
-          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all cursor-pointer relative ${
-            isCartModalOpen ? 'text-[#FF5900] font-black' : 'text-[#6B7280] font-bold hover:text-[#111827]'
-          }`}
-        >
-          <div className="relative">
-            <ShoppingBag size={19} strokeWidth={isCartModalOpen ? 2.5 : 1.8} />
-            {cartItemCount > 0 && (
-              <span className="absolute -top-1.5 -left-2 bg-[#FF5900] text-white text-[9px] font-black min-w-[15px] h-3.5 px-0.5 rounded-full flex items-center justify-center">
-                {cartItemCount}
-              </span>
-            )}
-          </div>
-          <span className="text-[10px] mt-0.5">السلة</span>
         </button>
 
         <button

@@ -1480,8 +1480,14 @@ export function CartCheckoutModal({
                 </div>
 
                 <div className="flex justify-between items-center text-slate-600">
-                  <div className="flex items-center gap-1">
-                    <span>رسوم التوصيل</span>
+                  <div className="flex items-center gap-1.5">
+                    {deliveryFee === 0 ? (
+                      <span className="bg-[#E8F8EE] text-[#16A34A] font-bold px-2 py-0.5 rounded-md text-xs inline-flex items-center">
+                        توصيل مجاني
+                      </span>
+                    ) : (
+                      <span className="font-medium text-slate-700">رسوم التوصيل</span>
+                    )}
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1497,9 +1503,10 @@ export function CartCheckoutModal({
                     </button>
                   </div>
                   {deliveryFee === 0 ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-[#FFF2EC] text-[#FF5900] border border-[#FFD4C2]">
-                      توصيل مجاني
-                    </span>
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <span className="text-slate-400 line-through text-xs font-semibold">25.00 ج.م</span>
+                      <span className="text-[#16A34A] text-xs font-black">مجاناً</span>
+                    </div>
                   ) : (
                     <span className="font-bold text-slate-800">{formatEGP(deliveryFee)}</span>
                   )}

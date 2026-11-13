@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Clock, MapPin, ChevronRight, ChevronLeft, Search, Phone, ExternalLink, AlertCircle, ShoppingBag, ArrowRight, Star, CheckCircle2 } from 'lucide-react';
+import { Package, Clock, MapPin, ChevronRight, ChevronLeft, Search, Phone, ExternalLink, AlertCircle, ShoppingBag, ArrowRight, Star, CheckCircle2, Receipt, Bike, CreditCard, Banknote } from 'lucide-react';
 import { formatEGP } from '../../utils/orderCalculations';
 import { supabase, KNOWN_STORE_ASSETS } from '../../lib/supabase';
 import { authenticatedApi } from '../../lib/authenticatedApi';
@@ -146,54 +146,53 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       }
     } catch { }
 
-    // Direct Query from Supabase orders table (Sole Database Source of Truth)
+    // Direct Query from Supabase orders table (Only for authenticated users to preserve privacy)
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      let query = supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .order('created_at', { ascending: false });
 
       if (session?.user?.id) {
-        query = query.eq('customer_id', session.user.id);
-      }
+        const { data: sbOrders } = await supabase
+          .from('orders')
+          .select('*, order_items(*)')
+          .eq('customer_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .limit(30);
 
-      const { data: sbOrders } = await query.limit(30);
-      if (sbOrders && sbOrders.length > 0) {
-        for (const ord of sbOrders) {
-          const statusKey = ord.status || 'pending';
-          const st = STATUS_MAP[statusKey] || { label: 'قيد المعالجة', color: 'bg-gray-100 text-gray-800 border-gray-200' };
-          const existingRating = ord.customer_rating || (ord.notes?.match(/\[RATING:(\d+)\]/)?.[1] ? Number(ord.notes.match(/\[RATING:(\d+)\]/)[1]) : undefined);
+        if (sbOrders && sbOrders.length > 0) {
+          for (const ord of sbOrders) {
+            const statusKey = ord.status || 'pending';
+            const st = STATUS_MAP[statusKey] || { label: 'قيد المعالجة', color: 'bg-gray-100 text-gray-800 border-gray-200' };
+            const existingRating = ord.customer_rating || (ord.notes?.match(/\[RATING:(\d+)\]/)?.[1] ? Number(ord.notes.match(/\[RATING:(\d+)\]/)[1]) : undefined);
 
-          const freshDisplay: OrderItemDisplay = {
-            id: ord.id,
-            orderNumber: formatOrderNumber(ord.order_number || ord.id),
-            createdAt: ord.created_at || new Date().toISOString(),
-            status: statusKey,
-            statusText: st.label,
-            statusColor: st.color,
-            total: Number(ord.total_amount) || 0,
-            paymentMethod: (ord.payment_method === 'card' || ord.payment_method === 'geidea')
-              ? 'بطاقة بنكية 💳'
-              : ord.payment_method === 'vodafone_cash'
-              ? 'فودافون كاش'
-              : ord.payment_method === 'instapay'
-              ? 'إنستاباي'
-              : ord.payment_method === 'cash'
-              ? 'نقدًا عند الاستلام'
-              : 'دفع إلكتروني',
-            destination: ord.delivery_address || ord.delivery_ministry || 'العاصمة الإدارية',
-            storeId: ord.store_id,
-            storeName: ord.restaurant_name,
-            customerRating: existingRating,
-            items: Array.isArray(ord.order_items) ? ord.order_items.map((i: any) => ({
-              name: i.product_name || 'صنف',
-              quantity: i.quantity || 1,
-              price: Number(i.price) || 0,
-              imageUrl: i.image_url,
-            })) : [],
-            rawOrder: ord,
-          };
+            const freshDisplay: OrderItemDisplay = {
+              id: ord.id,
+              orderNumber: formatOrderNumber(ord.order_number || ord.id),
+              createdAt: ord.created_at || new Date().toISOString(),
+              status: statusKey,
+              statusText: st.label,
+              statusColor: st.color,
+              total: Number(ord.total_amount) || 0,
+              paymentMethod: (ord.payment_method === 'card' || ord.payment_method === 'geidea')
+                ? 'بطاقة بنكية'
+                : ord.payment_method === 'vodafone_cash'
+                ? 'فودافون كاش'
+                : ord.payment_method === 'instapay'
+                ? 'إنستاباي'
+                : ord.payment_method === 'cash'
+                ? 'نقدًا عند الاستلام'
+                : 'دفع إلكتروني',
+              destination: ord.delivery_address || ord.delivery_ministry || 'العاصمة الإدارية',
+              storeId: ord.store_id,
+              storeName: ord.restaurant_name,
+              customerRating: existingRating,
+              items: Array.isArray(ord.order_items) ? ord.order_items.map((i: any) => ({
+                name: i.product_name || 'صنف',
+                quantity: i.quantity || 1,
+                price: Number(i.price) || 0,
+                imageUrl: i.image_url,
+              })) : [],
+              rawOrder: ord,
+            };
 
           const existingIdx = loadedList.findIndex(
             (o) => o.id === ord.id || (ord.client_request_id && o.rawOrder?.client_request_id === ord.client_request_id) || (ord.order_number && o.orderNumber === formatOrderNumber(ord.order_number))
@@ -220,7 +219,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
           }
         }
       }
-    } catch (err) {
+    }
+  } catch (err) {
       console.warn('Direct Supabase orders query notice:', err);
     }
 
@@ -279,7 +279,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
             statusColor: st.color,
             total: Number(ord.total_amount) || 0,
             paymentMethod: (ord.payment_method === 'card' || ord.payment_method === 'geidea')
-              ? 'بطاقة بنكية 💳'
+              ? 'بطاقة بنكية'
               : ord.payment_method === 'vodafone_cash'
               ? 'فودافون كاش'
               : ord.payment_method === 'instapay'
@@ -543,8 +543,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                                   }}
                                 />
                               ) : (
-                                <div className="w-7 h-7 rounded-lg bg-orange-50 text-orange-600 border border-orange-100 flex items-center justify-center shrink-0 text-[10px] font-black">
-                                  🛍️
+                                <div className="w-7 h-7 rounded-lg bg-orange-50 text-orange-600 border border-orange-100 flex items-center justify-center shrink-0">
+                                  <Package size={13} className="text-[#FF5900]" />
                                 </div>
                               )}
                               <span className="truncate text-xs font-semibold text-[#111827]">
@@ -579,14 +579,20 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         {formatEGP(order.total)}
                       </strong>
                     </div>
-                    <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md border ${
+                    <span className={`inline-flex items-center gap-1 text-[9.5px] font-bold px-2 py-0.5 rounded-md border ${
                       order.rawOrder?.payment_status === 'paid'
                         ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                         : 'text-[#6B7280] bg-[#F9FAFB] border-[#E5E7EB]'
                     }`}>
-                      {order.rawOrder?.payment_status === 'paid'
-                        ? `${order.paymentMethod} (خالص السداد ✓)`
-                        : order.paymentMethod}
+                      {order.rawOrder?.payment_status === 'paid' ? (
+                        <>
+                          <CheckCircle2 size={10} className="text-emerald-600 shrink-0" />
+                          <span>{order.paymentMethod}</span>
+                          <span className="text-emerald-700 font-extrabold">(مدفوع)</span>
+                        </>
+                      ) : (
+                        <span>{order.paymentMethod}</span>
+                      )}
                     </span>
                   </div>
 
@@ -624,13 +630,23 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                       };
                       onTrackOrder(trackObj);
                     }}
-                    className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-black rounded-lg border transition-all cursor-pointer shadow-2xs active:scale-95 ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[10.5px] font-black rounded-xl border transition-all cursor-pointer shadow-2xs active:scale-95 ${
                       isDelivered
                         ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
                         : 'bg-orange-50 hover:bg-orange-100 text-[#FF5900] border-orange-200'
                     }`}
                   >
-                    <span>{isDelivered ? 'تفاصيل الفاتورة 📄' : 'تتبع الطلب 🛵'}</span>
+                    {isDelivered ? (
+                      <>
+                        <Receipt size={13} className="text-emerald-700" />
+                        <span>تفاصيل الفاتورة</span>
+                      </>
+                    ) : (
+                      <>
+                        <Bike size={13} className="text-[#FF5900]" />
+                        <span>تتبع الطلب</span>
+                      </>
+                    )}
                     <ChevronLeft size={12} />
                   </button>
                 </div>
