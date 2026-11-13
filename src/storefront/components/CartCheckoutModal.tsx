@@ -83,7 +83,7 @@ export function CartCheckoutModal({
   const [floorNumber, setFloorNumber] = useState(user?.floorNumber || '');
   const [unitNumber, setUnitNumber] = useState(user?.roomNumber || '');
   const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [feeInfoModal, setFeeInfoModal] = useState<'delivery' | 'service' | null>(null);
+  const [activeFeeHint, setActiveFeeHint] = useState<'delivery' | 'service' | null>(null);
 
   // Sanitize Egyptian Phone Number: only digits, convert Arabic numbers ٠-٩ to 0-9, max 11 digits
   const sanitizePhone = (val: string) => {
@@ -1484,8 +1484,12 @@ export function CartCheckoutModal({
                     <span>رسوم التوصيل</span>
                     <button
                       type="button"
-                      onClick={() => setFeeInfoModal('delivery')}
-                      className="text-slate-400 hover:text-orange-600 transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setActiveFeeHint((prev) => (prev === 'delivery' ? null : 'delivery'));
+                      }}
+                      className="text-slate-400 hover:text-orange-600 transition-colors cursor-pointer p-0.5"
                       title="توضيح رسوم التوصيل"
                       aria-label="توضيح رسوم التوصيل"
                     >
@@ -1501,13 +1505,24 @@ export function CartCheckoutModal({
                   )}
                 </div>
 
+                {/* Inline Delivery Hint */}
+                {activeFeeHint === 'delivery' && (
+                  <div className="p-2.5 rounded-xl bg-orange-50/90 border border-orange-200/80 text-[11px] text-slate-700 leading-relaxed animate-in fade-in duration-150">
+                    رسوم التوصيل محددة من قِبل المتجر ({storeInfo.deliveryTime || '15-25 دقيقة'}) لحد بابك.
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center text-slate-600">
                   <div className="flex items-center gap-1">
                     <span>رسوم الخدمة</span>
                     <button
                       type="button"
-                      onClick={() => setFeeInfoModal('service')}
-                      className="text-slate-400 hover:text-orange-600 transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setActiveFeeHint((prev) => (prev === 'service' ? null : 'service'));
+                      }}
+                      className="text-slate-400 hover:text-orange-600 transition-colors cursor-pointer p-0.5"
                       title="توضيح رسوم الخدمة"
                       aria-label="توضيح رسوم الخدمة"
                     >
@@ -1516,6 +1531,13 @@ export function CartCheckoutModal({
                   </div>
                   <span className="font-bold text-slate-800">{formatEGP(serviceFee)}</span>
                 </div>
+
+                {/* Inline Service Fee Hint */}
+                {activeFeeHint === 'service' && (
+                  <div className="p-2.5 rounded-xl bg-orange-50/90 border border-orange-200/80 text-[11px] text-slate-700 leading-relaxed animate-in fade-in duration-150">
+                    رسوم الخدمة 4% بحد أقصى 16.5 ج.م لدعم استمرارية التطبيق وتأمين المعاملات وخدمة العملاء (التفاصيل الكاملة في الشروط والسياسة).
+                  </div>
+                )}
 
                 {discount > 0 && (
                   <div className="flex justify-between text-emerald-700 font-bold">
@@ -1627,50 +1649,6 @@ export function CartCheckoutModal({
               </p>
             </div>
           </footer>
-        )}
-
-        {/* ℹ️ Simple Fee Info Modal (Talabat-style concise explanation) */}
-        {feeInfoModal && (
-          <div
-            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
-            dir="rtl"
-            onClick={() => setFeeInfoModal(null)}
-          >
-            <div
-              className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-slate-200 text-right space-y-3.5"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
-                  <span className="text-[#FF5900]">ⓘ</span>
-                  {feeInfoModal === 'delivery' ? 'رسوم التوصيل' : 'رسوم الخدمة'}
-                </h4>
-                <button
-                  type="button"
-                  onClick={() => setFeeInfoModal(null)}
-                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                  {feeInfoModal === 'delivery'
-                    ? `رسوم التوصيل محددة مباشرة من قِبل المتجر (${storeInfo.deliveryTime || '15-25 دقيقة'}) للتوصيل المباشر لحد بابك.`
-                    : 'رسوم الخدمة هي 4% من إجمالي قيمة المشتريات (بحد أقصى 16.5 ج.م). تساعدنا هذه الرسوم على استمرار وتطوير خدمات التطبيق وتأمين المعاملات وخدمة العملاء.'}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setFeeInfoModal(null)}
-                className="w-full py-2 bg-[#FF5900] hover:bg-[#e04f00] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-              >
-                حسناً
-              </button>
-            </div>
-          </div>
         )}
       </div>
     </div>
