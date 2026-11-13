@@ -52,16 +52,26 @@ export function applyCouponDiscount(
 }
 
 /**
- * Calculates overall order total including subtotal, delivery fee, discount, and tip.
+ * Calculates Sangoub Platform Service Fee (4% with min 4.90 EGP and max 16.50 EGP).
+ */
+export function calculateServiceFee(subtotal: number): number {
+  if (subtotal <= 0) return 0;
+  const raw = subtotal * 0.04;
+  return Math.min(16.50, Math.max(4.90, Math.round(raw * 100) / 100));
+}
+
+/**
+ * Calculates overall order total including subtotal, delivery fee, discount, tip, and platform service fee.
  */
 export function calculateOrderTotal(
   subtotal: number,
   deliveryFee: number,
   discount: number,
-  tip: number = 0
+  tip: number = 0,
+  serviceFee: number = 0
 ): number {
   const afterDiscount = Math.max(0, subtotal - discount);
-  return afterDiscount + deliveryFee + Math.max(0, tip);
+  return afterDiscount + deliveryFee + Math.max(0, tip) + serviceFee;
 }
 
 /**

@@ -20,6 +20,8 @@ import {
   Smartphone,
   CreditCard,
   Zap,
+  Info,
+  Pencil,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatEGP, applyCouponDiscount } from '../../utils/orderCalculations';
@@ -53,6 +55,7 @@ export function CartCheckoutModal({
     clearCart,
     subtotal,
     deliveryFee,
+    serviceFee,
     discount,
     total,
     appliedCoupon,
@@ -80,6 +83,7 @@ export function CartCheckoutModal({
   const [floorNumber, setFloorNumber] = useState(user?.floorNumber || '');
   const [unitNumber, setUnitNumber] = useState(user?.roomNumber || '');
   const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [feeInfoModal, setFeeInfoModal] = useState<'delivery' | 'service' | null>(null);
 
   // Sanitize Egyptian Phone Number: only digits, convert Arabic numbers ٠-٩ to 0-9, max 11 digits
   const sanitizePhone = (val: string) => {
@@ -1034,9 +1038,11 @@ export function CartCheckoutModal({
                       setProfilePhoneInput(user?.phone || phone || '');
                       setIsEditingProfilePhone(true);
                     }}
-                    className="text-[10px] font-bold text-orange-600 hover:text-orange-700 bg-white border border-slate-200 px-2 py-0.5 rounded-lg shrink-0 shadow-2xs hover:border-orange-300 transition-colors cursor-pointer"
+                    className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-orange-600 bg-white border border-slate-200 hover:border-orange-300 rounded-lg shrink-0 shadow-2xs transition-colors cursor-pointer"
+                    title="تعديل الهاتف"
+                    aria-label="تعديل الهاتف"
                   >
-                    تعديل الهاتف ✏️
+                    <Pencil size={13} />
                   </button>
                 </div>
               )}
@@ -1051,10 +1057,11 @@ export function CartCheckoutModal({
                   <button
                     type="button"
                     onClick={onOpenAreaModal}
-                    className="flex items-center gap-1 text-[10px] font-bold text-orange-700 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
+                    className="w-7 h-7 flex items-center justify-center text-orange-700 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer"
+                    title="تغيير على الخريطة"
+                    aria-label="تغيير على الخريطة"
                   >
-                    <Navigation size={11} />
-                    <span>تغيير على الخريطة</span>
+                    <Navigation size={13} />
                   </button>
                 </div>
 
@@ -1096,9 +1103,11 @@ export function CartCheckoutModal({
                     <button
                       type="button"
                       onClick={() => setIsEditingAddress(true)}
-                      className="text-[10px] font-bold text-orange-600 hover:text-orange-700 bg-white border border-slate-200 px-2 py-0.5 rounded-lg shrink-0 shadow-2xs hover:border-orange-300 transition-colors cursor-pointer"
+                      className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-orange-600 bg-white border border-slate-200 hover:border-orange-300 rounded-lg shrink-0 shadow-2xs transition-colors cursor-pointer"
+                      title="تعديل العنوان"
+                      aria-label="تعديل العنوان"
                     >
-                      تعديل ✏️
+                      <Pencil size={13} />
                     </button>
                   </div>
                 ) : (
@@ -1464,15 +1473,50 @@ export function CartCheckoutModal({
               )}
 
               {/* FINANCIAL SUMMARY */}
-              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/60 space-y-2 text-xs">
+              <div className="border border-slate-200 rounded-2xl p-3.5 bg-slate-50/60 space-y-2 text-xs select-none">
                 <div className="flex justify-between text-slate-600">
                   <span>قيمة المنتجات</span>
                   <span className="font-bold text-slate-800">{formatEGP(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>رسوم التوصيل</span>
-                  <span className="font-bold text-slate-800">{formatEGP(deliveryFee)}</span>
+
+                <div className="flex justify-between items-center text-slate-600">
+                  <div className="flex items-center gap-1">
+                    <span>رسوم التوصيل</span>
+                    <button
+                      type="button"
+                      onClick={() => setFeeInfoModal('delivery')}
+                      className="text-slate-400 hover:text-orange-600 transition-colors cursor-pointer"
+                      title="توضيح رسوم التوصيل"
+                      aria-label="توضيح رسوم التوصيل"
+                    >
+                      <Info size={13} />
+                    </button>
+                  </div>
+                  {deliveryFee === 0 ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-[#FFF2EC] text-[#FF5900] border border-[#FFD4C2]">
+                      توصيل مجاني
+                    </span>
+                  ) : (
+                    <span className="font-bold text-slate-800">{formatEGP(deliveryFee)}</span>
+                  )}
                 </div>
+
+                <div className="flex justify-between items-center text-slate-600">
+                  <div className="flex items-center gap-1">
+                    <span>رسوم الخدمة</span>
+                    <button
+                      type="button"
+                      onClick={() => setFeeInfoModal('service')}
+                      className="text-slate-400 hover:text-orange-600 transition-colors cursor-pointer"
+                      title="توضيح رسوم الخدمة"
+                      aria-label="توضيح رسوم الخدمة"
+                    >
+                      <Info size={13} />
+                    </button>
+                  </div>
+                  <span className="font-bold text-slate-800">{formatEGP(serviceFee)}</span>
+                </div>
+
                 {discount > 0 && (
                   <div className="flex justify-between text-emerald-700 font-bold">
                     <span>خصم الكوبون ({appliedCoupon?.code})</span>
@@ -1583,6 +1627,50 @@ export function CartCheckoutModal({
               </p>
             </div>
           </footer>
+        )}
+
+        {/* ℹ️ Simple Fee Info Modal (Talabat-style concise explanation) */}
+        {feeInfoModal && (
+          <div
+            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+            dir="rtl"
+            onClick={() => setFeeInfoModal(null)}
+          >
+            <div
+              className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-slate-200 text-right space-y-3.5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
+                  <span className="text-[#FF5900]">ⓘ</span>
+                  {feeInfoModal === 'delivery' ? 'رسوم التوصيل' : 'رسوم الخدمة'}
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setFeeInfoModal(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                  {feeInfoModal === 'delivery'
+                    ? `رسوم التوصيل محددة مباشرة من قِبل المتجر (${storeInfo.deliveryTime || '15-25 دقيقة'}) للتوصيل المباشر لحد بابك.`
+                    : 'رسوم الخدمة هي 4% من إجمالي قيمة المشتريات (بحد أقصى 16.5 ج.م). تساعدنا هذه الرسوم على استمرار وتطوير خدمات التطبيق وتأمين المعاملات وخدمة العملاء.'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setFeeInfoModal(null)}
+                className="w-full py-2 bg-[#FF5900] hover:bg-[#e04f00] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                حسناً
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

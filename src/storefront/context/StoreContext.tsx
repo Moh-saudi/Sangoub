@@ -3,7 +3,7 @@ import { usableDeliveryAddress, pendingDeliveryAddressKey } from '../../services
 import React, { createContext, useContext, useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import type { Product, Store, CartItem, Coupon, Profile } from '../../types';
 import { BRAND } from '../../brand';
-import { calculateCartSubtotal, calculateOrderTotal, applyCouponDiscount, cleanDisplayAddress } from '../../utils/orderCalculations';
+import { calculateCartSubtotal, calculateOrderTotal, applyCouponDiscount, calculateServiceFee, cleanDisplayAddress } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import { getSupabaseStores, getSupabaseProducts, KNOWN_STORE_ASSETS, subscribeToCatalog, supabase } from '../../lib/supabase';
 import { getStoreSlug, matchStoreId } from '../../utils/storeAssets';
@@ -114,8 +114,10 @@ export interface StoreContextType {
   clearCart: () => void;
   subtotal: number;
   deliveryFee: number;
+  serviceFee: number;
   discount: number;
   total: number;
+  cartStore: Store | null;
   appliedCoupon: Coupon | null;
   activeCoupons: Coupon[];
   applyCoupon: (code: string) => Promise<{ success: boolean; message: string }>;
@@ -759,11 +761,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [pendingStoreSwitch, setPendingStoreSwitch] = useState<PendingStoreSwitch | null>(null);
 
+  const cartStore = useMemo(() => {
+    if (cartItems.length === 0) return null;
+    const storeId = cartItems[0]?.product?.storeId;
+    return stores.find(s => matchStoreId(s.id, storeId) || s.id === storeId) || null;
+  }, [cartItems, stores]);
+
   const subtotal = useMemo(() => calculateCartSubtotal(cartItems), [cartItems]);
-  const deliveryFee = cartItems.length > 0 ? LAUNCH_CONFIG.deliveryFee : 0;
+  const deliveryFee = useMemo(() => {
+    if (cartItems.length === 0) return 0;
+    if (cartStore && typeof cartStore.deliveryFee === 'number') {
+      return cartStore.deliveryFee;
+    }
+    return 0;
+  }, [cartItems.length, cartStore]);
+
+  const serviceFee = useMemo(() => calculateServiceFee(subtotal), [subtotal]);
   const couponResult = useMemo(() => applyCouponDiscount(subtotal, appliedCoupon), [subtotal, appliedCoupon]);
   const discount = couponResult.discount;
-  const total = useMemo(() => calculateOrderTotal(subtotal, deliveryFee, discount, 0), [subtotal, deliveryFee, discount]);
+  const total = useMemo(
+    () => calculateOrderTotal(subtotal, deliveryFee, discount, 0, serviceFee),
+    [subtotal, deliveryFee, discount, serviceFee]
+  );
 
   const addToCart = (
     product: Product,
@@ -1274,8 +1293,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         clearCart,
         subtotal,
         deliveryFee,
+        serviceFee,
         discount,
         total,
+        cartStore,
         appliedCoupon,
         activeCoupons,
         applyCoupon,
