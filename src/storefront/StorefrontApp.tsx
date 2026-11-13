@@ -20,6 +20,7 @@ import { LegalPolicyPage } from './pages/LegalPolicyPage';
 import { LAUNCH_CONFIG } from '../config/launchConfig';
 import { enableWebPushNotifications } from '../lib/webPushNotifications';
 import { supabase } from '../lib/supabase';
+import { useVisitorCounter } from '../utils/useVisitorCounter';
 
 /**
  * Hook to detect viewport width changes in real time
@@ -42,6 +43,9 @@ function useIsMobile() {
 }
 
 const StorefrontRouter: React.FC = () => {
+  // Automatically track real-time website visits for analytics dashboard
+  useVisitorCounter();
+
   const { currentPath, navigate, cartItems, serviceArea, catalogError, user, isNotificationsModalOpen, setIsNotificationsModalOpen } = useStore();
   const [areaModalOpen, setAreaModalOpen] = useState(false);
   const [cartModalOpen, setCartModalOpen] = useState(false);

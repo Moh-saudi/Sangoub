@@ -20,6 +20,9 @@ async function fetchFromSupabaseDirect(): Promise<VisitorStatsData> {
     if (err?.code === '42501' || (err as any)?.status === 403 || err?.message?.includes('permission')) {
       throw new Error('PERMISSION_DENIED_ANALYTICS');
     }
+    if (err?.code === '42P01' || err?.message?.includes('does not exist') || err?.message?.includes('not found')) {
+      throw new Error('TABLES_NOT_FOUND_ANALYTICS');
+    }
     console.warn('Visitor stats direct query notice:', err);
   }
 
@@ -38,7 +41,34 @@ async function fetchFromSupabaseDirect(): Promise<VisitorStatsData> {
   };
 }
 
-const FIX_SQL = `-- تفعيل صلاحية قراءة إحصائيات الزوار في Supabase SQL Editor
+const FIX_SQL = `-- 1. إنشاء جداول إحصائيات زوار سنجوب
+CREATE TABLE IF NOT EXISTS public.site_visitors (
+  visitor_hash text PRIMARY KEY CHECK (visitor_hash ~ '^[a-f0-9]{64}$'),
+  last_day date NOT NULL,
+  source text NOT NULL DEFAULT 'direct',
+  events jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.site_visitor_days (
+  day date PRIMARY KEY,
+  visitors bigint NOT NULL DEFAULT 0,
+  sources jsonb NOT NULL DEFAULT '{}'::jsonb,
+  events jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE TABLE IF NOT EXISTS public.site_visitor_totals (
+  id boolean PRIMARY KEY DEFAULT true CHECK (id),
+  visitors bigint NOT NULL DEFAULT 0,
+  started_at timestamptz,
+  analytics_started_at timestamptz
+);
+
+-- 2. تفعيل نظام الأمان وصلاحيات القراءة للوحة التحكم
+ALTER TABLE public.site_visitors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.site_visitor_days ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.site_visitor_totals ENABLE ROW LEVEL SECURITY;
+
 GRANT SELECT ON public.site_visitor_totals TO anon, authenticated;
 GRANT SELECT ON public.site_visitor_days TO anon, authenticated;
 
@@ -50,6 +80,46 @@ CREATE POLICY "Allow select visitor days" ON public.site_visitor_days FOR SELECT
 
 INSERT INTO public.site_visitor_totals (id, visitors, started_at, analytics_started_at)
 VALUES (true, 0, now(), now()) ON CONFLICT (id) DO NOTHING;
+
+-- 3. دالة تسجيل الزيارة المشفرة
+CREATE OR REPLACE FUNCTION public.record_sangoub_site_visit(p_hash text, p_day date, p_source text, p_event text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE v_old public.site_visitors%ROWTYPE; v_exists boolean; v_same boolean; v_new_source boolean; v_new_event boolean; v_new_visitor boolean;
+BEGIN
+  IF p_hash !~ '^[a-f0-9]{64}$' OR p_source NOT IN ('facebook','whatsapp','instagram','search','other','direct')
+    OR (p_event IS NOT NULL AND p_event NOT IN ('mascot_open','breakfast','supermarket','review_breakfast','review_supermarket','whatsapp_breakfast','whatsapp_supermarket','whatsapp_support')) THEN
+    RAISE EXCEPTION 'INVALID_SITE_VISIT' USING ERRCODE='22023';
+  END IF;
+  INSERT INTO public.site_visitor_totals(id,visitors,started_at,analytics_started_at)
+  VALUES(true,0,now(),now()) ON CONFLICT(id) DO NOTHING;
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_hash,0));
+  SELECT * INTO v_old FROM public.site_visitors WHERE visitor_hash=p_hash FOR UPDATE;
+  v_exists := FOUND;
+  v_new_visitor := NOT v_exists;
+  v_same := v_exists AND v_old.last_day=p_day;
+  v_new_source := NOT v_same OR NULLIF(v_old.source,'') IS NULL;
+  v_new_event := p_event IS NOT NULL AND (NOT v_same OR NOT (v_old.events ? p_event));
+  IF NOT v_same OR v_new_source OR v_new_event THEN
+    INSERT INTO public.site_visitors(visitor_hash,last_day,source,events)
+    VALUES(p_hash,p_day,p_source,CASE WHEN p_event IS NULL THEN '[]'::jsonb ELSE jsonb_build_array(p_event) END)
+    ON CONFLICT(visitor_hash) DO UPDATE SET last_day=EXCLUDED.last_day,
+      source=CASE WHEN v_new_source THEN p_source ELSE public.site_visitors.source END,
+      events=CASE WHEN v_same AND p_event IS NOT NULL AND v_new_event THEN public.site_visitors.events || jsonb_build_array(p_event)
+        WHEN NOT v_same AND p_event IS NOT NULL THEN jsonb_build_array(p_event)
+        WHEN NOT v_same THEN '[]'::jsonb ELSE public.site_visitors.events END;
+    INSERT INTO public.site_visitor_days(day,visitors,sources,events)
+    VALUES(p_day,CASE WHEN v_same THEN 0 ELSE 1 END,
+      CASE WHEN v_new_source THEN jsonb_build_object(p_source,1) ELSE '{}'::jsonb END,
+      CASE WHEN v_new_event THEN jsonb_build_object(p_event,1) ELSE '{}'::jsonb END)
+    ON CONFLICT(day) DO UPDATE SET
+      visitors=public.site_visitor_days.visitors+EXCLUDED.visitors,
+      sources=CASE WHEN v_new_source THEN jsonb_set(public.site_visitor_days.sources,ARRAY[p_source],to_jsonb(COALESCE((public.site_visitor_days.sources->>p_source)::bigint,0)+1),true) ELSE public.site_visitor_days.sources END,
+      events=CASE WHEN v_new_event THEN jsonb_set(public.site_visitor_days.events,ARRAY[p_event],to_jsonb(COALESCE((public.site_visitor_days.events->>p_event)::bigint,0)+1),true) ELSE public.site_visitor_days.events END;
+  END IF;
+  IF v_new_visitor THEN UPDATE public.site_visitor_totals SET visitors=visitors+1 WHERE id=true; END IF;
+  UPDATE public.site_visitor_totals SET analytics_started_at=COALESCE(analytics_started_at,now()),started_at=COALESCE(started_at,now()) WHERE id=true;
+END $$;
+
 GRANT EXECUTE ON FUNCTION public.record_sangoub_site_visit(text, date, text, text) TO anon, authenticated;`;
 
 export function VisitorStats() {
@@ -77,15 +147,15 @@ export function VisitorStats() {
     if (!controller.signal.aborted && data) setStats(data);
    } catch (e: any) {
      if (!controller.signal.aborted) {
-       if (e?.message === 'PERMISSION_DENIED_ANALYTICS') {
-         setError('PERMISSION_DENIED_ANALYTICS');
+       if (e?.message === 'PERMISSION_DENIED_ANALYTICS' || e?.message === 'TABLES_NOT_FOUND_ANALYTICS') {
+         setError(e.message);
        } else {
          try {
            const direct = await fetchFromSupabaseDirect();
            setStats(direct);
          } catch (directErr: any) {
-           if (directErr?.message === 'PERMISSION_DENIED_ANALYTICS') {
-             setError('PERMISSION_DENIED_ANALYTICS');
+           if (directErr?.message === 'PERMISSION_DENIED_ANALYTICS' || directErr?.message === 'TABLES_NOT_FOUND_ANALYTICS') {
+             setError(directErr.message);
            } else {
              setError('تعذر قراءة إحصائيات الزوار حالياً.');
            }
@@ -108,14 +178,20 @@ export function VisitorStats() {
  async function copy(source: string) { try { await navigator.clipboard.writeText(link(source));setCopied(source); } catch { setCopied('error'); } }
  return <section className="admin-panel visitor-stats" aria-labelledby="visitor-stats-title">
   <div className="admin-panel-heading"><div><h1 id="visitor-stats-title">عدد زوار الموقع</h1><p>الزيارات والتفاعل مع سنجوب، دون أسماء أو أرقام هواتف.</p></div><button className="btn btn-outline-secondary" disabled={loading} onClick={() => setRevision(value => value + 1)}>تحديث العدد</button></div>
-  {error === 'PERMISSION_DENIED_ANALYTICS' ? (
+  {error === 'PERMISSION_DENIED_ANALYTICS' || error === 'TABLES_NOT_FOUND_ANALYTICS' ? (
     <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs space-y-3 font-bold text-amber-950 mb-4" dir="rtl">
       <div className="flex items-center gap-2 text-amber-800">
         <span className="text-base">🔒</span>
-        <span className="font-black text-sm">يتطلب عرض إحصائيات الزوار تفعيل صلاحية القراءة في Supabase</span>
+        <span className="font-black text-sm">
+          {error === 'TABLES_NOT_FOUND_ANALYTICS'
+            ? 'تنبيه: جداول إحصائيات الزوار غير منشأة في Supabase بعد'
+            : 'يتطلب عرض إحصائيات الزوار تفعيل صلاحية القراءة في Supabase'}
+        </span>
       </div>
       <p className="font-normal text-amber-900 leading-relaxed">
-        جداول إحصائيات الزوار (<code>site_visitor_totals</code> و <code>site_visitor_days</code>) مفعل عليها نظام الأمان، ولتمكين لوحة التحكم من قراءتها يرجى تشغيل سكريبت الصلاحيات لمرة واحدة في محرر SQL بـ Supabase.
+        {error === 'TABLES_NOT_FOUND_ANALYTICS'
+          ? 'لبدء جمع إحصائيات الزوار وعرضها في لوحة التحكم، يرجى تشغيل سكريبت الإحصائيات أدناه لمرة واحدة في محرر SQL بـ Supabase.'
+          : 'جداول إحصائيات الزوار (site_visitor_totals و site_visitor_days) مفعل عليها نظام الأمان، ولتمكين لوحة التحكم من قراءتها يرجى تشغيل سكريبت الصلاحيات لمرة واحدة في محرر SQL بـ Supabase.'}
       </p>
       <div className="flex items-center gap-2 flex-wrap">
         <button
@@ -129,9 +205,9 @@ export function VisitorStats() {
           }}
           className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
         >
-          <span>{sqlCopied ? 'تم نسخ كود SQL بنجاح ✓' : 'نسخ كود تفعيل الصلاحيات (SQL) 📋'}</span>
+          <span>{sqlCopied ? 'تم نسخ كود SQL بنجاح ✓' : 'نسخ كود إنشاء الجداول وتفعيل الصلاحيات (SQL) 📋'}</span>
         </button>
-        <span className="text-[11px] text-amber-700 font-normal">الملف متوفر أيضاً في: <code>scripts/supabase_fix_analytics_permissions.sql</code></span>
+        <span className="text-[11px] text-amber-700 font-normal">الملف متوفر أيضاً في: <code>scripts/supabase_analytics_v1.sql</code></span>
       </div>
     </div>
   ) : error ? (
@@ -139,6 +215,11 @@ export function VisitorStats() {
   ) : null}
   {loading && <p role="status">جارٍ تحميل العدد…</p>}
   {stats && !loading && !error && <>
+   {stats.total === 0 && (
+     <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 font-medium mb-3" dir="rtl">
+       ℹ️ تم تفعيل عداد الزوار في واجهة المتجر بنجاح. سيبدأ رصد الإحصائيات فور تصفح الزوار للموقع.
+     </div>
+   )}
    <div className="management-summary" aria-live="polite"><span>إجمالي الزوار <strong>{number(stats.total)}</strong></span><span>زوار اليوم <strong>{number(stats.today)}</strong></span></div>
    <p className="visitor-note">اليوم بتوقيت القاهرة: <bdi>{stats.day}</bdi>{stats.startedAt ? ` · بدأ عدّ الزوار في ${new Date(stats.startedAt).toLocaleDateString('ar-EG', {timeZone:'Africa/Cairo'})}` : ' · يبدأ العدّ مع أول زيارة.'}</p>
    <div className="visitor-grid">
