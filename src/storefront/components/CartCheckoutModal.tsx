@@ -1508,7 +1508,7 @@ export function CartCheckoutModal({
                 {/* Inline Delivery Hint */}
                 {activeFeeHint === 'delivery' && (
                   <div className="p-2.5 rounded-xl bg-orange-50/90 border border-orange-200/80 text-[11px] text-slate-700 leading-relaxed animate-in fade-in duration-150">
-                    رسوم التوصيل محددة من قِبل المتجر ({storeInfo.deliveryTime || '15-25 دقيقة'}) لحد بابك.
+                    رسوم التوصيل محددة من قِبل المتجر ({currentStore?.deliveryTime || '15-25 دقيقة'}) لحد بابك.
                   </div>
                 )}
 
