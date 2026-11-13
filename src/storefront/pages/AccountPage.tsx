@@ -1447,40 +1447,36 @@ export const AccountPage: React.FC<AccountPageProps> = ({
           <ChevronLeft size={18} className="text-[#9CA3AF]" />
         </button>
 
-        {/* Notifications & Alerts */}
-        <button
-          type="button"
-          onClick={() => {
-            if (!user || user.isGuest) {
-              setFeedbackMsg({ type: 'error', text: 'سجّل الدخول أولاً لعرض إشعارات حسابك.' });
-              return;
-            }
-            setIsNotificationsModalOpen(true);
-          }}
-          className="w-full flex items-center justify-between p-4 hover:bg-[#F9FAFB] active:bg-[#F3F4F6] transition-colors cursor-pointer text-right"
-        >
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Bell size={20} className="text-[#FF5900]" />
-              {unreadNotificationsCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
+        {/* Notifications & Alerts (Only for authenticated registered users) */}
+        {user && !user.isGuest && (
+          <button
+            type="button"
+            onClick={() => setIsNotificationsModalOpen(true)}
+            className="w-full flex items-center justify-between p-4 hover:bg-[#F9FAFB] active:bg-[#F3F4F6] transition-colors cursor-pointer text-right"
+          >
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Bell size={20} className="text-[#FF5900]" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
+                )}
+              </div>
+              <div>
+                <span className="text-sm font-bold text-[#111827] block">التنبيهات والإشعارات</span>
+                <span className="text-[11px] text-[#6B7280]">تحديثات الطلبات والعروض الفورية</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {unreadNotificationsCount > 0 ? (
+                <span className="px-2 py-0.5 rounded-full bg-[#FF5900] text-white text-[11px] font-black shadow-xs">
+                  {unreadNotificationsCount} جديد
+                </span>
+              ) : (
+                <ChevronLeft size={18} className="text-[#9CA3AF]" />
               )}
             </div>
-            <div>
-              <span className="text-sm font-bold text-[#111827] block">التنبيهات والإشعارات</span>
-              <span className="text-[11px] text-[#6B7280]">تحديثات الطلبات والعروض الفورية</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {unreadNotificationsCount > 0 ? (
-              <span className="px-2 py-0.5 rounded-full bg-[#FF5900] text-white text-[11px] font-black shadow-xs">
-                {unreadNotificationsCount} جديد
-              </span>
-            ) : (
-              <ChevronLeft size={18} className="text-[#9CA3AF]" />
-            )}
-          </div>
-        </button>
+          </button>
+        )}
 
         {/* Saved addresses - Active */}
         <button

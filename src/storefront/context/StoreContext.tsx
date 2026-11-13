@@ -1216,28 +1216,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
 
   const refreshNotifications = useCallback(async () => {
+    // Guests without an account do not have notifications
+    if (!user || user.isGuest || !user.id) {
+      setUnreadNotificationsCount(0);
+      try {
+        localStorage.removeItem('sangoub_guest_notifications');
+      } catch {}
+      return;
+    }
+
     let unreadCount = 0;
     try {
-      const stored = localStorage.getItem('sangoub_guest_notifications');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        unreadCount += parsed.filter((n: any) => !n.is_read).length;
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+      if (!error && typeof count === 'number') {
+        unreadCount = count;
       }
-    } catch {}
-
-    if (user && !user.isGuest && user.id) {
-      try {
-        const { count, error } = await supabase
-          .from('notifications')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .eq('is_read', false);
-        if (!error && typeof count === 'number') {
-          unreadCount += count;
-        }
-      } catch {
-        // silent
-      }
+    } catch {
+      // silent
     }
     setUnreadNotificationsCount(unreadCount);
   }, [user]);
