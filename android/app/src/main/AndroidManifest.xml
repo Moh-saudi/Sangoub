@@ -31,7 +31,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="@string/custom_url_scheme"
+                    android:scheme="com.el7lm.sangoub"
                     android:host="auth"
                     android:pathPrefix="/callback" />
             </intent-filter>
