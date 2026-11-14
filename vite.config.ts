@@ -5,11 +5,13 @@ import path from 'path';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const mobileBuild = mode === 'mobile';
   let buildId = process.env.CF_PAGES_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA;
   if (!buildId) { try { buildId = execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(); } catch { buildId = 'build-'+Date.now(); } }
   const builtAt = new Date().toISOString();
   return {
+    publicDir: mobileBuild ? false : 'public',
     css: {
       preprocessorOptions: {
         scss: { quietDeps: true, silenceDeprecations: ["import", "global-builtin", "color-functions"] },
@@ -20,7 +22,7 @@ export default defineConfig(() => {
       { name: 'capital-build-info', generateBundle() { this.emitFile({type:'asset',fileName:'build-info.json',source:JSON.stringify({id:buildId,builtAt})}); } },
       react(),
       tailwindcss(),
-      VitePWA({
+      ...(!mobileBuild ? [VitePWA({
         registerType: 'autoUpdate',
         strategies: 'injectManifest',
         srcDir: 'src',
@@ -68,8 +70,17 @@ export default defineConfig(() => {
         devOptions: {
           enabled: false,
         },
-      }),
+      })] : []),
     ],
+    ...(mobileBuild ? {
+      build: {
+        outDir: 'dist-mobile',
+        emptyOutDir: true,
+        rollupOptions: {
+          input: { index: path.resolve(import.meta.dirname || '.', 'mobile.html') },
+        },
+      },
+    } : {}),
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname || '.', '.'),

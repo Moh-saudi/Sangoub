@@ -5,7 +5,7 @@ export function apiUrl(path: string): string {
   if (!path.startsWith("/api/")) throw new Error("Invalid API path");
   if (!Capacitor.isNativePlatform()) return path;
   const origin = new URL(
-    import.meta.env.VITE_API_ORIGIN || "https://capital-talabat.vercel.app",
+    import.meta.env.VITE_API_ORIGIN || "https://sangoub.el7lm.com",
   );
   if (origin.protocol !== "https:" || origin.username || origin.password)
     throw new Error("خادم التطبيق يجب أن يستخدم عنوان HTTPS آمنًا.");

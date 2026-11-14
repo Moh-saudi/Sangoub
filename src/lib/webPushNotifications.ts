@@ -1,5 +1,8 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { deleteToken, getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging';
+import { FCM } from '@capacitor-community/fcm';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 import { authenticatedApi } from './authenticatedApi';
 
 const DEFAULT_FIREBASE_CONFIG = {
@@ -16,6 +19,122 @@ const fallbackVapidKey =
 
 const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || fallbackVapidKey;
 let foregroundListenerInstalled = false;
+let nativeListenersInstalled = false;
+let nativeRegistrationPromise: Promise<void> | null = null;
+let nativeToken: string | null = null;
+let registeredNativeToken: string | null = null;
+let resolveNativeToken: ((token: string) => void) | null = null;
+const nativeTokenReady = new Promise<string>((resolve) => {
+  resolveNativeToken = resolve;
+});
+
+const NATIVE_TOKEN_KEY = 'sangoub_native_fcm_token';
+
+async function registerNativeToken(token: string, platform: 'android' | 'ios') {
+  if (!token) return;
+  resolveNativeToken?.(token);
+  nativeToken = token;
+  try {
+    localStorage.setItem(NATIVE_TOKEN_KEY, token);
+  } catch {}
+  if (token === registeredNativeToken) return;
+  try {
+    await authenticatedApi('/api/notifications', {
+      action: 'register-token',
+      token,
+      platform,
+    });
+    registeredNativeToken = token;
+  } catch (error) {
+    console.debug('Native push token registration deferred until an authenticated session:', error);
+  }
+}
+
+function openNotificationTarget(data: Record<string, unknown> = {}) {
+  const normalized = Object.fromEntries(
+    Object.entries(data).map(([key, value]) => [key, String(value ?? '')]),
+  );
+  window.location.assign(notificationPath(normalized));
+}
+
+async function enableNativePushNotifications(): Promise<string> {
+  const platform = Capacitor.getPlatform();
+  if (platform !== 'android' && platform !== 'ios') {
+    throw new Error('منصة الإشعارات الأصلية غير مدعومة.');
+  }
+
+  const permission = await PushNotifications.checkPermissions();
+  const result = permission.receive === 'granted'
+    ? permission
+    : await PushNotifications.requestPermissions();
+  if (result.receive !== 'granted') {
+    throw new Error('لم يتم السماح بإشعارات سنجوب. يمكنك تفعيلها من إعدادات الجهاز.');
+  }
+
+  if (!nativeListenersInstalled) {
+    nativeListenersInstalled = true;
+    await PushNotifications.addListener('registration', ({ value }) => {
+      if (platform === 'android') void registerNativeToken(value, 'android');
+    });
+    await PushNotifications.addListener('registrationError', (error) => {
+      console.warn('Native push registration failed:', error);
+    });
+    await PushNotifications.addListener('pushNotificationActionPerformed', ({ notification }) => {
+      openNotificationTarget(notification.data);
+    });
+    await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      window.dispatchEvent(new CustomEvent('sangoub:native_push_received', { detail: notification }));
+    });
+    if (platform === 'ios') {
+      await FCM.addListener('tokenReceived', ({ token }) => {
+        void registerNativeToken(token, 'ios');
+      });
+    }
+  }
+
+  if (platform === 'android') {
+    try {
+      await PushNotifications.createChannel({
+        id: 'capital_orders_channel',
+        name: 'إشعارات سنجوب',
+        description: 'تحديثات الطلبات والعروض في سنجوب',
+        importance: 4,
+        visibility: 1,
+        vibration: true,
+      });
+    } catch (error) {
+      // Android versions before API 26 use the system's pre-channel behavior.
+      console.debug('Notification channel setup skipped:', error);
+    }
+  }
+
+  if (!nativeRegistrationPromise) {
+    nativeRegistrationPromise = PushNotifications.register().catch((error) => {
+      nativeRegistrationPromise = null;
+      throw error;
+    });
+  }
+  await nativeRegistrationPromise;
+
+  // Android reports FCM tokens through the registration event. On iOS, wait
+  // for the APNs-to-FCM exchange before reading its token.
+  if (!nativeToken && platform === 'ios') {
+    await Promise.race([
+      nativeTokenReady,
+      new Promise<void>((resolve) => window.setTimeout(resolve, 10000)),
+    ]);
+    if (!nativeToken) {
+      const { token } = await FCM.getToken();
+      await registerNativeToken(token, 'ios');
+    }
+  }
+  if (!nativeToken && platform === 'android') {
+    const savedToken = localStorage.getItem(NATIVE_TOKEN_KEY);
+    if (savedToken) nativeToken = savedToken;
+  }
+  if (nativeToken) await registerNativeToken(nativeToken, platform);
+  return nativeToken || 'native-registration-pending';
+}
 
 function isFcmSupportedForHost(): boolean {
   if (typeof window === 'undefined') return false;
@@ -72,6 +191,7 @@ function notificationPath(data: Record<string, string>) {
 }
 
 export async function enableWebPushNotifications(): Promise<string> {
+  if (Capacitor.isNativePlatform()) return enableNativePushNotifications();
   if (!('Notification' in window)) {
     throw new Error('هذا المتصفح لا يدعم نظام إشعارات الويب.');
   }
@@ -160,6 +280,29 @@ export async function enableWebPushNotifications(): Promise<string> {
 }
 
 export async function disableWebPushNotifications(): Promise<void> {
+  if (Capacitor.isNativePlatform()) {
+    const token = nativeToken || localStorage.getItem(NATIVE_TOKEN_KEY);
+    if (token) {
+      try {
+        await authenticatedApi('/api/notifications', { action: 'unregister-token', token });
+      } catch (error) {
+        console.debug('Native push token removal deferred:', error);
+      }
+    }
+    try {
+      await PushNotifications.unregister();
+      await FCM.deleteInstance();
+    } catch (error) {
+      console.debug('Native push disable skipped:', error);
+    }
+    nativeToken = null;
+    registeredNativeToken = null;
+    nativeRegistrationPromise = null;
+    try {
+      localStorage.removeItem(NATIVE_TOKEN_KEY);
+    } catch {}
+    return;
+  }
   try {
     if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
     if (!isFcmSupportedForHost()) return;

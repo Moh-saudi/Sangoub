@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import './storefront.css';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { StoreHeader } from './components/StoreHeader';
@@ -155,7 +158,74 @@ const StorefrontRouter: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!user || user.isGuest || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    if (!Capacitor.isNativePlatform()) return;
+    let active = true;
+    let listener: { remove: () => Promise<void> } | undefined;
+    let handledAuthUrl = '';
+    const finishAuthRedirect = async (url: string) => {
+      let callback: URL;
+      try {
+        callback = new URL(url);
+        if (callback.protocol !== 'com.el7lm.sangoub:') return;
+        if (handledAuthUrl === url) return;
+        handledAuthUrl = url;
+      } catch {
+        return;
+      }
+      try {
+        const code = callback.searchParams.get('code');
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+        } else {
+          const params = new URLSearchParams(callback.hash.replace(/^#/, ''));
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          if (accessToken && refreshToken) {
+            const { error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (error) throw error;
+          }
+        }
+      } catch (error) {
+        console.warn('Could not finish native Supabase sign-in:', error);
+      } finally {
+        await Browser.close().catch(() => undefined);
+      }
+    };
+
+    void CapacitorApp.addListener('appUrlOpen', ({ url }) => {
+      void finishAuthRedirect(url);
+    }).then((handle) => {
+      if (active) listener = handle;
+      else void handle.remove();
+    });
+    void CapacitorApp.getLaunchUrl().then((launch) => {
+      if (launch?.url) void finishAuthRedirect(launch.url);
+    }).catch(() => undefined);
+
+    return () => {
+      active = false;
+      void listener?.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user || user.isGuest) return;
+    if (Capacitor.isNativePlatform()) {
+      try {
+        if (localStorage.getItem('sangoub_notifications_enabled') !== 'true') return;
+      } catch {
+        return;
+      }
+      void enableWebPushNotifications().catch((error) => {
+        console.debug('Native push token sync skipped:', error);
+      });
+      return;
+    }
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
     void enableWebPushNotifications().catch((error) => {
       console.debug('Web push token sync skipped:', error);
     });

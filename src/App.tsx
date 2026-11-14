@@ -1,17 +1,30 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import StorefrontApp from "./storefront/StorefrontApp";
 const AdminApp = lazy(() => import("./AdminApp"));
 const CourierApp = lazy(() => import("./CourierApp"));
 const MerchantApp = lazy(() => import("./MerchantApp"));
 
 export default function App() {
-  const [path, setPath] = useState(location.pathname);
+  const [path, setPath] = useState(() => {
+    const currentPath = location.pathname;
+    const isNative = Capacitor.isNativePlatform();
+    const isOperationsPortal = /^\/(courier|merchant|admin|kitchen)(\/.*)?$/.test(currentPath);
+    if (isNative && isOperationsPortal) {
+      window.history.replaceState({}, "", "/");
+      return "/";
+    }
+    return currentPath;
+  });
 
   useEffect(() => {
     const change = () => setPath(location.pathname);
     window.addEventListener("popstate", change);
     return () => window.removeEventListener("popstate", change);
   }, []);
+
+  // The native store app is customer-only. Operational portals remain web-only.
+  if (Capacitor.isNativePlatform()) return <StorefrontApp />;
 
   if (/^\/courier(\/.*)?$/.test(path)) {
     return (

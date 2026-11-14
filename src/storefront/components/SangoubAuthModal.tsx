@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { useStore } from '../context/StoreContext';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
 import { supabase } from '../../lib/supabase';
+import { supabaseAuthRedirectUrl } from '../../lib/nativeAuth';
 import type { Profile } from '../../types';
 import { cleanDisplayAddress } from '../../utils/orderCalculations';
 import { BRAND } from '../../brand';
@@ -197,6 +200,9 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
             floor_number: floorNumber.trim(),
             room_number: roomNumber.trim(),
           },
+          ...(Capacitor.isNativePlatform()
+            ? { emailRedirectTo: supabaseAuthRedirectUrl() }
+            : {}),
         },
       });
       if (signUpError) throw signUpError;
@@ -251,13 +257,18 @@ export const SangoubAuthModal: React.FC<SangoubAuthModalProps> = ({
     setBusy(true);
     setError(null);
     try {
-      const { error: oAuthError } = await supabase.auth.signInWithOAuth({
+      const { data, error: oAuthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: supabaseAuthRedirectUrl(),
+          ...(Capacitor.isNativePlatform() ? { skipBrowserRedirect: true } : {}),
         },
       });
       if (oAuthError) throw oAuthError;
+      if (Capacitor.isNativePlatform()) {
+        if (!data.url) throw new Error('لم يصل رابط تسجيل الدخول من Supabase.');
+        await Browser.open({ url: data.url });
+      }
     } catch (err: any) {
       setError('تعذر تسجيل الدخول عبر Google.');
       setBusy(false);

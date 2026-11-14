@@ -1,7 +1,7 @@
 {
-  "appId": "eg.gov.capital.talabat",
-  "appName": "طلبات الحي الحكومي بالعاصمة",
-  "webDir": "dist",
+  "appId": "com.el7lm.sangoub",
+  "appName": "سنجوب",
+  "webDir": "dist-mobile",
   "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https",
@@ -9,8 +9,16 @@
       "*.run.app",
       "*.firebaseapp.com",
       "*.googleapis.com",
-      "accounts.google.com"
+      "accounts.google.com",
+      "*.el7lm.com",
+      "*.supabase.co",
+      "*.geidea.net"
     ]
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["alert", "badge", "sound"]
+    }
   },
   "android": {
     "buildOptions": {
