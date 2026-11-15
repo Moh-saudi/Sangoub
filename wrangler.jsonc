@@ -15,5 +15,13 @@
       "binding": "CATALOG_IMAGES",
       "bucket_name": "capitaltalabat"
     }
-  ]
+  ],
+  "previews": {
+    "r2_buckets": [
+      {
+        "binding": "CATALOG_IMAGES",
+        "bucket_name": "capitaltalabat"
+      }
+    ]
+  }
 }
