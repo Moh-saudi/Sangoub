@@ -115,6 +115,10 @@ export function isProductOrderableNow(
   if (product.archived || product.inStock === false || product.is_available === false) {
     return false;
   }
+  // If stores list is still loading or empty, allow products to display instead of flashing empty catalog
+  if (!stores || stores.length === 0) {
+    return true;
+  }
   const isSangoub =
     product.storeId === 'a0000000-0000-0000-0000-000000000001' ||
     !product.storeId ||

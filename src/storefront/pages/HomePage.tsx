@@ -51,6 +51,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     currentPath,
     products, 
     stores, 
+    isLoadingCatalog,
     martBanner,
     supermarketCategories,
     activeStoreTypes,
@@ -575,7 +576,26 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
           </div>
         </div>
 
-        {displayedProducts.length > 0 ? (
+        {isLoadingCatalog && displayedProducts.length === 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 w-full">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={`catalog-skeleton-${i}`}
+                className="bg-white rounded-2xl p-2.5 sm:p-3 border border-[#F3F4F6] shadow-xs flex flex-col justify-between animate-pulse"
+              >
+                <div className="w-full aspect-square bg-[#F3F4F6] rounded-xl mb-2.5" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="h-3.5 bg-[#E5E7EB] rounded-md w-3/4" />
+                  <div className="h-2.5 bg-[#F3F4F6] rounded-md w-1/2" />
+                </div>
+                <div className="mt-3 flex items-center justify-between pt-2 border-t border-[#F3F4F6]">
+                  <div className="h-4 bg-[#E5E7EB] rounded-md w-14" />
+                  <div className="w-7 h-7 bg-[#FFF2EC] rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : displayedProducts.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 w-full">
             {displayedProducts.map((product) => (
               <ProductCard

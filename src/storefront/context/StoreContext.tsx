@@ -304,10 +304,41 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, 3500);
   }, []);
 
-  // 3.1 Raw Catalog Products & Stores from Database (Supabase)
-  const [rawProducts, setRawProducts] = useState<Product[]>([]);
-  const [rawStores, setRawStores] = useState<Store[]>([]);
-  const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
+  // 3.1 Raw Catalog Products & Stores from Database (Supabase) with Instant Stale-While-Revalidate Caching
+  const [rawProducts, setRawProducts] = useState<Product[]>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem('sangoub_cached_products_v3');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+    } catch {}
+    return [];
+  });
+  const [rawStores, setRawStores] = useState<Store[]>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem('sangoub_cached_stores_v3');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+    } catch {}
+    return [];
+  });
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const p = localStorage.getItem('sangoub_cached_products_v3');
+        const s = localStorage.getItem('sangoub_cached_stores_v3');
+        if (p && s) return false;
+      }
+    } catch {}
+    return true;
+  });
   const [catalogError, setCatalogError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -354,7 +385,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // 1. Must belong to an active, enabled store (or Sangoub)
       const isSangoub = p.storeId === 'a0000000-0000-0000-0000-000000000001' || !p.storeId || p.storeName?.includes('سنجوب');
-      if (!isSangoub) {
+      if (!isSangoub && rawStores.length > 0) {
         const storeMatch = (p.storeId && activeStoreIds.has(p.storeId)) || (p.storeName && activeStoreNames.has(p.storeName));
         if (!storeMatch) return false;
       }
@@ -413,6 +444,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         if (sbProducts && sbProducts.length > 0) {
           setRawProducts(sbProducts);
+          try {
+            localStorage.setItem('sangoub_cached_products_v3', JSON.stringify(sbProducts));
+          } catch {}
         }
 
         if (sbStores && sbStores.length > 0) {
@@ -512,6 +546,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
 
           setRawStores(orderedStores);
+          try {
+            localStorage.setItem('sangoub_cached_stores_v3', JSON.stringify(orderedStores));
+          } catch {}
         }
       } catch (err) {
         console.warn('[Supabase Catalog] Fetch error:', err);
