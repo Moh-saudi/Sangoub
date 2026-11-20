@@ -179,19 +179,45 @@ const CURATED_IMAGE_PATTERNS: Array<{
     url: 'https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=600&auto=format&fit=crop&q=80',
     label: 'مسحوق غسيل أريال ومنظفات ملابس',
   },
-  // منظفات وعناية منزلية وصابون أطباق وكلور
+  // منظفات وعناية منزلية ومطهرات وأرضيات
   {
-    keywords: ['كلور', 'كلوركس', 'clorox', 'ديتول', 'dettol', 'فيري', 'fairy', 'بريل', 'pril', 'صابون سائل', 'مستر شاهين', 'منظف', 'منظفات', 'سائل صحون', 'معقم'],
-    url: 'https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?auto=format&fit=crop&w=600&q=80',
-    label: 'منظفات ومطهرات ومعقمات منزلية',
+    keywords: ['جنرال', 'general', 'منظف أرضيات', 'ملمع أرضيات', 'كلور', 'كلوركس', 'clorox', 'ديتول', 'dettol', 'فيري', 'fairy', 'بريل', 'pril', 'صابون سائل', 'مستر شاهين', 'منظف', 'منظفات', 'سائل صحون', 'معقم', 'مطهر'],
+    url: 'https://images.unsplash.com/photo-1585421514738-01798e348b17?auto=format&fit=crop&w=600&q=80',
+    label: 'منظفات ومطهرات وملمع أرضيات',
   },
   // أدوية شراب وملينات ومستحضرات طبية سائلة
   {
-    keywords: ['إبيلاكت', 'ابيلاكت', 'epilac', 'ملين', 'شراب ملين', 'إمساك', 'امساك', 'شراب', 'دواء شرب', 'syrup', 'مستحضر دوائي', 'علاج إمساك'],
+    keywords: ['إبيلاكت', 'ابيلاكت', 'epilac', 'دوفلاك', 'duphalac', 'لاكتيلوز', 'lactulose', 'ملين', 'شراب ملين', 'إمساك', 'امساك', 'شراب', 'دواء شرب', 'syrup', 'مستحضر دوائي', 'علاج إمساك', 'سعال', 'كحة', 'مغص', 'مضاد حيوي', 'مسكن', 'دواء', 'علاج', 'صيدلية', 'محلول'],
     url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop&q=80',
     label: 'شراب دوائي ومستحضرات صيدلية طبية',
   },
+  // أدوية أقراص وكبسولات وفيتامينات
+  {
+    keywords: ['أقراص', 'اقراص', 'كبسولات', 'كبسول', 'فيتامين', 'بنادol', 'panadol', 'باراسيتامول', 'باراسيتامول', 'أوتريفين', 'اوتريفين', 'فولتارين', 'ديكلوفين', 'مسكن ألم', 'صداع'],
+    url: 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=600&auto=format&fit=crop&q=80',
+    label: 'أقراص وكبسولات وأدوية علاجية',
+  },
+  // عناية شخصية وشامبو وصابون استحمام
+  {
+    keywords: ['شامبو', 'بلسم', 'shampoo', 'غسول', 'معجون أسنان', 'سيجنال', 'كولجيت', 'استحمام', 'صابون يد'],
+    url: 'https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=600&auto=format&fit=crop&q=80',
+    label: 'عناية شخصية وشامبو واستحمام',
+  },
 ];
+
+/**
+ * تطبيع النصوص العربية لمطابقة متقدمة تتجاهل الهمزات والتنوين والتاء المربوطة
+ */
+function normalizeText(text?: string | null): string {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[إأآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/[\u064B-\u065F\u0670]/g, '');
+}
 
 /**
  * البحث عن أفضل صور مقترحة لصنف معين بناءً على اسمه وكلماته الدلالية
@@ -235,14 +261,15 @@ export async function searchImagesForProduct(productName: string): Promise<Image
       .select('name, image_url')
       .ilike('name', `%${searchWord}%`)
       .not('image_url', 'is', null)
-      .limit(4);
+      .limit(8);
 
     if (catMatches) {
       for (const c of catMatches) {
-        if (c.image_url && c.image_url.startsWith('http') && !seenUrls.has(c.image_url)) {
-          seenUrls.add(c.image_url);
+        const url = c.image_url;
+        if (url && typeof url === 'string' && (url.startsWith('http') || url.startsWith('data:image')) && !seenUrls.has(url)) {
+          seenUrls.add(url);
           candidates.push({
-            url: c.image_url,
+            url: url,
             source: 'catalog',
             label: `الكتالوج العام: ${c.name}`,
           });
@@ -250,23 +277,51 @@ export async function searchImagesForProduct(productName: string): Promise<Image
       }
     }
 
-    // 3. ثالثاً: البحث في منتجات المتجر المسجلة التي تمتلك صوراً
+    // 3. ثالثاً: البحث في منتجات المتجر المسجلة التي تمتلك صوراً (بما فيها صور الرفع المباشر)
     const { data: prodMatches } = await supabase
       .from('products')
       .select('name, image_url')
       .ilike('name', `%${searchWord}%`)
       .not('image_url', 'is', null)
-      .limit(4);
+      .order('updated_at', { ascending: false })
+      .limit(10);
 
     if (prodMatches) {
       for (const p of prodMatches) {
-        if (p.image_url && p.image_url.startsWith('http') && !seenUrls.has(p.image_url)) {
-          seenUrls.add(p.image_url);
+        const url = p.image_url;
+        if (url && typeof url === 'string' && (url.startsWith('http') || url.startsWith('data:image')) && !seenUrls.has(url)) {
+          seenUrls.add(url);
           candidates.push({
-            url: p.image_url,
+            url: url,
             source: 'catalog',
             label: `من الأصناف المعتمدة: ${p.name}`,
           });
+        }
+      }
+    }
+
+    // وإذا لم نجد بعد نتائج كافية وكان هناك كلمة ثانية نبحث بها
+    if (candidates.length < 3 && words[1] && words[1] !== searchWord) {
+      const secondWord = words[1];
+      const { data: secondMatches } = await supabase
+        .from('products')
+        .select('name, image_url')
+        .ilike('name', `%${secondWord}%`)
+        .not('image_url', 'is', null)
+        .order('updated_at', { ascending: false })
+        .limit(6);
+
+      if (secondMatches) {
+        for (const p of secondMatches) {
+          const url = p.image_url;
+          if (url && typeof url === 'string' && (url.startsWith('http') || url.startsWith('data:image')) && !seenUrls.has(url)) {
+            seenUrls.add(url);
+            candidates.push({
+              url: url,
+              source: 'catalog',
+              label: `من الأصناف المشابهة: ${p.name}`,
+            });
+          }
         }
       }
     }
@@ -274,9 +329,13 @@ export async function searchImagesForProduct(productName: string): Promise<Image
     console.warn('Database image search skipped:', err);
   }
 
-  // 4. رابعاً: البحث في مكتبة الصور الذكية المقترنة بالتصنيفات
+  // 4. رابعاً: البحث في مكتبة الصور الذكية المقترنة بالتصنيفات باستخدام التطبيع العربي
+  const normCleanName = normalizeText(cleanName);
   for (const item of CURATED_IMAGE_PATTERNS) {
-    const isMatch = item.keywords.some(kw => cleanName.includes(kw.toLowerCase()));
+    const isMatch = item.keywords.some(kw => {
+      const normKw = normalizeText(kw);
+      return normCleanName.includes(normKw) || cleanName.includes(kw.toLowerCase());
+    });
     if (isMatch && !seenUrls.has(item.url)) {
       seenUrls.add(item.url);
       candidates.push({
@@ -287,14 +346,45 @@ export async function searchImagesForProduct(productName: string): Promise<Image
     }
   }
 
-  // 5. Fallback: صورة عامة إذا لم يُعثر على شيء
+  // 5. Fallback ذكي موجه بحسب طبيعة الصنف بدلاً من إظهار خضار وبقالة لكل الأصناف
   if (candidates.length === 0) {
-    const fallbackUrl = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80';
-    candidates.push({
-      url: fallbackUrl,
-      source: 'curated_library',
-      label: 'بقالة ومنتجات عامة',
-    });
+    if (
+      normCleanName.includes('شراب') ||
+      normCleanName.includes('ملين') ||
+      normCleanName.includes('امساك') ||
+      normCleanName.includes('علاج') ||
+      normCleanName.includes('دواء') ||
+      normCleanName.includes('صيدليه') ||
+      normCleanName.includes('اقراص') ||
+      normCleanName.includes('مسكن')
+    ) {
+      candidates.push({
+        url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop&q=80',
+        source: 'curated_library',
+        label: 'مستحضرات طبية وعلاجية',
+      });
+    } else if (
+      normCleanName.includes('منظف') ||
+      normCleanName.includes('ملمع') ||
+      normCleanName.includes('مطهر') ||
+      normCleanName.includes('معقم') ||
+      normCleanName.includes('غسيل') ||
+      normCleanName.includes('كلور') ||
+      normCleanName.includes('ارضيات')
+    ) {
+      candidates.push({
+        url: 'https://images.unsplash.com/photo-1585421514738-01798e348b17?auto=format&fit=crop&w=600&q=80',
+        source: 'curated_library',
+        label: 'منظفات ومطهرات ومعقمات منزلية',
+      });
+    } else {
+      const fallbackUrl = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80';
+      candidates.push({
+        url: fallbackUrl,
+        source: 'curated_library',
+        label: 'بقالة ومنتجات عامة',
+      });
+    }
   }
 
   return candidates;
@@ -316,11 +406,30 @@ export function getCuratedProductImageSync(productName?: string): string {
   if (!productName || !productName.trim()) {
     return 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80';
   }
-  const clean = productName.trim().toLowerCase();
+  const normClean = normalizeText(productName);
   for (const item of CURATED_IMAGE_PATTERNS) {
-    if (item.keywords.some(kw => clean.includes(kw.toLowerCase()))) {
+    if (item.keywords.some(kw => normClean.includes(normalizeText(kw)))) {
       return item.url;
     }
+  }
+  if (
+    normClean.includes('شراب') ||
+    normClean.includes('ملين') ||
+    normClean.includes('امساك') ||
+    normClean.includes('علاج') ||
+    normClean.includes('دواء') ||
+    normClean.includes('صيدليه')
+  ) {
+    return 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop&q=80';
+  }
+  if (
+    normClean.includes('منظف') ||
+    normClean.includes('ملمع') ||
+    normClean.includes('مطهر') ||
+    normClean.includes('كلور') ||
+    normClean.includes('ارضيات')
+  ) {
+    return 'https://images.unsplash.com/photo-1585421514738-01798e348b17?auto=format&fit=crop&w=600&q=80';
   }
   return 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80';
 }

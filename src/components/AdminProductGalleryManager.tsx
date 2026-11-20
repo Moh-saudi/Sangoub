@@ -330,7 +330,7 @@ export function AdminProductGalleryManager() {
   }, [items, selectedCategory, searchQuery]);
 
   return (
-    <div className="space-y-6 animate-fade-in font-['Cairo',sans-serif]" dir="rtl">
+    <div className="w-full space-y-6 animate-fade-in font-['Cairo',sans-serif]" dir="rtl">
       
       {/* Page Header */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -451,7 +451,7 @@ export function AdminProductGalleryManager() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+        <div className="w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
           {filteredItems.map((item) => (
             <div
               key={item.id}

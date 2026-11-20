@@ -33,6 +33,7 @@ interface ProductGalleryModalProps {
   onSelectImage: (imageUrl: string, title?: string) => void;
   currentImageUrl?: string;
   title?: string;
+  initialSearch?: string;
 }
 
 export const GALLERY_CATEGORIES = [
@@ -123,9 +124,16 @@ export function ProductGalleryModal({
   onSelectImage,
   currentImageUrl,
   title = 'معرض صور الأصناف والمنتجات',
+  initialSearch = '',
 }: ProductGalleryModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
+
+  useEffect(() => {
+    if (isOpen && initialSearch) {
+      setSearchQuery(initialSearch);
+    }
+  }, [isOpen, initialSearch]);
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
   const [customItems, setCustomItems] = useState<GalleryItem[]>([]);
   const [catalogItems, setCatalogItems] = useState<GalleryItem[]>([]);
@@ -168,18 +176,19 @@ export function ProductGalleryModal({
           })));
         }
 
-        // 2. Fetch distinct high quality product images from products and catalog_products
+        // 2. Fetch distinct high quality product images from products and catalog_products (ordered by newest updates)
         const [prodsRes, catProdsRes] = await Promise.allSettled([
           supabase
             .from('products')
-            .select('id, name, image_url, category')
+            .select('id, name, image_url, category, updated_at')
             .not('image_url', 'is', null)
-            .limit(120),
+            .order('updated_at', { ascending: false })
+            .limit(300),
           supabase
             .from('catalog_products')
             .select('id, name, image_url, category')
             .not('image_url', 'is', null)
-            .limit(80),
+            .limit(100),
         ]);
 
         const prods = prodsRes.status === 'fulfilled' ? (prodsRes.value.data || []) : [];
@@ -187,13 +196,13 @@ export function ProductGalleryModal({
         const combined = [...prods, ...catProds];
 
         if (mounted && combined.length > 0) {
-          const seenUrls = new Set<string>();
+          const seenIds = new Set<string>();
           const validProds: GalleryItem[] = [];
 
           for (const p of combined) {
             const url = p.image_url;
-            if (url && typeof url === 'string' && (url.startsWith('http') || url.startsWith('data:image')) && !seenUrls.has(url)) {
-              seenUrls.add(url);
+            if (url && typeof url === 'string' && (url.startsWith('http') || url.startsWith('data:image')) && !seenIds.has(p.id)) {
+              seenIds.add(p.id);
               validProds.push({
                 id: `prod-cat-${p.id}`,
                 title: p.name,
@@ -221,22 +230,30 @@ export function ProductGalleryModal({
   function mapBackendCategory(catText?: string): string {
     if (!catText) return 'grocery';
     const c = catText.toLowerCase();
+    if (c.includes('نظاف') || c.includes('صابون') || c.includes('غسيل') || c.includes('clean') || c.includes('أرضيات') || c.includes('ملمع') || c.includes('مستلزمات المنزل') || c.includes('عناية بالمنزل') || c.includes('جنرال') || c.includes('ديتول') || c.includes('كلور') || c.includes('معطر')) return 'cleaning';
     if (c.includes('لبن') || c.includes('جبن') || c.includes('ألبان') || c.includes('dairy')) return 'dairy';
     if (c.includes('خضار') || c.includes('فاكه') || c.includes('فواكه') || c.includes('produce')) return 'produce';
     if (c.includes('مخبز') || c.includes('عيش') || c.includes('حلويات') || c.includes('bakery')) return 'bakery';
     if (c.includes('مشروب') || c.includes('عصير') || c.includes('مياه') || c.includes('beverage')) return 'beverages';
     if (c.includes('لحم') || c.includes('دجاج') || c.includes('فراخ') || c.includes('meat')) return 'meat';
     if (c.includes('شيبس') || c.includes('شيبسي') || c.includes('تسالي') || c.includes('سناك')) return 'snacks';
-    if (c.includes('نظاف') || c.includes('صابون') || c.includes('غسيل') || c.includes('clean')) return 'cleaning';
     return 'grocery';
   }
 
-  // Combine custom items (top priority), curated library, and existing store catalog items
+  // Combine items: Store products and uploaded images first!
   const allItems = useMemo(() => {
     const urlsSeen = new Set<string>();
     const list: GalleryItem[] = [];
 
-    // Custom uploads first
+    // 1. User uploaded products & real store catalog products FIRST!
+    for (const item of catalogItems) {
+      if (item.url && !urlsSeen.has(item.url)) {
+        urlsSeen.add(item.url);
+        list.push(item);
+      }
+    }
+
+    // 2. Custom uploaded batch items second
     for (const item of customItems) {
       if (item.url && !urlsSeen.has(item.url)) {
         urlsSeen.add(item.url);
@@ -244,16 +261,8 @@ export function ProductGalleryModal({
       }
     }
 
-    // Curated high quality list second
+    // 3. Fallback curated photography last
     for (const item of DEFAULT_CURATED_PRODUCTS) {
-      if (item.url && !urlsSeen.has(item.url)) {
-        urlsSeen.add(item.url);
-        list.push(item);
-      }
-    }
-
-    // Catalog items third
-    for (const item of catalogItems) {
       if (item.url && !urlsSeen.has(item.url)) {
         urlsSeen.add(item.url);
         list.push(item);

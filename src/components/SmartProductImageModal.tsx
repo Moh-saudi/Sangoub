@@ -363,6 +363,7 @@ export function SmartProductImageModal({
           }}
           currentImageUrl={product.imageUrl}
           title={`معرض صور الأصناف - اختيار صورة لـ "${product.name}"`}
+          initialSearch={searchTerm.trim() ? searchTerm.trim().split(' ')[0] : product.name.trim().split(' ')[0]}
         />
       )}
     </div>
