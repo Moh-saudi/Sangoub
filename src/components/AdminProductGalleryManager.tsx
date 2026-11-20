@@ -21,6 +21,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { operationsApi } from '../lib/operationsApi';
 import { uploadCatalogImage } from '../lib/catalogImages';
+import { getCuratedProductImageSync } from '../utils/productImageFinder';
 import type { GalleryItem } from './ProductGalleryModal';
 
 export const CATEGORIES = [
@@ -106,11 +107,16 @@ export function AdminProductGalleryManager() {
       const combinedProds = [...prods, ...catProds];
 
       for (const p of combinedProds) {
-        if (p.image_url && typeof p.image_url === 'string' && (p.image_url.startsWith('http') || p.image_url.startsWith('data:image')) && !list.some(x => x.url === p.image_url)) {
+        let rawUrl = p.image_url;
+        const validUrl = (rawUrl && typeof rawUrl === 'string' && (rawUrl.startsWith('http') || rawUrl.startsWith('data:image')))
+          ? rawUrl
+          : getCuratedProductImageSync(p.name);
+
+        if (validUrl && !list.some(x => x.id === `prod-${p.id}`)) {
           list.push({
             id: `prod-${p.id}`,
             title: p.name,
-            url: p.image_url,
+            url: validUrl,
             category: mapCategory(p.category),
             isCustom: false
           });
@@ -445,7 +451,7 @@ export function AdminProductGalleryManager() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
           {filteredItems.map((item) => (
             <div
               key={item.id}
@@ -453,14 +459,25 @@ export function AdminProductGalleryManager() {
             >
               {/* Image Preview */}
               <div className="relative aspect-square w-full bg-slate-100 overflow-hidden">
+                {/* Fallback placeholder underneath image */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-slate-400 bg-slate-100 select-none">
+                  <ImageIcon size={28} className="text-slate-300 mb-1" />
+                  <span className="text-[10px] font-bold text-center text-slate-400 line-clamp-1">{item.title}</span>
+                </div>
+
                 <img
                   src={item.url}
                   alt={item.title}
                   loading="lazy"
                   decoding="async"
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="relative z-10 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   onError={(e) => {
-                    (e.currentTarget as HTMLElement).style.display = 'none';
+                    const fallback = getCuratedProductImageSync(item.title);
+                    if (fallback && e.currentTarget.src !== fallback) {
+                      e.currentTarget.src = fallback;
+                    } else {
+                      (e.currentTarget as HTMLElement).style.display = 'none';
+                    }
                   }}
                 />
 

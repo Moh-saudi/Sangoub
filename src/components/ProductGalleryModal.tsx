@@ -16,6 +16,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { operationsApi } from '../lib/operationsApi';
 import { uploadCatalogImage } from '../lib/catalogImages';
+import { getCuratedProductImageSync } from '../utils/productImageFinder';
 
 export interface GalleryItem {
   id: string;
@@ -599,14 +600,25 @@ export function ProductGalleryModal({
                   >
                     {/* Thumbnail Image */}
                     <div className="relative aspect-square w-full bg-slate-100 overflow-hidden">
+                      {/* Fallback placeholder underneath image */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-slate-400 bg-slate-100 select-none">
+                        <ImageIcon size={26} className="text-slate-300 mb-1" />
+                        <span className="text-[10px] font-bold text-center text-slate-400 line-clamp-1">{item.title}</span>
+                      </div>
+
                       <img
                         src={item.url}
                         alt={item.title}
                         loading="lazy"
                         decoding="async"
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="relative z-10 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         onError={(e) => {
-                          (e.currentTarget as HTMLElement).style.display = 'none';
+                          const fallback = getCuratedProductImageSync(item.title);
+                          if (fallback && e.currentTarget.src !== fallback) {
+                            e.currentTarget.src = fallback;
+                          } else {
+                            (e.currentTarget as HTMLElement).style.display = 'none';
+                          }
                         }}
                       />
 
