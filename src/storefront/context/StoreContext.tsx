@@ -10,10 +10,10 @@ import { getStoreSlug, matchStoreId } from '../../utils/storeAssets';
 
 import { StoreBanner, DEFAULT_SANGOUB_BANNERS } from '../types/banner';
 import { playAirportChime } from '../../utils/audioAlerts';
-import { 
-  SUPERMARKET_CATEGORY_TEMPLATES, 
-  STORE_TYPES, 
-  type StoreTypeDefinition 
+import {
+  SUPERMARKET_CATEGORY_TEMPLATES,
+  STORE_TYPES,
+  type StoreTypeDefinition
 } from '../../constants/taxonomy';
 import { defaultCustomerHome, type HomeSection } from '../../types/appContent';
 
@@ -227,16 +227,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setServiceArea = (area: ServiceArea) => {
     setServiceAreaState(area);
-    if (user?.id) { try { sessionStorage.removeItem(pendingDeliveryAddressKey); } catch {} }
-    try { localStorage.setItem(user?.id ? `${STORAGE_KEYS.AREA}:${user.id}` : STORAGE_KEYS.AREA, JSON.stringify(area)); } catch {}
+    if (user?.id) { try { sessionStorage.removeItem(pendingDeliveryAddressKey); } catch { } }
+    try { localStorage.setItem(user?.id ? `${STORAGE_KEYS.AREA}:${user.id}` : STORAGE_KEYS.AREA, JSON.stringify(area)); } catch { }
   };
 
   const saveDeliveryLocation = async (area: ServiceArea) => {
     if (!usableDeliveryAddress(area.name)) throw new Error('اكتب اسم الشارع والمنطقة وتفاصيل التوصيل.');
     if (user && !user.isGuest) {
-      const address = { fullAddress: area.name, city: area.city || '', details: area.details || '',
-        ...(area.latitude !== undefined && area.longitude !== undefined ? { coordinates: { latitude: area.latitude, longitude: area.longitude } } : {}) };
-      
+      const address = {
+        fullAddress: area.name, city: area.city || '', details: area.details || '',
+        ...(area.latitude !== undefined && area.longitude !== undefined ? { coordinates: { latitude: area.latitude, longitude: area.longitude } } : {})
+      };
+
       try {
         await supabase.from('profiles').update({
           ministry: area.name.slice(0, 120),
@@ -245,10 +247,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.warn('Supabase address update notice:', err);
       }
 
-      setUser(previous => previous ? { ...previous, ministry: area.name.slice(0,120), defaultAddress: address,
-        coordinates: address.coordinates } : previous);
+      setUser(previous => previous ? {
+        ...previous, ministry: area.name.slice(0, 120), defaultAddress: address,
+        coordinates: address.coordinates
+      } : previous);
     }
-    if (!user) { try { sessionStorage.setItem(pendingDeliveryAddressKey, JSON.stringify(area)); } catch {} }
+    if (!user) { try { sessionStorage.setItem(pendingDeliveryAddressKey, JSON.stringify(area)); } catch { } }
     setServiceArea(area);
   };
 
@@ -272,7 +276,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch {}
+    } catch { }
     return DEFAULT_SANGOUB_BANNERS;
   });
   const [martBanner, setMartBanner] = useState<MartBannerConfig>(DEFAULT_MART_BANNER);
@@ -286,7 +290,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return parsed.config.sections;
         }
       }
-    } catch {}
+    } catch { }
     return defaultCustomerHome.sections;
   });
   const [isLoadingBanners, setIsLoadingBanners] = useState(false);
@@ -570,7 +574,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (row?.content) {
           data = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
         }
-      } catch {}
+      } catch { }
 
       // 2. Public server endpoint /api/app-content fallback
       if (!data) {
@@ -579,7 +583,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
             data = await res.json();
           }
-        } catch {}
+        } catch { }
       }
 
       // 3. Local offline cache fallback
@@ -587,7 +591,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         try {
           const cached = localStorage.getItem('sangoub_cached_app_content');
           if (cached) data = JSON.parse(cached);
-        } catch {}
+        } catch { }
       }
 
       if (data) {
@@ -635,18 +639,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               targetPath: s.targetType === 'offers'
                 ? '/offers'
                 : s.targetType === 'product'
-                ? `/product/${s.targetId}`
-                : s.targetType === 'store'
-                ? `/stores/${getStoreSlug(s.targetId)}`
-                : s.targetType === 'category'
-                ? `/categories`
-                : (s.targetPath || ''),
+                  ? `/product/${s.targetId}`
+                  : s.targetType === 'store'
+                    ? `/stores/${getStoreSlug(s.targetId)}`
+                    : s.targetType === 'category'
+                      ? `/categories`
+                      : (s.targetPath || ''),
               badgeColor: idx % 3 === 0 ? '#FF5900' : idx % 3 === 1 ? '#059669' : '#2563EB',
-              bgGradient: idx % 3 === 0 
-                ? 'linear-gradient(135deg, #131921 0%, #1F2937 100%)' 
-                : idx % 3 === 1 
-                ? 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)' 
-                : 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 100%)',
+              bgGradient: idx % 3 === 0
+                ? 'linear-gradient(135deg, #131921 0%, #1F2937 100%)'
+                : idx % 3 === 1
+                  ? 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)'
+                  : 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 100%)',
               mascotImg: idx % 2 === 0 ? '/brand/sangoub-logo-256x256.png' : '/brand/capital-talabat-mascot-logo-256x256.png'
             };
           });
@@ -654,7 +658,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           try {
             localStorage.setItem('sangoub_cached_banners_v2', JSON.stringify(mapped));
             localStorage.setItem('sangoub_cached_app_content', JSON.stringify(data));
-          } catch {}
+          } catch { }
           if (typeof window !== 'undefined' && 'Image' in window) {
             mapped.forEach((b) => {
               const url = b.imageUrl || b.image;
@@ -672,7 +676,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setBanners(DEFAULT_SANGOUB_BANNERS);
       try {
         localStorage.removeItem('sangoub_cached_banners_v2');
-      } catch {}
+      } catch { }
     } catch {
       setBanners(DEFAULT_SANGOUB_BANNERS);
     } finally {
@@ -883,13 +887,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     let isMounted = true;
     const fetchCoupons = async () => {
-      // 1. Try /api/coupons if available
+      // 1. Try app_content (Unified storage)
       try {
-        const res = await fetch('/api/coupons');
-        if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
-          const data = await res.json();
-          if (isMounted && Array.isArray(data.coupons)) {
-            setActiveCoupons(data.coupons);
+        const { data: row } = await supabase.from('app_content').select('content').eq('id', true).maybeSingle();
+        let content: any = row?.content;
+        if (typeof content === 'string') {
+          try { content = JSON.parse(content); } catch {}
+        }
+        if (content && Array.isArray(content.coupons) && content.coupons.length > 0) {
+          const now = Date.now();
+          const valid = content.coupons
+            .filter((c: any) => {
+              if (c.active === false) return false;
+              if (c.startsAt && new Date(c.startsAt).getTime() > now) return false;
+              if (c.expiresAt && new Date(c.expiresAt).getTime() <= now) return false;
+              if (c.maxUses != null && Number(c.usedCount) >= Number(c.maxUses)) return false;
+              return true;
+            })
+            .map((c: any) => ({
+              code: String(c.code).toUpperCase(),
+              discountType: c.discountType || 'fixed',
+              value: Number(c.value) || 0,
+              minOrder: Number(c.minOrder) || 0,
+              maxDiscount: c.maxDiscount ? Number(c.maxDiscount) : undefined,
+              title: c.title || c.code,
+              description: c.description || '',
+              scope: c.scope || 'all',
+              storeId: c.storeId,
+            }));
+          if (isMounted && valid.length > 0) {
+            setActiveCoupons(valid);
             return;
           }
         }
@@ -919,7 +946,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }));
           setActiveCoupons(valid);
         }
-      } catch {}
+      } catch { }
     };
     fetchCoupons();
     return () => { isMounted = false; };
@@ -933,21 +960,63 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const applyCoupon = async (code: string): Promise<{ success: boolean; message: string }> => {
     const clean = code.trim().toUpperCase();
     if (!clean) return { success: false, message: 'يرجى إدخال كود الخصم.' };
-    
-    // 1. Try serverless route if operational
+
+    // 1. Check in app_content coupons
     try {
-      const res = await fetch('/api/coupons', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: clean, subtotal }),
-      });
-      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
-        const data = await res.json();
-        if (data.valid && data.coupon) {
-          setAppliedCoupon(data.coupon);
-          return { success: true, message: data.message };
+      const { data: row } = await supabase.from('app_content').select('content').eq('id', true).maybeSingle();
+      let content: any = row?.content;
+      if (typeof content === 'string') {
+        try { content = JSON.parse(content); } catch {}
+      }
+      if (content && Array.isArray(content.coupons)) {
+        const found = content.coupons.find((c: any) => String(c.code).toUpperCase() === clean);
+        if (found) {
+          if (found.active === false) {
+            return { success: false, message: 'كود الخصم غير مفعّل حالياً.' };
+          }
+          const now = Date.now();
+          if (found.startsAt && new Date(found.startsAt).getTime() > now) {
+            return { success: false, message: 'كود الخصم لم يبدأ بعد.' };
+          }
+          if (found.expiresAt && new Date(found.expiresAt).getTime() <= now) {
+            return { success: false, message: 'عذراً، انتهت صلاحية كود الخصم.' };
+          }
+          if (found.maxUses != null && Number(found.usedCount || 0) >= Number(found.maxUses)) {
+            return { success: false, message: 'تم استنفاد الحد الأقصى لاستخدام كود الخصم.' };
+          }
+          const minOrder = Number(found.minOrder) || 0;
+          if (subtotal < minOrder) {
+            return { success: false, message: `الحد الأدنى لتطبيق هذا الكوبون هو ${minOrder} ج.م` };
+          }
+          if (found.scope === 'store' && found.storeId) {
+            const hasStoreItem = cartItems.some(i => i.product.storeId === found.storeId);
+            if (!hasStoreItem) {
+              return { success: false, message: 'هذا الكود مخصص لمتجر آخر فقط.' };
+            }
+          }
+
+          let discountAmount = 0;
+          if (found.discountType === 'percent') {
+            discountAmount = Math.round((subtotal * Number(found.value)) / 100);
+            if (found.maxDiscount && discountAmount > Number(found.maxDiscount)) {
+              discountAmount = Number(found.maxDiscount);
+            }
+          } else {
+            discountAmount = Math.min(Number(found.value), subtotal);
+          }
+
+          const couponObj = {
+            code: found.code,
+            discountType: found.discountType || 'fixed',
+            value: Number(found.value),
+            minOrder,
+            discountAmount,
+            title: found.title || found.code,
+            description: found.description || '',
+          };
+          setAppliedCoupon(couponObj);
+          return { success: true, message: `تم تفعيل خصم ${found.discountType === 'percent' ? found.value + '%' : discountAmount + ' ج.م'} بنجاح!` };
         }
-        return { success: false, message: data.message || 'كود الخصم غير متاح.' };
       }
     } catch {}
 
@@ -1070,7 +1139,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.ORDERED_PRODUCTS, JSON.stringify(orderedProductIds));
-    } catch {}
+    } catch { }
   }, [orderedProductIds]);
 
   const markProductAsOrdered = (productId: string, productName?: string) => {
@@ -1120,7 +1189,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               roomNumber: prof.room_number || '',
               walletBalance: Number(prof.wallet_balance) || 0,
               role: 'employee',
-              avatarUrl: prof.avatar_url || sbUser.user_metadata?.avatar_url || sbUser.user_metadata?.picture || '',
+              avatarUrl: sbUser.user_metadata?.avatar_removed === true ? '' : prof.avatar_url || sbUser.user_metadata?.avatar_url || sbUser.user_metadata?.picture || '',
               isGuest: false,
             } as Profile);
           }
@@ -1146,7 +1215,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               roomNumber: '',
               walletBalance: 0,
               role: newProfile.role,
-              avatarUrl: sbUser.user_metadata?.avatar_url || sbUser.user_metadata?.picture || '',
+              avatarUrl: sbUser.user_metadata?.avatar_removed === true ? '' : sbUser.user_metadata?.avatar_url || sbUser.user_metadata?.picture || '',
               isGuest: false,
             } as Profile);
           }
@@ -1221,7 +1290,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setUnreadNotificationsCount(0);
       try {
         localStorage.removeItem('sangoub_guest_notifications');
-      } catch {}
+      } catch { }
       return;
     }
 
@@ -1247,13 +1316,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const logout = async () => {
     try {
-      await supabase.auth.signOut({ scope: 'global' }).catch(() => {});
-    } catch {}
+      await supabase.auth.signOut({ scope: 'global' }).catch(() => { });
+    } catch { }
     try {
       localStorage.removeItem('sangoub_last_phone');
       localStorage.removeItem('sangoub_last_order');
       sessionStorage.clear();
-    } catch {}
+    } catch { }
     setUser(null);
   };
 

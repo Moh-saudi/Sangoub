@@ -263,6 +263,7 @@ export interface Order {
   deliveryFee: number;
   discount: number;
   couponCode?: string;
+  serviceFee?: number;
   tip: number;
   total: number;
   paymentMethod: PaymentMethod;
@@ -289,6 +290,16 @@ export interface Coupon {
   minOrder: number;
   description: string;
   title: string;
+  maxDiscount?: number;
+  scope?: 'all' | 'store';
+  storeId?: string;
+  storeName?: string;
+  active?: boolean;
+  maxUses?: number;
+  startsAt?: string;
+  expiresAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AppNotification {

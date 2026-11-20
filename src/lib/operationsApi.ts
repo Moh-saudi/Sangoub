@@ -1093,6 +1093,83 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
       return { ok: true, productGallery: content.productGallery };
     }
 
+    if (body.action === 'get-coupons') {
+      const content = await getStoredContent();
+      return { ok: true, coupons: content.coupons || [] };
+    }
+
+    if (body.action === 'save-coupon') {
+      const content = await getStoredContent();
+      if (!Array.isArray(content.coupons)) content.coupons = [];
+      const coupon = body.coupon;
+      const cleanCode = String(coupon.code || '').trim().toUpperCase();
+      const existingIdx = content.coupons.findIndex((c: any) => c.code === cleanCode);
+      const couponObj = {
+        ...coupon,
+        code: cleanCode,
+        active: coupon.active !== false,
+        updatedAt: new Date().toISOString(),
+        createdAt: coupon.createdAt || new Date().toISOString()
+      };
+      if (existingIdx !== -1) {
+        content.coupons[existingIdx] = { ...content.coupons[existingIdx], ...couponObj };
+      } else {
+        content.coupons.unshift(couponObj);
+      }
+      await persistContent(content);
+
+      try {
+        await supabase.from('coupons').upsert({
+          code: cleanCode,
+          title: coupon.title || cleanCode,
+          description: coupon.description || '',
+          discount_type: coupon.discountType || 'fixed',
+          value: Number(coupon.value) || 0,
+          min_order: Number(coupon.minOrder) || 0,
+          active: couponObj.active,
+          starts_at: coupon.startsAt || null,
+          expires_at: coupon.expiresAt || null,
+          max_uses: coupon.maxUses || null
+        });
+      } catch {}
+
+      return { ok: true, coupons: content.coupons };
+    }
+
+    if (body.action === 'toggle-coupon') {
+      const content = await getStoredContent();
+      if (!Array.isArray(content.coupons)) content.coupons = [];
+      const cleanCode = String(body.code || '').trim().toUpperCase();
+      content.coupons = content.coupons.map((c: any) =>
+        c.code === cleanCode ? { ...c, active: !c.active, updatedAt: new Date().toISOString() } : c
+      );
+      await persistContent(content);
+
+      try {
+        const found = content.coupons.find((c: any) => c.code === cleanCode);
+        if (found) {
+          await supabase.from('coupons').update({ active: found.active }).eq('code', cleanCode);
+        }
+      } catch {}
+
+      return { ok: true, coupons: content.coupons };
+    }
+
+    if (body.action === 'delete-coupon') {
+      const content = await getStoredContent();
+      const cleanCode = String(body.code || '').trim().toUpperCase();
+      if (Array.isArray(content.coupons)) {
+        content.coupons = content.coupons.filter((c: any) => c.code !== cleanCode);
+      }
+      await persistContent(content);
+
+      try {
+        await supabase.from('coupons').delete().eq('code', cleanCode);
+      } catch {}
+
+      return { ok: true, coupons: content.coupons };
+    }
+
     if (body.action === 'save-mart-banner') {
       const content = await getStoredContent();
       content.martBanner = body.martBanner;

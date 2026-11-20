@@ -272,7 +272,7 @@ export function AdminWorkspace({ orders, stores, products, couriers, staff, coup
         {tab === "visitors" && <VisitorStats />}
         {tab === "notifications" && <NotificationCenter stores={stores} />}
         {tab === "content" && <AppContentManager stores={stores} products={products} />}
-        {tab === "coupons" && <CouponManager coupons={coupons} />}
+        {tab === "coupons" && <CouponManager coupons={coupons} orders={orders} stores={stores} />}
         {["orders", "partners", "jobs"].includes(tab) && (
           isValidElement(children)
             ? cloneElement(children as ReactElement<{ initialAdminTab: AdminTabType; orderSearchRequest?: { term: string; key: number } }>, {
