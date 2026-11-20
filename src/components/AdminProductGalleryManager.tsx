@@ -21,7 +21,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { operationsApi } from '../lib/operationsApi';
 import { uploadCatalogImage } from '../lib/catalogImages';
-import { getCuratedProductImageSync } from '../utils/productImageFinder';
+import { getCuratedProductImageSync, resolveProductCategory } from '../utils/productImageFinder';
 import type { GalleryItem } from './ProductGalleryModal';
 
 export const CATEGORIES = [
@@ -110,17 +110,17 @@ export function AdminProductGalleryManager() {
       const combinedProds = [...prods, ...catProds];
 
       for (const p of combinedProds) {
-        let rawUrl = p.image_url;
+        const rawUrl = p.image_url;
         const validUrl = (rawUrl && typeof rawUrl === 'string' && (rawUrl.startsWith('http') || rawUrl.startsWith('data:image')))
           ? rawUrl
-          : getCuratedProductImageSync(p.name);
+          : null;
 
         if (validUrl && !list.some(x => x.id === `prod-${p.id}`)) {
           list.push({
             id: `prod-${p.id}`,
             title: p.name,
             url: validUrl,
-            category: mapCategory(p.category, p.name),
+            category: resolveProductCategory(p.category, p.name),
             isCustom: false
           });
         }
@@ -133,20 +133,6 @@ export function AdminProductGalleryManager() {
     } finally {
       setIsLoading(false);
     }
-  }
-
-  function mapCategory(catText?: string, prodName?: string): string {
-    const combined = `${catText || ''} ${prodName || ''}`.toLowerCase();
-    if (combined.includes('نظاف') || combined.includes('صابون') || combined.includes('غسيل') || combined.includes('clean') || combined.includes('أرضيات') || combined.includes('ملمع') || combined.includes('مستلزمات المنزل') || combined.includes('عناية بالمنزل') || combined.includes('جنرال') || combined.includes('ديتول') || combined.includes('كلور') || combined.includes('معطر') || combined.includes('فيري') || combined.includes('بريل')) return 'cleaning';
-    if (combined.includes('صيدل') || combined.includes('دواء') || combined.includes('علاج') || combined.includes('طبي') || combined.includes('ملين') || combined.includes('شراب') || combined.includes('اقراص') || combined.includes('أقراص') || combined.includes('مسكن') || combined.includes('فيتامين') || combined.includes('مرهم') || combined.includes('صحة') || combined.includes('إبيلاكت') || combined.includes('ابيلاكت') || combined.includes('بنادول') || combined.includes('أوتريفين')) return 'pharmacy';
-    if (combined.includes('شامبو') || combined.includes('بلسم') || combined.includes('تجميل') || combined.includes('بشرة') || combined.includes('عناية شخصية') || combined.includes('معجون أسنان') || combined.includes('مكياج') || combined.includes('استحمام')) return 'personal_care';
-    if (combined.includes('لبن') || combined.includes('جبن') || combined.includes('ألبان') || combined.includes('dairy')) return 'dairy';
-    if (combined.includes('خضار') || combined.includes('فاكه') || combined.includes('فواكه') || combined.includes('produce')) return 'produce';
-    if (combined.includes('مخبز') || combined.includes('عيش') || combined.includes('حلويات') || combined.includes('bakery')) return 'bakery';
-    if (combined.includes('مشروب') || combined.includes('عصير') || combined.includes('مياه') || combined.includes('beverage')) return 'beverages';
-    if (combined.includes('لحم') || combined.includes('دجاج') || combined.includes('فراخ') || combined.includes('meat')) return 'meat';
-    if (combined.includes('شيبس') || combined.includes('شيبسي') || combined.includes('تسالي') || combined.includes('سناك')) return 'snacks';
-    return 'grocery';
   }
 
   function handleFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -455,7 +441,7 @@ export function AdminProductGalleryManager() {
           </p>
         </div>
       ) : (
-        <div className="w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+        <div className="w-full grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 sm:gap-4">
           {filteredItems.map((item) => (
             <div
               key={item.id}

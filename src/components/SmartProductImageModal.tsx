@@ -12,7 +12,7 @@ import {
   Check,
 } from 'lucide-react';
 import type { Product } from '../types';
-import { searchImagesForProduct, type ImageCandidate } from '../utils/productImageFinder';
+import { searchImagesForProduct, resolveProductCategory, type ImageCandidate } from '../utils/productImageFinder';
 import { ProductGalleryModal } from './ProductGalleryModal';
 
 interface SmartProductImageModalProps {
@@ -390,6 +390,7 @@ export function SmartProductImageModal({
           currentImageUrl={product.imageUrl}
           title={`معرض صور الأصناف - اختيار صورة لـ "${product.name}"`}
           initialSearch={searchTerm.trim() ? searchTerm.trim().split(' ')[0] : product.name.trim().split(' ')[0]}
+          initialCategory={resolveProductCategory(product.category, product.name)}
         />
       )}
     </div>

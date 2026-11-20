@@ -16,7 +16,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { operationsApi } from '../lib/operationsApi';
 import { uploadCatalogImage } from '../lib/catalogImages';
-import { getCuratedProductImageSync } from '../utils/productImageFinder';
+import { getCuratedProductImageSync, resolveProductCategory } from '../utils/productImageFinder';
 
 export interface GalleryItem {
   id: string;
@@ -34,6 +34,7 @@ interface ProductGalleryModalProps {
   currentImageUrl?: string;
   title?: string;
   initialSearch?: string;
+  initialCategory?: string;
 }
 
 export const GALLERY_CATEGORIES = [
@@ -127,15 +128,21 @@ export function ProductGalleryModal({
   currentImageUrl,
   title = 'معرض صور الأصناف والمنتجات',
   initialSearch = '',
+  initialCategory = 'all',
 }: ProductGalleryModalProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory || 'all');
   const [searchQuery, setSearchQuery] = useState(initialSearch);
 
   useEffect(() => {
-    if (isOpen && initialSearch) {
-      setSearchQuery(initialSearch);
+    if (isOpen) {
+      if (initialSearch) {
+        setSearchQuery(initialSearch);
+      }
+      if (initialCategory && initialCategory !== 'all') {
+        setSelectedCategory(initialCategory);
+      }
     }
-  }, [isOpen, initialSearch]);
+  }, [isOpen, initialSearch, initialCategory]);
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
   const [customItems, setCustomItems] = useState<GalleryItem[]>([]);
   const [catalogItems, setCatalogItems] = useState<GalleryItem[]>([]);
@@ -209,7 +216,7 @@ export function ProductGalleryModal({
                 id: `prod-cat-${p.id}`,
                 title: p.name,
                 url,
-                category: mapBackendCategory(p.category, p.name),
+                category: resolveProductCategory(p.category, p.name),
                 isCustom: false
               });
             }
@@ -227,21 +234,6 @@ export function ProductGalleryModal({
     loadGalleryData();
     return () => { mounted = false; };
   }, [isOpen]);
-
-  // Helper to map backend category text to filter category
-  function mapBackendCategory(catText?: string, prodName?: string): string {
-    const combined = `${catText || ''} ${prodName || ''}`.toLowerCase();
-    if (combined.includes('نظاف') || combined.includes('صابون') || combined.includes('غسيل') || combined.includes('clean') || combined.includes('أرضيات') || combined.includes('ملمع') || combined.includes('مستلزمات المنزل') || combined.includes('عناية بالمنزل') || combined.includes('جنرال') || combined.includes('ديتول') || combined.includes('كلور') || combined.includes('معطر') || combined.includes('فيري') || combined.includes('بريل')) return 'cleaning';
-    if (combined.includes('صيدل') || combined.includes('دواء') || combined.includes('علاج') || combined.includes('طبي') || combined.includes('ملين') || combined.includes('شراب') || combined.includes('اقراص') || combined.includes('أقراص') || combined.includes('مسكن') || combined.includes('فيتامين') || combined.includes('مرهم') || combined.includes('صحة') || combined.includes('إبيلاكت') || combined.includes('ابيلاكت') || combined.includes('بنادول') || combined.includes('أوتريفين')) return 'pharmacy';
-    if (combined.includes('شامبو') || combined.includes('بلسم') || combined.includes('تجميل') || combined.includes('بشرة') || combined.includes('عناية شخصية') || combined.includes('معجون أسنان') || combined.includes('مكياج') || combined.includes('استحمام')) return 'personal_care';
-    if (combined.includes('لبن') || combined.includes('جبن') || combined.includes('ألبان') || combined.includes('dairy')) return 'dairy';
-    if (combined.includes('خضار') || combined.includes('فاكه') || combined.includes('فواكه') || combined.includes('produce')) return 'produce';
-    if (combined.includes('مخبز') || combined.includes('عيش') || combined.includes('حلويات') || combined.includes('bakery')) return 'bakery';
-    if (combined.includes('مشروب') || combined.includes('عصير') || combined.includes('مياه') || combined.includes('beverage')) return 'beverages';
-    if (combined.includes('لحم') || combined.includes('دجاج') || combined.includes('فراخ') || combined.includes('meat')) return 'meat';
-    if (combined.includes('شيبس') || combined.includes('شيبسي') || combined.includes('تسالي') || combined.includes('سناك')) return 'snacks';
-    return 'grocery';
-  }
 
   // Combine items: Store products and uploaded images first!
   const allItems = useMemo(() => {
@@ -597,7 +589,7 @@ export function ProductGalleryModal({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5 sm:gap-3">
               {filteredItems.map((item) => {
                 const isSelected = selectedItem?.url === item.url || currentImageUrl === item.url;
                 return (
