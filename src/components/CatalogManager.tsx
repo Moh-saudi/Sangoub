@@ -21,7 +21,9 @@ import {
   Clock,
   Tag,
   Check,
+  Sparkles,
 } from "lucide-react";
+import { SmartProductImageModal } from "./SmartProductImageModal";
 import type { Order, Product, Store, Category } from "../types";
 import { saveRecord, deleteRecord } from "../lib/firebase";
 import { catalogPerformance, productCategories, productFormData, storeCategories } from "../utils/catalogManagement";
@@ -80,6 +82,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
   const [showStoppageLogs, setShowStoppageLogs] = useState(false);
   const [adminStoppageLogs, setAdminStoppageLogs] = useState<any[]>([]);
   const [offerModalProduct, setOfferModalProduct] = useState<Product | null>(null);
+  const [smartImageProduct, setSmartImageProduct] = useState<Product | null>(null);
   const [isNewOfferPickerOpen, setIsNewOfferPickerOpen] = useState(false);
   const [offerPickerSearch, setOfferPickerSearch] = useState("");
   const [offerOrigPrice, setOfferOrigPrice] = useState<number | string>("");
@@ -360,6 +363,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
           onAvailability={changeAvailability}
           onArchive={handleArchive}
           onDelete={handleDeleteProduct}
+          onSmartImage={setSmartImageProduct}
         />
       ) : (
         <>
@@ -528,6 +532,15 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
             </button>
           )}
           <button disabled={busy} onClick={() => open("products", product.id)} className={button}><Pencil size={14} className="inline ml-1" />تعديل</button>
+          <button
+            disabled={busy}
+            onClick={() => setSmartImageProduct(product)}
+            className={`${button} bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200`}
+            title="بحث ذكي عن صورة بالاسم"
+          >
+            <Sparkles size={14} className="inline ml-1 text-amber-600" />
+            بحث صورة
+          </button>
           {mode === "offers" && (
             <button
               disabled={busy}
@@ -1319,6 +1332,23 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
           </div>
         </div>
       </div>
+    )}
+
+    {smartImageProduct && (
+      <SmartProductImageModal
+        product={smartImageProduct}
+        onClose={() => setSmartImageProduct(null)}
+        onSelectImage={async (productId: string, imageUrl: string) => {
+          try {
+            await supabase.from('products').update({ image_url: imageUrl }).eq('id', productId);
+          } catch (err) {
+            console.warn('Supabase product image update error:', err);
+          }
+          setLocalProducts(prev => prev.map(p => p.id === productId ? { ...p, imageUrl } : p));
+          onProductUpdate?.({ ...localProducts.find(p => p.id === productId)!, imageUrl });
+          setSmartImageProduct(null);
+        }}
+      />
     )}
   </section>;
 }

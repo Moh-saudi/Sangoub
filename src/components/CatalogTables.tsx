@@ -1,4 +1,4 @@
-import { Archive, Image as ImageIcon, Pencil, RotateCcw, Store as StoreIcon, Trash2 } from 'lucide-react';
+import { Archive, Image as ImageIcon, Pencil, RotateCcw, Sparkles, Store as StoreIcon, Trash2 } from 'lucide-react';
 import type { Product, Store } from '../types';
 import { formatEGP } from '../utils/orderCalculations';
 import { matchStoreId } from '../utils/storeAssets';
@@ -13,6 +13,7 @@ export function CatalogProductTable({
   onArchive,
   onDelete,
   onPublish,
+  onSmartImage,
 }: {
   products: Product[];
   stores: Store[];
@@ -23,6 +24,7 @@ export function CatalogProductTable({
   onArchive: (product: Product) => void;
   onDelete?: (product: Product) => void;
   onPublish?: (product: Product) => void;
+  onSmartImage?: (product: Product) => void;
 }) {
   return (
     <div className="admin-table-scroll catalog-table-scroll">
@@ -131,6 +133,18 @@ export function CatalogProductTable({
                       <Pencil size={13} />
                       تعديل
                     </button>
+                    {onSmartImage && (
+                      <button
+                        disabled={busy}
+                        onClick={() => onSmartImage(product)}
+                        className="compact-row-action btn"
+                        style={{ background: '#fffbeb', color: '#92400e', borderColor: '#fde68a' }}
+                        title="بحث ذكي عن صورة بالاسم"
+                      >
+                        <Sparkles size={13} />
+                        بحث صورة
+                      </button>
+                    )}
                     {!product.archived && (
                       <button
                         disabled={busy}
