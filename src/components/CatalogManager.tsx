@@ -22,6 +22,11 @@ import {
   Tag,
   Check,
   Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  ImageOff,
+  Flame,
+  SlidersHorizontal,
 } from "lucide-react";
 import { SmartProductImageModal } from "./SmartProductImageModal";
 import type { Order, Product, Store, Category } from "../types";
@@ -75,6 +80,9 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
   const [category, setCategory] = useState("");
   const [availability, setAvailability] = useState("active");
   const [sort, setSort] = useState("name");
+  const [onlyMissingImages, setOnlyMissingImages] = useState(false);
+  const [onlyOffers, setOnlyOffers] = useState(false);
+  const [storeStatusFilter, setStoreStatusFilter] = useState("");
   const [editor, setEditor] = useState<{ kind: "products" | "stores"; id?: string; enableOnSave?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -136,23 +144,70 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
           ["مؤرشفة", scopedProducts.filter(item => item.archived).length]
         ];
   const filtered = scopedProducts.filter((item) => {
-    const text = `${item.name} ${item.storeName} ${item.description}`.toLocaleLowerCase("ar");
+    const text = `${item.name} ${item.storeName || ''} ${item.description || ''} ${item.category || ''}`.toLocaleLowerCase("ar");
     const itemAvailable = item.inStock && isStoreOpen(item.storeId);
-    return (mode !== "offers" || hasProductOffer(item)) &&
-      text.includes(search.trim().toLocaleLowerCase("ar")) &&
-      (!storeFilter || item.storeId === storeFilter || matchStoreId(item.storeId, storeFilter)) &&
-      (!category || item.category === category) &&
-      (availability === "archived" ? item.archived : !item.archived && (availability === "available" ? itemAvailable : availability === "unavailable" ? !itemAvailable : true));
-  }).sort((a,b) => sort === "price" ? a.price - b.price : sort === "sales" ? (performance.get(b.id)?.sold || 0) - (performance.get(a.id)?.sold || 0) : a.name.localeCompare(b.name, "ar"));
-  const visibleStores = localStores.filter((store) => `${store.name} ${store.locationInDistrict}`.includes(search.trim()));
-  useEffect(() => { setPage(0); }, [search, storeFilter, category, availability, sort, tab]);
+    const hasOffer = hasProductOffer(item);
+    const isMissingImage = !item.imageUrl || item.imageUrl.trim() === '';
+
+    const matchesSearch = !search.trim() || text.includes(search.trim().toLocaleLowerCase("ar"));
+    const matchesStore = !storeFilter || item.storeId === storeFilter || matchStoreId(item.storeId, storeFilter);
+    const matchesCategory = !category || item.category === category;
+    const matchesOffer = !onlyOffers || hasOffer;
+    const matchesMissingImage = !onlyMissingImages || isMissingImage;
+
+    const matchesAvailability = availability === "archived"
+      ? item.archived
+      : !item.archived && (
+          availability === "available"
+            ? itemAvailable
+            : availability === "unavailable"
+            ? !itemAvailable
+            : true
+        );
+
+    return (mode !== "offers" || hasOffer) &&
+      matchesSearch &&
+      matchesStore &&
+      matchesCategory &&
+      matchesOffer &&
+      matchesMissingImage &&
+      matchesAvailability;
+  }).sort((a,b) => {
+    if (sort === "price_asc" || sort === "price") return a.price - b.price;
+    if (sort === "price_desc") return b.price - a.price;
+    if (sort === "sales") return (performance.get(b.id)?.sold || 0) - (performance.get(a.id)?.sold || 0);
+    return a.name.localeCompare(b.name, "ar");
+  });
+
+  const visibleStores = localStores.filter((store) => {
+    const text = `${store.name} ${store.locationInDistrict || ''} ${store.type || ''}`.toLocaleLowerCase("ar");
+    const matchesSearch = !search.trim() || text.includes(search.trim().toLocaleLowerCase("ar"));
+    const matchesStatus = !storeStatusFilter || store.status === storeStatusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  useEffect(() => { setPage(0); }, [search, storeFilter, category, availability, sort, onlyMissingImages, onlyOffers, storeStatusFilter, tab]);
   const resultCount = tab === "products" ? filtered.length : visibleStores.length;
   const lastPage = Math.max(0, Math.ceil(resultCount / pageSize) - 1);
   const currentPage = Math.min(page, lastPage);
   const visibleProducts = filtered.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
   const pagedStores = visibleStores.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
-  const hasFilters = Boolean(search || (tab === "products" && (storeFilter || category || availability !== "active" || sort !== "name")));
-  function clearFilters() { setSearch(""); setStoreFilter(""); setCategory(""); setAvailability("active"); setSort("name"); }
+  const hasFilters = Boolean(
+    search ||
+    (tab === "products" && (storeFilter || category || availability !== "active" || sort !== "name" || onlyMissingImages || onlyOffers)) ||
+    (tab === "stores" && (search || storeStatusFilter))
+  );
+
+  function clearFilters() {
+    setSearch("");
+    setStoreFilter("");
+    setCategory("");
+    setAvailability("active");
+    setSort("name");
+    setOnlyMissingImages(false);
+    setOnlyOffers(false);
+    setStoreStatusFilter("");
+  }
   const selectedProduct = editor?.kind === "products" ? products.find((item) => item.id === editor.id) : undefined;
   const selectedStore = editor?.kind === "stores" ? localStores.find((item) => item.id === editor.id) : undefined;
 
@@ -242,58 +297,363 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
 
     {/* ── Interactive Metric Cards (Clickable Filters) ── */}
     <div className="catalog-metrics grid grid-cols-2 md:grid-cols-4 gap-3">
-      {metrics.map(([label, value]) => {
-        let targetAvail = '';
-        if (label === 'منتجات نشطة') targetAvail = 'active';
-        else if (label === 'متاحة للطلب الآن' || label === 'متاحة بالمنيو') targetAvail = 'available';
-        else if (label === 'غير متاحة أو مغلقة' || label === 'غير متاحة') targetAvail = 'unavailable';
-        else if (label === 'مؤرشفة') targetAvail = 'archived';
-
-        const isSelected = tab === 'products' && availability === targetAvail;
+      {(tab === "stores" || mode === "stores"
+        ? [
+            {
+              id: '',
+              title: 'متاجر مسجلة',
+              count: localStores.length,
+              subtitle: 'إجمالي المتاجر والشركاء',
+              icon: StoreIcon,
+              iconBg: 'bg-blue-50 text-blue-600 border border-blue-200/60',
+              activeClass: 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/30',
+            },
+            {
+              id: 'open',
+              title: 'متاجر مفتوحة',
+              count: localStores.filter(store => store.status === 'open').length,
+              subtitle: 'تستقبل طلبات العملاء حالياً',
+              icon: CheckCircle2,
+              iconBg: 'bg-emerald-50 text-emerald-600 border border-emerald-200/60',
+              activeClass: 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/30',
+            },
+            {
+              id: 'busy',
+              title: 'متاجر مشغولة',
+              count: localStores.filter(store => store.status === 'busy').length,
+              subtitle: 'ضغط تشغيل وطلبات مرتفع',
+              icon: Clock,
+              iconBg: 'bg-amber-50 text-amber-600 border border-amber-200/60',
+              activeClass: 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/30',
+            },
+            {
+              id: 'closed',
+              title: 'متاجر مغلقة',
+              count: localStores.filter(store => store.status === 'closed').length,
+              subtitle: 'متوقفة مؤقتاً عن الخدمة',
+              icon: AlertCircle,
+              iconBg: 'bg-rose-50 text-rose-600 border border-rose-200/60',
+              activeClass: 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/30',
+            },
+          ]
+        : mode === "offers"
+        ? [
+            {
+              id: 'all_offers',
+              title: 'عروض المنتجات',
+              count: discounted.length,
+              subtitle: 'أصناف تم تفعيل خصم عليها',
+              icon: Flame,
+              iconBg: 'bg-rose-50 text-rose-600 border border-rose-200/60',
+              activeClass: 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/30',
+            },
+            {
+              id: 'live_offers',
+              title: 'ظاهرة للعملاء',
+              count: availableOffers(products, localStores).length,
+              subtitle: 'جاهزة ومتاجرها مفتوحة الآن',
+              icon: CheckCircle2,
+              iconBg: 'bg-emerald-50 text-emerald-600 border border-emerald-200/60',
+              activeClass: 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/30',
+            },
+            {
+              id: 'unavailable_offers',
+              title: 'عروض غير متاحة',
+              count: discounted.filter(product => !product.inStock || !isStoreOpen(product.storeId)).length,
+              subtitle: 'نفدت أو متاجرها مغلقة',
+              icon: AlertCircle,
+              iconBg: 'bg-amber-50 text-amber-600 border border-amber-200/60',
+              activeClass: 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/30',
+            },
+            {
+              id: 'stores_with_offers',
+              title: 'متاجر لديها عروض',
+              count: new Set(discounted.map(product => product.storeId)).size,
+              subtitle: 'شركاء يقدمون خصومات فعالة',
+              icon: StoreIcon,
+              iconBg: 'bg-purple-50 text-purple-600 border border-purple-200/60',
+              activeClass: 'border-purple-500 ring-2 ring-purple-500/20 bg-purple-50/30',
+            },
+          ]
+        : [
+            {
+              id: 'active',
+              targetAvail: 'active',
+              title: 'منتجات نشطة',
+              count: active.length,
+              subtitle: 'جميع الأصناف المفعلة في المنيو',
+              icon: Package,
+              iconBg: 'bg-blue-50 text-blue-600 border border-blue-200/60',
+              activeClass: 'border-orange-500 ring-2 ring-orange-500/20 bg-orange-50/30',
+            },
+            {
+              id: 'available',
+              targetAvail: 'available',
+              title: 'متاحة للطلب الآن',
+              count: active.filter(item => item.inStock && isStoreOpen(item.storeId)).length,
+              subtitle: 'متوفرة ومتاجرها مفتوحة للطلب',
+              icon: CheckCircle2,
+              iconBg: 'bg-emerald-50 text-emerald-600 border border-emerald-200/60',
+              activeClass: 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/30',
+            },
+            {
+              id: 'unavailable',
+              targetAvail: 'unavailable',
+              title: 'غير متاحة أو مغلقة',
+              count: active.filter(item => !item.inStock || !isStoreOpen(item.storeId)).length,
+              subtitle: 'متوقفة مؤقتاً أو المتجر مغلق',
+              icon: AlertCircle,
+              iconBg: 'bg-amber-50 text-amber-600 border border-amber-200/60',
+              activeClass: 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/30',
+            },
+            {
+              id: 'archived',
+              targetAvail: 'archived',
+              title: 'أصناف مؤرشفة',
+              count: scopedProducts.filter(item => item.archived).length,
+              subtitle: 'محفوظة بالأرشيف ومحجوبة',
+              icon: Archive,
+              iconBg: 'bg-rose-50 text-rose-600 border border-rose-200/60',
+              activeClass: 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/30',
+            },
+          ]
+      ).map((card) => {
+        const IconComponent = card.icon;
+        const isSelected = tab === 'products' && (card as any).targetAvail
+          ? availability === (card as any).targetAvail
+          : tab === 'stores'
+          ? storeStatusFilter === card.id
+          : false;
 
         return (
           <button
-            key={label}
+            key={card.title}
             type="button"
             onClick={() => {
-              if (targetAvail && tab === 'products') {
-                setAvailability(targetAvail);
+              if (tab === 'products' && (card as any).targetAvail) {
+                const target = (card as any).targetAvail;
+                setAvailability(prev => prev === target && target !== 'active' ? 'active' : target);
+              } else if (tab === 'stores') {
+                setStoreStatusFilter(prev => prev === card.id ? '' : card.id);
               }
             }}
-            className={`bg-white border rounded-2xl p-4 text-right transition-all cursor-pointer ${
+            className={`bg-white border rounded-2xl p-4 text-right transition-all duration-150 cursor-pointer flex flex-col justify-between hover:shadow-xs hover:-translate-y-0.5 select-none ${
               isSelected
-                ? 'border-orange-500 ring-2 ring-orange-500/20 bg-orange-50/40'
+                ? card.activeClass
                 : 'border-slate-200 hover:border-slate-300 shadow-2xs'
             }`}
           >
-            <strong className="block text-2xl text-slate-900">{value}</strong>
-            <span className="text-xs font-bold text-slate-500 flex items-center justify-between mt-1">
-              <span>{label}</span>
-              {targetAvail === 'archived' && <Archive size={14} className="text-amber-600" />}
-            </span>
+            <div className="flex items-center justify-between w-full">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${card.iconBg}`}>
+                <IconComponent size={18} />
+              </div>
+              {isSelected ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-600 text-white shadow-2xs flex items-center gap-1">
+                  <Check size={10} /> محدد حالياً
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-400 font-bold">
+                  تصفية ↗
+                </span>
+              )}
+            </div>
+
+            <div className="mt-3">
+              <strong className="block text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
+                {card.count}
+              </strong>
+              <div className="text-xs font-bold text-slate-800 mt-1.5 flex items-center gap-1">
+                <span>{card.title}</span>
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                {card.subtitle}
+              </p>
+            </div>
           </button>
         );
       })}
     </div>
 
-    {!mode && <div className="catalog-tabs"><button aria-pressed={tab === "products"} className={`${button} ${tab === "products" ? "bg-orange-50 border-orange-400" : "bg-white"}`} onClick={() => { setTab("products"); setSearch(""); }}><Package className="inline ml-2" size={16} />المنتجات</button><button aria-pressed={tab === "stores"} className={`${button} ${tab === "stores" ? "bg-orange-50 border-orange-400" : "bg-white"}`} onClick={() => { setTab("stores"); setSearch(""); }}><StoreIcon className="inline ml-2" size={16} />المتاجر</button></div>}
-    {error && !editor && <p role="alert" className="bg-red-50 text-red-700 rounded-xl p-3">{error}</p>}{message && <p role="status" className="bg-emerald-50 text-emerald-800 rounded-xl p-3">{message}</p>}
+    {!mode && (
+      <div className="catalog-tabs">
+        <button
+          aria-pressed={tab === "products"}
+          className={`${button} ${tab === "products" ? "bg-orange-50 border-orange-400 text-orange-900" : "bg-white text-slate-700"}`}
+          onClick={() => { setTab("products"); setSearch(""); }}
+        >
+          <Package className="inline ml-2 text-orange-600" size={16} />
+          المنتجات ({scopedProducts.length})
+        </button>
+        <button
+          aria-pressed={tab === "stores"}
+          className={`${button} ${tab === "stores" ? "bg-orange-50 border-orange-400 text-orange-900" : "bg-white text-slate-700"}`}
+          onClick={() => { setTab("stores"); setSearch(""); }}
+        >
+          <StoreIcon className="inline ml-2 text-orange-600" size={16} />
+          المتاجر ({localStores.length})
+        </button>
+      </div>
+    )}
 
-    <div className="catalog-filters"><label className="relative min-w-0"><Search className="absolute right-3 top-3.5 text-slate-400" size={16} /><input aria-label="بحث الكتالوج" className={`${input} pr-9`} placeholder="ابحث بالاسم أو المتجر" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
-      {tab === "products" && <>{!fixedStoreId && (
-        <select aria-label="تصفية حسب المتجر" className={input} value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}>
-          <option value="">جميع المتاجر ({scopedProducts.length} صنف مسجل)</option>
-          {localStores.map((item) => {
-            const count = scopedProducts.filter(p => p.storeId === item.id || matchStoreId(p.storeId, item.id)).length;
-            const statusLabel = item.status === 'open' ? '🟢 مفتوح' : item.status === 'busy' ? '⏳ مشغول' : '🔴 مغلق';
-            return (
-              <option key={item.id} value={item.id}>
-                {item.name} ({count} صنف) - {statusLabel}
-              </option>
-            );
-          })}
-        </select>
-      )}<select aria-label="تصفية حسب التصنيف" className={input} value={category} onChange={(e) => setCategory(e.target.value)}><option value="">كل التصنيفات</option>{productCategories.map((item) => <option key={item}>{item}</option>)}</select><select aria-label="تصفية حسب التوافر" className={input} value={availability} onChange={(e) => setAvailability(e.target.value)}><option value="active">كل المنتجات النشطة</option><option value="available">متاحة بالمنيو</option><option value="unavailable">غير متاحة</option><option value="archived">الأرشيف والمؤرشفة 📦</option></select><select aria-label="ترتيب المنتجات" value={sort} onChange={(e) => setSort(e.target.value)} className={input}><option value="name">الاسم</option><option value="price">السعر الأقل</option><option value="sales">الأكثر مبيعًا</option></select></>}
+    {error && !editor && <p role="alert" className="bg-red-50 text-red-700 rounded-xl p-3 text-xs font-bold">{error}</p>}
+    {message && <p role="status" className="bg-emerald-50 text-emerald-800 rounded-xl p-3 text-xs font-bold">{message}</p>}
+
+    {/* ── Enhanced Filter Controls Bar ── */}
+    <div className="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs space-y-3">
+      {/* Primary Filters Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+        {/* 1. Search Field */}
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={15} />
+          <input
+            type="text"
+            aria-label="بحث الكتالوج"
+            placeholder={tab === "products" ? "ابحث بالاسم أو المتجر..." : "ابحث باسم المتجر أو موقعه..."}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pr-9 pl-7 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+              title="مسح البحث"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        {/* 2. Store Selector */}
+        {tab === "products" && !fixedStoreId && (
+          <select
+            aria-label="تصفية حسب المتجر"
+            value={storeFilter}
+            onChange={(e) => setStoreFilter(e.target.value)}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer"
+          >
+            <option value="">جميع المتاجر ({scopedProducts.length} صنف)</option>
+            {localStores.map((item) => {
+              const count = scopedProducts.filter(p => p.storeId === item.id || matchStoreId(p.storeId, item.id)).length;
+              const statusLabel = item.status === 'open' ? '🟢 مفتوح' : item.status === 'busy' ? '⏳ مشغول' : '🔴 مغلق';
+              return (
+                <option key={item.id} value={item.id}>
+                  {item.name} ({count} صنف) - {statusLabel}
+                </option>
+              );
+            })}
+          </select>
+        )}
+
+        {/* 3. Category Selector */}
+        {tab === "products" && (
+          <select
+            aria-label="تصفية حسب التصنيف"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer"
+          >
+            <option value="">كل التصنيفات ({productCategories.length})</option>
+            {productCategories.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+        )}
+
+        {/* 4. Availability Status Selector */}
+        {tab === "products" && (
+          <select
+            aria-label="تصفية حسب التوافر"
+            value={availability}
+            onChange={(e) => setAvailability(e.target.value)}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer"
+          >
+            <option value="active">كل المنتجات النشطة</option>
+            <option value="available">متاحة للطلب بالمنيو 🟢</option>
+            <option value="unavailable">غير متاحة أو مغلقة 🔴</option>
+            <option value="archived">أصناف مؤرشفة 📦</option>
+          </select>
+        )}
+
+        {/* 5. Sort Selector */}
+        {tab === "products" && (
+          <select
+            aria-label="ترتيب المنتجات"
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer"
+          >
+            <option value="name">الترتيب: الاسم (أ - ي)</option>
+            <option value="price_asc">الترتيب: الأقل سعراً</option>
+            <option value="price_desc">الترتيب: الأعلى سعراً</option>
+            <option value="sales">الترتيب: الأكثر مبيعاً ⭐</option>
+          </select>
+        )}
+
+        {/* Store Status Selector if on stores tab */}
+        {tab === "stores" && (
+          <select
+            aria-label="حالة المتجر"
+            value={storeStatusFilter}
+            onChange={(e) => setStoreStatusFilter(e.target.value)}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer"
+          >
+            <option value="">جميع الحالات ({localStores.length} متجر)</option>
+            <option value="open">🟢 المتاجر المفتوحة</option>
+            <option value="busy">⏳ المتاجر المشغولة</option>
+            <option value="closed">🔴 المتاجر المغلقة</option>
+          </select>
+        )}
+      </div>
+
+      {/* Secondary Row: Quick Filters & Reset */}
+      {tab === "products" && (
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-100">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold text-slate-500 ml-1">تصفية سريعة:</span>
+            
+            {/* Quick Filter: Missing Image */}
+            <button
+              type="button"
+              onClick={() => setOnlyMissingImages(v => !v)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                onlyMissingImages
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-800 border border-slate-200'
+              }`}
+            >
+              <ImageOff size={13} />
+              <span>أصناف بدون صورة ({scopedProducts.filter(p => !p.imageUrl || p.imageUrl.trim() === '').length})</span>
+            </button>
+
+            {/* Quick Filter: Has Offer */}
+            <button
+              type="button"
+              onClick={() => setOnlyOffers(v => !v)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                onlyOffers
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-800 border border-slate-200'
+              }`}
+            >
+              <Flame size={13} className={onlyOffers ? "text-white" : "text-rose-500"} />
+              <span>عروض وخصومات ({discounted.length})</span>
+            </button>
+          </div>
+
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200 transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw size={12} />
+              <span>مسح جميع الفلاتر</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
 
     {/* ── Toolbar with Rows-Per-Page Selector ── */}
