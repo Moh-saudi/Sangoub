@@ -594,7 +594,7 @@ export function ProductGalleryModal({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
               {filteredItems.map((item) => {
                 const isSelected = selectedItem?.url === item.url || currentImageUrl === item.url;
                 return (
@@ -608,11 +608,11 @@ export function ProductGalleryModal({
                     }`}
                   >
                     {/* Thumbnail Image */}
-                    <div className="relative aspect-square w-full bg-slate-100 overflow-hidden">
+                    <div className="relative aspect-square w-full bg-slate-50 overflow-hidden flex items-center justify-center p-2">
                       {/* Fallback placeholder underneath image */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-slate-400 bg-slate-100 select-none">
-                        <ImageIcon size={26} className="text-slate-300 mb-1" />
-                        <span className="text-[10px] font-bold text-center text-slate-400 line-clamp-1">{item.title}</span>
+                        <ImageIcon size={24} className="text-slate-300 mb-1" />
+                        <span className="text-[9px] font-bold text-center text-slate-400 line-clamp-1">{item.title}</span>
                       </div>
 
                       <img
@@ -620,7 +620,7 @@ export function ProductGalleryModal({
                         alt={item.title}
                         loading="lazy"
                         decoding="async"
-                        className="relative z-10 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="relative z-10 w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                         onError={(e) => {
                           const fallback = getCuratedProductImageSync(item.title);
                           if (fallback && e.currentTarget.src !== fallback) {
@@ -633,7 +633,7 @@ export function ProductGalleryModal({
 
                       {/* Selected Overlay Checkmark */}
                       {isSelected && (
-                        <div className="absolute inset-0 bg-orange-600/20 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
+                        <div className="absolute inset-0 bg-orange-600/20 backdrop-blur-[1px] flex items-center justify-center pointer-events-none z-20">
                           <div className="w-8 h-8 rounded-full bg-[#FF5900] text-white flex items-center justify-center shadow-lg">
                             <Check size={18} strokeWidth={3} />
                           </div>
@@ -642,7 +642,7 @@ export function ProductGalleryModal({
 
                       {/* Custom uploaded actions */}
                       {item.isCustom && (
-                        <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
+                        <div className="absolute top-1.5 left-1.5 flex items-center gap-1 z-20">
                           <button
                             type="button"
                             onClick={(e) => openEditModal(e, item)}
@@ -664,13 +664,20 @@ export function ProductGalleryModal({
                     </div>
 
                     {/* Meta info */}
-                    <div className="p-2.5">
-                      <h5 className="font-bold text-slate-800 text-xs line-clamp-1 leading-snug">
+                    <div className="p-2 bg-white flex flex-col justify-between flex-1 border-t border-slate-100">
+                      <h5 className="font-bold text-slate-800 text-[11px] line-clamp-2 leading-tight min-h-[2.4em]" title={item.title}>
                         {item.title}
                       </h5>
-                      <span className="text-[10px] text-orange-600 font-bold block mt-0.5">
-                        {GALLERY_CATEGORIES.find((c) => c.id === item.category)?.label || 'صنف عام'}
-                      </span>
+                      <div className="mt-1 flex items-center justify-between">
+                        <span className="text-[9.5px] text-orange-600 font-bold truncate">
+                          {GALLERY_CATEGORIES.find((c) => c.id === item.category)?.label || 'صنف عام'}
+                        </span>
+                        {item.isCustom && (
+                          <span className="text-[9px] bg-orange-100 text-orange-800 px-1 rounded font-bold shrink-0">
+                            مرفوع
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

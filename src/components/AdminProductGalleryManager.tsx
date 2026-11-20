@@ -458,7 +458,7 @@ export function AdminProductGalleryManager() {
               className="group bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs hover:border-orange-300 hover:shadow-md transition-all flex flex-col"
             >
               {/* Image Preview */}
-              <div className="relative aspect-square w-full bg-slate-100 overflow-hidden">
+              <div className="relative aspect-square w-full bg-slate-50 overflow-hidden flex items-center justify-center p-2">
                 {/* Fallback placeholder underneath image */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-slate-400 bg-slate-100 select-none">
                   <ImageIcon size={28} className="text-slate-300 mb-1" />
@@ -470,7 +470,7 @@ export function AdminProductGalleryManager() {
                   alt={item.title}
                   loading="lazy"
                   decoding="async"
-                  className="relative z-10 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="relative z-10 w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                   onError={(e) => {
                     const fallback = getCuratedProductImageSync(item.title);
                     if (fallback && e.currentTarget.src !== fallback) {

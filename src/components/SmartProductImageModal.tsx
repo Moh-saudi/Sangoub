@@ -110,7 +110,7 @@ export function SmartProductImageModal({
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 font-cairo"
       dir="rtl"
     >
-      <div className="bg-white rounded-3xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-3xl max-w-3xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <header className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -246,45 +246,71 @@ export function SmartProductImageModal({
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {candidates.map((cand, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    disabled={savingUrl !== null}
-                    onClick={() => handleApply(cand.url)}
-                    className="border border-slate-200 hover:border-amber-500 rounded-2xl overflow-hidden transition-all shadow-xs group bg-white flex flex-col text-right cursor-pointer disabled:opacity-50 relative focus:outline-none focus:ring-2 focus:ring-amber-400"
-                  >
-                    <div className="h-32 w-full overflow-hidden bg-slate-100 relative">
-                      <img
-                        src={cand.url}
-                        alt={cand.label}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        loading="lazy"
-                      />
-                      {cand.source === 'master_spu' && (
-                        <span className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-md bg-emerald-700/90 text-white text-[10px] font-bold backdrop-blur-xs flex items-center gap-1">
-                          <Database size={10} /> كتالوج سنجوب
-                        </span>
-                      )}
-                      {savingUrl === cand.url && (
-                        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center text-white text-xs font-bold gap-1.5">
-                          <Loader2 size={16} className="animate-spin" />
-                          <span>جارٍ التعيين…</span>
-                        </div>
-                      )}
-                    </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                {candidates.map((cand, idx) => {
+                  let sourceTag = '';
+                  let cleanName = cand.label;
+                  if (cand.label.startsWith('من الأصناف المعتمدة:')) {
+                    sourceTag = 'معتمد';
+                    cleanName = cand.label.replace(/^من الأصناف المعتمدة:\s*/, '');
+                  } else if (cand.label.startsWith('من الأصناف المشابهة:')) {
+                    sourceTag = 'مشابه';
+                    cleanName = cand.label.replace(/^من الأصناف المشابهة:\s*/, '');
+                  } else if (cand.label.startsWith('الكتالوج العام:')) {
+                    sourceTag = 'كتالوج';
+                    cleanName = cand.label.replace(/^الكتالوج العام:\s*/, '');
+                  } else if (cand.label.startsWith('كتالوج مركزي:')) {
+                    sourceTag = 'مركزي';
+                    cleanName = cand.label.replace(/^كتالوج مركزي:\s*/, '');
+                  }
 
-                    <div className="p-2.5 bg-white border-t border-slate-100 flex items-center justify-between w-full">
-                      <span className="text-xs font-bold text-slate-800 truncate" title={cand.label}>
-                        {cand.label}
-                      </span>
-                      <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg font-bold shrink-0">
-                        اختيار ✓
-                      </span>
-                    </div>
-                  </button>
-                ))}
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      disabled={savingUrl !== null}
+                      onClick={() => handleApply(cand.url)}
+                      className="border border-slate-200 hover:border-amber-500 rounded-2xl overflow-hidden transition-all shadow-2xs hover:shadow-xs group bg-white flex flex-col text-right cursor-pointer disabled:opacity-50 relative focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    >
+                      <div className="h-24 sm:h-28 w-full overflow-hidden bg-slate-50 flex items-center justify-center p-2 relative">
+                        <img
+                          src={cand.url}
+                          alt={cleanName}
+                          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
+                          loading="lazy"
+                        />
+                        {sourceTag && (
+                          <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-slate-900/80 text-white text-[9px] font-bold backdrop-blur-xs flex items-center gap-0.5">
+                            {cand.source === 'master_spu' && <Database size={9} />}
+                            <span>{sourceTag}</span>
+                          </span>
+                        )}
+                        {savingUrl === cand.url && (
+                          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center text-white text-[11px] font-bold gap-1">
+                            <Loader2 size={14} className="animate-spin" />
+                            <span>جارٍ التعيين…</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-2 bg-white border-t border-slate-100 flex flex-col justify-between flex-1 w-full gap-1">
+                        <div className="min-h-[2.4em]">
+                          <p className="text-[11px] font-bold text-slate-800 line-clamp-2 leading-tight" title={cleanName}>
+                            {cleanName}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-50 mt-auto">
+                          <span className="text-[9.5px] font-semibold text-slate-400 truncate max-w-[65px]">
+                            {sourceTag || 'اقتراح'}
+                          </span>
+                          <span className="text-[10px] text-amber-800 bg-amber-50 group-hover:bg-amber-500 group-hover:text-white border border-amber-200/80 px-2 py-0.5 rounded-md font-bold transition-colors shrink-0">
+                            اختيار ✓
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
