@@ -344,12 +344,41 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     }
 
     if (body.action === 'shared-catalog') {
-      let query = supabase.from('products').select('*').limit(50);
-      if (body.query) {
-        query = query.ilike('name', `%${body.query}%`);
+      try {
+        let catQuery = supabase.from('catalog_products').select('*').limit(60);
+        if (body.query) {
+          catQuery = catQuery.ilike('name', `%${body.query}%`);
+        }
+        const { data: catData } = await catQuery;
+
+        let prodQuery = supabase.from('products').select('*').limit(60);
+        if (body.query) {
+          prodQuery = prodQuery.ilike('name', `%${body.query}%`);
+        }
+        const { data: prods } = await prodQuery;
+
+        const combined = [...(catData || []), ...(prods || [])];
+        const itemMap = new Map<string, any>();
+
+        for (const p of combined) {
+          if (!itemMap.has(p.id)) {
+            const rawImg = p.image_url || p.imageUrl;
+            const validImg = (rawImg && typeof rawImg === 'string' && (rawImg.startsWith('http') || rawImg.startsWith('data:image')))
+              ? rawImg
+              : getCuratedProductImageSync(p.name);
+            itemMap.set(p.id, {
+              ...p,
+              imageUrl: validImg,
+              image_url: validImg,
+            });
+          }
+        }
+
+        return { items: Array.from(itemMap.values()), nextCursor: null };
+      } catch (err) {
+        console.warn('[operationsApi] shared-catalog query error:', err);
+        return { items: [], nextCursor: null };
       }
-      const { data: prods } = await query;
-      return { items: prods || [], nextCursor: null };
     }
 
     if (body.action === 'legacy-prepare' && body.id) {

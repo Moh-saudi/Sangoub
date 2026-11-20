@@ -1428,7 +1428,7 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
             };
             await saveRecord("products", id, productDoc);
 
-            // Synchronize directly with Supabase products table
+            // Synchronize directly with Supabase products table and shared catalog
             try {
               await supabase.from("products").upsert({
                 id,
@@ -1445,6 +1445,20 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
                 is_available: payload.inStock,
                 image_url: payload.imageUrl || null,
               });
+
+              if (payload.imageUrl) {
+                await supabase.from("catalog_products").update({
+                  image_url: payload.imageUrl,
+                  name: payload.name,
+                  category: payload.category
+                }).eq("id", id);
+
+                if (selectedProduct?.catalogProductId) {
+                  await supabase.from("catalog_products").update({
+                    image_url: payload.imageUrl
+                  }).eq("id", selectedProduct.catalogProductId);
+                }
+              }
             } catch (err) {
               console.error("Error syncing product to Supabase:", err);
             }
@@ -1701,6 +1715,16 @@ export function CatalogManager({ products, stores, orders, searchRequest, mode, 
         onSelectImage={async (productId: string, imageUrl: string) => {
           try {
             await supabase.from('products').update({ image_url: imageUrl }).eq('id', productId);
+            await supabase.from('catalog_products').update({ image_url: imageUrl }).eq('id', productId);
+            if (smartImageProduct.catalogProductId) {
+              await supabase.from('catalog_products').update({ image_url: imageUrl }).eq('id', smartImageProduct.catalogProductId);
+              await supabase.from('products').update({ image_url: imageUrl }).eq('catalog_product_id', smartImageProduct.catalogProductId);
+            }
+            try {
+              if (smartImageProduct.name) {
+                await supabase.from('master_spu').update({ images: [imageUrl] }).ilike('name_ar', `%${smartImageProduct.name.trim()}%`);
+              }
+            } catch {}
           } catch (err) {
             console.warn('Supabase product image update error:', err);
           }

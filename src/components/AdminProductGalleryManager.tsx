@@ -87,25 +87,33 @@ export function AdminProductGalleryManager() {
         list.push(...content.productGallery.map((item: any) => ({ ...item, isCustom: true })));
       }
 
-      // 2. High quality product images from products catalog
-      const { data: prods } = await supabase
-        .from('products')
-        .select('id, name, image_url, category')
-        .not('image_url', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      // 2. High quality product images from products and catalog_products
+      const [prodsRes, catProdsRes] = await Promise.allSettled([
+        supabase
+          .from('products')
+          .select('id, name, image_url, category')
+          .not('image_url', 'is', null)
+          .limit(150),
+        supabase
+          .from('catalog_products')
+          .select('id, name, image_url, category')
+          .not('image_url', 'is', null)
+          .limit(100),
+      ]);
 
-      if (prods) {
-        for (const p of prods) {
-          if (p.image_url && p.image_url.startsWith('http') && !list.some(x => x.url === p.image_url)) {
-            list.push({
-              id: `prod-${p.id}`,
-              title: p.name,
-              url: p.image_url,
-              category: mapCategory(p.category),
-              isCustom: false
-            });
-          }
+      const prods = prodsRes.status === 'fulfilled' ? (prodsRes.value.data || []) : [];
+      const catProds = catProdsRes.status === 'fulfilled' ? (catProdsRes.value.data || []) : [];
+      const combinedProds = [...prods, ...catProds];
+
+      for (const p of combinedProds) {
+        if (p.image_url && typeof p.image_url === 'string' && (p.image_url.startsWith('http') || p.image_url.startsWith('data:image')) && !list.some(x => x.url === p.image_url)) {
+          list.push({
+            id: `prod-${p.id}`,
+            title: p.name,
+            url: p.image_url,
+            category: mapCategory(p.category),
+            isCustom: false
+          });
         }
       }
 

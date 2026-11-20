@@ -173,6 +173,24 @@ const CURATED_IMAGE_PATTERNS: Array<{
     url: 'https://images.unsplash.com/photo-1521483451569-e33803c0330c?auto=format&fit=crop&w=600&q=80',
     label: 'كورن فليكس وحبوب إفطار مقرمشة',
   },
+  // مساحيق غسيل وأريال ومنظفات ملابس
+  {
+    keywords: ['أريال', 'اريال', 'ariel', 'مسحوق', 'مسحوق غسيل', 'تايد', 'tide', 'برسيل', 'persil', 'أوكسي', 'اوكسي', 'oxy', 'داوني', 'downy', 'منعم أقمشة', 'جل غسيل', 'بودز', 'pods', 'detergent'],
+    url: 'https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=600&auto=format&fit=crop&q=80',
+    label: 'مسحوق غسيل أريال ومنظفات ملابس',
+  },
+  // منظفات وعناية منزلية وصابون أطباق وكلور
+  {
+    keywords: ['كلور', 'كلوركس', 'clorox', 'ديتول', 'dettol', 'فيري', 'fairy', 'بريل', 'pril', 'صابون سائل', 'مستر شاهين', 'منظف', 'منظفات', 'سائل صحون', 'معقم'],
+    url: 'https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?auto=format&fit=crop&w=600&q=80',
+    label: 'منظفات ومطهرات ومعقمات منزلية',
+  },
+  // أدوية شراب وملينات ومستحضرات طبية سائلة
+  {
+    keywords: ['إبيلاكت', 'ابيلاكت', 'epilac', 'ملين', 'شراب ملين', 'إمساك', 'امساك', 'شراب', 'دواء شرب', 'syrup', 'مستحضر دوائي', 'علاج إمساك'],
+    url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop&q=80',
+    label: 'شراب دوائي ومستحضرات صيدلية طبية',
+  },
 ];
 
 /**
@@ -210,11 +228,53 @@ export async function searchImagesForProduct(productName: string): Promise<Image
         }
       }
     }
+
+    // 2. ثانياً: البحث في منتجات الكتالوج العام المعتمدة التي تمتلك صوراً
+    const { data: catMatches } = await supabase
+      .from('catalog_products')
+      .select('name, image_url')
+      .ilike('name', `%${searchWord}%`)
+      .not('image_url', 'is', null)
+      .limit(4);
+
+    if (catMatches) {
+      for (const c of catMatches) {
+        if (c.image_url && c.image_url.startsWith('http') && !seenUrls.has(c.image_url)) {
+          seenUrls.add(c.image_url);
+          candidates.push({
+            url: c.image_url,
+            source: 'catalog',
+            label: `الكتالوج العام: ${c.name}`,
+          });
+        }
+      }
+    }
+
+    // 3. ثالثاً: البحث في منتجات المتجر المسجلة التي تمتلك صوراً
+    const { data: prodMatches } = await supabase
+      .from('products')
+      .select('name, image_url')
+      .ilike('name', `%${searchWord}%`)
+      .not('image_url', 'is', null)
+      .limit(4);
+
+    if (prodMatches) {
+      for (const p of prodMatches) {
+        if (p.image_url && p.image_url.startsWith('http') && !seenUrls.has(p.image_url)) {
+          seenUrls.add(p.image_url);
+          candidates.push({
+            url: p.image_url,
+            source: 'catalog',
+            label: `من الأصناف المعتمدة: ${p.name}`,
+          });
+        }
+      }
+    }
   } catch (err) {
-    console.warn('SPU image search skipped:', err);
+    console.warn('Database image search skipped:', err);
   }
 
-  // 2. ثانياً: البحث في مكتبة الصور الذكية المقترنة بالتصنيفات
+  // 4. رابعاً: البحث في مكتبة الصور الذكية المقترنة بالتصنيفات
   for (const item of CURATED_IMAGE_PATTERNS) {
     const isMatch = item.keywords.some(kw => cleanName.includes(kw.toLowerCase()));
     if (isMatch && !seenUrls.has(item.url)) {
@@ -227,7 +287,7 @@ export async function searchImagesForProduct(productName: string): Promise<Image
     }
   }
 
-  // 3. Fallback: صورة عامة إذا لم يُعثر على شيء
+  // 5. Fallback: صورة عامة إذا لم يُعثر على شيء
   if (candidates.length === 0) {
     const fallbackUrl = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80';
     candidates.push({

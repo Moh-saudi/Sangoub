@@ -37,7 +37,7 @@ export function MerchantCatalogPicker({products,onLink,onClose}:{products:Produc
    <div ref={results} className="merchant-catalog-results">
     {!loading&&!items.length&&!error&&<p className="merchant-catalog-empty">لا توجد نتائج مطابقة. جرّب اسمًا آخر.</p>}
     <div className="merchant-catalog-grid">{items.map(p=><button type="button" key={p.id} disabled={busy||linked.has(p.id)} onClick={()=>{setSelected(p);setPrice('');setExistingId('');}} aria-pressed={selected?.id===p.id} className="merchant-catalog-card" title={p.name}>
-      <span className="merchant-catalog-photo"><MerchantProductImage src={p.imageUrl} name={p.name}/></span>
+      <span className="merchant-catalog-photo"><MerchantProductImage src={p.imageUrl || (p as any).image_url} name={p.name}/></span>
       {linked.has(p.id)&&<span className="merchant-catalog-added"><Check size={12} className="inline"/> موجود بمتجرك</span>}
       <span className="merchant-catalog-card-copy"><strong>{p.name}</strong><small>{p.category}</small></span>
     </button>)}</div>

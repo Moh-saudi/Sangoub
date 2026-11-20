@@ -167,24 +167,42 @@ export function ProductGalleryModal({
           })));
         }
 
-        // 2. Fetch distinct high quality product images from products table
-        const { data: prods } = await supabase
-          .from('products')
-          .select('id, name, image_url, category')
-          .not('image_url', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(80);
+        // 2. Fetch distinct high quality product images from products and catalog_products
+        const [prodsRes, catProdsRes] = await Promise.allSettled([
+          supabase
+            .from('products')
+            .select('id, name, image_url, category')
+            .not('image_url', 'is', null)
+            .limit(120),
+          supabase
+            .from('catalog_products')
+            .select('id, name, image_url, category')
+            .not('image_url', 'is', null)
+            .limit(80),
+        ]);
 
-        if (prods && mounted) {
-          const validProds = prods
-            .filter((p: any) => p.image_url && p.image_url.startsWith('http'))
-            .map((p: any) => ({
-              id: `prod-cat-${p.id}`,
-              title: p.name,
-              url: p.image_url,
-              category: mapBackendCategory(p.category),
-              isCustom: false
-            }));
+        const prods = prodsRes.status === 'fulfilled' ? (prodsRes.value.data || []) : [];
+        const catProds = catProdsRes.status === 'fulfilled' ? (catProdsRes.value.data || []) : [];
+        const combined = [...prods, ...catProds];
+
+        if (mounted && combined.length > 0) {
+          const seenUrls = new Set<string>();
+          const validProds: GalleryItem[] = [];
+
+          for (const p of combined) {
+            const url = p.image_url;
+            if (url && typeof url === 'string' && (url.startsWith('http') || url.startsWith('data:image')) && !seenUrls.has(url)) {
+              seenUrls.add(url);
+              validProds.push({
+                id: `prod-cat-${p.id}`,
+                title: p.name,
+                url,
+                category: mapBackendCategory(p.category),
+                isCustom: false
+              });
+            }
+          }
+
           setCatalogItems(validProds);
         }
       } catch (err: any) {

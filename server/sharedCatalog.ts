@@ -64,12 +64,19 @@ export async function sharedCatalogPage(_context?: unknown, cursor?: string, sea
 
 export async function publishCatalogProduct(id: string, context: any) {
   validId(id);
-  const {data,error} = await supabaseAdminClient().rpc('publish_sangoub_catalog_product',{p_product_id:id,p_actor_id:context.actor.uid});
+  const client = supabaseAdminClient();
+  const {data,error} = await client.rpc('publish_sangoub_catalog_product',{p_product_id:id,p_actor_id:context.actor.uid});
   if (error) {
     if (error.message?.includes('CATALOG_PRODUCT_NOT_FOUND')) throw new AdminError(404,'المنتج غير موجود أو مؤرشف.');
     if (error.code === '23505') throw new AdminError(409,'المنتج منشور بالفعل أو يوجد تعارض في الكتالوج.');
     throw new AdminError(503,'تعذر نشر المنتج في كتالوج Supabase.');
   }
+  try {
+    const { data: prod } = await client.from('products').select('image_url').eq('id', id).maybeSingle();
+    if (prod?.image_url) {
+      await client.from('catalog_products').update({ image_url: prod.image_url }).eq('id', data?.catalogProductId || id);
+    }
+  } catch {}
   return data;
 }
 

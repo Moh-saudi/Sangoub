@@ -380,6 +380,17 @@ export const RestaurantPortal: React.FC<RestaurantPortalProps> = ({
   async function handleSelectSmartImage(productId: string, imageUrl: string) {
     try {
       await supabase.from('products').update({ image_url: imageUrl }).eq('id', productId);
+      await supabase.from('catalog_products').update({ image_url: imageUrl }).eq('id', productId);
+      const targetProd = products.find(p => p.id === productId);
+      if (targetProd?.catalogProductId) {
+        await supabase.from('catalog_products').update({ image_url: imageUrl }).eq('id', targetProd.catalogProductId);
+        await supabase.from('products').update({ image_url: imageUrl }).eq('catalog_product_id', targetProd.catalogProductId);
+      }
+      try {
+        if (targetProd?.name) {
+          await supabase.from('master_spu').update({ images: [imageUrl] }).ilike('name_ar', `%${targetProd.name.trim()}%`);
+        }
+      } catch {}
     } catch (err) {
       console.warn('Supabase product image update error:', err);
     }
