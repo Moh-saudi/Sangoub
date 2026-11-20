@@ -34,6 +34,8 @@ export const CATEGORIES = [
   { id: 'meat', label: 'لحوم ودواجن' },
   { id: 'snacks', label: 'شيبس وتسالي' },
   { id: 'cleaning', label: 'منظفات وعناية' },
+  { id: 'pharmacy', label: 'أدوية وصيدلية' },
+  { id: 'personal_care', label: 'عناية شخصية' },
   { id: 'other', label: 'أصناف متنوعة' },
 ] as const;
 
@@ -88,13 +90,14 @@ export function AdminProductGalleryManager() {
         list.push(...content.productGallery.map((item: any) => ({ ...item, isCustom: true })));
       }
 
-      // 2. High quality product images from products and catalog_products
+      // 2. High quality product images from products and catalog_products (ordered by newest updates)
       const [prodsRes, catProdsRes] = await Promise.allSettled([
         supabase
           .from('products')
-          .select('id, name, image_url, category')
+          .select('id, name, image_url, category, updated_at')
           .not('image_url', 'is', null)
-          .limit(150),
+          .order('updated_at', { ascending: false })
+          .limit(300),
         supabase
           .from('catalog_products')
           .select('id, name, image_url, category')
@@ -117,7 +120,7 @@ export function AdminProductGalleryManager() {
             id: `prod-${p.id}`,
             title: p.name,
             url: validUrl,
-            category: mapCategory(p.category),
+            category: mapCategory(p.category, p.name),
             isCustom: false
           });
         }
@@ -132,16 +135,17 @@ export function AdminProductGalleryManager() {
     }
   }
 
-  function mapCategory(catText?: string): string {
-    if (!catText) return 'grocery';
-    const c = catText.toLowerCase();
-    if (c.includes('لبن') || c.includes('جبن') || c.includes('ألبان')) return 'dairy';
-    if (c.includes('خضار') || c.includes('فاكه') || c.includes('فواكه')) return 'produce';
-    if (c.includes('مخبز') || c.includes('عيش') || c.includes('حلويات')) return 'bakery';
-    if (c.includes('مشروب') || c.includes('عصير') || c.includes('مياه')) return 'beverages';
-    if (c.includes('لحم') || c.includes('دجاج') || c.includes('فراخ')) return 'meat';
-    if (c.includes('شيبس') || c.includes('تسالي') || c.includes('سناك')) return 'snacks';
-    if (c.includes('نظاف') || c.includes('صابون') || c.includes('غسيل')) return 'cleaning';
+  function mapCategory(catText?: string, prodName?: string): string {
+    const combined = `${catText || ''} ${prodName || ''}`.toLowerCase();
+    if (combined.includes('نظاف') || combined.includes('صابون') || combined.includes('غسيل') || combined.includes('clean') || combined.includes('أرضيات') || combined.includes('ملمع') || combined.includes('مستلزمات المنزل') || combined.includes('عناية بالمنزل') || combined.includes('جنرال') || combined.includes('ديتول') || combined.includes('كلور') || combined.includes('معطر') || combined.includes('فيري') || combined.includes('بريل')) return 'cleaning';
+    if (combined.includes('صيدل') || combined.includes('دواء') || combined.includes('علاج') || combined.includes('طبي') || combined.includes('ملين') || combined.includes('شراب') || combined.includes('اقراص') || combined.includes('أقراص') || combined.includes('مسكن') || combined.includes('فيتامين') || combined.includes('مرهم') || combined.includes('صحة') || combined.includes('إبيلاكت') || combined.includes('ابيلاكت') || combined.includes('بنادول') || combined.includes('أوتريفين')) return 'pharmacy';
+    if (combined.includes('شامبو') || combined.includes('بلسم') || combined.includes('تجميل') || combined.includes('بشرة') || combined.includes('عناية شخصية') || combined.includes('معجون أسنان') || combined.includes('مكياج') || combined.includes('استحمام')) return 'personal_care';
+    if (combined.includes('لبن') || combined.includes('جبن') || combined.includes('ألبان') || combined.includes('dairy')) return 'dairy';
+    if (combined.includes('خضار') || combined.includes('فاكه') || combined.includes('فواكه') || combined.includes('produce')) return 'produce';
+    if (combined.includes('مخبز') || combined.includes('عيش') || combined.includes('حلويات') || combined.includes('bakery')) return 'bakery';
+    if (combined.includes('مشروب') || combined.includes('عصير') || combined.includes('مياه') || combined.includes('beverage')) return 'beverages';
+    if (combined.includes('لحم') || combined.includes('دجاج') || combined.includes('فراخ') || combined.includes('meat')) return 'meat';
+    if (combined.includes('شيبس') || combined.includes('شيبسي') || combined.includes('تسالي') || combined.includes('سناك')) return 'snacks';
     return 'grocery';
   }
 

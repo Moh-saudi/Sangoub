@@ -46,6 +46,8 @@ export const GALLERY_CATEGORIES = [
   { id: 'meat', label: 'لحوم ودواجن' },
   { id: 'snacks', label: 'شيبس وتسالي' },
   { id: 'cleaning', label: 'منظفات وعناية' },
+  { id: 'pharmacy', label: 'أدوية وصيدلية' },
+  { id: 'personal_care', label: 'عناية شخصية' },
   { id: 'other', label: 'أصناف متنوعة' },
 ] as const;
 
@@ -207,7 +209,7 @@ export function ProductGalleryModal({
                 id: `prod-cat-${p.id}`,
                 title: p.name,
                 url,
-                category: mapBackendCategory(p.category),
+                category: mapBackendCategory(p.category, p.name),
                 isCustom: false
               });
             }
@@ -227,16 +229,17 @@ export function ProductGalleryModal({
   }, [isOpen]);
 
   // Helper to map backend category text to filter category
-  function mapBackendCategory(catText?: string): string {
-    if (!catText) return 'grocery';
-    const c = catText.toLowerCase();
-    if (c.includes('نظاف') || c.includes('صابون') || c.includes('غسيل') || c.includes('clean') || c.includes('أرضيات') || c.includes('ملمع') || c.includes('مستلزمات المنزل') || c.includes('عناية بالمنزل') || c.includes('جنرال') || c.includes('ديتول') || c.includes('كلور') || c.includes('معطر')) return 'cleaning';
-    if (c.includes('لبن') || c.includes('جبن') || c.includes('ألبان') || c.includes('dairy')) return 'dairy';
-    if (c.includes('خضار') || c.includes('فاكه') || c.includes('فواكه') || c.includes('produce')) return 'produce';
-    if (c.includes('مخبز') || c.includes('عيش') || c.includes('حلويات') || c.includes('bakery')) return 'bakery';
-    if (c.includes('مشروب') || c.includes('عصير') || c.includes('مياه') || c.includes('beverage')) return 'beverages';
-    if (c.includes('لحم') || c.includes('دجاج') || c.includes('فراخ') || c.includes('meat')) return 'meat';
-    if (c.includes('شيبس') || c.includes('شيبسي') || c.includes('تسالي') || c.includes('سناك')) return 'snacks';
+  function mapBackendCategory(catText?: string, prodName?: string): string {
+    const combined = `${catText || ''} ${prodName || ''}`.toLowerCase();
+    if (combined.includes('نظاف') || combined.includes('صابون') || combined.includes('غسيل') || combined.includes('clean') || combined.includes('أرضيات') || combined.includes('ملمع') || combined.includes('مستلزمات المنزل') || combined.includes('عناية بالمنزل') || combined.includes('جنرال') || combined.includes('ديتول') || combined.includes('كلور') || combined.includes('معطر') || combined.includes('فيري') || combined.includes('بريل')) return 'cleaning';
+    if (combined.includes('صيدل') || combined.includes('دواء') || combined.includes('علاج') || combined.includes('طبي') || combined.includes('ملين') || combined.includes('شراب') || combined.includes('اقراص') || combined.includes('أقراص') || combined.includes('مسكن') || combined.includes('فيتامين') || combined.includes('مرهم') || combined.includes('صحة') || combined.includes('إبيلاكت') || combined.includes('ابيلاكت') || combined.includes('بنادول') || combined.includes('أوتريفين')) return 'pharmacy';
+    if (combined.includes('شامبو') || combined.includes('بلسم') || combined.includes('تجميل') || combined.includes('بشرة') || combined.includes('عناية شخصية') || combined.includes('معجون أسنان') || combined.includes('مكياج') || combined.includes('استحمام')) return 'personal_care';
+    if (combined.includes('لبن') || combined.includes('جبن') || combined.includes('ألبان') || combined.includes('dairy')) return 'dairy';
+    if (combined.includes('خضار') || combined.includes('فاكه') || combined.includes('فواكه') || combined.includes('produce')) return 'produce';
+    if (combined.includes('مخبز') || combined.includes('عيش') || combined.includes('حلويات') || combined.includes('bakery')) return 'bakery';
+    if (combined.includes('مشروب') || combined.includes('عصير') || combined.includes('مياه') || combined.includes('beverage')) return 'beverages';
+    if (combined.includes('لحم') || combined.includes('دجاج') || combined.includes('فراخ') || combined.includes('meat')) return 'meat';
+    if (combined.includes('شيبس') || combined.includes('شيبسي') || combined.includes('تسالي') || combined.includes('سناك')) return 'snacks';
     return 'grocery';
   }
 
