@@ -13,7 +13,7 @@ import { MerchantLogoCard } from '../components/MerchantLogoCard';
 import { CategoryRail } from '../components/CategoryRail';
 import { formatEGP } from '../../utils/orderCalculations';
 import { LAUNCH_CONFIG } from '../../config/launchConfig';
-import { getStoreLogo, matchStoreId } from '../../utils/storeAssets';
+import { getStoreLogo, matchStoreId, isProductOrderableNow } from '../../utils/storeAssets';
 import type { Product } from '../../types';
 import { 
   matchProductToCategory, 
@@ -229,7 +229,8 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
 
   // Filtered products list (Search in name, description, store, category, badge, brand, offers)
   const filteredProducts = useMemo(() => {
-    let list = [...products];
+    // 1. Exclude products from closed or inactive stores so mobile customers only see orderable items
+    let list = products.filter((p) => isProductOrderableNow(p, stores));
 
     if (isSearchActive) {
       const q = searchQuery.toLowerCase().trim();
@@ -276,18 +277,6 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
 
     if (activeFilter === 'offers' && !isSearchActive) {
       list = list.filter((p) => {
-        // Exclude paused / out of stock items from customer offers page
-        if (p.inStock === false || (p as any).is_available === false) return false;
-
-        // Exclude closed or inactive stores
-        const store = stores.find(s => matchStoreId(s.id, p.storeId) || s.id === p.storeId || (s.name && p.storeName === s.name));
-        if (p.storeId && p.storeId !== 'a0000000-0000-0000-0000-000000000001') {
-          if (!store || store.status === 'closed' || (store as any).is_active === false || (store as any).stopped_at) return false;
-        } else {
-          const central = stores.find(st => st.id === 'a0000000-0000-0000-0000-000000000001' || st.name?.includes('سنجوب'));
-          if (central?.status === 'closed') return false;
-        }
-
         if (p.offerStatus === 'pending_approval' || p.offerStatus === 'rejected') return false;
         return (p.originalPrice && p.originalPrice > p.price) || p.badge?.includes('عرض') || p.badge?.includes('خصم') || Boolean(p.offerTitle);
       }).sort((a, b) => {
@@ -309,19 +298,21 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     return list;
   }, [products, searchQuery, isSearchActive, selectedCategory, activeFilter, stores, matchingCategories]);
 
-  // Dynamic product count per category
+  // Dynamic product count per category (Only for open & orderable products)
   const categoryProductCounts = useMemo(() => {
     const counts: Record<string, number> = {};
+    const orderable = products.filter((p) => isProductOrderableNow(p, stores));
     supermarketCategories.forEach((c) => {
-      counts[c.code] = getCategoryProductCount(products, c.code, c.name_ar);
+      counts[c.code] = getCategoryProductCount(orderable, c.code, c.name_ar);
     });
     return counts;
-  }, [products, supermarketCategories]);
+  }, [products, stores, supermarketCategories]);
 
-  // Merchants available for the selected category
+  // Merchants available for the selected category (Only open stores)
   const categoryMerchants = useMemo(() => {
     if (!selectedCategory) return [];
-    return getCategoryMerchants(products, selectedCategory, stores);
+    const orderable = products.filter((p) => isProductOrderableNow(p, stores));
+    return getCategoryMerchants(orderable, selectedCategory, stores);
   }, [selectedCategory, products, stores]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {

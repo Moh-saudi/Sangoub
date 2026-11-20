@@ -106,6 +106,38 @@ export function matchStoreId(a?: string, b?: string): boolean {
 }
 
 /**
+ * Checks if a product belongs to an active, currently-open store that can accept orders right now.
+ */
+export function isProductOrderableNow(
+  product: { storeId?: string; storeName?: string; archived?: boolean; inStock?: boolean; is_available?: boolean },
+  stores: Array<{ id: string; name?: string; status?: string; is_active?: boolean; stopped_at?: any }>
+): boolean {
+  if (product.archived || product.inStock === false || product.is_available === false) {
+    return false;
+  }
+  const isSangoub =
+    product.storeId === 'a0000000-0000-0000-0000-000000000001' ||
+    !product.storeId ||
+    product.storeName?.includes('سنجوب');
+
+  if (isSangoub) {
+    const central = stores.find(
+      (st) => st.id === 'a0000000-0000-0000-0000-000000000001' || st.name?.includes('سنجوب')
+    );
+    return central ? central.status !== 'closed' : true;
+  }
+
+  const store = stores.find(
+    (s) =>
+      (product.storeId && (s.id === product.storeId || matchStoreId(s.id, product.storeId))) ||
+      (product.storeName && s.name === product.storeName)
+  );
+
+  if (!store) return false;
+  return store.status !== 'closed' && store.is_active !== false && !Boolean(store.stopped_at);
+}
+
+/**
  * Returns a clean, friendly URL slug for any product.
  * Avoids ugly UUIDs or sku hashes in the URL bar.
  */

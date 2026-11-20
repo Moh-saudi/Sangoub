@@ -3,7 +3,7 @@ import type { Product } from '../../types';
 import { useStore } from '../context/StoreContext';
 import { formatEGP } from '../../utils/orderCalculations';
 import { getProductSpecifications } from '../../utils/productSpecifications';
-import { getStoreLogo, getStoreSlug, getProductSlug } from '../../utils/storeAssets';
+import { getStoreLogo, getStoreSlug, getProductSlug, isProductOrderableNow } from '../../utils/storeAssets';
 import {
   ArrowRight,
   Heart,
@@ -103,17 +103,18 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
     return product ? isProductOrderedBefore(product.id, product.name) : false;
   }, [product, isProductOrderedBefore]);
 
-  // Similar Products from same category or store
+  // Similar Products from same category or store (Only orderable ones)
   const similarProducts = useMemo(() => {
     if (!product || !products) return [];
     return products
       .filter(
         (p) =>
           p.id !== product.id &&
+          isProductOrderableNow(p, stores) &&
           (p.category === product.category || p.storeId === product.storeId)
       )
       .slice(0, 8);
-  }, [product, products]);
+  }, [product, products, stores]);
 
   // Reset / initialize options
   React.useEffect(() => {
