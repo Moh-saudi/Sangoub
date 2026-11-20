@@ -1,8 +1,8 @@
 name: Web and Firebase validation
 on:
-  pull_request:
-  push:
-    branches: [main, feature/osm-tracking]
+  workflow_dispatch:
+# Note: Automatic push/pull_request triggers disabled in favor of modern Supabase & Cloudflare CI/CD.
+
 permissions:
   contents: read
 jobs:

@@ -2,15 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Sparkles,
-  Check,
   Loader2,
-  Image as ImageIcon,
   Search,
   Link2,
   ExternalLink,
   Upload,
   Database,
   Globe,
+  Check,
 } from 'lucide-react';
 import type { Product } from '../types';
 import { searchImagesForProduct, type ImageCandidate } from '../utils/productImageFinder';
@@ -32,6 +31,7 @@ export function SmartProductImageModal({
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [savingUrl, setSavingUrl] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [directUrl, setDirectUrl] = useState('');
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -58,30 +58,31 @@ export function SmartProductImageModal({
   if (!product) return null;
 
   async function handleApply(url: string) {
-    if (!url || !product) return;
-    setSavingUrl(url);
+    const cleanUrl = url.trim();
+    if (!cleanUrl || !product) return;
+    setSavingUrl(cleanUrl);
     try {
-      await onSelectImage(product.id, url);
+      await onSelectImage(product.id, cleanUrl);
       onClose();
     } catch (err) {
       console.error('Failed applying image:', err);
+      setUploadError('تعذر حفظ الصورة، يرجى المحاولة مرة أخرى.');
     } finally {
       setSavingUrl(null);
     }
   }
 
-  // معالجة رفع صورة محلية من جهاز المستخدم (مباشرة بعد حفظها من جوجل أو المعرض)
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setUploadError('يرجى اختيار ملف صورة صالح (JPG, PNG, WEBP)');
+      setUploadError('يرجى اختيار ملف صورة مدعوم (JPG, PNG, WEBP)');
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setUploadError('حجم الصورة كبير جداً (الحد الأقصى 5 ميجابايت)');
+      setUploadError('الحد الأقصى لحجم الصورة 5 ميجابايت');
       return;
     }
 
@@ -98,7 +99,6 @@ export function SmartProductImageModal({
     reader.readAsDataURL(file);
   }
 
-  // رابط البحث المباشر على صور جوجل
   const googleImagesUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(
     searchTerm.trim() || product.name
   )}`;
@@ -113,29 +113,29 @@ export function SmartProductImageModal({
       <div className="bg-white rounded-3xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <header className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-xs shrink-0">
               <Sparkles size={16} />
             </div>
             <div className="min-w-0">
-              <h3 className="font-black text-slate-900 text-xs sm:text-sm">البحث عن صورة للصنف</h3>
-              <p className="text-[11px] text-slate-500 font-bold truncate" title={product.name}>
+              <h3 className="font-black text-slate-900 text-sm">البحث عن صورة للمنتج</h3>
+              <p className="text-xs text-slate-500 font-semibold truncate max-w-md" title={product.name}>
                 {product.name}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 transition-colors cursor-pointer shrink-0"
-            title="إغلاق"
+            className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 transition-colors cursor-pointer shrink-0"
+            title="إغلاق النافذة"
           >
-            <X size={15} />
+            <X size={16} />
           </button>
         </header>
 
         {/* Content Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 flex-1 text-xs">
-          {/* Search Bar for adjusting keywords */}
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-xs">
+          {/* Search Form */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -144,100 +144,118 @@ export function SmartProductImageModal({
             className="flex gap-2"
           >
             <div className="relative flex-1">
-              <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="ابحث باسم الصنف في كتالوج سنجوب..."
-                className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white transition-colors"
+                placeholder="اكتب اسم الصنف للبحث عنه..."
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white transition-colors"
               />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs px-1"
+                  title="مسح"
+                >
+                  <X size={13} />
+                </button>
+              )}
             </div>
             <button
               type="submit"
               disabled={loading || !searchTerm.trim()}
-              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition cursor-pointer disabled:opacity-50 shrink-0 shadow-xs flex items-center gap-1.5"
+              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition cursor-pointer disabled:opacity-50 shrink-0 shadow-xs flex items-center gap-1.5 whitespace-nowrap"
             >
               {loading ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
-              <span>بحث في الكتالوج</span>
+              <span>بحث تلقائي</span>
             </button>
           </form>
 
-          {/* Quick Actions: Shared Product Gallery & Google Images */}
-          <div className="grid sm:grid-cols-2 gap-2">
+          {/* Quick Actions Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setIsGalleryOpen(true)}
-              className="flex items-center justify-between p-2.5 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-2xl text-[11px] text-orange-950 font-bold transition cursor-pointer"
+              className="flex items-center justify-between px-3 py-2.5 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl text-xs text-orange-950 font-bold transition cursor-pointer whitespace-nowrap"
             >
               <div className="flex items-center gap-2">
                 <Sparkles size={14} className="text-[#FF5900] shrink-0" />
-                <span>معرض الأصناف المشترك (رفع واختيار)</span>
+                <span>معرض الأصناف المعتمدة</span>
               </div>
-              <span className="px-2 py-0.5 rounded-lg bg-orange-200/80 text-orange-900 text-[10px]">تصفح ↗</span>
+              <span className="px-2 py-0.5 rounded-lg bg-orange-200/80 text-orange-900 text-[11px] font-bold">
+                تصفح ↗
+              </span>
             </button>
 
-            <div className="flex items-center justify-between p-2.5 bg-sky-50/70 border border-sky-100 rounded-2xl">
-              <div className="flex items-center gap-2 text-[11px] text-sky-900 font-bold">
+            <a
+              href={googleImagesUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between px-3 py-2.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl text-xs text-sky-950 font-bold transition cursor-pointer whitespace-nowrap"
+              title="فتح بحث صور جوجل في نافذة جديدة"
+            >
+              <div className="flex items-center gap-2">
                 <Globe size={14} className="text-sky-600 shrink-0" />
-                <span>بحث على صور Google:</span>
+                <span>البحث في صور Google</span>
               </div>
-              <a
-                href={googleImagesUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-[10px] font-bold shadow-2xs transition"
-                title="فتح بحث صور جوجل في صفحة جديدة"
-              >
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-sky-200/80 text-sky-900 text-[11px] font-bold">
                 <ExternalLink size={11} />
-                <span>بحث Google ↗</span>
-              </a>
-            </div>
+                فتح ↗
+              </span>
+            </a>
           </div>
 
-          {/* Candidates Grid */}
+          {/* Results Section */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-slate-500">
-                نتائج مطابقة من الكتالوج المركزي والمكتبة:
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-xs font-bold text-slate-700">
+                الصور المقترحة:
               </span>
-              <span className="text-[10px] text-slate-400 font-bold">
-                {candidates.length} صورة متوفرة
+              <span className="text-[11px] text-slate-500 font-bold">
+                {candidates.length > 0 ? `${candidates.length} صورة متوفرة` : 'لا توجد نتائج'}
               </span>
             </div>
 
             {loading ? (
               <div className="py-10 flex flex-col items-center justify-center text-slate-500 space-y-2">
-                <Loader2 size={22} className="animate-spin text-amber-600" />
-                <span className="text-xs font-bold">جارٍ فحص الكتالوج المركزي الموحد…</span>
+                <Loader2 size={24} className="animate-spin text-amber-600" />
+                <span className="text-xs font-bold">جارٍ البحث عن أفضل صورة مطابقة…</span>
               </div>
             ) : candidates.length === 0 ? (
-              <div className="py-6 text-center text-slate-500 text-xs border border-dashed border-slate-200 rounded-2xl p-4 space-y-2 bg-slate-50/50">
-                <p className="font-bold text-slate-700">لم يتم العثور على صورة في الكتالوج المركزي بهذا الاسم.</p>
-                <p className="text-[11px] text-slate-400">
-                  اضغط على زر (بحث على صور Google) لحفظ الصورة من جوجل، ثم ارفعها من الزر أدناه مباشرة.
-                </p>
-                <a
-                  href={googleImagesUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition shadow-xs mt-2"
-                >
-                  <ExternalLink size={13} />
-                  <span>البحث في صور Google الآن</span>
-                </a>
+              <div className="py-6 text-center text-slate-500 border border-dashed border-slate-200 rounded-2xl p-4 space-y-3 bg-slate-50/60">
+                <p className="text-xs font-bold text-slate-700">لم يتم العثور على صورة تلقائية مطابقة لهذا الاسم.</p>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <a
+                    href={googleImagesUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                  >
+                    <ExternalLink size={13} />
+                    <span>البحث في Google وحفظ الصورة</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                  >
+                    <Upload size={13} />
+                    <span>رفع صورة من جهازك</span>
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-3">
                 {candidates.map((cand, idx) => (
                   <button
                     key={idx}
                     type="button"
                     disabled={savingUrl !== null}
                     onClick={() => handleApply(cand.url)}
-                    className="border-2 border-slate-100 hover:border-amber-500 rounded-2xl overflow-hidden transition-all shadow-2xs group bg-white flex flex-col text-right cursor-pointer disabled:opacity-50 relative focus:outline-none focus:border-amber-500"
+                    className="border border-slate-200 hover:border-amber-500 rounded-2xl overflow-hidden transition-all shadow-xs group bg-white flex flex-col text-right cursor-pointer disabled:opacity-50 relative focus:outline-none focus:ring-2 focus:ring-amber-400"
                   >
-                    <div className="h-28 w-full overflow-hidden bg-slate-100 relative">
+                    <div className="h-32 w-full overflow-hidden bg-slate-100 relative">
                       <img
                         src={cand.url}
                         alt={cand.label}
@@ -245,8 +263,8 @@ export function SmartProductImageModal({
                         loading="lazy"
                       />
                       {cand.source === 'master_spu' && (
-                        <span className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-md bg-emerald-700/90 text-white text-[9px] font-bold backdrop-blur-xs flex items-center gap-1">
-                          <Database size={9} /> كتالوج سنجوب
+                        <span className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-md bg-emerald-700/90 text-white text-[10px] font-bold backdrop-blur-xs flex items-center gap-1">
+                          <Database size={10} /> كتالوج سنجوب
                         </span>
                       )}
                       {savingUrl === cand.url && (
@@ -257,11 +275,11 @@ export function SmartProductImageModal({
                       )}
                     </div>
 
-                    <div className="p-2 bg-white border-t border-slate-100 flex items-center justify-between w-full">
-                      <span className="text-[11px] font-bold text-slate-800 truncate" title={cand.label}>
+                    <div className="p-2.5 bg-white border-t border-slate-100 flex items-center justify-between w-full">
+                      <span className="text-xs font-bold text-slate-800 truncate" title={cand.label}>
                         {cand.label}
                       </span>
-                      <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-bold shrink-0">
+                      <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg font-bold shrink-0">
                         اختيار ✓
                       </span>
                     </div>
@@ -271,23 +289,20 @@ export function SmartProductImageModal({
             )}
           </div>
 
-          {/* Upload File / Paste URL Option */}
-          <div className="pt-3 border-t border-slate-100 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                <Upload size={13} className="text-slate-500" />
-                <span>رفع صورة من جهازك أو لصق رابط:</span>
-              </span>
-            </div>
+          {/* Upload & Link Options */}
+          <div className="pt-3 border-t border-slate-100 space-y-2.5">
+            <span className="text-xs font-bold text-slate-800 block">
+              طرق إضافية لتعيين الصورة:
+            </span>
 
             {uploadError && (
-              <p className="text-[11px] text-rose-600 bg-rose-50 p-2 rounded-xl border border-rose-200 font-bold">
+              <p className="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200 font-bold">
                 {uploadError}
               </p>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {/* Device Upload Button */}
+              {/* File Upload from Device */}
               <div>
                 <input
                   type="file"
@@ -299,10 +314,29 @@ export function SmartProductImageModal({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                  className="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
                 >
-                  <Upload size={14} className="text-orange-400" />
-                  <span>رفع صورة جديدة من الجهاز</span>
+                  <Upload size={14} className="text-amber-400" />
+                  <span>رفع صورة من جهازك</span>
+                </button>
+              </div>
+
+              {/* Direct Image URL input */}
+              <div className="flex gap-1.5">
+                <input
+                  type="url"
+                  value={directUrl}
+                  onChange={(e) => setDirectUrl(e.target.value)}
+                  placeholder="أو الصق رابط صورة هنا..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white transition-colors"
+                />
+                <button
+                  type="button"
+                  disabled={!directUrl.trim() || savingUrl !== null}
+                  onClick={() => handleApply(directUrl)}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition disabled:opacity-40 cursor-pointer shrink-0 whitespace-nowrap"
+                >
+                  تطبيق
                 </button>
               </div>
             </div>
@@ -310,12 +344,12 @@ export function SmartProductImageModal({
         </div>
 
         {/* Footer */}
-        <footer className="px-5 py-2.5 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <footer className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            className="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
           >
-            إغلاق
+            إغلاق النافذة
           </button>
         </footer>
       </div>
