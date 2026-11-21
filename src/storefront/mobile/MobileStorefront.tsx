@@ -116,27 +116,6 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     setVisibleCount(24);
   }, [selectedCategory, activeFilter, searchQuery]);
 
-  // Infinite Scroll: automatically load more items as user scrolls near bottom
-  useEffect(() => {
-    const sentinel = scrollSentinelRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount((prev) => {
-            if (prev >= filteredProducts.length) return prev;
-            return Math.min(prev + 24, filteredProducts.length);
-          });
-        }
-      },
-      { rootMargin: '400px 0px' }
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [filteredProducts.length]);
-
   const featuredCoupon = activeCoupons && activeCoupons.length > 0 ? activeCoupons[0] : null;
 
   const handleCopyCoupon = () => {
@@ -341,6 +320,27 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
 
     return list;
   }, [products, searchQuery, isSearchActive, selectedCategory, activeFilter, stores, matchingCategories]);
+
+  // Infinite Scroll: automatically load more items as user scrolls near bottom
+  useEffect(() => {
+    const sentinel = scrollSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => {
+            if (prev >= filteredProducts.length) return prev;
+            return Math.min(prev + 24, filteredProducts.length);
+          });
+        }
+      },
+      { rootMargin: '400px 0px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filteredProducts.length]);
 
   // Dynamic product count per category (Only for open & orderable products)
   const categoryProductCounts = useMemo(() => {

@@ -89,27 +89,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
     setVisibleCount(36);
   }, [selectedCategory, activeFilter, searchQuery]);
 
-  // Infinite Scroll: automatically load more items as user scrolls near bottom
-  useEffect(() => {
-    const sentinel = scrollSentinelRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount((prev) => {
-            if (prev >= displayedProducts.length) return prev;
-            return Math.min(prev + 36, displayedProducts.length);
-          });
-        }
-      },
-      { rootMargin: '500px 0px' }
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [displayedProducts.length]);
-
   useEffect(() => {
     if (currentPath === '/offers' || window.location.pathname === '/offers') {
       setSelectedCategory(null);
@@ -181,6 +160,27 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
 
     return list;
   }, [products, searchQuery, selectedCategory, activeFilter, stores]);
+
+  // Infinite Scroll: automatically load more items as user scrolls near bottom
+  useEffect(() => {
+    const sentinel = scrollSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => {
+            if (prev >= displayedProducts.length) return prev;
+            return Math.min(prev + 36, displayedProducts.length);
+          });
+        }
+      },
+      { rootMargin: '500px 0px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [displayedProducts.length]);
 
   // URL query params listener (e.g. ?product=id or ?filter=offers from slider / notifications)
   useEffect(() => {
