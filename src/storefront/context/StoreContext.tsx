@@ -445,14 +445,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (sbProducts && sbProducts.length > 0) {
           setRawProducts(sbProducts);
           try {
-            // Strip massive inline base64 strings (>500 chars) for lightning-fast 0ms local cache (<200KB)
-            const cleanCachedProducts = sbProducts.map(p => ({
-              ...p,
-              imageUrl: (p.imageUrl && p.imageUrl.startsWith('data:') && p.imageUrl.length > 500) ? '' : p.imageUrl
-            }));
-            localStorage.setItem('sangoub_cached_products_v3', JSON.stringify(cleanCachedProducts));
+            // Keep real imageUrl for initial visible items while bounding localStorage footprint under 2MB
+            let cachePayload = sbProducts;
+            const testJson = JSON.stringify(cachePayload);
+            if (testJson.length > 1.5 * 1024 * 1024) {
+              cachePayload = sbProducts.map((p, idx) => ({
+                ...p,
+                imageUrl: idx < 60 ? p.imageUrl : (p.imageUrl && p.imageUrl.startsWith('data:') && p.imageUrl.length > 500 ? '' : p.imageUrl)
+              }));
+            }
+            localStorage.setItem('sangoub_cached_products_v3', JSON.stringify(cachePayload));
           } catch (e) {
-            console.warn('[Cache] Storage save skipped:', e);
+            try {
+              const safePayload = sbProducts.map((p, idx) => ({
+                ...p,
+                imageUrl: idx < 25 ? p.imageUrl : (p.imageUrl && p.imageUrl.startsWith('data:') ? '' : p.imageUrl)
+              }));
+              localStorage.setItem('sangoub_cached_products_v3', JSON.stringify(safePayload));
+            } catch {
+              console.warn('[Cache] Storage save skipped:', e);
+            }
           }
         }
 

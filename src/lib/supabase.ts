@@ -405,25 +405,52 @@ export async function getSupabaseProducts(storeId?: string): Promise<Product[]> 
   try {
     const PRODUCT_SELECT_FIELDS =
       'id, store_id, name, name_en, description, price, original_price, category, category_id, barcode, merchant_pos_sku, is_available, archived, image_url, image_type, badge, is_popular, offer_title, options';
-    let query = supabase.from('products').select(PRODUCT_SELECT_FIELDS);
-    if (storeId) {
-      const cleanId = String(storeId).trim().toLowerCase();
-      const INVALID_STORE_IDS = ['offers', 'cart', 'checkout', 'undefined', 'null', 'dashboard', 'orders', 'products', 'inventory', 'settings'];
-      if (!INVALID_STORE_IDS.includes(cleanId)) {
-        let targetUuid = storeId;
-        try { targetUuid = resolveSupabaseStoreUuid(storeId); } catch {}
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid);
 
-        if (storeId === 'a0000000-0000-0000-0000-000000000001' || targetUuid === 'a0000000-0000-0000-0000-000000000001') {
-          query = query.in('store_id', ['a0000000-0000-0000-0000-000000000001', '54a6c2f6-6c29-4177-ac65-32fadddea83d']);
-        } else if (isUuid) {
-          query = query.eq('store_id', targetUuid);
+    const buildQuery = () => {
+      let q = supabase.from('products').select(PRODUCT_SELECT_FIELDS);
+      if (storeId) {
+        const cleanId = String(storeId).trim().toLowerCase();
+        const INVALID_STORE_IDS = ['offers', 'cart', 'checkout', 'undefined', 'null', 'dashboard', 'orders', 'products', 'inventory', 'settings'];
+        if (!INVALID_STORE_IDS.includes(cleanId)) {
+          let targetUuid = storeId;
+          try { targetUuid = resolveSupabaseStoreUuid(storeId); } catch {}
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid);
+
+          if (storeId === 'a0000000-0000-0000-0000-000000000001' || targetUuid === 'a0000000-0000-0000-0000-000000000001') {
+            q = q.in('store_id', ['a0000000-0000-0000-0000-000000000001', '54a6c2f6-6c29-4177-ac65-32fadddea83d']);
+          } else if (isUuid) {
+            q = q.eq('store_id', targetUuid);
+          }
         }
       }
+      return q;
+    };
+
+    // Use chunked pagination to avoid PostgreSQL statement timeout (code 57014) when images are large
+    const CHUNK_SIZE = 100;
+    let allRows: any[] = [];
+    let from = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data: chunk, error: chunkErr } = await buildQuery().range(from, from + CHUNK_SIZE - 1);
+      if (chunkErr) {
+        console.warn('Chunk query warning at offset', from, chunkErr.message);
+        break;
+      }
+      if (chunk && chunk.length > 0) {
+        allRows.push(...chunk);
+        from += CHUNK_SIZE;
+        if (chunk.length < CHUNK_SIZE) {
+          hasMore = false;
+        }
+      } else {
+        hasMore = false;
+      }
     }
-    const { data, error } = await query;
-    if (!error && data && data.length > 0) {
-      dbProducts = (data || []).filter((row: any) => {
+
+    if (allRows.length > 0) {
+      dbProducts = allRows.filter((row: any) => {
         if (!row || !row.id || !row.name) return false;
         if (row.id === '00000000-1111-2222-3333-444444444444' || String(row.id).startsWith('00000000-')) return false;
         const n = String(row.name).toLowerCase();
