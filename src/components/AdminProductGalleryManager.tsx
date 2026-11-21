@@ -22,6 +22,11 @@ import { supabase } from '../lib/supabase';
 import { operationsApi } from '../lib/operationsApi';
 import { uploadCatalogImage } from '../lib/catalogImages';
 import { getCuratedProductImageSync, resolveProductCategory } from '../utils/productImageFinder';
+import {
+  buildDynamicGalleryCategories,
+  matchGalleryItemCategory,
+  type DynamicGalleryCategory
+} from '../utils/categoryMatching';
 import type { GalleryItem } from './ProductGalleryModal';
 
 export const CATEGORIES = [
@@ -227,7 +232,7 @@ export function AdminProductGalleryManager() {
       // Update state
       setItems(prev => [...uploadedItems, ...prev.filter(x => !uploadedItems.some(u => u.url === x.url))]);
       
-      const catLabel = CATEGORIES.find(c => c.id === batchGlobalCategory)?.label || batchGlobalCategory;
+      const catLabel = getCategoryLabel(batchGlobalCategory);
       setNotice(`✅ تم بنجاح رفع وحفظ ${uploadedItems.length} صورة وتصنيفها في قسم (${catLabel})!`);
 
       // Switch to this category tab automatically so user sees them right away
@@ -277,7 +282,7 @@ export function AdminProductGalleryManager() {
       };
 
       setItems(prev => prev.map(it => (it.id === editingItem.id || it.url === editingItem.url ? updated : it)));
-      const catLabel = CATEGORIES.find(c => c.id === editCategory)?.label || editCategory;
+      const catLabel = getCategoryLabel(editCategory);
       setNotice(`✅ تم تعديل اسم وقسم صنف "${updated.title}" إلى (${catLabel}) بنجاح!`);
       setEditingItem(null);
     } catch (err: any) {
@@ -308,10 +313,22 @@ export function AdminProductGalleryManager() {
     setTimeout(() => setCopiedUrl(null), 2500);
   }
 
+  // Dynamic categories computed from loaded items and official supermarket taxonomy
+  const dynamicCategories = useMemo(() => {
+    return buildDynamicGalleryCategories(items);
+  }, [items]);
+
+  const getCategoryLabel = (catId?: string) => {
+    if (!catId) return 'صنف عام';
+    const found = dynamicCategories.find(c => c.id === catId || c.code === catId);
+    if (found) return found.label;
+    return catId;
+  };
+
   const filteredItems = useMemo(() => {
     let list = items;
     if (selectedCategory !== 'all') {
-      list = list.filter(i => i.category === selectedCategory);
+      list = list.filter(i => matchGalleryItemCategory(i.category, i.title, selectedCategory));
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -403,22 +420,31 @@ export function AdminProductGalleryManager() {
           </div>
         </div>
 
-        {/* Category Pills */}
+        {/* Dynamic Category Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs">
-          {CATEGORIES.map((cat) => {
+          {dynamicCategories.map((cat) => {
             const active = selectedCategory === cat.id;
             return (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                   active
                     ? 'bg-slate-900 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {cat.label}
+                <span>{cat.label}</span>
+                {cat.count > 0 && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                      active ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {cat.count}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -529,7 +555,7 @@ export function AdminProductGalleryManager() {
                   </h4>
                   <div className="mt-1 flex items-center gap-1">
                     <span className="text-[10px] text-orange-700 bg-orange-50 border border-orange-200/60 font-bold px-2 py-0.5 rounded-md">
-                      {CATEGORIES.find(c => c.id === item.category)?.label || 'صنف عام'}
+                      {getCategoryLabel(item.category)}
                     </span>
                   </div>
                 </div>
@@ -605,9 +631,9 @@ export function AdminProductGalleryManager() {
                   disabled={isUploading}
                   className="px-3.5 py-1.5 rounded-xl bg-white border border-orange-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs font-bold text-slate-800 outline-none transition-all cursor-pointer shadow-2xs"
                 >
-                  {CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
+                  {dynamicCategories.filter(c => c.id !== 'all').map((cat) => (
                     <option key={cat.id} value={cat.id}>
-                      {cat.label}
+                      {cat.label} {cat.count > 0 ? `(${cat.count})` : ''}
                     </option>
                   ))}
                 </select>
@@ -681,7 +707,7 @@ export function AdminProductGalleryManager() {
                         disabled={isUploading}
                         className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 focus:border-orange-500 text-xs font-bold text-slate-800 outline-none transition-all cursor-pointer"
                       >
-                        {CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
+                        {dynamicCategories.filter(c => c.id !== 'all').map((cat) => (
                           <option key={cat.id} value={cat.id}>
                             {cat.label}
                           </option>
@@ -764,7 +790,7 @@ export function AdminProductGalleryManager() {
               <div className="text-xs text-slate-500 overflow-hidden">
                 <p className="font-bold text-slate-800 line-clamp-1">{editingItem.title}</p>
                 <p className="mt-0.5 text-orange-600 font-bold">
-                  القسم الحالي: {CATEGORIES.find(c => c.id === editingItem.category)?.label || 'صنف عام'}
+                  القسم الحالي: {getCategoryLabel(editingItem.category)}
                 </p>
               </div>
             </div>
@@ -794,7 +820,7 @@ export function AdminProductGalleryManager() {
                 onChange={(e) => setEditCategory(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs sm:text-sm font-bold outline-none transition-all cursor-pointer"
               >
-                {CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
+                {dynamicCategories.filter(c => c.id !== 'all').map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.label}
                   </option>

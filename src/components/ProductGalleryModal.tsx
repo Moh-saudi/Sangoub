@@ -17,6 +17,11 @@ import { supabase } from '../lib/supabase';
 import { operationsApi } from '../lib/operationsApi';
 import { uploadCatalogImage } from '../lib/catalogImages';
 import { getCuratedProductImageSync, resolveProductCategory } from '../utils/productImageFinder';
+import {
+  buildDynamicGalleryCategories,
+  matchGalleryItemCategory,
+  type DynamicGalleryCategory
+} from '../utils/categoryMatching';
 
 export interface GalleryItem {
   id: string;
@@ -268,11 +273,23 @@ export function ProductGalleryModal({
     return list;
   }, [customItems, catalogItems]);
 
+  // Dynamic categories computed from loaded items and official supermarket taxonomy
+  const dynamicCategories = useMemo(() => {
+    return buildDynamicGalleryCategories(allItems);
+  }, [allItems]);
+
+  const getCategoryLabel = (catId?: string) => {
+    if (!catId) return 'صنف عام';
+    const found = dynamicCategories.find((c) => c.id === catId || c.code === catId);
+    if (found) return found.label;
+    return catId;
+  };
+
   // Filter items by category and search
   const filteredItems = useMemo(() => {
     let result = allItems;
     if (selectedCategory !== 'all') {
-      result = result.filter((it) => it.category === selectedCategory);
+      result = result.filter((it) => matchGalleryItemCategory(it.category, it.title, selectedCategory));
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -373,7 +390,7 @@ export function ProductGalleryModal({
       setCustomItems((prev) => [...uploadedItems, ...prev.filter((i) => !uploadedItems.some(u => u.url === i.url))]);
       if (uploadedItems[0]) setSelectedItem(uploadedItems[0]);
 
-      const catLabel = GALLERY_CATEGORIES.find(c => c.id === batchGlobalCategory)?.label || batchGlobalCategory;
+      const catLabel = getCategoryLabel(batchGlobalCategory);
       setUploadNotice(`✅ تم رفع وحفظ ${uploadedItems.length} صورة في قسم (${catLabel}) بنجاح!`);
 
       if (batchGlobalCategory && batchGlobalCategory !== 'all') {
@@ -426,7 +443,7 @@ export function ProductGalleryModal({
       if (selectedItem?.id === editingItem.id || selectedItem?.url === editingItem.url) {
         setSelectedItem(updated);
       }
-      const catLabel = GALLERY_CATEGORIES.find(c => c.id === editCategory)?.label || editCategory;
+      const catLabel = getCategoryLabel(editCategory);
       setUploadNotice(`✅ تم تعديل اسم وقسم صنف "${updated.title}" إلى (${catLabel}) بنجاح!`);
       setEditingItem(null);
     } catch (err: any) {
@@ -550,22 +567,31 @@ export function ProductGalleryModal({
             )}
           </div>
 
-          {/* Categories Horizontal Scroll */}
+          {/* Dynamic Categories Horizontal Scroll */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
-            {GALLERY_CATEGORIES.map((cat) => {
+            {dynamicCategories.map((cat) => {
               const active = selectedCategory === cat.id;
               return (
                 <button
                   key={cat.id}
                   type="button"
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-3 py-1 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  className={`px-3 py-1 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                     active
                       ? 'bg-slate-900 text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {cat.label}
+                  <span>{cat.label}</span>
+                  {cat.count > 0 && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                        active ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {cat.count}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -666,7 +692,7 @@ export function ProductGalleryModal({
                       </h5>
                       <div className="mt-1 flex items-center justify-between">
                         <span className="text-[9.5px] text-orange-600 font-bold truncate">
-                          {GALLERY_CATEGORIES.find((c) => c.id === item.category)?.label || 'صنف عام'}
+                          {getCategoryLabel(item.category)}
                         </span>
                         {item.isCustom && (
                           <span className="text-[9px] bg-orange-100 text-orange-800 px-1 rounded font-bold shrink-0">
@@ -775,9 +801,9 @@ export function ProductGalleryModal({
                   disabled={isUploading}
                   className="px-3.5 py-1.5 rounded-xl bg-white border border-orange-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs font-bold text-slate-800 outline-none transition-all cursor-pointer shadow-2xs"
                 >
-                  {GALLERY_CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
+                  {dynamicCategories.filter(c => c.id !== 'all').map((cat) => (
                     <option key={cat.id} value={cat.id}>
-                      {cat.label}
+                      {cat.label} {cat.count > 0 ? `(${cat.count})` : ''}
                     </option>
                   ))}
                 </select>
@@ -851,7 +877,7 @@ export function ProductGalleryModal({
                         disabled={isUploading}
                         className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 focus:border-orange-500 text-xs font-bold text-slate-800 outline-none transition-all cursor-pointer"
                       >
-                        {GALLERY_CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
+                        {dynamicCategories.filter(c => c.id !== 'all').map((cat) => (
                           <option key={cat.id} value={cat.id}>
                             {cat.label}
                           </option>
@@ -934,7 +960,7 @@ export function ProductGalleryModal({
               <div className="text-xs text-slate-500 overflow-hidden">
                 <p className="font-bold text-slate-800 line-clamp-1">{editingItem.title}</p>
                 <p className="mt-0.5 text-orange-600 font-bold">
-                  القسم الحالي: {GALLERY_CATEGORIES.find(c => c.id === editingItem.category)?.label || 'صنف عام'}
+                  القسم الحالي: {getCategoryLabel(editingItem.category)}
                 </p>
               </div>
             </div>
@@ -964,7 +990,7 @@ export function ProductGalleryModal({
                 onChange={(e) => setEditCategory(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 text-xs sm:text-sm font-bold outline-none transition-all cursor-pointer"
               >
-                {GALLERY_CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
+                {dynamicCategories.filter(c => c.id !== 'all').map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.label}
                   </option>

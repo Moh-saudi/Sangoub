@@ -289,4 +289,127 @@ export function getCategoryMerchants(
   return stores.filter((s) => storeNames.has(s.name) || storeIds.has(s.id));
 }
 
+export interface DynamicGalleryCategory {
+  id: string;
+  label: string;
+  count: number;
+  code?: string;
+}
+
+/**
+ * Builds dynamic category filters from actual loaded items and official supermarket taxonomy templates.
+ * Categories with available items appear first with their actual counts, followed by core active categories.
+ */
+export function buildDynamicGalleryCategories(
+  items: Array<{ category?: string; title?: string }>
+): DynamicGalleryCategory[] {
+  const map = new Map<string, DynamicGalleryCategory & { sortOrder: number }>();
+
+  // 1. Initialise with official supermarket category templates
+  for (const tmpl of SUPERMARKET_CATEGORY_TEMPLATES) {
+    map.set(tmpl.code, {
+      id: tmpl.code,
+      label: tmpl.name_ar,
+      count: 0,
+      code: tmpl.code,
+      sortOrder: tmpl.sort_order ?? 99
+    });
+  }
+
+  // Friendly alias map for backward-compatible English slugs
+  const slugToCode: Record<string, string> = {
+    dairy: 'CAT-DAIRY',
+    grocery: 'CAT-PANTRY',
+    produce: 'CAT-PRODUCE',
+    bakery: 'CAT-BAKERY',
+    beverages: 'CAT-BEVERAGES',
+    meat: 'CAT-MEAT',
+    snacks: 'CAT-SNACKS',
+    cleaning: 'CAT-CLEANING',
+    pharmacy: 'CAT-PHARMACY',
+    personal_care: 'CAT-PERSONAL',
+    stationery: 'CAT-STATIONERY',
+    other: 'CAT-DISPOSABLES'
+  };
+
+  // 2. Count actual items and register any custom/merchant categories dynamically
+  for (const item of items) {
+    const rawCat = (item.category || '').trim();
+    if (!rawCat) continue;
+
+    const matchedCode = slugToCode[rawCat] || findMatchingCategoryCode(rawCat);
+    if (matchedCode && map.has(matchedCode)) {
+      map.get(matchedCode)!.count += 1;
+    } else {
+      // Dynamic category found on products
+      const key = rawCat;
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key,
+          label: rawCat,
+          count: 1,
+          code: key,
+          sortOrder: 150
+        });
+      } else {
+        map.get(key)!.count += 1;
+      }
+    }
+  }
+
+  // 3. Keep all categories with at least 1 item, plus core active supermarket templates
+  const list = Array.from(map.values())
+    .filter(c => c.count > 0 || (c.sortOrder <= 24 && !['CAT-AUTO', 'CAT-OUTDOOR', 'CAT-SEASONAL'].includes(c.id)))
+    .sort((a, b) => {
+      // Categories with items come first, then sorted by sortOrder
+      if (a.count > 0 && b.count === 0) return -1;
+      if (b.count > 0 && a.count === 0) return 1;
+      return a.sortOrder - b.sortOrder;
+    })
+    .map(({ id, label, count, code }) => ({ id, label, count, code }));
+
+  return [
+    { id: 'all', label: 'جميع الأصناف', count: items.length },
+    ...list
+  ];
+}
+
+/**
+ * Checks if a gallery item matches the selected dynamic category.
+ */
+export function matchGalleryItemCategory(
+  itemCategory: string | undefined,
+  itemTitle: string | undefined,
+  selectedCategory: string
+): boolean {
+  if (!selectedCategory || selectedCategory === 'all') return true;
+  if (!itemCategory) return false;
+
+  const slugToCode: Record<string, string> = {
+    dairy: 'CAT-DAIRY',
+    grocery: 'CAT-PANTRY',
+    produce: 'CAT-PRODUCE',
+    bakery: 'CAT-BAKERY',
+    beverages: 'CAT-BEVERAGES',
+    meat: 'CAT-MEAT',
+    snacks: 'CAT-SNACKS',
+    cleaning: 'CAT-CLEANING',
+    pharmacy: 'CAT-PHARMACY',
+    personal_care: 'CAT-PERSONAL',
+    stationery: 'CAT-STATIONERY',
+    other: 'CAT-DISPOSABLES'
+  };
+
+  const targetCode = slugToCode[selectedCategory] || selectedCategory;
+  if (itemCategory === selectedCategory || itemCategory === targetCode) return true;
+
+  const itemCode = slugToCode[itemCategory] || findMatchingCategoryCode(itemCategory);
+  if (itemCode && (itemCode === targetCode || itemCode === selectedCategory)) return true;
+
+  return matchProductToCategory(
+    { category: itemCategory, name: itemTitle || '' } as Product,
+    selectedCategory
+  );
+}
+
 
