@@ -59,9 +59,8 @@ export default async function handler(req: any, res: any) {
       }
       return (data.Body as any).pipe(res);
     } catch (err: any) {
-      console.warn("R2 image fetch error for key:", key, err?.message || err);
-      // Seamless fallback: redirect to default brand placeholder so UI never displays broken image box
-      return res.redirect(302, '/brand/sangoub-market-logo.jpg');
+      console.warn("R2 image fetch failed:", err?.name || 'unknown-error');
+      return res.status(404).json({ error: "الصورة غير موجودة." });
     }
   }
 
@@ -105,6 +104,9 @@ export default async function handler(req: any, res: any) {
     const streamingUrl = `/api/catalog-images?key=${encodeURIComponent(spec!.key)}`;
     return res.status(200).json({ key: spec!.key, uploadUrl, publicUrl: streamingUrl });
   } catch (err: any) {
+    if (err?.status && err.status >= 400 && err.status < 500) {
+      return res.status(err.status).json({ error: err.message });
+    }
     console.error("Catalog images upload error:", err);
     return res.status(503).json({ error: err?.message || "رفع الصور غير متاح حاليًا. يرجى المحاولة لاحقًا." });
   }

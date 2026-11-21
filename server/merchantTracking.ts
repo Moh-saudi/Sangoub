@@ -2,12 +2,12 @@ import { supabaseAdminClient } from './supabaseAdmin.ts';
 import { AdminError, validId } from './adminRequest.ts';
 import type { OperationIdentity } from './operations.ts';
 
-export async function merchantTracking(input: any, context: OperationIdentity) {
+export async function merchantTracking(input: any, context: OperationIdentity, clientOverride?: any) {
   validId(input.orderId);
   if (!context.verified || context.role !== 'restaurant' || !context.staff?.storeId)
     throw new AdminError(403, 'هذه المتابعة لحساب المتجر المعتمد فقط.');
   const storeId = context.staff.storeId;
-  const client = supabaseAdminClient();
+  const client = clientOverride || (context as any).supabaseClient || supabaseAdminClient();
   const { data: order, error } = await client.from('orders')
     .select('id,status,courier_id,store_id,store_ids')
     .eq('id', input.orderId).maybeSingle();
