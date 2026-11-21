@@ -82,6 +82,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
   const [activeFilter, setActiveFilter] = useState<'all' | 'offers' | 'popular' | 'fast_delivery'>('all');
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
   const [couponCopied, setCouponCopied] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(40);
+
+  useEffect(() => {
+    setVisibleCount(40);
+  }, [selectedCategory, activeFilter, searchQuery]);
 
   useEffect(() => {
     if (currentPath === '/offers' || window.location.pathname === '/offers') {
@@ -596,14 +601,27 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
             ))}
           </div>
         ) : displayedProducts.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 w-full">
-            {displayedProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onOpenModal={(p) => setSelectedProductForModal(p)}
-              />
-            ))}
+          <div className="space-y-4 w-full">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 w-full">
+              {displayedProducts.slice(0, visibleCount).map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onOpenModal={(p) => setSelectedProductForModal(p)}
+                />
+              ))}
+            </div>
+            {visibleCount < displayedProducts.length && (
+              <div className="pt-2 pb-4 text-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((prev) => prev + 40)}
+                  className="px-6 py-2.5 bg-white border border-[#E5E7EB] hover:border-[#FF5900] text-[#111827] hover:text-[#FF5900] rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+                >
+                  عرض المزيد من الأصناف ({displayedProducts.length - visibleCount} متبقٍ) ↓
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-12 bg-white rounded-2xl border border-[#E5E7EB] p-6 max-w-sm mx-auto shadow-xs">

@@ -109,6 +109,11 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
   const [activeFilter, setActiveFilter] = useState<'all' | 'offers' | 'popular' | 'fast_delivery'>('all');
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
   const [couponCopied, setCouponCopied] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(30);
+
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [selectedCategory, activeFilter, searchQuery]);
 
   const featuredCoupon = activeCoupons && activeCoupons.length > 0 ? activeCoupons[0] : null;
 
@@ -965,8 +970,21 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
               ))}
             </div>
           ) : filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2">
-              {filteredProducts.map((product) => renderProductArticle(product))}
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-2 gap-2">
+                {filteredProducts.slice(0, visibleCount).map((product) => renderProductArticle(product))}
+              </div>
+              {visibleCount < filteredProducts.length && (
+                <div className="pt-1 pb-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount((prev) => prev + 30)}
+                    className="w-full py-2 bg-white border border-[#E5E7EB] text-[#FF5900] rounded-xl text-[11px] font-black transition-all active:scale-98 shadow-xs"
+                  >
+                    عرض المزيد من الأصناف ({filteredProducts.length - visibleCount} إضافي) ↓
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-8 bg-white rounded-2xl border border-[#E5E7EB] p-4">
