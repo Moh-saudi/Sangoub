@@ -403,7 +403,9 @@ export async function getSupabaseStore(storeId: string): Promise<Store | null> {
 export async function getSupabaseProducts(storeId?: string): Promise<Product[]> {
   let dbProducts: Product[] = [];
   try {
-    let query = supabase.from('products').select('*, stores(name)');
+    const PRODUCT_SELECT_FIELDS =
+      'id, store_id, name, name_en, description, price, original_price, category, category_id, barcode, merchant_pos_sku, is_available, archived, image_url, image_type, badge, is_popular, offer_title, options';
+    let query = supabase.from('products').select(PRODUCT_SELECT_FIELDS);
     if (storeId) {
       const cleanId = String(storeId).trim().toLowerCase();
       const INVALID_STORE_IDS = ['offers', 'cart', 'checkout', 'undefined', 'null', 'dashboard', 'orders', 'products', 'inventory', 'settings'];

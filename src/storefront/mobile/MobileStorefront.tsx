@@ -48,7 +48,10 @@ import {
   User,
   ArrowLeft,
   Store as StoreIcon,
-  Bell
+  Bell,
+  Percent,
+  Copy,
+  Check
 } from 'lucide-react';
 
 import { 
@@ -95,12 +98,26 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
     handleBannerClick,
     unreadNotificationsCount,
     setIsNotificationsModalOpen,
-    homeSections
+    homeSections,
+    isLoadingCatalog,
+    activeCoupons,
+    appliedCoupon,
+    applyCoupon
   } = useStore();
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'offers' | 'popular' | 'fast_delivery'>('all');
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
+  const [couponCopied, setCouponCopied] = useState(false);
+
+  const featuredCoupon = activeCoupons && activeCoupons.length > 0 ? activeCoupons[0] : null;
+
+  const handleCopyCoupon = () => {
+    if (!featuredCoupon) return;
+    applyCoupon(featuredCoupon.code);
+    setCouponCopied(true);
+    setTimeout(() => setCouponCopied(false), 2500);
+  };
   const isStoresList = currentPath === '/stores';
   const isSingleStore = currentPath.startsWith('/stores/');
   const isSingleProduct = currentPath.startsWith('/products/') || currentPath.startsWith('/product/');
@@ -821,6 +838,52 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           </div>
         )}
 
+        {/* VOUCHER & PROMO COUPON CARD (Mobile-Optimized) */}
+        {LAUNCH_CONFIG.showCouponField && featuredCoupon && (
+          <div className="bg-gradient-to-r from-[#FFF5F0] via-white to-[#FFF5F0] border border-[#FFD4C2] rounded-2xl p-2.5 shadow-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-[#FF5900] text-white flex items-center justify-center shadow-xs shrink-0">
+                <Percent size={16} strokeWidth={2.5} />
+              </div>
+              <div className="leading-tight min-w-0">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <span className="bg-[#FF5900] text-white text-[8px] font-black px-1.5 py-0.2 rounded-full shrink-0">
+                    خصم {featuredCoupon.discountType === 'percent' ? `${featuredCoupon.value}%` : `${featuredCoupon.value} ج.م`}
+                  </span>
+                  <span className="text-[11px] font-black text-[#111827] font-mono truncate">
+                    {featuredCoupon.code}
+                  </span>
+                </div>
+                <p className="text-[9px] text-[#6B7280] truncate">
+                  {featuredCoupon.description || (featuredCoupon.minOrder > 0 ? `الحد الأدنى: ${featuredCoupon.minOrder} ج.م` : 'متاح لجميع الطلبات')}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopyCoupon}
+              className={`px-3 py-1.5 rounded-xl text-[10.5px] font-black flex items-center gap-1 transition-all shadow-xs cursor-pointer shrink-0 ${
+                couponCopied || appliedCoupon?.code === featuredCoupon.code
+                  ? 'bg-[#10B981] text-white'
+                  : 'bg-[#FF5900] active:scale-95 text-white'
+              }`}
+            >
+              {couponCopied || appliedCoupon?.code === featuredCoupon.code ? (
+                <>
+                  <Check size={12} strokeWidth={3} />
+                  <span>تم التطبيق!</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={11} />
+                  <span>نسخ وتطبيق</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Quick Filter Chips & Products Grid */}
         <section id="mobile-products-grid" className="pt-1">
           <div className="flex items-center justify-between px-1 mb-2">
@@ -882,7 +945,26 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             </button>
           </div>
 
-          {filteredProducts.length > 0 ? (
+          {isLoadingCatalog && filteredProducts.length === 0 ? (
+            <div className="grid grid-cols-2 gap-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={`mobile-skeleton-${i}`}
+                  className="bg-white rounded-2xl p-2.5 border border-[#F3F4F6] shadow-xs flex flex-col justify-between animate-pulse"
+                >
+                  <div className="w-full aspect-square bg-[#F3F4F6] rounded-xl mb-2" />
+                  <div className="space-y-1.5 flex-1">
+                    <div className="h-3 bg-[#E5E7EB] rounded w-3/4" />
+                    <div className="h-2 bg-[#F3F4F6] rounded w-1/2" />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between pt-1.5 border-t border-[#F3F4F6]">
+                    <div className="h-3.5 bg-[#E5E7EB] rounded w-12" />
+                    <div className="w-6 h-6 bg-[#FFF2EC] rounded-lg" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredProducts.length > 0 ? (
             <div className="grid grid-cols-2 gap-2">
               {filteredProducts.map((product) => renderProductArticle(product))}
             </div>
