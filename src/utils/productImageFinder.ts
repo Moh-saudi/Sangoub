@@ -229,22 +229,54 @@ export function normalizeText(text?: string | null): string {
  * تصنيف ذكي ودقيق للمنتجات عبر تطبيع النصوص والكلمات المفتاحية
  */
 export function resolveProductCategory(catText?: string, prodName?: string): string {
-  const norm = normalizeText(`${catText || ''} ${prodName || ''}`);
+  // 1. إذا كان القسم الرسمي للمنتج محدداً بالفعل، نعتمد عليه أولاً وبدقة
+  const normCat = normalizeText(catText);
+  if (normCat) {
+    if (normCat.includes('مكتب') || normCat.includes('مدرس') || normCat.includes('قرطاس') || normCat.includes('استخدام واحد') || normCat.includes('ورق')) return 'other';
+    if (normCat.includes('البان') || normCat.includes('جبن') || normCat.includes('حليب') || normCat.includes('بيض') || normCat.includes('قشط') || normCat.includes('زبد')) return 'dairy';
+    if (normCat.includes('خضار') || normCat.includes('فواكه') || normCat.includes('فاكه') || normCat.includes('زراع')) return 'produce';
+    if (normCat.includes('مخبوز') || normCat.includes('حلويات') || normCat.includes('خبز') || normCat.includes('مخبز') || normCat.includes('كيك')) return 'bakery';
+    if (normCat.includes('مشروب') || normCat.includes('عصير') || normCat.includes('مياه') || normCat.includes('غازي') || normCat.includes('شاي') || normCat.includes('قهو')) return 'beverages';
+    if (normCat.includes('لحوم') || normCat.includes('دواجن') || normCat.includes('فراخ') || normCat.includes('اسماك') || normCat.includes('طيور')) return 'meat';
+    if (normCat.includes('تسالي') || normCat.includes('شيبس') || normCat.includes('سناك') || normCat.includes('مقرمش') || normCat.includes('مكسرات')) return 'snacks';
+    if (normCat.includes('نظاف') || normCat.includes('غسيل') || normCat.includes('منظف') || normCat.includes('مطهر')) return 'cleaning';
+    if (normCat.includes('صيدل') || normCat.includes('دواء') || normCat.includes('علاج') || normCat.includes('طبي')) return 'pharmacy';
+    if (normCat.includes('شخصي') || normCat.includes('تجميل') || normCat.includes('بشره') || normCat.includes('شعر')) return 'personal_care';
+    if (normCat.includes('بقاله') || normCat.includes('معلبات') || normCat.includes('تموين') || normCat.includes('حبوب')) return 'grocery';
+  }
 
-  // 1. أدوية وصيدلية ومستلزمات علاجية
+  const norm = normalizeText(prodName || '');
+  if (!norm) return 'grocery';
+
+  const words = norm.split(/\s+/).filter(Boolean);
+
+  // 2. أدوات ومستلزمات مكتبية ومدرسية وورقيات وأصناف متنوعة
   if (
-    norm.includes('صيدل') || norm.includes('دواء') || norm.includes('علاج') || norm.includes('طبي') ||
+    norm.includes('ورق تصوير') || norm.includes('كشكول') || norm.includes('كراسه') ||
+    norm.includes('قلم جاف') || norm.includes('قلم رصاص') || norm.includes('مسطره') ||
+    norm.includes('برايه') || norm.includes('استيكه') || norm.includes('الوان رسم') ||
+    norm.includes('ادوات مكتب') || norm.includes('مستلزمات مكتب') || norm.includes('مكتب ومدرسه') ||
+    norm.includes('ورق a4') || norm.includes('ورق طباعه') || norm.includes('ملف بلاستيك') ||
+    norm.includes('ورق مطبخ') || norm.includes('ورق زبده') || norm.includes('ورق فويل')
+  ) {
+    return 'other';
+  }
+
+  // 3. أدوية وصيدلية ومستلزمات علاجية (مع تجنب التطابق الخاطئ لكلمة "طبيعي" كـ "طبي")
+  const hasStrictMedical = words.some(w => w === 'طبي' || w === 'طبيه' || w === 'طبيين' || w === 'الطبيه');
+  if (
+    norm.includes('صيدل') || norm.includes('دواء') || norm.includes('علاج') || hasStrictMedical ||
     norm.includes('فيتامين') || norm.includes('فوار') || norm.includes('حقن') || norm.includes('امبول') ||
     norm.includes('بخاخ') || norm.includes('قطره') || norm.includes('مرهم') || norm.includes('كريم طبي') ||
     norm.includes('مسكن') || norm.includes('كبسول') || norm.includes('اقراص') || norm.includes('شراب دواء') ||
     norm.includes('ملين') || norm.includes('ابيلاكت') || norm.includes('دوفلاك') || norm.includes('بنادول') ||
     norm.includes('اوتريفين') || norm.includes('فولتارين') || norm.includes('ديكلوفين') || norm.includes('كتافلام') ||
     norm.includes('كونجستال') || norm.includes('اسبرين') || norm.includes('انتينال') || norm.includes('باراسيتامول') ||
-    norm.includes('مضاد حيوي') || norm.includes('شاش') || norm.includes('سرنجه') || norm.includes('قطن طبي') ||
+    norm.includes('مضاد حيوي') || norm.includes('سرنجه') || norm.includes('قطن طبي') ||
     norm.includes('اوميجا') || norm.includes('كالسيوم') || norm.includes('ماغنسيوم') || norm.includes('جلوكوز')
   ) return 'pharmacy';
 
-  // 2. منظفات وعناية منزلية
+  // 4. منظفات وعناية منزلية
   if (
     norm.includes('نظاف') || norm.includes('صابون') || norm.includes('غسيل') || norm.includes('clean') ||
     norm.includes('ارضيات') || norm.includes('ملمع') || norm.includes('مستلزمات المنزل') || norm.includes('عنايه بالمنزل') ||
@@ -256,7 +288,7 @@ export function resolveProductCategory(catText?: string, prodName?: string): str
     norm.includes('اسفنج') || norm.includes('سلك مواعين')
   ) return 'cleaning';
 
-  // 3. عناية شخصية وتجميل
+  // 5. عناية شخصية وتجميل
   if (
     norm.includes('شامبو') || norm.includes('بلسم') || norm.includes('تجميل') || norm.includes('بشره') ||
     norm.includes('عنايه شخصيه') || norm.includes('معجون اسنان') || norm.includes('مكياج') || norm.includes('استحمام') ||
@@ -264,15 +296,16 @@ export function resolveProductCategory(catText?: string, prodName?: string): str
     norm.includes('كولجيت') || norm.includes('نيفيا') || norm.includes('فازلين')
   ) return 'personal_care';
 
-  // 4. ألبان وأجبان
+  // 6. ألبان وأجبان (تطابق كلمة "بيض" ككلمة مستقلة فقط لتجنب كلمة "أبيض" للألوان والأوراق والأرز والسكر)
+  const hasStrictEggs = words.some(w => w === 'بيض' || w === 'البيض' || w === 'بيضه' || w === 'البيضه' || w === 'بيضان');
   if (
     norm.includes('لبن') || norm.includes('جبن') || norm.includes('البان') || norm.includes('dairy') ||
     norm.includes('زبادي') || norm.includes('زبده') || norm.includes('قشطه') || norm.includes('حليب') ||
-    norm.includes('بيض') || norm.includes('موزاريلا') || norm.includes('شيدر') || norm.includes('رومي') ||
+    hasStrictEggs || norm.includes('موزاريلا') || norm.includes('شيدر') || norm.includes('رومي') ||
     norm.includes('فيتا') || norm.includes('دومتي') || norm.includes('عبور لاند')
   ) return 'dairy';
 
-  // 5. خضار وفواكه
+  // 7. خضار وفواكه
   if (
     norm.includes('خضار') || norm.includes('فاكه') || norm.includes('فواكه') || norm.includes('produce') ||
     norm.includes('طماطم') || norm.includes('خيار') || norm.includes('بطاطس') || norm.includes('بصل') ||
@@ -280,7 +313,7 @@ export function resolveProductCategory(catText?: string, prodName?: string): str
     norm.includes('خس') || norm.includes('جزر') || norm.includes('ثوم') || norm.includes('فلفل')
   ) return 'produce';
 
-  // 6. مخبوزات وحلويات
+  // 8. مخبوزات وحلويات
   if (
     norm.includes('مخبز') || norm.includes('عيش') || norm.includes('حلويات') || norm.includes('bakery') ||
     norm.includes('فينو') || norm.includes('توست') || norm.includes('كرواسون') || norm.includes('كيك') ||
@@ -288,7 +321,7 @@ export function resolveProductCategory(catText?: string, prodName?: string): str
     norm.includes('ويفر') || norm.includes('باتيه') || norm.includes('دانش')
   ) return 'bakery';
 
-  // 7. مشروبات وعصائر
+  // 9. مشروبات وعصائر
   if (
     norm.includes('مشروب') || norm.includes('عصير') || norm.includes('مياه') || norm.includes('beverage') ||
     norm.includes('بيبسي') || norm.includes('كولا') || norm.includes('غازي') || norm.includes('معدنيه') ||
@@ -296,17 +329,18 @@ export function resolveProductCategory(catText?: string, prodName?: string): str
     norm.includes('نسكافيه') || norm.includes('اسبريسو')
   ) return 'beverages';
 
-  // 8. لحوم ودواجن
+  // 10. لحوم ودواجن
   if (
     norm.includes('لحم') || norm.includes('دجاج') || norm.includes('فراخ') || norm.includes('meat') ||
     norm.includes('برجر') || norm.includes('شاورما') || norm.includes('بانيه') || norm.includes('سجق') ||
     norm.includes('كفته') || norm.includes('ستريبس') || norm.includes('ناجتس') || norm.includes('كباب')
   ) return 'meat';
 
-  // 9. شيبس وتسالي
+  // 11. شيبس وتسالي (تطابق كلمة "لب" ككلمة مستقلة فقط لتجنب تطابق "معلبات" أو "كلاب")
+  const hasStrictSnackSeeds = words.some(w => w === 'لب' || w === 'اللب');
   if (
     norm.includes('شيبس') || norm.includes('شيبسي') || norm.includes('تسالي') || norm.includes('سناك') ||
-    norm.includes('مقرمشات') || norm.includes('مكسرات') || norm.includes('لب') || norm.includes('فول سوداني') ||
+    norm.includes('مقرمشات') || norm.includes('مكسرات') || hasStrictSnackSeeds || norm.includes('فول سوداني') ||
     norm.includes('كاجو') || norm.includes('فستق') || norm.includes('لوز') || norm.includes('دوريتوس')
   ) return 'snacks';
 
