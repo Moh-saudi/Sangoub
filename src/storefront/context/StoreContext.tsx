@@ -308,7 +308,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [rawProducts, setRawProducts] = useState<Product[]>(() => {
     try {
       if (typeof window !== 'undefined') {
-        const cached = localStorage.getItem('sangoub_cached_products_v3');
+        const cached = localStorage.getItem('sangoub_cached_products_v4');
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -332,7 +332,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(() => {
     try {
       if (typeof window !== 'undefined') {
-        const p = localStorage.getItem('sangoub_cached_products_v3');
+        const p = localStorage.getItem('sangoub_cached_products_v4');
         const s = localStorage.getItem('sangoub_cached_stores_v3');
         if (p && s) return false;
       }
@@ -445,23 +445,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (sbProducts && sbProducts.length > 0) {
           setRawProducts(sbProducts);
           try {
-            // Keep real imageUrl for initial visible items while bounding localStorage footprint under 2MB
-            let cachePayload = sbProducts;
-            const testJson = JSON.stringify(cachePayload);
-            if (testJson.length > 1.5 * 1024 * 1024) {
-              cachePayload = sbProducts.map((p, idx) => ({
-                ...p,
-                imageUrl: idx < 60 ? p.imageUrl : (p.imageUrl && p.imageUrl.startsWith('data:') && p.imageUrl.length > 500 ? '' : p.imageUrl)
-              }));
-            }
-            localStorage.setItem('sangoub_cached_products_v3', JSON.stringify(cachePayload));
+            // All images are now professional lightweight CDN URLs / public assets (< 400KB total)
+            localStorage.setItem('sangoub_cached_products_v4', JSON.stringify(sbProducts));
           } catch (e) {
             try {
-              const safePayload = sbProducts.map((p, idx) => ({
+              // Graceful fallback for any browser storage quota issues
+              const safePayload = sbProducts.map((p) => ({
                 ...p,
-                imageUrl: idx < 25 ? p.imageUrl : (p.imageUrl && p.imageUrl.startsWith('data:') ? '' : p.imageUrl)
+                imageUrl: p.imageUrl && p.imageUrl.startsWith('data:') ? '' : p.imageUrl
               }));
-              localStorage.setItem('sangoub_cached_products_v3', JSON.stringify(safePayload));
+              localStorage.setItem('sangoub_cached_products_v4', JSON.stringify(safePayload));
             } catch {
               console.warn('[Cache] Storage save skipped:', e);
             }

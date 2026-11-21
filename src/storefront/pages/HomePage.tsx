@@ -305,7 +305,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
         </div>
 
         <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 pt-1 w-full overscroll-x-contain touch-pan-x">
-          {popularProducts.map((product) => {
+          {popularProducts.map((product, pIdx) => {
             const discountPct = product.originalPrice && product.originalPrice > product.price
               ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
               : 0;
@@ -322,9 +322,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                       src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      loading="lazy"
+                      loading={pIdx < 4 ? 'eager' : 'lazy'}
+                      {...(pIdx < 4 ? { fetchPriority: 'high' } : {})}
+                      decoding="async"
                       onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
+                        const target = e.currentTarget as HTMLImageElement;
+                        if (!target.src.includes('sangoub-market-logo.jpg')) {
+                          target.src = '/brand/sangoub-market-logo.jpg';
+                        }
                       }}
                     />
                     {discountPct > 0 && (
@@ -625,10 +630,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
         ) : displayedProducts.length > 0 ? (
           <div className="space-y-4 w-full">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 w-full">
-              {displayedProducts.slice(0, visibleCount).map((product) => (
+              {displayedProducts.slice(0, visibleCount).map((product, idx) => (
                 <ProductCard
                   key={product.id}
                   product={product}
+                  priority={idx < 4}
                   onOpenModal={(p) => setSelectedProductForModal(p)}
                 />
               ))}

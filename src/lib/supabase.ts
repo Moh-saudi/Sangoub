@@ -426,30 +426,44 @@ export async function getSupabaseProducts(storeId?: string): Promise<Product[]> 
       return q;
     };
 
-    // Use concurrent parallel chunking to eliminate sequential latency and avoid PostgreSQL statement timeouts
-    const CHUNK_SIZE = 100;
+    // High-performance single-pass catalog fetch with graceful chunked fallback
     const maxItems = storeId ? 300 : 800;
-    const ranges: [number, number][] = [];
-    for (let f = 0; f < maxItems; f += CHUNK_SIZE) {
-      ranges.push([f, f + CHUNK_SIZE - 1]);
+    let allRows: any[] = [];
+    try {
+      const { data, error: qErr } = await buildQuery()
+        .order('is_popular', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(maxItems);
+      if (!qErr && Array.isArray(data) && data.length > 0) {
+        allRows = data;
+      }
+    } catch {
+      // fallback to chunked range if single pass encounters network issues
     }
 
-    const chunkResults = await Promise.all(
-      ranges.map(async ([from, to]) => {
-        try {
-          const { data, error: chunkErr } = await buildQuery().range(from, to);
-          if (chunkErr) {
-            console.warn(`[getSupabaseProducts] Chunk ${from}-${to} notice:`, chunkErr.message);
+    if (allRows.length === 0) {
+      const CHUNK_SIZE = 100;
+      const ranges: [number, number][] = [];
+      for (let f = 0; f < maxItems; f += CHUNK_SIZE) {
+        ranges.push([f, f + CHUNK_SIZE - 1]);
+      }
+
+      const chunkResults = await Promise.all(
+        ranges.map(async ([from, to]) => {
+          try {
+            const { data, error: chunkErr } = await buildQuery().range(from, to);
+            if (chunkErr) {
+              console.warn(`[getSupabaseProducts] Chunk ${from}-${to} notice:`, chunkErr.message);
+              return [] as any[];
+            }
+            return data || [];
+          } catch {
             return [] as any[];
           }
-          return data || [];
-        } catch {
-          return [] as any[];
-        }
-      })
-    );
-
-    const allRows = chunkResults.flat();
+        })
+      );
+      allRows = chunkResults.flat();
+    }
 
     if (allRows.length > 0) {
       dbProducts = allRows.filter((row: any) => {

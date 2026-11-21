@@ -368,7 +368,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
   };
 
   // Reusable Native Mobile Product Card
-  const renderProductArticle = (product: Product) => {
+  const renderProductArticle = (product: Product, index: number = 0) => {
     const cartItem = cartItems.find((item) => item.product.id === product.id);
     const quantity = cartItem ? cartItem.quantity : 0;
     const wishlisted = isWishlisted(product.id);
@@ -398,9 +398,14 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
             alt={product.name}
             className="w-full h-full object-cover"
-            loading="lazy"
+            loading={index < 4 ? 'eager' : 'lazy'}
+            {...(index < 4 ? { fetchPriority: 'high' } : {})}
+            decoding="async"
             onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
+              const target = e.currentTarget as HTMLImageElement;
+              if (!target.src.includes('sangoub-market-logo.jpg')) {
+                target.src = '/brand/sangoub-market-logo.jpg';
+              }
             }}
           />
           {product.badge && (
@@ -690,7 +695,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
         </div>
 
         <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-1 w-full overscroll-x-contain touch-pan-x">
-          {popularProducts.map((product) => {
+          {popularProducts.map((product, popIdx) => {
             const cartItem = cartItems.find((item) => item.product.id === product.id);
             const qty = cartItem ? cartItem.quantity : 0;
 
@@ -706,9 +711,14 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
                       src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
                       alt={product.name}
                       className="w-full h-full object-cover"
-                      loading="lazy"
+                      loading={popIdx < 4 ? 'eager' : 'lazy'}
+                      {...(popIdx < 4 ? { fetchPriority: 'high' } : {})}
+                      decoding="async"
                       onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
+                        const target = e.currentTarget as HTMLImageElement;
+                        if (!target.src.includes('sangoub-market-logo.jpg')) {
+                          target.src = '/brand/sangoub-market-logo.jpg';
+                        }
                       }}
                     />
                     {product.originalPrice && product.originalPrice > product.price && (
@@ -994,7 +1004,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
           ) : filteredProducts.length > 0 ? (
             <div className="space-y-2.5">
               <div className="grid grid-cols-2 gap-2">
-                {filteredProducts.slice(0, visibleCount).map((product) => renderProductArticle(product))}
+                {filteredProducts.slice(0, visibleCount).map((product, idx) => renderProductArticle(product, idx))}
               </div>
               {/* Infinite Scroll Sentinel */}
               <div ref={scrollSentinelRef} className="h-6 w-full pointer-events-none" />
@@ -1242,7 +1252,7 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
             {/* Matching Products Grid */}
             {filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 gap-2">
-                {filteredProducts.map((product) => renderProductArticle(product))}
+                {filteredProducts.map((product, idx) => renderProductArticle(product, idx))}
               </div>
             ) : (
               <div className="text-center py-10 bg-white rounded-2xl border border-[#E5E7EB] p-6 space-y-3 shadow-2xs">

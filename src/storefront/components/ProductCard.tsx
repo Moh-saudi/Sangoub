@@ -9,9 +9,10 @@ import { getProductSlug, matchStoreId } from '../../utils/storeAssets';
 interface ProductCardProps {
   product: Product;
   onOpenModal?: (product: Product) => void;
+  priority?: boolean;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal, priority = false }) => {
   const { cartItems, addToCart, updateQuantity, toggleWishlist, isWishlisted, isProductOrderedBefore, navigate, stores, showToast } = useStore();
 
   const productStore = stores.find((s) => matchStoreId(s.id, product.storeId) || s.id === product.storeId || (s.name && product.storeName === s.name));
@@ -94,9 +95,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal }
           src={product.imageUrl || '/brand/sangoub-market-logo.jpg'}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          loading="lazy"
+          loading={priority ? 'eager' : 'lazy'}
+          {...(priority ? { fetchPriority: 'high' } : {})}
+          decoding="async"
           onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = '/brand/sangoub-market-logo.jpg';
+            const target = e.currentTarget as HTMLImageElement;
+            if (!target.src.includes('sangoub-market-logo.jpg')) {
+              target.src = '/brand/sangoub-market-logo.jpg';
+            }
           }}
         />
         {/* Badges (Previously Ordered / Offers / Popular / Closed) */}
