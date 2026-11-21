@@ -232,7 +232,8 @@ export function resolveProductCategory(catText?: string, prodName?: string): str
   // 1. إذا كان القسم الرسمي للمنتج محدداً بالفعل، نعتمد عليه أولاً وبدقة
   const normCat = normalizeText(catText);
   if (normCat) {
-    if (normCat.includes('مكتب') || normCat.includes('مدرس') || normCat.includes('قرطاس') || normCat.includes('استخدام واحد') || normCat.includes('ورق')) return 'other';
+    if (normCat.includes('مكتب') || normCat.includes('مدرس') || normCat.includes('قرطاس') || normCat.includes('ورق')) return 'stationery';
+    if (normCat.includes('استخدام واحد')) return 'other';
     if (normCat.includes('البان') || normCat.includes('جبن') || normCat.includes('حليب') || normCat.includes('بيض') || normCat.includes('قشط') || normCat.includes('زبد')) return 'dairy';
     if (normCat.includes('خضار') || normCat.includes('فواكه') || normCat.includes('فاكه') || normCat.includes('زراع')) return 'produce';
     if (normCat.includes('مخبوز') || normCat.includes('حلويات') || normCat.includes('خبز') || normCat.includes('مخبز') || normCat.includes('كيك')) return 'bakery';
@@ -250,16 +251,16 @@ export function resolveProductCategory(catText?: string, prodName?: string): str
 
   const words = norm.split(/\s+/).filter(Boolean);
 
-  // 2. أدوات ومستلزمات مكتبية ومدرسية وورقيات وأصناف متنوعة
+  // 2. أدوات ومستلزمات مكتبية ومدرسية وورقيات
   if (
     norm.includes('ورق تصوير') || norm.includes('كشكول') || norm.includes('كراسه') ||
     norm.includes('قلم جاف') || norm.includes('قلم رصاص') || norm.includes('مسطره') ||
     norm.includes('برايه') || norm.includes('استيكه') || norm.includes('الوان رسم') ||
     norm.includes('ادوات مكتب') || norm.includes('مستلزمات مكتب') || norm.includes('مكتب ومدرسه') ||
-    norm.includes('ورق a4') || norm.includes('ورق طباعه') || norm.includes('ملف بلاستيك') ||
-    norm.includes('ورق مطبخ') || norm.includes('ورق زبده') || norm.includes('ورق فويل')
+    norm.includes('مدرسه') || norm.includes('مدرسي') || norm.includes('ورق a4') || norm.includes('ورق طباعه') ||
+    norm.includes('ملف بلاستيك') || norm.includes('جلاد') || norm.includes('شنطه مدرسه') || norm.includes('لانش بوكس')
   ) {
-    return 'other';
+    return 'stationery';
   }
 
   // 3. أدوية وصيدلية ومستلزمات علاجية (مع تجنب التطابق الخاطئ لكلمة "طبيعي" كـ "طبي")

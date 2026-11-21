@@ -10,6 +10,8 @@ export const productCategories: Product["category"][] = [
   "أدوية وصيدلية",
   "مستلزمات طبية",
   "منظفات وعناية بالمنزل",
+  "مستلزمات المكتب والمدرسة",
+  "أصناف متنوعة",
 ];
 
 export const storeCategories: [StoreCategory, string][] = [

@@ -49,6 +49,7 @@ export const GALLERY_CATEGORIES = [
   { id: 'cleaning', label: 'منظفات وعناية' },
   { id: 'pharmacy', label: 'أدوية وصيدلية' },
   { id: 'personal_care', label: 'عناية شخصية' },
+  { id: 'stationery', label: 'مستلزمات المكتب والمدرسة' },
   { id: 'other', label: 'أصناف متنوعة' },
 ] as const;
 
