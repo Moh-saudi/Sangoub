@@ -82,11 +82,33 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
   const [activeFilter, setActiveFilter] = useState<'all' | 'offers' | 'popular' | 'fast_delivery'>('all');
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
   const [couponCopied, setCouponCopied] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(40);
+  const [visibleCount, setVisibleCount] = useState(36);
+  const scrollSentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    setVisibleCount(40);
+    setVisibleCount(36);
   }, [selectedCategory, activeFilter, searchQuery]);
+
+  // Infinite Scroll: automatically load more items as user scrolls near bottom
+  useEffect(() => {
+    const sentinel = scrollSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => {
+            if (prev >= displayedProducts.length) return prev;
+            return Math.min(prev + 36, displayedProducts.length);
+          });
+        }
+      },
+      { rootMargin: '500px 0px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [displayedProducts.length]);
 
   useEffect(() => {
     if (currentPath === '/offers' || window.location.pathname === '/offers') {
@@ -611,15 +633,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAreaModal }) => {
                 />
               ))}
             </div>
+            {/* Infinite Scroll Sentinel */}
+            <div ref={scrollSentinelRef} className="h-6 w-full pointer-events-none" />
             {visibleCount < displayedProducts.length && (
-              <div className="pt-2 pb-4 text-center">
-                <button
-                  type="button"
-                  onClick={() => setVisibleCount((prev) => prev + 40)}
-                  className="px-6 py-2.5 bg-white border border-[#E5E7EB] hover:border-[#FF5900] text-[#111827] hover:text-[#FF5900] rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
-                >
-                  عرض المزيد من الأصناف ({displayedProducts.length - visibleCount} متبقٍ) ↓
-                </button>
+              <div className="py-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-400 animate-pulse">
+                <div className="w-2 h-2 rounded-full bg-[#FF5900]" />
+                <span>جاري تحميل المزيد من الأصناف...</span>
               </div>
             )}
           </div>

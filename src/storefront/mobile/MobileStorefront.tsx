@@ -109,11 +109,33 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
   const [activeFilter, setActiveFilter] = useState<'all' | 'offers' | 'popular' | 'fast_delivery'>('all');
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
   const [couponCopied, setCouponCopied] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(30);
+  const [visibleCount, setVisibleCount] = useState(24);
+  const scrollSentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    setVisibleCount(30);
+    setVisibleCount(24);
   }, [selectedCategory, activeFilter, searchQuery]);
+
+  // Infinite Scroll: automatically load more items as user scrolls near bottom
+  useEffect(() => {
+    const sentinel = scrollSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => {
+            if (prev >= filteredProducts.length) return prev;
+            return Math.min(prev + 24, filteredProducts.length);
+          });
+        }
+      },
+      { rootMargin: '400px 0px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filteredProducts.length]);
 
   const featuredCoupon = activeCoupons && activeCoupons.length > 0 ? activeCoupons[0] : null;
 
@@ -974,15 +996,12 @@ export const MobileStorefront: React.FC<MobileStorefrontProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 {filteredProducts.slice(0, visibleCount).map((product) => renderProductArticle(product))}
               </div>
+              {/* Infinite Scroll Sentinel */}
+              <div ref={scrollSentinelRef} className="h-6 w-full pointer-events-none" />
               {visibleCount < filteredProducts.length && (
-                <div className="pt-1 pb-2 text-center">
-                  <button
-                    type="button"
-                    onClick={() => setVisibleCount((prev) => prev + 30)}
-                    className="w-full py-2 bg-white border border-[#E5E7EB] text-[#FF5900] rounded-xl text-[11px] font-black transition-all active:scale-98 shadow-xs"
-                  >
-                    عرض المزيد من الأصناف ({filteredProducts.length - visibleCount} إضافي) ↓
-                  </button>
+                <div className="py-2.5 flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-400 animate-pulse">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#FF5900]" />
+                  <span>جاري تحميل المزيد من الأصناف...</span>
                 </div>
               )}
             </div>

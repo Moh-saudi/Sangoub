@@ -427,7 +427,7 @@ export async function getSupabaseProducts(storeId?: string): Promise<Product[]> 
     };
 
     // Use chunked pagination to avoid PostgreSQL statement timeout (code 57014) when images are large
-    const CHUNK_SIZE = 100;
+    const CHUNK_SIZE = 50;
     let allRows: any[] = [];
     let from = 0;
     let hasMore = true;
