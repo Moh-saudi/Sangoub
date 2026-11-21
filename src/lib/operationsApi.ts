@@ -318,8 +318,13 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
 
     if (body.action === 'store-dashboard') {
       const targetStoreId = body.storeId;
+      const FAST_PRODUCT_FIELDS =
+        'id, store_id, name, name_en, description, price, original_price, category, category_id, barcode, merchant_pos_sku, is_available, archived, image_url, image_type, badge, is_popular, offer_title, options';
       let storesQuery = supabase.from('stores').select('*');
-      let productsQuery = supabase.from('products').select('*');
+      if (targetStoreId) {
+        storesQuery = storesQuery.eq('id', targetStoreId);
+      }
+      let productsQuery = supabase.from('products').select(FAST_PRODUCT_FIELDS);
       if (targetStoreId) {
         productsQuery = productsQuery.eq('store_id', targetStoreId);
       }
@@ -335,7 +340,9 @@ export async function operationsApi(endpoint: 'operations' | 'app-content', body
     }
 
     if (body.action === 'store-products') {
-      let query = supabase.from('products').select('*');
+      const FAST_PRODUCT_FIELDS =
+        'id, store_id, name, name_en, description, price, original_price, category, category_id, barcode, merchant_pos_sku, is_available, archived, image_url, image_type, badge, is_popular, offer_title, options';
+      let query = supabase.from('products').select(FAST_PRODUCT_FIELDS);
       if (body.storeId) {
         query = query.eq('store_id', body.storeId);
       }

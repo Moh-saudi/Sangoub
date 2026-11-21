@@ -41,8 +41,26 @@ export default function AdminApp() {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [stores, setStores] = useState<Store[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [stores, setStores] = useState<Store[]>(() => {
+    try {
+      const cached = localStorage.getItem('sangoub_admin_cached_stores_v1');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const cached = localStorage.getItem('sangoub_admin_cached_products_v1');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [staff, setStaff] = useState<AdminStaff[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [partners, setPartners] = useState<PartnerApplication[]>([]);
@@ -191,13 +209,23 @@ export default function AdminApp() {
       const mergedStores = Array.from(storeMap.values());
       setStores(mergedStores);
       setProducts(spProducts);
+      try {
+        localStorage.setItem('sangoub_admin_cached_stores_v1', JSON.stringify(mergedStores));
+        const cleanAdminProducts = spProducts.map((p, idx) => ({
+          ...p,
+          imageUrl: idx < 60 ? p.imageUrl : ((p.imageUrl && p.imageUrl.startsWith('data:') && p.imageUrl.length > 500) ? '' : p.imageUrl)
+        }));
+        localStorage.setItem('sangoub_admin_cached_products_v1', JSON.stringify(cleanAdminProducts));
+      } catch (cacheErr) {
+        console.warn('[AdminApp] Storage cache notice:', cacheErr);
+      }
     }).catch(err => {
       console.warn('[AdminApp] Supabase catalog load error:', err);
     });
   }, []);
 
   useEffect(() => {
-    setOrders([]); setStores([]); setProducts([]); setStaff([]); setCoupons([]); setPartners([]); setJobs([]); setConnected(false);
+    setOrders([]); setStaff([]); setCoupons([]); setPartners([]); setJobs([]); setConnected(false);
     if (access !== "admin" || !profile) return;
     let active = true;
 

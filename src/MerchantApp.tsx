@@ -54,9 +54,27 @@ export default function MerchantApp() {
   const [notice, setNotice] = useState("");
 
   // Data for Restaurant Portal
-  const [stores, setStores] = useState<Store[]>([]);
+  const [stores, setStores] = useState<Store[]>(() => {
+    try {
+      const cached = localStorage.getItem('sangoub_merchant_cached_stores_v1');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [orders, setOrders] = useState<Order[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const cached = localStorage.getItem('sangoub_merchant_cached_products_v1');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [productsNextCursor,setProductsNextCursor]=useState<string|null>(null);
   const catalogPages=useRef(1);
   const [couriers, setCouriers] = useState<any[]>([]);
@@ -73,7 +91,13 @@ export default function MerchantApp() {
   const [storeSearchQuery, setStoreSearchQuery] = useState("");
 
   const feed=useActivePortalOrders(access==='merchant'?identity?.uid:undefined,profile?.storeId);
-  const [catalogLoading,setCatalogLoading]=useState(true);
+  const [catalogLoading,setCatalogLoading]=useState(() => {
+    try {
+      const cached = localStorage.getItem('sangoub_merchant_cached_products_v1');
+      if (cached && JSON.parse(cached).length > 0) return false;
+    } catch {}
+    return true;
+  });
   const [history,setHistory]=useState<Order[]>([]);
   const [historyCursor,setHistoryCursor]=useState<string|null>(null);
   const [historyBusy,setHistoryBusy]=useState(false);
@@ -227,7 +251,12 @@ export default function MerchantApp() {
     };
   }, [revision]);
   useEffect(()=>{
-    setStores([]);setOrders([]);setProducts([]);setCouriers([]);setConnected(false);setCatalogLoading(true);setProductsNextCursor(null);catalogPages.current=1;
+    setOrders([]);setCouriers([]);setConnected(false);setProductsNextCursor(null);catalogPages.current=1;
+    if (!localStorage.getItem('sangoub_merchant_cached_products_v1')) {
+      setStores([]);
+      setProducts([]);
+      setCatalogLoading(true);
+    }
     if(access!=='merchant'||!profile)return;let active=true,inflight=false;
     const load = async () => {
       if (inflight) return;
@@ -236,7 +265,7 @@ export default function MerchantApp() {
         const currentStoreId = resolveSupabaseStoreUuid(profile.storeId);
         const targetStoreUuid = resolveSupabaseStoreUuid(currentStoreId);
 
-        const [sbStores, sbProducts, sbCouriers, result] = await Promise.all([
+        const [sbStores, sbProducts, sbCouriers] = await Promise.all([
           getSupabaseStores().catch(err => {
             console.warn('Failed to fetch stores from Supabase:', err);
             return [] as Store[];
@@ -245,19 +274,23 @@ export default function MerchantApp() {
             console.warn('Failed to fetch products from Supabase:', err);
             return [] as Product[];
           }),
-          supabase.from('profiles').select('id, full_name, phone, avatar_url, vehicle_type, vehicle_plate, courier_status, store_id').eq('role', 'courier').then(r => r.data || []).catch(() => []),
-          operationsApi('operations', { action: 'store-dashboard', storeId: currentStoreId, includeOrders: false }).catch(() => null)
+          supabase.from('profiles').select('id, full_name, phone, avatar_url, vehicle_type, vehicle_plate, courier_status, store_id').eq('role', 'courier').then(r => r.data || []).catch(() => [])
         ]);
 
         let catalog: Product[] = [];
+        let cursor: string | null = null;
         if (Array.isArray(sbProducts) && sbProducts.length > 0) {
           catalog = sbProducts;
-        } else if (Array.isArray(result?.products) && result.products.length > 0) {
-          catalog = result.products;
         } else {
-          catalog = [];
+          // Fallback to operationsApi if direct Supabase catalog was empty
+          try {
+            const result = await operationsApi('operations', { action: 'store-dashboard', storeId: currentStoreId, includeOrders: false });
+            if (Array.isArray(result?.products) && result.products.length > 0) {
+              catalog = result.products;
+              cursor = result?.productsNextCursor;
+            }
+          } catch {}
         }
-        let cursor = result?.productsNextCursor;
         for (let page = 1; page < catalogPages.current && cursor; page++) {
           try {
             const next = await operationsApi('operations', { action: 'store-products', storeId: currentStoreId, cursor });
@@ -312,16 +345,19 @@ export default function MerchantApp() {
             };
           });
 
+          const uniqueProducts = [...new Map(catalog.map((p: Product) => [p.id, p])).values()] as Product[];
           setStores(resolvedStores);
-          setProducts([...new Map(catalog.map((p: Product) => [p.id, p])).values()] as Product[]);
+          setProducts(uniqueProducts);
+          try {
+            localStorage.setItem('sangoub_merchant_cached_stores_v1', JSON.stringify(resolvedStores));
+            localStorage.setItem('sangoub_merchant_cached_products_v1', JSON.stringify(uniqueProducts));
+          } catch {}
           setProductsNextCursor(cursor);
           setConnected(true);
           setError('');
         }
       } catch (e) {
         if (active) {
-          setStores([]);
-          setProducts([]);
           setConnected(true);
           setError('');
         }

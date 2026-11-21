@@ -426,28 +426,30 @@ export async function getSupabaseProducts(storeId?: string): Promise<Product[]> 
       return q;
     };
 
-    // Use chunked pagination to avoid PostgreSQL statement timeout (code 57014) when images are large
-    const CHUNK_SIZE = 50;
-    let allRows: any[] = [];
-    let from = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      const { data: chunk, error: chunkErr } = await buildQuery().range(from, from + CHUNK_SIZE - 1);
-      if (chunkErr) {
-        console.warn('Chunk query warning at offset', from, chunkErr.message);
-        break;
-      }
-      if (chunk && chunk.length > 0) {
-        allRows.push(...chunk);
-        from += CHUNK_SIZE;
-        if (chunk.length < CHUNK_SIZE) {
-          hasMore = false;
-        }
-      } else {
-        hasMore = false;
-      }
+    // Use concurrent parallel chunking to eliminate sequential latency and avoid PostgreSQL statement timeouts
+    const CHUNK_SIZE = 100;
+    const maxItems = storeId ? 300 : 800;
+    const ranges: [number, number][] = [];
+    for (let f = 0; f < maxItems; f += CHUNK_SIZE) {
+      ranges.push([f, f + CHUNK_SIZE - 1]);
     }
+
+    const chunkResults = await Promise.all(
+      ranges.map(async ([from, to]) => {
+        try {
+          const { data, error: chunkErr } = await buildQuery().range(from, to);
+          if (chunkErr) {
+            console.warn(`[getSupabaseProducts] Chunk ${from}-${to} notice:`, chunkErr.message);
+            return [] as any[];
+          }
+          return data || [];
+        } catch {
+          return [] as any[];
+        }
+      })
+    );
+
+    const allRows = chunkResults.flat();
 
     if (allRows.length > 0) {
       dbProducts = allRows.filter((row: any) => {
